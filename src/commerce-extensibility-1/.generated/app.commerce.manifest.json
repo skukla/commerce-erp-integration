@@ -1,7 +1,7 @@
 {
   "adminUi": {
     "menu": {
-      "description": "Health of the ERP integration, sync log, reset and outage switch",
+      "description": "Health of the ERP integration, sync log, reset and controls",
       "id": "erp_integration",
       "label": "ERP integration",
       "pageTitle": "ERP integration",
@@ -43,6 +43,28 @@
               "product-commerce/created",
               "product-commerce/updated"
             ]
+          },
+          {
+            "description": "Fires after a stock item is saved in Commerce, used to keep the ERP stock in step with the store",
+            "fields": [
+              {
+                "name": "item_id"
+              },
+              {
+                "name": "product_id"
+              },
+              {
+                "name": "qty"
+              },
+              {
+                "name": "is_in_stock"
+              }
+            ],
+            "label": "Stock Item Updated",
+            "name": "observer.cataloginventory_stock_item_save_commit_after",
+            "runtimeActions": [
+              "stock-commerce/updated"
+            ]
           }
         ],
         "provider": {
@@ -51,10 +73,85 @@
           "label": "Commerce Provider"
         }
       }
+    ],
+    "external": [
+      {
+        "events": [
+          {
+            "description": "The ERP changed a product price or name",
+            "label": "ERP Product Updated",
+            "name": "be-observer.catalog_product_update",
+            "runtimeActions": [
+              "product-backoffice/updated"
+            ]
+          },
+          {
+            "description": "The ERP changed stock levels",
+            "label": "ERP Stock Updated",
+            "name": "be-observer.catalog_stock_update",
+            "runtimeActions": [
+              "stock-backoffice/updated"
+            ]
+          },
+          {
+            "description": "The ERP confirmed a sales order",
+            "label": "ERP Order Status Updated",
+            "name": "be-observer.sales_order_status_update",
+            "runtimeActions": [
+              "order-backoffice/updated"
+            ]
+          },
+          {
+            "description": "The ERP shipped a sales order",
+            "label": "ERP Order Shipment Created",
+            "name": "be-observer.sales_order_shipment_create",
+            "runtimeActions": [
+              "order-backoffice/shipment-created"
+            ]
+          },
+          {
+            "description": "The ERP invoiced a sales order",
+            "label": "ERP Order Invoice Created",
+            "name": "be-observer.sales_order_invoice_create",
+            "runtimeActions": [
+              "order-backoffice/invoice-created"
+            ]
+          },
+          {
+            "description": "The ERP cancelled a sales order",
+            "label": "ERP Order Cancelled",
+            "name": "be-observer.sales_order_cancel",
+            "runtimeActions": [
+              "order-backoffice/cancelled"
+            ]
+          },
+          {
+            "description": "The ERP changed an account credit limit",
+            "label": "ERP Company Credit Updated",
+            "name": "be-observer.company_credit_update",
+            "runtimeActions": [
+              "company-backoffice/credit-updated"
+            ]
+          },
+          {
+            "description": "The ERP blocked or unblocked an account",
+            "label": "ERP Company Status Updated",
+            "name": "be-observer.company_status_update",
+            "runtimeActions": [
+              "company-backoffice/status-updated"
+            ]
+          }
+        ],
+        "provider": {
+          "description": "The ERP, the back-office system that publishes these events",
+          "key": "erp",
+          "label": "ERP Provider"
+        }
+      }
     ]
   },
   "metadata": {
-    "description": "Adobe Commerce integration to a demo ERP: orders to the ERP with the ERP number written back, contract pricing at cart time, and ERP-owned prices, stock, credit limits and order statuses flowing back to Commerce.",
+    "description": "Adobe Commerce integration to a demo ERP: orders to the ERP with the ERP number written back, contract pricing at cart time, and the ERP events (prices, stock, credit limits, order statuses) applied to Commerce.",
     "displayName": "ERP integration",
     "id": "commerce-erp-integration",
     "version": "0.1.0"
@@ -91,7 +188,7 @@
         "method": "POST",
         "required": false,
         "soft_timeout": 1000,
-        "timeout": 30000,
+        "timeout": 5000,
         "webhook_method": "plugin.out_of_process_totals_collector.api.get_total_modifications.item_prices",
         "webhook_type": "after"
       }
@@ -109,7 +206,7 @@
         "method": "POST",
         "required": false,
         "soft_timeout": 1000,
-        "timeout": 30000,
+        "timeout": 5000,
         "webhook_method": "plugin.out_of_process_totals_collector.api.get_total_modifications.execute",
         "webhook_type": "after"
       }

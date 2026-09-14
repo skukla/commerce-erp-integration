@@ -1,14 +1,14 @@
 /**
- * A Commerce product event becomes one ERP material row. The ERP keeps its own list
- * price and stock once a material exists, so a re-import only refreshes the name.
+ * A Commerce product event becomes one ERP product row. The ERP keeps its own list
+ * price and stock once a product exists, so a re-import only refreshes the name.
  *
  * @param {object} data - the event's `data` ({ value: product })
- * @returns {object} `{ materials: [row] }`
+ * @returns {object} `{ products: [row] }`
  */
 function transformData(data) {
   const product = data.value ?? data;
   return {
-    materials: [
+    products: [
       {
         listPrice: Number(product.price ?? 0),
         name: product.name || product.sku,

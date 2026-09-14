@@ -10,16 +10,17 @@ const field = (name: string, source?: string) =>
  * Three webhooks carry the synchronous half (an order into the ERP with its number
  * written back; contract prices and the discount ceiling at cart time). All three are
  * `required: false` with a one-second soft timeout on purpose: when the ERP is offline
- * Commerce keeps its own prices and the order still places, which is the outage demo.
+ * Commerce keeps its own prices and the order still places (robustness, not a demo scene).
  *
- * The ERP → Commerce direction is not eventing: the ERP knows nothing of Commerce, so the
- * `erp/drain` action pulls its outbox on a schedule (see ext.config.yaml).
+ * The ERP → Commerce direction is the kit's back-office eventing: the ERP posts its events
+ * to the ingestion webhook, they are published to the `erp` provider, and the handler
+ * actions below apply them to Commerce.
  */
 export default defineConfig({
   adminUi: {
     menu: {
       description:
-        "Health of the ERP integration, sync log, reset and outage switch",
+        "Health of the ERP integration, sync log, reset and controls",
       id: "erp_integration",
       label: "ERP integration",
       pageTitle: "ERP integration",
@@ -49,6 +50,19 @@ export default defineConfig({
               "product-commerce/updated",
             ],
           },
+          {
+            description:
+              "Fires after a stock item is saved in Commerce, used to keep the ERP stock in step with the store",
+            fields: [
+              field("item_id"),
+              field("product_id"),
+              field("qty"),
+              field("is_in_stock"),
+            ],
+            label: "Stock Item Updated",
+            name: "observer.cataloginventory_stock_item_save_commit_after",
+            runtimeActions: ["stock-commerce/updated"],
+          },
         ],
         provider: {
           description: "Commerce events the ERP integration listens to",
@@ -57,10 +71,70 @@ export default defineConfig({
         },
       },
     ],
+    external: [
+      {
+        events: [
+          {
+            description: "The ERP changed a product price or name",
+            label: "ERP Product Updated",
+            name: "be-observer.catalog_product_update",
+            runtimeActions: ["product-backoffice/updated"],
+          },
+          {
+            description: "The ERP changed stock levels",
+            label: "ERP Stock Updated",
+            name: "be-observer.catalog_stock_update",
+            runtimeActions: ["stock-backoffice/updated"],
+          },
+          {
+            description: "The ERP confirmed a sales order",
+            label: "ERP Order Status Updated",
+            name: "be-observer.sales_order_status_update",
+            runtimeActions: ["order-backoffice/updated"],
+          },
+          {
+            description: "The ERP shipped a sales order",
+            label: "ERP Order Shipment Created",
+            name: "be-observer.sales_order_shipment_create",
+            runtimeActions: ["order-backoffice/shipment-created"],
+          },
+          {
+            description: "The ERP invoiced a sales order",
+            label: "ERP Order Invoice Created",
+            name: "be-observer.sales_order_invoice_create",
+            runtimeActions: ["order-backoffice/invoice-created"],
+          },
+          {
+            description: "The ERP cancelled a sales order",
+            label: "ERP Order Cancelled",
+            name: "be-observer.sales_order_cancel",
+            runtimeActions: ["order-backoffice/cancelled"],
+          },
+          {
+            description: "The ERP changed an account credit limit",
+            label: "ERP Company Credit Updated",
+            name: "be-observer.company_credit_update",
+            runtimeActions: ["company-backoffice/credit-updated"],
+          },
+          {
+            description: "The ERP blocked or unblocked an account",
+            label: "ERP Company Status Updated",
+            name: "be-observer.company_status_update",
+            runtimeActions: ["company-backoffice/status-updated"],
+          },
+        ],
+        provider: {
+          description:
+            "The ERP, the back-office system that publishes these events",
+          key: "erp",
+          label: "ERP Provider",
+        },
+      },
+    ],
   },
   metadata: {
     description:
-      "Adobe Commerce integration to a demo ERP: orders to the ERP with the ERP number written back, contract pricing at cart time, and ERP-owned prices, stock, credit limits and order statuses flowing back to Commerce.",
+      "Adobe Commerce integration to a demo ERP: orders to the ERP with the ERP number written back, contract pricing at cart time, and the ERP events (prices, stock, credit limits, order statuses) applied to Commerce.",
     displayName: "ERP integration",
     id: "commerce-erp-integration",
     version: "0.1.0",
@@ -101,7 +175,7 @@ export default defineConfig({
         method: "POST",
         required: false,
         soft_timeout: 1000,
-        timeout: 30_000,
+        timeout: 5000,
         webhook_method:
           "plugin.out_of_process_totals_collector.api.get_total_modifications.item_prices",
         webhook_type: "after",
@@ -122,7 +196,7 @@ export default defineConfig({
         method: "POST",
         required: false,
         soft_timeout: 1000,
-        timeout: 30_000,
+        timeout: 5000,
         webhook_method:
           "plugin.out_of_process_totals_collector.api.get_total_modifications.execute",
         webhook_type: "after",

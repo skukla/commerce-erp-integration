@@ -26,20 +26,44 @@ runtimeManifest:
       license: Apache-2.0
       actions:
         $include: ./actions/product/commerce/actions.config.yaml
+    stock-commerce:
+      license: Apache-2.0
+      actions:
+        $include: ./actions/stock/commerce/actions.config.yaml
+    ingestion:
+      license: Apache-2.0
+      actions:
+        $include: ./actions/ingestion/actions.config.yaml
+    product-backoffice:
+      license: Apache-2.0
+      actions:
+        $include: ./actions/product/external/actions.config.yaml
+    stock-backoffice:
+      license: Apache-2.0
+      actions:
+        $include: ./actions/stock/external/actions.config.yaml
+    order-backoffice:
+      license: Apache-2.0
+      actions:
+        $include: ./actions/order/external/actions.config.yaml
+    company-backoffice:
+      license: Apache-2.0
+      actions:
+        $include: ./actions/company/external/actions.config.yaml
     erp:
       license: Apache-2.0
       actions:
         $include: ./actions/erp/actions.config.yaml
-      # The ERP → Commerce direction is a pull: every minute, drain the ERP's outbox.
+      # Commerce raises no event for companies, so every minute the partners are refreshed from it.
       triggers:
-        erp-drain-timer:
+        erp-refresh-timer:
           feed: /whisk.system/alarms/interval
           inputs:
             minutes: 1
       rules:
-        erp-drain-on-timer:
-          trigger: erp-drain-timer
-          action: drain
+        erp-refresh-on-timer:
+          trigger: erp-refresh-timer
+          action: refresh-partners
 
     # This package definition is auto-generated. Do not remove or manually edit.
     app-management:

@@ -1,0 +1,21 @@
+{
+  "type": "object",
+  "properties": {
+    "orderId": { "type": "number" },
+    "items": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "orderItemId": { "type": "number" },
+          "qty": { "type": "number" }
+        },
+        "required": ["orderItemId", "qty"],
+        "additionalProperties": true
+      }
+    },
+    "erpNumber": { "type": "string" }
+  },
+  "required": ["orderId", "items"],
+  "additionalProperties": true
+}

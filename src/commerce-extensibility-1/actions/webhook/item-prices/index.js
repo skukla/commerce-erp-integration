@@ -9,7 +9,9 @@ import {
   readPayload,
 } from "#lib/webhook";
 
-const ERP_TIMEOUT_MS = 900;
+// Commerce's soft_timeout (1 s) only logs; its hard timeout (5 s, app.commerce.config.ts) aborts.
+// Three seconds lets a cold ERP action answer; a slower one falls back to Commerce's prices.
+const ERP_TIMEOUT_MS = 3000;
 
 /**
  * Totals collector, item prices: each cart line's price becomes the ERP's contract price

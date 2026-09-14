@@ -8,7 +8,7 @@ import AioLogger from "@adobe/aio-lib-core-logging";
 import { erp } from "#lib/erp";
 import { readPayload } from "#lib/webhook";
 
-/** POST set-offline { offline: boolean }: the outage demo switch, forwarded to the ERP's settings. */
+/** POST set-offline { offline: boolean }: makes the ERP answer 503 (a test of the store carrying on without it), forwarded to the ERP's settings. */
 async function main(params) {
   const logger = AioLogger("erp-set-offline", {
     level: params.LOG_LEVEL || "info",

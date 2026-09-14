@@ -83,6 +83,7 @@ export function toErpOrder(order) {
   const items = (Array.isArray(rawItems) ? rawItems : Object.values(rawItems))
     .filter((item) => !item.parent_item_id && item.sku)
     .map((item) => ({
+      commerceItemId: item.item_id ?? item.quote_item_id ?? null,
       price: Number(item.base_price ?? item.price ?? 0),
       qty: Number(item.qty_ordered ?? item.qty ?? 1),
       sku: item.sku,

@@ -108,6 +108,7 @@ export async function listCompanies(params) {
       credit = null;
     }
     out.push({
+      blocked: Number(company.status) === COMPANY_STATUS.BLOCKED,
       creditId: credit?.id ?? null,
       creditLimit: credit ? Number(credit.credit_limit ?? 0) : null,
       customerGroupId: company.customer_group_id,
@@ -118,6 +119,22 @@ export async function listCompanies(params) {
     });
   }
   return out;
+}
+
+/** @returns {Promise<string|null>} the SKU of a product id, null when unknown */
+export async function skuForProductId(params, productId) {
+  const client = await commerceClient(params);
+  const data = await client
+    .get("products", {
+      searchParams: {
+        "searchCriteria[filter_groups][0][filters][0][field]": "entity_id",
+        "searchCriteria[filter_groups][0][filters][0][value]":
+          String(productId),
+        "searchCriteria[pageSize]": "1",
+      },
+    })
+    .json();
+  return data.items?.[0]?.sku ?? null;
 }
 
 /** @returns {Promise<object>} the company */
@@ -188,6 +205,20 @@ export async function setStock(params, sku, quantity, sourceCode = "default") {
           },
         ],
       },
+    })
+    .json();
+}
+
+/**
+ * Clear the external order id the ERP put on an order (a sparse order save: entity id plus
+ * the one field). Reset and detach use it so no Commerce order keeps a number the ERP no
+ * longer has. Notes in the order history cannot be removed and stay.
+ */
+export async function clearExtOrderId(params, orderId) {
+  const client = await commerceClient(params);
+  return client
+    .post("orders", {
+      json: { entity: { entity_id: Number(orderId), ext_order_id: "" } },
     })
     .json();
 }

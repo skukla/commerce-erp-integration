@@ -1,11 +1,19 @@
 vi.mock("#lib/erp", () => ({
-  erp: { health: vi.fn(), patchSettings: vi.fn(), wipe: vi.fn() },
+  erp: {
+    health: vi.fn(),
+    listOrders: vi.fn(() =>
+      Promise.resolve({ data: { items: [] }, ok: true, status: 200 }),
+    ),
+    patchSettings: vi.fn(),
+    wipe: vi.fn(),
+  },
 }));
 vi.mock("#lib/ledger", () => ({
   readLedger: vi.fn(async () => [{ companyId: "7" }]),
   revertLedger: vi.fn(async () => ({ failed: [], reverted: 1 })),
 }));
 vi.mock("#lib/commerce", () => ({
+  clearExtOrderId: vi.fn(),
   listCompanies: vi.fn(async () => []),
   listProducts: vi.fn(async () => []),
   listStock: vi.fn(async () => new Map()),
@@ -15,8 +23,8 @@ vi.mock("#lib/commerce", () => ({
 vi.mock("#lib/mirror", () => ({
   mirror: vi.fn(async () => ({
     counts: { companies: 0, products: 0 },
-    materials: {},
     partners: {},
+    products: {},
   })),
 }));
 
@@ -67,7 +75,7 @@ describe("Given the reset action", () => {
     erp.wipe.mockImplementation(() => {
       calls.push("wipe");
       return Promise.resolve({
-        data: { wiped: { materials: 3 } },
+        data: { wiped: { products: 3 } },
         ok: true,
         status: 200,
       });
@@ -79,7 +87,7 @@ describe("Given the reset action", () => {
     const res = await reset.main({});
     expect(calls).toEqual(["revert", "wipe", "mirror"]);
     expect(res.statusCode).toBe(200);
-    expect(res.body.wiped).toEqual({ materials: 3 });
+    expect(res.body.wiped).toEqual({ products: 3 });
   });
   test("Then a failed wipe stops before the mirror", async () => {
     erp.wipe.mockResolvedValue({

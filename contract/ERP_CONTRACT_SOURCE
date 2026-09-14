@@ -1,0 +1,2 @@
+skukla/demo-erp contract/erp-contract.json
+`npm run contract:check` fetches the ERP's current main and diffs it against contract/erp-contract.json here.

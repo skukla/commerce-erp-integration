@@ -59,7 +59,10 @@ export function MainPage() {
     [refresh],
   );
   const erpOffline = Boolean(status?.erp?.offline);
-  const onSync = useCallback(() => run("Sync now", api.drain), [run, api]);
+  const onSync = useCallback(
+    () => run("Refresh partners", api.refreshPartners),
+    [run, api],
+  );
   const onMirror = useCallback(() => run("Mirror", api.mirror), [run, api]);
   const onToggleOffline = useCallback(
     () =>
@@ -96,13 +99,13 @@ export function MainPage() {
       )}
       <div className="erp-grid">
         <Stat label="ERP" value={erpState(erp)} />
-        <Stat label="Materials" value={erp.counts?.materials ?? "–"} />
+        <Stat label="Products" value={erp.counts?.products ?? "–"} />
         <Stat
           label="Business partners"
           value={erp.counts?.businessPartners ?? "–"}
         />
         <Stat label="Sales orders" value={erp.counts?.salesOrders ?? "–"} />
-        <Stat label="Outbox pending" value={erp.counts?.outbox ?? "–"} />
+        <Stat label="ERP events pending" value={erp.counts?.events ?? "–"} />
         <Stat
           label="Company changes to undo on reset"
           value={status?.ledger?.entries ?? "–"}
@@ -114,7 +117,7 @@ export function MainPage() {
       </Text>
       <div className="erp-actions">
         <Button isDisabled={busy || !api} onPress={onSync} variant="primary">
-          Sync ERP changes now
+          Refresh partners from Commerce
         </Button>
         <Button
           isDisabled={busy || !api}

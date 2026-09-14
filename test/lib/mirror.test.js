@@ -1,10 +1,10 @@
-import { materialsFrom, mirror, partnersFrom } from "#lib/mirror";
+import { mirror, partnersFrom, productsFrom } from "#lib/mirror";
 
 const OFFLINE_503 = /503.*offline/u;
 
 describe("Given the mirror", () => {
-  test("Then products become materials with their stock", () => {
-    const rows = materialsFrom(
+  test("Then products become products with their stock", () => {
+    const rows = productsFrom(
       [
         { listPrice: 10, name: "A", sku: "A1" },
         { listPrice: 5, sku: "" },
@@ -25,6 +25,7 @@ describe("Given the mirror", () => {
     ]);
     expect(rows).toEqual([
       {
+        blocked: false,
         commerceCompanyId: "7",
         creditLimit: 500,
         customerGroupId: "4",
@@ -43,8 +44,8 @@ describe("Given the mirror", () => {
     const erp = {
       importRecords: vi.fn(async () => ({
         data: {
-          materials: { created: 1, updated: 0 },
           partners: { created: 1, updated: 0 },
+          products: { created: 1, updated: 0 },
         },
         ok: true,
         status: 200,
@@ -54,9 +55,9 @@ describe("Given the mirror", () => {
     expect(erp.importRecords).toHaveBeenCalledWith(
       {},
       {
-        materials: [{ listPrice: 1, name: "P", sku: "P1", stock: 2 }],
         partners: [
           {
+            blocked: false,
             commerceCompanyId: "1",
             creditLimit: undefined,
             customerGroupId: undefined,
@@ -65,6 +66,7 @@ describe("Given the mirror", () => {
             name: "One",
           },
         ],
+        products: [{ listPrice: 1, name: "P", sku: "P1", stock: 2 }],
         projectName: "Demo",
       },
     );

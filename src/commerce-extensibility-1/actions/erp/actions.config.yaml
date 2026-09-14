@@ -1,4 +1,4 @@
-# The integration's own actions: what the Demo Builder flyout, the Commerce Admin screen and the drain timer call.
+# The integration's own actions: what the Demo Builder flyout, the Commerce Admin screen and the refresh timer call.
 status:
   function: ./status/index.js
   web: 'yes'
@@ -54,8 +54,8 @@ reset:
   annotations:
     require-adobe-auth: true
     final: true
-drain:
-  function: ./drain/index.js
+refresh-partners:
+  function: ./refresh-partners/index.js
   web: 'yes'
   runtime: nodejs:24
   limits:
@@ -77,6 +77,25 @@ set-offline:
   function: ./set-offline/index.js
   web: 'yes'
   runtime: nodejs:24
+  inputs:
+    LOG_LEVEL: $LOG_LEVEL
+    AIO_COMMERCE_AUTH_IMS_CLIENT_ID: $AIO_COMMERCE_AUTH_IMS_CLIENT_ID
+    AIO_COMMERCE_AUTH_IMS_CLIENT_SECRETS: $AIO_COMMERCE_AUTH_IMS_CLIENT_SECRETS
+    AIO_COMMERCE_AUTH_IMS_TECHNICAL_ACCOUNT_ID: $AIO_COMMERCE_AUTH_IMS_TECHNICAL_ACCOUNT_ID
+    AIO_COMMERCE_AUTH_IMS_TECHNICAL_ACCOUNT_EMAIL: $AIO_COMMERCE_AUTH_IMS_TECHNICAL_ACCOUNT_EMAIL
+    AIO_COMMERCE_AUTH_IMS_ORG_ID: $AIO_COMMERCE_AUTH_IMS_ORG_ID
+    AIO_COMMERCE_AUTH_IMS_SCOPES: $AIO_COMMERCE_AUTH_IMS_SCOPES
+    ERP_BASE_URL: $ERP_BASE_URL
+    ERP_DISPLAY_NAME: $ERP_DISPLAY_NAME
+  annotations:
+    require-adobe-auth: true
+    final: true
+detach:
+  function: ./detach/index.js
+  web: 'yes'
+  runtime: nodejs:24
+  limits:
+    timeout: 300000
   inputs:
     LOG_LEVEL: $LOG_LEVEL
     AIO_COMMERCE_AUTH_IMS_CLIENT_ID: $AIO_COMMERCE_AUTH_IMS_CLIENT_ID

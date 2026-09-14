@@ -21,7 +21,8 @@
     "postinstall": "npx aio-commerce-lib-app hooks postinstall",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
-    "build:admin-ui": "NODE_ENV=production parcel build --target admin-ui --no-cache"
+    "build:admin-ui": "NODE_ENV=production parcel build --target admin-ui --no-cache",
+    "contract:check": "node scripts/contract-check.mjs"
   },
   "dependencies": {
     "@adobe/aio-commerce-lib-app": "^1.8.0",

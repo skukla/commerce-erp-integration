@@ -5,25 +5,24 @@ import {
 import AioLogger from "@adobe/aio-lib-core-logging";
 
 import * as commerce from "#lib/commerce";
+import { detach } from "#lib/detach";
 import { erp } from "#lib/erp";
-import { revertLedger } from "#lib/ledger";
+import * as ledger from "#lib/ledger";
 import { mirror } from "#lib/mirror";
 
 /**
  * POST reset: the whole reset in the order the plan fixes (decisions 8 and 11):
- * revert the ledgered company writes → wipe the ERP → re-mirror Commerce as it stands.
- * Idempotent; reports counts. The ERP's order counter never rewinds.
+ * undo what was written onto Commerce (ledgered company writes, ERP numbers on orders) →
+ * wipe the ERP → re-mirror Commerce as it stands. Idempotent; reports counts. The ERP's
+ * order counter never rewinds.
  */
 async function main(params) {
   const logger = AioLogger("erp-reset", { level: params.LOG_LEVEL || "info" });
   const report = {};
   try {
-    report.reverted = await revertLedger({
-      creditLimit: (companyId, creditId, before) =>
-        commerce.setCompanyCreditLimit(params, creditId, companyId, before),
-      status: (companyId, before) =>
-        commerce.setCompanyStatus(params, companyId, before),
-    });
+    const undone = await detach(params, { commerce, erp, ledger });
+    report.reverted = undone.reverted;
+    report.orders = undone.orders;
     if (report.reverted.failed.length > 0) {
       logger.warn(
         `reset: ${report.reverted.failed.length} company revert(s) failed; they stay in the ledger`,

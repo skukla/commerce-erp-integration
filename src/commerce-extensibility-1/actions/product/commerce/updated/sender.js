@@ -3,7 +3,7 @@ import { HTTP_INTERNAL_SERVER_ERROR } from "@adobe/aio-commerce-sdk/core/respons
 import { erp } from "#lib/erp";
 
 /**
- * Send the material to the ERP's import route.
+ * Send the product to the ERP's import route.
  *
  * @returns {Promise<{ success: true } | { success: false, statusCode: number, message: string }>}
  */

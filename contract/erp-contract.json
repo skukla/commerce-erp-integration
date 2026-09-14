@@ -1,0 +1,47 @@
+{
+  "name": "demo-erp",
+  "contractVersion": 1,
+  "description": "What the ERP promises its subscribers: the routes it serves, the shapes it accepts, and the events it publishes. The Commerce integration vendors this file and its tests fail when the two disagree.",
+  "routes": {
+    "health": ["GET"],
+    "settings": ["GET", "PATCH"],
+    "admin": ["POST /wipe", "POST /import"],
+    "products": ["GET", "GET /:sku", "PATCH /:sku"],
+    "partners": ["GET", "GET /:id", "PATCH /:id"],
+    "pricing": ["GET", "POST", "DELETE /:id", "POST /quote"],
+    "orders": ["GET", "GET /:number", "POST", "POST /:number/status"],
+    "events": ["GET", "POST /retry", "POST /requeue"]
+  },
+  "import": {
+    "products": ["sku", "name", "listPrice", "stock"],
+    "partners": ["id", "name", "commerceCompanyId", "customerGroupId", "emailDomain", "creditLimit", "blocked"],
+    "projectName": "optional"
+  },
+  "quote": {
+    "request": ["partnerId", "commerceCompanyId", "email", "customerGroupId", "lines"],
+    "requestLine": ["sku", "qty"],
+    "responseLine": ["sku", "qty", "listPrice", "contractPrice", "discountPercent", "maxDiscountPercent", "source", "lineTotal"],
+    "unknownLine": ["sku", "qty", "unknown"]
+  },
+  "order": {
+    "request": ["commerceOrderId", "commerceIncrementId", "partnerId", "commerceCompanyId", "email", "customerGroupId", "lines", "currency", "total"],
+    "requestLine": ["sku", "qty", "price", "commerceItemId"],
+    "response": ["number", "commerceOrderId", "commerceIncrementId", "partnerId", "lines", "currency", "total", "status", "history", "createdAt"]
+  },
+  "events": {
+    "be-observer.catalog_product_update": { "raisedBy": "product.price", "value": ["sku", "name", "price", "description"] },
+    "be-observer.catalog_stock_update": { "raisedBy": "product.stock", "valueIsArray": true, "value": ["sku", "source", "quantity", "outOfStock"] },
+    "be-observer.sales_order_status_update": { "raisedBy": "order.confirmed", "value": ["id", "orderId", "incrementId", "erpNumber", "status", "items", "notifyCustomer"] },
+    "be-observer.sales_order_shipment_create": { "raisedBy": "order.shipped", "value": ["id", "orderId", "incrementId", "erpNumber", "status", "items", "notifyCustomer"] },
+    "be-observer.sales_order_invoice_create": { "raisedBy": "order.invoiced", "value": ["id", "orderId", "incrementId", "erpNumber", "status", "items", "notifyCustomer"] },
+    "be-observer.sales_order_cancel": { "raisedBy": "order.cancelled", "value": ["id", "orderId", "incrementId", "erpNumber", "status", "items", "notifyCustomer"] },
+    "be-observer.company_credit_update": { "raisedBy": "partner.creditLimit", "value": ["partnerId", "companyId", "creditLimit"] },
+    "be-observer.company_status_update": { "raisedBy": "partner.blocked", "value": ["partnerId", "companyId", "blocked"] }
+  },
+  "orderEventItem": ["orderItemId", "qty", "sku"],
+  "delivery": {
+    "webhookPath": "/api/v1/web/ingestion/webhook",
+    "body": { "data": ["uid", "event", "value"] },
+    "maxAttempts": 10
+  }
+}

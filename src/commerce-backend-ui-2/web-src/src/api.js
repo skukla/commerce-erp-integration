@@ -34,8 +34,8 @@ export function makeApi(ims, origin = window.location.origin) {
     return data;
   }
   return {
-    drain: () => call("drain", { method: "POST" }),
     mirror: () => call("mirror", { method: "POST" }),
+    refreshPartners: () => call("refresh-partners", { method: "POST" }),
     reset: () => call("reset", { method: "POST" }),
     setOffline: (offline) =>
       call("set-offline", { body: { offline }, method: "POST" }),

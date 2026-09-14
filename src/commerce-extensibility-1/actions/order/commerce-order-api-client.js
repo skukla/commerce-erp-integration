@@ -17,4 +17,26 @@ async function addComment(params, orderId, data) {
   });
 }
 
-export { addComment };
+/**
+ * Invoice an order (capture).
+ * @param {object} params - Environment params from the IO Runtime request
+ * @param {number} orderId - order id
+ */
+async function invoiceOrder(params, orderId) {
+  const client = await getCommerceClient(resolveImsAuthParams(params));
+  return await client.post(`order/${orderId}/invoice`, {
+    json: { capture: true, notify: false },
+  });
+}
+
+/**
+ * Cancel an order.
+ * @param {object} params - Environment params from the IO Runtime request
+ * @param {number} orderId - order id
+ */
+async function cancelOrder(params, orderId) {
+  const client = await getCommerceClient(resolveImsAuthParams(params));
+  return await client.post(`orders/${orderId}/cancel`);
+}
+
+export { addComment, cancelOrder, invoiceOrder };

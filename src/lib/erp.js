@@ -89,12 +89,6 @@ export async function erpRequest(
 
 /** The ERP's routes, by name. Each answers `{ ok, status, data }`. */
 export const erp = {
-  ack: (params, ids) =>
-    erpRequest(params, "outbox", {
-      body: { ids },
-      method: "POST",
-      path: "/ack",
-    }),
   createOrder: (params, order, timeoutMs) =>
     erpRequest(params, "orders", { body: order, method: "POST", timeoutMs }),
   health: (params) => erpRequest(params, "health"),
@@ -105,7 +99,7 @@ export const erp = {
       path: "/import",
       timeoutMs: 60_000,
     }),
-  outbox: (params) => erpRequest(params, "outbox"),
+  listOrders: (params) => erpRequest(params, "orders"),
   patchSettings: (params, patch) =>
     erpRequest(params, "settings", { body: patch, method: "PATCH" }),
   quote: (params, body, timeoutMs) =>

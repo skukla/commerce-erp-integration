@@ -87,7 +87,7 @@ describe("Given the item-prices webhook", () => {
         email: null,
         lines: [{ qty: 2, sku: "A" }],
       },
-      900,
+      3000,
     );
     expect(res.body).toEqual([
       {

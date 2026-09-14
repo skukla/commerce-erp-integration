@@ -78,7 +78,7 @@ describe("Given the webhook helpers", () => {
       customerGroupId: "4",
       customerId: null,
       email: "b@acme.example",
-      lines: [{ price: 20, qty: 2, sku: "A" }],
+      lines: [{ commerceItemId: 1, price: 20, qty: 2, sku: "A" }],
       total: 40,
     });
   });

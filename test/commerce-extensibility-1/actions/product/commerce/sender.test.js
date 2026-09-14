@@ -6,12 +6,12 @@ import { transformData } from "#src/product/commerce/updated/transformer";
 import { validateData } from "#src/product/commerce/updated/validator";
 
 describe("Given the product event chain", () => {
-  test("Then a product becomes one material row and is imported", async () => {
+  test("Then a product becomes one product row and is imported", async () => {
     const rows = transformData({
       value: { name: "Widget", price: "12.5", sku: "W1" },
     });
     expect(rows).toEqual({
-      materials: [{ listPrice: 12.5, name: "Widget", sku: "W1" }],
+      products: [{ listPrice: 12.5, name: "Widget", sku: "W1" }],
     });
     erp.importRecords.mockResolvedValue({ data: {}, ok: true, status: 200 });
     expect(await sendData({}, rows)).toEqual({ success: true });
