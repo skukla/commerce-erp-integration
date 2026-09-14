@@ -1,0 +1,118 @@
+{
+  "adminUi": {
+    "menu": {
+      "description": "Health of the ERP integration, sync log, reset and outage switch",
+      "id": "erp_integration",
+      "label": "ERP integration",
+      "pageTitle": "ERP integration",
+      "parentMenu": "system"
+    }
+  },
+  "eventing": {
+    "commerce": [
+      {
+        "events": [
+          {
+            "description": "Fires after a product is created or updated in Commerce, used to keep the ERP materials in step between resets",
+            "fields": [
+              {
+                "name": "id"
+              },
+              {
+                "name": "sku"
+              },
+              {
+                "name": "name"
+              },
+              {
+                "name": "price"
+              },
+              {
+                "name": "type_id"
+              },
+              {
+                "name": "created_at"
+              },
+              {
+                "name": "updated_at"
+              }
+            ],
+            "label": "Product Created or Updated",
+            "name": "observer.catalog_product_save_commit_after",
+            "runtimeActions": [
+              "product-commerce/created",
+              "product-commerce/updated"
+            ]
+          }
+        ],
+        "provider": {
+          "description": "Commerce events the ERP integration listens to",
+          "key": "commerce",
+          "label": "Commerce Provider"
+        }
+      }
+    ]
+  },
+  "metadata": {
+    "description": "Adobe Commerce integration to a demo ERP: orders to the ERP with the ERP number written back, contract pricing at cart time, and ERP-owned prices, stock, credit limits and order statuses flowing back to Commerce.",
+    "displayName": "ERP integration",
+    "id": "commerce-erp-integration",
+    "version": "0.1.0"
+  },
+  "webhooks": [
+    {
+      "category": "modification",
+      "description": "On order placement, creates the sales order in the ERP and writes the ERP order number onto the Commerce order as ext_order_id",
+      "label": "Create the sales order in the ERP",
+      "requireAdobeAuth": true,
+      "runtimeAction": "webhook/order-create",
+      "webhook": {
+        "batch_name": "erp_order_place",
+        "fallback_error_message": "The ERP is unavailable; the order was placed and will be sent to the ERP separately.",
+        "hook_name": "erp_order_create",
+        "method": "POST",
+        "required": false,
+        "soft_timeout": 5000,
+        "timeout": 30000,
+        "webhook_method": "observer.sales_order_place_before",
+        "webhook_type": "before"
+      }
+    },
+    {
+      "category": "modification",
+      "description": "Replaces each cart line price with the ERP contract price for the buyer business partner",
+      "label": "ERP contract prices into cart totals",
+      "requireAdobeAuth": true,
+      "runtimeAction": "webhook/item-prices",
+      "webhook": {
+        "batch_name": "erp_totals_collector_item_prices",
+        "fallback_error_message": "ERP pricing is unavailable; Commerce kept its own prices for this cart.",
+        "hook_name": "erp_contract_price",
+        "method": "POST",
+        "required": false,
+        "soft_timeout": 1000,
+        "timeout": 30000,
+        "webhook_method": "plugin.out_of_process_totals_collector.api.get_total_modifications.item_prices",
+        "webhook_type": "after"
+      }
+    },
+    {
+      "category": "modification",
+      "description": "Caps the combined discount on each cart line at the ERP maximum-discount ceiling for the buyer business partner",
+      "label": "ERP discount ceiling",
+      "requireAdobeAuth": true,
+      "runtimeAction": "webhook/discounts",
+      "webhook": {
+        "batch_name": "erp_totals_collector",
+        "fallback_error_message": "ERP discounts are unavailable; Commerce kept its own totals for this cart.",
+        "hook_name": "erp_discount_ceiling",
+        "method": "POST",
+        "required": false,
+        "soft_timeout": 1000,
+        "timeout": 30000,
+        "webhook_method": "plugin.out_of_process_totals_collector.api.get_total_modifications.execute",
+        "webhook_type": "after"
+      }
+    }
+  ]
+}

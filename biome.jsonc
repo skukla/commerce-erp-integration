@@ -1,0 +1,104 @@
+{
+  "$schema": "https://biomejs.dev/schemas/2.5.13/schema.json",
+  "extends": ["ultracite/biome/core"],
+
+  "files": {
+    "ignoreUnknown": true,
+    "includes": ["!**/.generated"]
+  },
+
+  "json": {
+    "formatter": {
+      "trailingCommas": "none"
+    }
+  },
+
+  "javascript": {
+    "globals": ["vi"],
+    "formatter": {
+      "arrowParentheses": "always",
+      "bracketSameLine": true,
+      "jsxQuoteStyle": "double",
+      "quoteStyle": "double",
+      "semicolons": "always",
+      "trailingCommas": "all"
+    }
+  },
+
+  "linter": {
+    "domains": {
+      "test": "all"
+    },
+    "rules": {
+      "style": {
+        // This only applies to TypeScript, which we don't use yet.
+        "useReadonlyClassProperties": "off"
+      },
+      "performance": {
+        "noNamespaceImport": "off"
+      }
+    }
+  },
+
+  "overrides": [
+    {
+      "includes": ["src/commerce-extensibility-1/actions/**/*.js"],
+      "linter": {
+        "rules": {
+          "suspicious": {
+            // Some placeholder functions most likely will be async (they invoke external systems), but they are unimplemented
+            // so they don't use await. This is left to warn, because implementers should be aware of this.
+            "useAwait": "warn"
+          },
+
+          "correctness": {
+            // It's a scaffolding, functions are unimplemented (and thus parameters are unused) in purpose.
+            // Left to warn, for the same reason as the `useAwait` rule.
+            "noUnusedFunctionParameters": "warn"
+          }
+        }
+      }
+    }
+  ],
+
+  "assist": {
+    "enabled": true,
+    "actions": {
+      "source": {
+        "organizeImports": {
+          "level": "on",
+          "options": {
+            "groups": [
+              { "type": false, "source": [":BUN:", ":NODE:"] },
+              ":BLANK_LINE:",
+              {
+                "type": false,
+                "source": [":PACKAGE:", ":PACKAGE_WITH_PROTOCOL:"]
+              },
+              ":BLANK_LINE:",
+              { "type": false, "source": [":ALIAS:"] },
+              ":BLANK_LINE:",
+              { "type": false, "source": [":PATH:"] },
+              ":BLANK_LINE:",
+
+              { "type": true, "source": [":BUN:", ":NODE:"] },
+              {
+                "type": true,
+                "source": [":PACKAGE:", ":PACKAGE_WITH_PROTOCOL:"]
+              },
+              { "type": true, "source": [":ALIAS:"] },
+              { "type": true, "source": [":PATH:"] }
+            ]
+          }
+        }
+      }
+    }
+  },
+
+  "vcs": {
+    "enabled": true,
+    "clientKind": "git",
+    "defaultBranch": "main",
+    "useIgnoreFile": true
+  }
+}

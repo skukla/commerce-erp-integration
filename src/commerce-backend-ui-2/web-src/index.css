@@ -1,0 +1,41 @@
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+main {
+  max-width: 960px;
+  padding: 24px;
+}
+.erp-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+  margin: 16px 0;
+}
+.erp-stat {
+  padding: 12px;
+  border: 1px solid var(--s2-color-gray-300, #ddd);
+  border-radius: 8px;
+}
+.erp-stat small {
+  display: block;
+  margin-bottom: 4px;
+  color: #6e6e6e;
+}
+.erp-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 16px;
+}
+.erp-log {
+  padding: 12px;
+  margin-top: 16px;
+  font-family: ui-monospace, monospace;
+  font-size: 12px;
+  white-space: pre-wrap;
+  background: #f5f5f5;
+  border-radius: 8px;
+}

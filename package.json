@@ -1,0 +1,88 @@
+{
+  "name": "commerce-erp-integration",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Adobe Commerce integration to a demo ERP (skukla/demo-erp), built on the Commerce integration starter kit: orders to the ERP with the ERP number written back, contract pricing at cart time, ERP-owned prices, stock, credit limits and order statuses flowing back, and a reset that wipes and re-mirrors the ERP.",
+  "license": "Apache-2.0",
+  "author": "Adobe Inc.",
+  "type": "module",
+  "imports": {
+    "#app.commerce.config": "./src/commerce-extensibility-1/.generated/app.commerce.config.js",
+    "#telemetry": "./src/telemetry.js",
+    "#lib/*": "./src/lib/*.js",
+    "#src/*": "./src/commerce-extensibility-1/actions/*.js",
+    "#web/*": "./src/commerce-backend-ui-2/web-src/src/*"
+  },
+  "scripts": {
+    "code:format:fix": "biome format --write --no-errors-on-unmatched",
+    "code:lint:fix": "biome check --write --no-errors-on-unmatched --files-ignore-unknown=true",
+    "code:report": "biome ci --formatter-enabled=true --linter-enabled=true --assist-enabled=true --no-errors-on-unmatched",
+    "docs:format:fix": "prettier --write --no-error-on-unmatched-pattern '**/*.md' \"!**/{CODE_OF_CONDUCT.md,COPYRIGHT,LICENSE,SECURITY.md,CONTRIBUTING.md,COPILOT-INSTRUCTIONS.md}\"",
+    "postinstall": "npx aio-commerce-lib-app hooks postinstall",
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
+    "build:admin-ui": "NODE_ENV=production parcel build --target admin-ui --no-cache"
+  },
+  "dependencies": {
+    "@adobe/aio-commerce-lib-app": "^1.8.0",
+    "@adobe/aio-commerce-sdk": "^1.4.0",
+    "@adobe/aio-lib-core-logging": "^3.0.2",
+    "@adobe/aio-lib-telemetry": "^1.0.0",
+    "ajv": "^8.16.0",
+    "graphql-request": "^7.1.2",
+    "@adobe/aio-lib-state": "^5.3.1",
+    "@adobe/aio-commerce-lib-admin-ui": "^1.0.1",
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7",
+    "@react-spectrum/s2": "^1.5.1"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.5.13",
+    "@vitest/coverage-istanbul": "^5.0.0",
+    "@vitest/coverage-v8": "^5.0.0",
+    "prettier": "3.9.6",
+    "vitest": "^5.0.0",
+    "@types/react": "^19.2.17",
+    "@types/react-dom": "^19.2.3",
+    "ultracite": "7.11.1",
+    "parcel": "^2.15.0"
+  },
+  "engines": {
+    "node": "^24.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/skukla/commerce-erp-integration.git"
+  },
+  "@parcel/bundler-default": {
+    "manualSharedBundles": [
+      {
+        "assets": [
+          "**/@react-spectrum/s2/**",
+          "src/commerce-backend-ui-2/web-src/*.{js,jsx,ts,tsx}"
+        ],
+        "name": "s2-styles",
+        "types": [
+          "css"
+        ]
+      }
+    ]
+  },
+  "@parcel/resolver-default": {
+    "packageExports": true
+  },
+  "targets": {
+    "admin-ui": {
+      "context": "browser",
+      "includeNodeModules": true,
+      "distDir": "dist/commerce-backend-ui-2/web-prod",
+      "publicUrl": "/",
+      "source": "src/commerce-backend-ui-2/web-src/index.html",
+      "optimize": true,
+      "sourceMap": false,
+      "engines": {
+        "browsers": "last 2 Chrome versions, last 2 Safari versions, last 2 Firefox versions, last 2 Edge versions"
+      }
+    }
+  }
+}

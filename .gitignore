@@ -1,0 +1,45 @@
+# package directories
+node_modules
+jspm_packages
+
+# build
+build
+dist
+.manifest-dist.yml
+
+# Config
+config.json
+.env*
+.aio
+
+# Test output
+junit.xml
+
+# TypeScript cache
+*.tsbuildinfo
+dist*/
+
+# IDE & Temp
+.aws.tmp.creds.json
+.cache
+.cursor/*
+!.cursor/rules
+.idea
+.nyc_output
+.vscode
+.wskdebug.props.tmp
+coverage
+
+# Parcel
+.parcel-cache
+
+# OSX
+.DS_Store
+
+# yeoman
+.yo-repository
+
+# logs folder for aio-run-detached
+logs
+
+test/test-coverage
