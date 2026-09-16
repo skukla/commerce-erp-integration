@@ -1,6 +1,7 @@
 import {
   mirror,
   mirrorPartners,
+  PRODUCT_BATCH,
   partnersFrom,
   productsFrom,
 } from "#lib/mirror";
@@ -40,25 +41,27 @@ describe("Given the mirror", () => {
       },
     ]);
   });
-  test("Then a mirror reads all three and imports once", async () => {
+  test("Then a mirror reads all three, imports partners, then products, and reports each step", async () => {
     const readers = {
       listCompanies: vi.fn(async () => [{ id: 1, name: "One" }]),
       listProducts: vi.fn(async () => [{ listPrice: 1, name: "P", sku: "P1" }]),
       listStock: vi.fn(async () => new Map([["P1", 2]])),
     };
     const erp = {
-      importRecords: vi.fn(async () => ({
-        data: {
-          partners: { created: 1, updated: 0 },
-          products: { created: 1, updated: 0 },
-        },
+      importRecords: vi.fn(async (_params, body) => ({
+        data: body.products
+          ? { products: { created: 1, updated: 0 } }
+          : { partners: { created: 1, updated: 0 } },
         ok: true,
         status: 200,
       })),
     };
-    const result = await mirror({}, readers, erp, "Demo");
-    expect(erp.importRecords).toHaveBeenCalledWith(
-      {},
+    const steps = [];
+    const result = await mirror({}, readers, erp, "Demo", (step) => {
+      steps.push(step);
+      return Promise.resolve();
+    });
+    expect(erp.importRecords.mock.calls.map(([, body]) => body)).toEqual([
       {
         partners: [
           {
@@ -71,12 +74,84 @@ describe("Given the mirror", () => {
             name: "One",
           },
         ],
-        products: [{ listPrice: 1, name: "P", sku: "P1", stock: 2 }],
         projectName: "Demo",
       },
-    );
-    expect(result.counts).toEqual({ companies: 1, products: 1 });
+      { products: [{ listPrice: 1, name: "P", sku: "P1", stock: 2 }] },
+    ]);
+    expect(steps).toEqual([
+      { phase: "reading", state: "running" },
+      {
+        partners: { done: 0, total: 1 },
+        phase: "partners",
+        products: { done: 0, total: 1 },
+        state: "running",
+      },
+      {
+        partners: { done: 1, total: 1 },
+        phase: "products",
+        products: { done: 0, total: 1 },
+        state: "running",
+      },
+      { phase: "products", products: { done: 1, total: 1 }, state: "running" },
+    ]);
+    expect(result).toEqual({
+      counts: { companies: 1, products: 1 },
+      partners: { created: 1, updated: 0 },
+      products: { created: 1, updated: 0 },
+    });
   });
+
+  test("Then products go in batches, each well under the request limit, and the counts add up", async () => {
+    const catalog = Array.from({ length: 450 }, (_, i) => ({
+      listPrice: i,
+      name: `P${i}`,
+      sku: `P${i}`,
+    }));
+    const readers = {
+      listCompanies: async () => [],
+      listProducts: async () => catalog,
+      listStock: async () => new Map(),
+    };
+    const erp = {
+      importRecords: vi.fn(async (_params, body) => ({
+        data: body.products
+          ? { products: { created: body.products.length, updated: 0 } }
+          : { partners: { created: 0, updated: 0 } },
+        ok: true,
+        status: 200,
+      })),
+    };
+    const done = [];
+    const result = await mirror({}, readers, erp, undefined, (step) => {
+      if (step.products && step.phase === "products") {
+        done.push(step.products.done);
+      }
+      return Promise.resolve();
+    });
+    const sizes = erp.importRecords.mock.calls
+      .map(([, body]) => body.products?.length)
+      .filter((n) => n !== undefined);
+    expect(sizes).toEqual([PRODUCT_BATCH, PRODUCT_BATCH, 50]);
+    expect(done).toEqual([0, 200, 400, 450]);
+    expect(result.products).toEqual({ created: 450, updated: 0 });
+  });
+
+  test("Then an empty catalog still sends one products import, which stamps the full import", async () => {
+    const readers = {
+      listCompanies: async () => [],
+      listProducts: async () => [],
+      listStock: async () => new Map(),
+    };
+    const erp = {
+      importRecords: vi.fn(async () => ({ data: {}, ok: true, status: 200 })),
+    };
+    await mirror({}, readers, erp);
+    expect(erp.importRecords.mock.calls.map(([, body]) => body)).toEqual([
+      { partners: [], projectName: undefined },
+      { products: [] },
+    ]);
+  });
+
   test("Then an ERP refusal is an error, not a silent success", async () => {
     const readers = {
       listCompanies: async () => [],

@@ -5,6 +5,7 @@ import {
 import AioLogger from "@adobe/aio-lib-core-logging";
 import openwhisk from "openwhisk";
 
+import { erp } from "#lib/erp";
 import { runMirror } from "#lib/mirror-run";
 
 /** The worker that runs a mirror in the background (web: no, so no one-minute cut-off). */
@@ -26,6 +27,10 @@ async function main(params) {
   const logger = AioLogger("erp-mirror", { level: params.LOG_LEVEL || "info" });
   try {
     if (wantsBackground(params)) {
+      // Recorded before the worker starts, so either screen can say "starting" at once.
+      await erp.reportSync(params, { state: "requested" }).catch((error) => {
+        logger.warn(`sync report failed: ${error.message}`);
+      });
       const activation = await openwhisk().actions.invoke({
         blocking: false,
         name: MIRROR_JOB,

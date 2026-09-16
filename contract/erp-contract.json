@@ -5,7 +5,7 @@
   "routes": {
     "health": ["GET"],
     "settings": ["GET", "PATCH"],
-    "admin": ["POST /wipe", "POST /import"],
+    "admin": ["POST /wipe", "POST /import", "POST /sync"],
     "products": ["GET", "GET /:sku", "PATCH /:sku"],
     "partners": ["GET", "GET /:id", "PATCH /:id"],
     "pricing": ["GET", "POST", "DELETE /:id", "POST /quote"],
@@ -48,6 +48,12 @@
     "description": "What the ERP asks of its subscriber when someone chooses Sync records on its Settings page: start re-sending the records it mirrors, in the background, and answer at once. The ERP then watches its own last-import time.",
     "method": "POST",
     "path": "/api/v1/web/erp/mirror?background=true",
-    "answers": 202
+    "answers": 202,
+    "status": {
+      "description": "How the subscriber reports a sync it runs: POST admin/sync with one step at a time. A run starts with state running, phase reading; then phase partners and phase products with { done, total } counts; and ends with state done, or failed with an error a person can act on. health answers the latest record as sync.",
+      "states": ["requested", "running", "done", "failed"],
+      "phases": ["reading", "partners", "products"],
+      "progress": ["done", "total"]
+    }
   }
 }

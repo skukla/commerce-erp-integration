@@ -8,7 +8,7 @@ import * as commerce from "#lib/commerce";
 import { detach } from "#lib/detach";
 import { erp } from "#lib/erp";
 import * as ledger from "#lib/ledger";
-import { mirror } from "#lib/mirror";
+import { runMirror } from "#lib/mirror-run";
 
 /**
  * POST reset: the whole reset in the order the plan fixes (decisions 8 and 11):
@@ -35,7 +35,7 @@ async function main(params) {
       );
     }
     report.wiped = wiped.data.wiped;
-    report.mirrored = await mirror(params, commerce, erp, params.projectName);
+    report.mirrored = await runMirror(params);
     logger.info(
       `reset: reverted ${report.reverted.reverted}, wiped, mirrored ${report.mirrored.counts.products} products and ${report.mirrored.counts.companies} companies`,
     );

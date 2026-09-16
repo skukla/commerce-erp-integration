@@ -53,13 +53,46 @@ export async function mirrorPartners(params, readers, erp) {
   return { companies: companies.length, partners: result.data.partners };
 }
 
+/** Products per import request: keeps each request well under Runtime's 1 MB limit. */
+export const PRODUCT_BATCH = 200;
+
+function importOrThrow(result) {
+  if (!result.ok) {
+    throw new Error(
+      `ERP import answered ${result.status}: ${result.data?.errorMessage || "unknown error"}`,
+    );
+  }
+  return result.data;
+}
+
+function batches(rows, size) {
+  const out = [];
+  for (let i = 0; i < rows.length; i += size) {
+    out.push(rows.slice(i, i + size));
+  }
+  // An empty catalog still sends one products import, which is what stamps the
+  // ERP's last full import.
+  return out.length > 0 ? out : [[]];
+}
+
+const noReport = () => Promise.resolve();
+
 /**
- * Read Commerce and import into the ERP.
+ * Read Commerce and import into the ERP, reporting each step to `report` (the ERP's
+ * sync record): reading, then partners, then products batch by batch.
  * @param {object} readers `{ listProducts, listStock, listCompanies }` each `async (params)`
  * @param {object} erp the ERP client (`importRecords`)
+ * @param {(step: object) => Promise<void>} [report] receives `{ state, phase, partners, products }`
  * @returns {Promise<{ products: object, partners: object, counts: object }>}
  */
-export async function mirror(params, readers, erp, projectName) {
+export async function mirror(
+  params,
+  readers,
+  erp,
+  projectName,
+  report = noReport,
+) {
+  await report({ phase: "reading", state: "running" });
   const [products, stock, companies] = await Promise.all([
     readers.listProducts(params),
     readers.listStock(params),
@@ -67,19 +100,44 @@ export async function mirror(params, readers, erp, projectName) {
   ]);
   const productRows = productsFrom(products, stock);
   const partners = partnersFrom(companies);
-  const result = await erp.importRecords(params, {
-    partners,
-    products: productRows,
-    projectName,
+  const partnerTotal = partners.length;
+  const productTotal = productRows.length;
+
+  await report({
+    partners: { done: 0, total: partnerTotal },
+    phase: "partners",
+    products: { done: 0, total: productTotal },
+    state: "running",
   });
-  if (!result.ok) {
-    throw new Error(
-      `ERP import answered ${result.status}: ${result.data?.errorMessage || "unknown error"}`,
-    );
+  const partnerResult = importOrThrow(
+    await erp.importRecords(params, { partners, projectName }),
+  );
+
+  const productResult = { created: 0, updated: 0 };
+  let done = 0;
+  await report({
+    partners: { done: partnerTotal, total: partnerTotal },
+    phase: "products",
+    products: { done, total: productTotal },
+    state: "running",
+  });
+  for (const batch of batches(productRows, PRODUCT_BATCH)) {
+    // Sequential on purpose: the count a screen shows is the count imported so far.
+    // biome-ignore lint/performance/noAwaitInLoops: ordered, reported batches
+    const response = await erp.importRecords(params, { products: batch });
+    const data = importOrThrow(response);
+    productResult.created += data.products?.created ?? 0;
+    productResult.updated += data.products?.updated ?? 0;
+    done += batch.length;
+    await report({
+      phase: "products",
+      products: { done, total: productTotal },
+      state: "running",
+    });
   }
   return {
     counts: { companies: companies.length, products: products.length },
-    partners: result.data.partners,
-    products: result.data.products,
+    partners: partnerResult.partners,
+    products: productResult,
   };
 }

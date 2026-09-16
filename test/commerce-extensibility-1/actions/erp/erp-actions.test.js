@@ -5,6 +5,7 @@ vi.mock("#lib/erp", () => ({
       Promise.resolve({ data: { items: [] }, ok: true, status: 200 }),
     ),
     patchSettings: vi.fn(),
+    reportSync: vi.fn(() => Promise.resolve({ ok: true, status: 200 })),
     wipe: vi.fn(),
   },
 }));
@@ -26,6 +27,7 @@ vi.mock("#lib/mirror", () => ({
     partners: {},
     products: {},
   })),
+  mirrorPartners: vi.fn(),
 }));
 
 const mockInvoke = vi.fn(async () => ({ activationId: "act-1" }));
@@ -39,9 +41,17 @@ import { erp } from "#lib/erp";
 import { mirror } from "#lib/mirror";
 import * as mirrorAction from "#src/erp/mirror/index";
 import * as mirrorJob from "#src/erp/mirror-job/index";
+import * as refreshJob from "#src/erp/refresh-partners-job/index";
 import * as reset from "#src/erp/reset/index";
 import * as setOffline from "#src/erp/set-offline/index";
 import * as status from "#src/erp/status/index";
+
+const CREDENTIAL_REFUSED =
+  /^Commerce refused the integration's credential \(401\)/u;
+const TIMER_RULE =
+  /erp-refresh-on-timer:\n\s+trigger: erp-refresh-timer\n\s+action: refresh-partners-job\n/u;
+const REFRESH_JOB_CONFIG =
+  /^refresh-partners-job:\n {2}function: \.\/refresh-partners-job\/index\.js\n {2}web: 'no'/mu;
 
 afterEach(() => {
   vi.clearAllMocks();
@@ -138,9 +148,24 @@ describe("Given the mirror action", () => {
       expect.anything(),
       expect.anything(),
       "Bodea",
+      expect.any(Function),
     );
     expect(res.statusCode).toBe(200);
     expect(mockInvoke).not.toHaveBeenCalled();
+  });
+
+  test("Then with background=true it records the sync as requested before starting the worker", async () => {
+    const order = [];
+    erp.reportSync.mockImplementationOnce((_p, step) => {
+      order.push(`report:${step.state}`);
+      return Promise.resolve({ ok: true });
+    });
+    mockInvoke.mockImplementationOnce(() => {
+      order.push("invoke");
+      return Promise.resolve({ activationId: "act-2" });
+    });
+    await mirrorAction.main({ background: "true" });
+    expect(order).toEqual(["report:requested", "invoke"]);
   });
 
   test("Then with background=true it starts the worker without waiting and answers 202", async () => {
@@ -170,6 +195,39 @@ describe("Given the mirror action", () => {
 });
 
 describe("Given the mirror worker", () => {
+  test("Then it tells the ERP the sync is done once the mirror finishes", async () => {
+    mirror.mockResolvedValueOnce({ counts: { companies: 0, products: 0 } });
+    await mirrorJob.main({});
+    expect(erp.reportSync).toHaveBeenLastCalledWith(expect.anything(), {
+      state: "done",
+    });
+  });
+
+  test("Then a failure reaches the ERP in words a person can act on", async () => {
+    mirror.mockRejectedValueOnce(
+      new Error(
+        "Request failed with status code 401 Unauthorized: GET https://na1-sandbox.api.commerce.adobe.com/T/V1/products",
+      ),
+    );
+    await mirrorJob.main({});
+    const [, step] = erp.reportSync.mock.calls.at(-1);
+    expect(step.state).toBe("failed");
+    expect(step.error).toMatch(CREDENTIAL_REFUSED);
+  });
+
+  test("Then a progress report that cannot be delivered does not stop the mirror", async () => {
+    erp.reportSync.mockRejectedValue(new Error("ERP unreachable"));
+    mirror.mockResolvedValueOnce({ counts: { companies: 1, products: 2 } });
+    expect(await mirrorJob.main({})).toEqual({
+      counts: { companies: 1, products: 2 },
+      ok: true,
+    });
+    erp.reportSync.mockReset();
+    erp.reportSync.mockImplementation(() =>
+      Promise.resolve({ ok: true, status: 200 }),
+    );
+  });
+
   test("Then it runs the same mirror and reports the counts", async () => {
     mirror.mockResolvedValueOnce({ counts: { companies: 2, products: 40 } });
     expect(await mirrorJob.main({})).toEqual({
@@ -197,6 +255,57 @@ describe("Given the mirror worker", () => {
         `^${name}:\\n  function: ./${name}/index.js\\n  web: 'no'`,
         "mu",
       ),
+    );
+  });
+});
+
+describe("Given the partner refresh timer", () => {
+  test("Then the timer starts the non-web worker, which needs no sign-in", () => {
+    const ext = readFileSync(
+      "src/commerce-extensibility-1/ext.config.yaml",
+      "utf8",
+    );
+    expect(ext).toMatch(TIMER_RULE);
+    const actions = readFileSync(
+      "src/commerce-extensibility-1/actions/erp/actions.config.yaml",
+      "utf8",
+    );
+    expect(actions).toMatch(REFRESH_JOB_CONFIG);
+  });
+
+  test("Then the worker refreshes partners and reports failures instead of throwing", async () => {
+    const { mirrorPartners } = await import("#lib/mirror");
+    mirrorPartners.mockResolvedValueOnce({
+      companies: 4,
+      partners: { updated: 4 },
+    });
+    expect(await refreshJob.main({})).toEqual({
+      companies: 4,
+      ok: true,
+      partners: { updated: 4 },
+    });
+    mirrorPartners.mockRejectedValueOnce(new Error("Commerce 503"));
+    expect(await refreshJob.main({})).toEqual({
+      error: "Commerce 503",
+      ok: false,
+    });
+  });
+});
+
+describe("Given a sync failure's words", () => {
+  test("Then a missing association says to install again, and anything else keeps its own words", async () => {
+    const { syncFailureText } = await vi.importActual("#lib/mirror-run");
+    expect(
+      syncFailureText(
+        new Error(
+          "No association record was found for this app. Re-associate the app to resolve this error.",
+        ),
+      ),
+    ).toBe(
+      "The integration is not connected to a Commerce instance. Install it into Commerce again from Demo Builder.",
+    );
+    expect(syncFailureText(new Error("ERP import answered 503: offline"))).toBe(
+      "ERP import answered 503: offline",
     );
   });
 });

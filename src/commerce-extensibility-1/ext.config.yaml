@@ -55,6 +55,8 @@ runtimeManifest:
       actions:
         $include: ./actions/erp/actions.config.yaml
       # Commerce raises no event for companies, so every minute the partners are refreshed from it.
+      # The rule starts the non-web worker: a timer carries no Adobe sign-in, and the web
+      # action refresh-partners requires one.
       triggers:
         erp-refresh-timer:
           feed: /whisk.system/alarms/interval
@@ -63,7 +65,7 @@ runtimeManifest:
       rules:
         erp-refresh-on-timer:
           trigger: erp-refresh-timer
-          action: refresh-partners
+          action: refresh-partners-job
 
     # This package definition is auto-generated. Do not remove or manually edit.
     app-management:

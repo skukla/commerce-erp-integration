@@ -4,23 +4,9 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { makeApi } from "#web/api.js";
 import { Stat } from "#web/components/stat.jsx";
+import { isSyncActive, SyncProgress } from "#web/components/sync-progress.jsx";
 
-const SYNC_POLL_MS = 3000;
-const SYNC_WAIT_MS = 5 * 60 * 1000;
-const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
-
-/** Poll the status until the ERP's last full import moves past `before`, or time runs out. */
-async function waitForImport(api, before, deadline) {
-  await wait(SYNC_POLL_MS);
-  const next = await api.status();
-  if (next.erp?.lastImportAt && next.erp.lastImportAt !== before) {
-    return { synced: next.erp.counts };
-  }
-  if (Date.now() >= deadline) {
-    return { stillRunning: true };
-  }
-  return waitForImport(api, before, deadline);
-}
+const SYNC_POLL_MS = 2000;
 
 /** Online, Offline or Unreachable, from the status action's answer. */
 function erpState(erp) {
@@ -55,6 +41,17 @@ export function MainPage() {
     refresh();
   }, [refresh]);
 
+  // While the ERP reports a sync in progress, keep reading it. This also picks up a
+  // sync started elsewhere (the ERP's own Settings) or before the page was opened.
+  const sync = status?.erp?.sync ?? null;
+  useEffect(() => {
+    if (!isSyncActive(sync)) {
+      return;
+    }
+    const timer = setTimeout(refresh, SYNC_POLL_MS);
+    return () => clearTimeout(timer);
+  }, [sync, refresh]);
+
   const run = useCallback(
     async (label, fn) => {
       setBusy(true);
@@ -80,16 +77,11 @@ export function MainPage() {
     () => run("Refresh partners", api.refreshPartners),
     [run, api],
   );
-  // The mirror runs in the background, so this starts it and then watches the ERP's
-  // last-import time move (a partners-only refresh does not move it).
+  // The mirror runs in the background and reports each step to the ERP; the effect
+  // above follows it.
   const onSyncRecords = useCallback(
-    () =>
-      run("Sync records", async () => {
-        const before = status?.erp?.lastImportAt ?? null;
-        await api.syncRecords();
-        return waitForImport(api, before, Date.now() + SYNC_WAIT_MS);
-      }),
-    [run, api, status],
+    () => run("Sync records", api.syncRecords),
+    [run, api],
   );
   const onToggleOffline = useCallback(
     () =>
@@ -147,7 +139,7 @@ export function MainPage() {
           Refresh partners from Commerce
         </Button>
         <Button
-          isDisabled={busy || !api}
+          isDisabled={busy || !api || isSyncActive(sync)}
           onPress={onSyncRecords}
           variant="secondary">
           Sync records to {erpName}
@@ -162,6 +154,7 @@ export function MainPage() {
           Reset ERP records
         </Button>
       </div>
+      <SyncProgress erpName={erpName} sync={sync} />
       <Text>
         Reset undoes the company blocks and credit limits the ERP set, wipes
         every ERP record, and mirrors Commerce again as it stands. Commerce

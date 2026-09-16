@@ -20,6 +20,7 @@ const FOLDERS = {
   "stock-backoffice": "stock/external",
 };
 const ERP_ROUTE_CALL = /erpRequest\(params, "([a-z]+)"/gu;
+const SYNC_STEP_VALUE = /(?:state|phase): "([a-z]+)"/gu;
 const externalEvents = manifest.eventing.external.flatMap((p) => p.events);
 
 function schemaOf(action) {
@@ -127,9 +128,29 @@ describe("Given the ERP contract", () => {
       description: expect.any(String),
       method: "POST",
       path: "/api/v1/web/erp/mirror?background=true",
+      status: expect.any(Object),
     });
     expect(readdirSync(`${ACTIONS}/erp`)).toEqual(
       expect.arrayContaining(["mirror", MIRROR_JOB.split("/")[1]]),
     );
+  });
+
+  test("Then every sync step this app reports is one the ERP records", () => {
+    const { routes, sync } = contract;
+    expect(routes.admin).toContain("POST /sync");
+    const erpClient = readFileSync("src/lib/erp.js", "utf8");
+    expect(erpClient).toContain('path: "/sync"');
+    // The states and phases the mirror sends.
+    const mirrorSource =
+      readFileSync("src/lib/mirror.js", "utf8") +
+      readFileSync("src/lib/mirror-run.js", "utf8") +
+      readFileSync(`${ACTIONS}/erp/mirror/index.js`, "utf8");
+    const sent = new Set(
+      [...mirrorSource.matchAll(SYNC_STEP_VALUE)].map((m) => m[1]),
+    );
+    for (const value of sent) {
+      expect([...sync.status.states, ...sync.status.phases]).toContain(value);
+    }
+    expect(sent.size).toBeGreaterThan(3);
   });
 });
