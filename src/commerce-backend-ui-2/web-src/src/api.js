@@ -34,11 +34,13 @@ export function makeApi(ims, origin = window.location.origin) {
     return data;
   }
   return {
-    mirror: () => call("mirror", { method: "POST" }),
     refreshPartners: () => call("refresh-partners", { method: "POST" }),
     reset: () => call("reset", { method: "POST" }),
     setOffline: (offline) =>
       call("set-offline", { body: { offline }, method: "POST" }),
     status: () => call("status"),
+    // Background mode: a web request is cut off after a minute, a mirror can take
+    // longer. Answers 202; the page watches the ERP's last-import time.
+    syncRecords: () => call("mirror?background=true", { method: "POST" }),
   };
 }

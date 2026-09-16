@@ -43,5 +43,11 @@
     "webhookPath": "/api/v1/web/ingestion/webhook",
     "body": { "data": ["uid", "event", "value"] },
     "maxAttempts": 10
+  },
+  "sync": {
+    "description": "What the ERP asks of its subscriber when someone chooses Sync records on its Settings page: start re-sending the records it mirrors, in the background, and answer at once. The ERP then watches its own last-import time.",
+    "method": "POST",
+    "path": "/api/v1/web/erp/mirror?background=true",
+    "answers": 202
   }
 }

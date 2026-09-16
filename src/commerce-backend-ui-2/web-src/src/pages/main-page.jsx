@@ -5,6 +5,23 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { makeApi } from "#web/api.js";
 import { Stat } from "#web/components/stat.jsx";
 
+const SYNC_POLL_MS = 3000;
+const SYNC_WAIT_MS = 5 * 60 * 1000;
+const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+/** Poll the status until the ERP's last full import moves past `before`, or time runs out. */
+async function waitForImport(api, before, deadline) {
+  await wait(SYNC_POLL_MS);
+  const next = await api.status();
+  if (next.erp?.lastImportAt && next.erp.lastImportAt !== before) {
+    return { synced: next.erp.counts };
+  }
+  if (Date.now() >= deadline) {
+    return { stillRunning: true };
+  }
+  return waitForImport(api, before, deadline);
+}
+
 /** Online, Offline or Unreachable, from the status action's answer. */
 function erpState(erp) {
   if (!erp.reachable) {
@@ -63,7 +80,17 @@ export function MainPage() {
     () => run("Refresh partners", api.refreshPartners),
     [run, api],
   );
-  const onMirror = useCallback(() => run("Mirror", api.mirror), [run, api]);
+  // The mirror runs in the background, so this starts it and then watches the ERP's
+  // last-import time move (a partners-only refresh does not move it).
+  const onSyncRecords = useCallback(
+    () =>
+      run("Sync records", async () => {
+        const before = status?.erp?.lastImportAt ?? null;
+        await api.syncRecords();
+        return waitForImport(api, before, Date.now() + SYNC_WAIT_MS);
+      }),
+    [run, api, status],
+  );
   const onToggleOffline = useCallback(
     () =>
       run(erpOffline ? "Bring online" : "Take offline", () =>
@@ -121,9 +148,9 @@ export function MainPage() {
         </Button>
         <Button
           isDisabled={busy || !api}
-          onPress={onMirror}
+          onPress={onSyncRecords}
           variant="secondary">
-          Mirror Commerce into {erpName}
+          Sync records to {erpName}
         </Button>
         <Button
           isDisabled={busy || !api}

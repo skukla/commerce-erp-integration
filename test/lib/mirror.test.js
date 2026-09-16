@@ -1,4 +1,9 @@
-import { mirror, partnersFrom, productsFrom } from "#lib/mirror";
+import {
+  mirror,
+  mirrorPartners,
+  partnersFrom,
+  productsFrom,
+} from "#lib/mirror";
 
 const OFFLINE_503 = /503.*offline/u;
 
@@ -86,5 +91,22 @@ describe("Given the mirror", () => {
       }),
     };
     await expect(mirror({}, readers, erp)).rejects.toThrow(OFFLINE_503);
+  });
+});
+
+describe("Given the every-minute partner refresh", () => {
+  test("Then it sends partners only, so the ERP's last full import time does not move", async () => {
+    const importRecords = vi.fn(async () => ({
+      data: { partners: { created: 1, updated: 0 } },
+      ok: true,
+      status: 200,
+    }));
+    await mirrorPartners(
+      {},
+      { listCompanies: async () => [{ id: 7, name: "Acme" }] },
+      { importRecords },
+    );
+    const [, body] = importRecords.mock.calls[0];
+    expect(Object.keys(body)).toEqual(["partners"]);
   });
 });

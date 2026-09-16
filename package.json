@@ -35,7 +35,8 @@
     "@adobe/aio-commerce-lib-admin-ui": "^1.0.1",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
-    "@react-spectrum/s2": "^1.5.1"
+    "@react-spectrum/s2": "^1.5.1",
+    "openwhisk": "^3.21.9"
   },
   "devDependencies": {
     "@biomejs/biome": "2.5.13",

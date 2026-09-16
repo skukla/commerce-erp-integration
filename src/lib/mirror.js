@@ -42,7 +42,9 @@ export function partnersFrom(companies) {
 export async function mirrorPartners(params, readers, erp) {
   const companies = await readers.listCompanies(params);
   const partners = partnersFrom(companies);
-  const result = await erp.importRecords(params, { partners, products: [] });
+  // No products key at all: the ERP's last-import time means a full mirror, and a
+  // partners-only import must not move it.
+  const result = await erp.importRecords(params, { partners });
   if (!result.ok) {
     throw new Error(
       `ERP import answered ${result.status}: ${result.data?.errorMessage || "unknown error"}`,

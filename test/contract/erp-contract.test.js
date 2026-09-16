@@ -119,4 +119,17 @@ describe("Given the ERP contract", () => {
     }
     expect(readdirSync(`${ACTIONS}/ingestion`)).toContain("webhook");
   });
+
+  test("Then the ERP's Sync records reaches this app's mirror in background mode", async () => {
+    const { MIRROR_JOB } = await import("#src/erp/mirror/index");
+    expect(contract.sync).toEqual({
+      answers: 202,
+      description: expect.any(String),
+      method: "POST",
+      path: "/api/v1/web/erp/mirror?background=true",
+    });
+    expect(readdirSync(`${ACTIONS}/erp`)).toEqual(
+      expect.arrayContaining(["mirror", MIRROR_JOB.split("/")[1]]),
+    );
+  });
 });
