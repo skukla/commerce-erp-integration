@@ -19,6 +19,7 @@ vi.mock("#lib/commerce", () => ({
   listProducts: vi.fn(async () => []),
   listSources: vi.fn(async () => new Map()),
   listStock: vi.fn(async () => new Map()),
+  listVariantAttributes: vi.fn(async () => new Map()),
   setCompanyCreditLimit: vi.fn(),
   setCompanyStatus: vi.fn(),
 }));

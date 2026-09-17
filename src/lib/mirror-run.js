@@ -11,6 +11,7 @@ import {
   listProducts,
   listSources,
   listStock,
+  listVariantAttributes,
 } from "#lib/commerce";
 import { erp } from "#lib/erp";
 import { mirror } from "#lib/mirror";
@@ -67,7 +68,13 @@ export async function runMirror(params) {
   try {
     const result = await mirror(
       params,
-      { listCompanies, listProducts, listSources, listStock },
+      {
+        listCompanies,
+        listProducts,
+        listSources,
+        listStock,
+        listVariantAttributes,
+      },
       erp,
       params.projectName,
       report,

@@ -65,11 +65,55 @@ export async function listProducts(params) {
     "searchCriteria[filter_groups][0][filters][0][value]": "1",
   });
   return items.map((p) => ({
+    // A configurable names the attributes its variants differ on, and its variants
+    // by product id (read from the store 2026-09-16; the children endpoint answers
+    // an empty list on this platform, so the links are what the mirror uses).
+    childIds: p.extension_attributes?.configurable_product_links ?? [],
+    customAttributes: Object.fromEntries(
+      (p.custom_attributes ?? []).map((a) => [a.attribute_code, a.value]),
+    ),
+    id: p.id,
     listPrice: Number(p.price ?? 0),
     name: p.name,
+    optionAttributeIds: (
+      p.extension_attributes?.configurable_product_options ?? []
+    ).map((o) => String(o.attribute_id)),
     sku: p.sku,
     typeId: p.type_id,
   }));
+}
+
+/**
+ * The attributes configurable products vary on, by id: code, label, and option
+ * labels by value. Asked only for the ids the catalog uses.
+ * @param {string[]} ids attribute ids
+ * @returns {Promise<Map<string, {code: string, label: string, options: Map<string, string>}>>}
+ */
+export async function listVariantAttributes(params, ids) {
+  if (ids.length === 0) {
+    return new Map();
+  }
+  const client = await commerceClient(params);
+  const items = await readAllPages(client, "products/attributes", {
+    "searchCriteria[filter_groups][0][filters][0][condition_type]": "in",
+    "searchCriteria[filter_groups][0][filters][0][field]": "attribute_id",
+    "searchCriteria[filter_groups][0][filters][0][value]": ids.join(","),
+  });
+  return new Map(
+    items.map((a) => [
+      String(a.attribute_id),
+      {
+        code: a.attribute_code,
+        label: a.default_frontend_label || a.attribute_code,
+        options: new Map(
+          (a.options ?? []).map((o) => [
+            String(o.value),
+            String(o.label).trim(),
+          ]),
+        ),
+      },
+    ]),
+  );
 }
 
 /**

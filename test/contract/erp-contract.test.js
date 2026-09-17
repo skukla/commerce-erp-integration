@@ -71,8 +71,23 @@ describe("Given the ERP contract", () => {
 
   test("Then the import rows, quote request and order request use the ERP's field names", () => {
     const mirror = readFileSync("src/lib/mirror.js", "utf8");
-    for (const key of ["sku", "name", "listPrice", "warehouses"]) {
+    for (const key of [
+      "sku",
+      "name",
+      "listPrice",
+      "warehouses",
+      "type",
+      "parentSku",
+      "variantAttributes",
+    ]) {
       expect(contract.import.products).toContain(key);
+      expect(mirror).toContain(`${key}:`);
+    }
+    for (const type of ["simple", "configurable"]) {
+      expect(contract.import.productTypes).toContain(type);
+      expect(mirror).toContain(`"${type}"`);
+    }
+    for (const key of contract.import.variantAttribute) {
       expect(mirror).toContain(`${key}:`);
     }
     for (const key of contract.import.warehouse) {

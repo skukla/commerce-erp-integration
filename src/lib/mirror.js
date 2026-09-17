@@ -4,26 +4,79 @@
  * without either system.
  */
 
+function warehousesFor(sku, stockBySku, sourceNames) {
+  return (stockBySku?.get?.(sku) ?? []).map((row) => ({
+    code: row.code,
+    name: sourceNames.get(row.code) || row.code,
+    quantity: row.quantity,
+  }));
+}
+
+/** "Silver · 128GB"-style values of a variant, in the order its parent lists them. */
+function variantValues(product, parent, attributes) {
+  return parent.optionAttributeIds.map((id) => {
+    const attribute = attributes.get(id);
+    const raw = attribute
+      ? product.customAttributes?.[attribute.code]
+      : undefined;
+    return {
+      label: attribute?.label ?? id,
+      value:
+        raw === undefined || raw === null
+          ? ""
+          : (attribute.options.get(String(raw)) ?? String(raw)),
+    };
+  });
+}
+
 /**
- * ERP product rows. Each carries its warehouses: one per inventory source the SKU is
- * assigned to, named from the store's sources (or by code when the name is unknown).
+ * ERP product rows. A configurable product becomes a parent with no stock of its
+ * own (in Commerce, stock lives on its variants); each of its variants carries
+ * `parentSku` and the values it varies on. Every other product carries its
+ * warehouses: one per inventory source the SKU is assigned to, named from the
+ * store's sources (or by code when the name is unknown).
  * @param {Map<string, Array<{code: string, quantity: number}>>} stockBySku
  * @param {Map<string, string>} [sourceNames]
+ * @param {Map<string, object>} [attributes] from listVariantAttributes
  * @returns {object[]}
  */
-export function productsFrom(products, stockBySku, sourceNames = new Map()) {
-  return products
-    .filter((p) => p.sku)
-    .map((p) => ({
-      listPrice: p.listPrice,
-      name: p.name || p.sku,
-      sku: p.sku,
-      warehouses: (stockBySku?.get?.(p.sku) ?? []).map((row) => ({
-        code: row.code,
-        name: sourceNames.get(row.code) || row.code,
-        quantity: row.quantity,
-      })),
-    }));
+export function productsFrom(
+  products,
+  stockBySku,
+  sourceNames = new Map(),
+  attributes = new Map(),
+) {
+  const withSku = products.filter((p) => p.sku);
+  const byId = new Map(withSku.map((p) => [p.id, p]));
+  const parentOf = new Map();
+  for (const p of withSku) {
+    if (p.typeId !== "configurable") {
+      continue;
+    }
+    for (const childId of p.childIds ?? []) {
+      if (byId.has(childId)) {
+        parentOf.set(childId, p);
+      }
+    }
+  }
+  return withSku.map((p) => {
+    const row = { listPrice: p.listPrice, name: p.name || p.sku, sku: p.sku };
+    if (p.typeId === "configurable") {
+      return { ...row, type: "configurable", warehouses: [] };
+    }
+    const parent = parentOf.get(p.id);
+    return {
+      ...row,
+      ...(parent
+        ? {
+            parentSku: parent.sku,
+            variantAttributes: variantValues(p, parent, attributes),
+          }
+        : {}),
+      type: "simple",
+      warehouses: warehousesFor(p.sku, stockBySku, sourceNames),
+    };
+  });
 }
 
 /** @returns {object[]} ERP business-partner rows; ids are `C<companyId>` */
@@ -90,7 +143,7 @@ const noReport = () => Promise.resolve();
 /**
  * Read Commerce and import into the ERP, reporting each step to `report` (the ERP's
  * sync record): reading, then partners, then products batch by batch.
- * @param {object} readers `{ listProducts, listStock, listCompanies, listSources? }` each `async (params)`
+ * @param {object} readers `{ listProducts, listStock, listCompanies, listSources?, listVariantAttributes? }`
  * @param {object} erp the ERP client (`importRecords`)
  * @param {(step: object) => Promise<void>} [report] receives `{ state, phase, partners, products }`
  * @returns {Promise<{ products: object, partners: object, counts: object }>}
@@ -109,7 +162,14 @@ export async function mirror(
     readers.listCompanies(params),
     readers.listSources ? readers.listSources(params) : new Map(),
   ]);
-  const productRows = productsFrom(products, stock, sourceNames);
+  const attributeIds = [
+    ...new Set(products.flatMap((p) => p.optionAttributeIds ?? [])),
+  ];
+  const attributes =
+    readers.listVariantAttributes && attributeIds.length > 0
+      ? await readers.listVariantAttributes(params, attributeIds)
+      : new Map();
+  const productRows = productsFrom(products, stock, sourceNames, attributes);
   const partners = partnersFrom(companies);
   const partnerTotal = partners.length;
   const productTotal = productRows.length;

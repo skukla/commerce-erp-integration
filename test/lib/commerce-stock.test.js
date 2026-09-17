@@ -1,5 +1,6 @@
 /*
- * The two inventory readers the mirror uses: stock per source, and source names.
+ * The catalog readers the mirror uses beyond products: stock per source, source
+ * names, and the attributes configurable products vary on.
  * The Commerce client is a stand-in answering the REST paths the readers ask for.
  */
 const mockGet = vi.fn();
@@ -10,7 +11,7 @@ vi.mock("@adobe/aio-commerce-sdk/auth", () => ({
   resolveImsAuthParams: vi.fn(() => ({})),
 }));
 
-import { listSources, listStock } from "#lib/commerce";
+import { listSources, listStock, listVariantAttributes } from "#lib/commerce";
 
 /** Answer one page per path, then an empty page. */
 function pages(byPath) {
@@ -76,5 +77,59 @@ describe("Given the store's inventory", () => {
       }),
     });
     await expect(listSources({})).rejects.toThrow("denied");
+  });
+});
+
+describe("Given the attributes configurable products vary on", () => {
+  test("Then each is keyed by id, labelled, and its option labels are keyed by value", async () => {
+    pages({
+      "products/attributes": [
+        {
+          attribute_code: "cs_color",
+          attribute_id: 93,
+          default_frontend_label: "Color",
+          options: [
+            { label: " ", value: "" },
+            { label: "Silver ", value: "41" },
+          ],
+        },
+        { attribute_code: "cs_storage", attribute_id: 142, options: [] },
+      ],
+    });
+    const attributes = await listVariantAttributes({}, ["93", "142"]);
+    expect(attributes).toEqual(
+      new Map([
+        [
+          "93",
+          {
+            code: "cs_color",
+            label: "Color",
+            options: new Map([
+              ["", ""],
+              ["41", "Silver"],
+            ]),
+          },
+        ],
+        // No label: the code stands in.
+        [
+          "142",
+          { code: "cs_storage", label: "cs_storage", options: new Map() },
+        ],
+      ]),
+    );
+    expect(mockGet).toHaveBeenCalledWith(
+      "products/attributes",
+      expect.objectContaining({
+        searchParams: expect.objectContaining({
+          "searchCriteria[filter_groups][0][filters][0][condition_type]": "in",
+          "searchCriteria[filter_groups][0][filters][0][value]": "93,142",
+        }),
+      }),
+    );
+  });
+
+  test("Then a catalog with no configurable products asks the store nothing", async () => {
+    expect(await listVariantAttributes({}, [])).toEqual(new Map());
+    expect(mockGet).not.toHaveBeenCalled();
   });
 });

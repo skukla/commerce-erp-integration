@@ -32,13 +32,98 @@ describe("Given the mirror", () => {
         listPrice: 10,
         name: "A",
         sku: "A1",
+        type: "simple",
         warehouses: [
           { code: "default", name: "Default Source", quantity: 7 },
           // A source the store did not name is named by its code.
           { code: "austin_dc", name: "austin_dc", quantity: 2 },
         ],
       },
-      { listPrice: 3, name: "B", sku: "B1", warehouses: [] },
+      { listPrice: 3, name: "B", sku: "B1", type: "simple", warehouses: [] },
+    ]);
+  });
+
+  test("Then a configurable product becomes a parent, and its variants name it and the values they vary on", () => {
+    const attributes = new Map([
+      [
+        "93",
+        {
+          code: "color",
+          label: "Color",
+          options: new Map([["41", "Silver"]]),
+        },
+      ],
+    ]);
+    const rows = productsFrom(
+      [
+        {
+          childIds: [11, 12, 999],
+          id: 10,
+          listPrice: 0,
+          name: "Phone",
+          optionAttributeIds: ["93", "142"],
+          sku: "PH",
+          typeId: "configurable",
+        },
+        {
+          customAttributes: { color: "41" },
+          id: 11,
+          listPrice: 799,
+          name: "Phone Silver",
+          sku: "PH-S",
+          typeId: "simple",
+        },
+        {
+          customAttributes: { color: "77" },
+          id: 12,
+          listPrice: 899,
+          name: "Phone Other",
+          sku: "PH-O",
+          typeId: "simple",
+        },
+      ],
+      new Map([
+        ["PH", [{ code: "default", quantity: 0 }]],
+        ["PH-S", [{ code: "default", quantity: 4 }]],
+      ]),
+      new Map([["default", "Default Source"]]),
+      attributes,
+    );
+    expect(rows).toEqual([
+      // A parent holds no stock of its own, even where the store lists a source for it.
+      {
+        listPrice: 0,
+        name: "Phone",
+        sku: "PH",
+        type: "configurable",
+        warehouses: [],
+      },
+      {
+        listPrice: 799,
+        name: "Phone Silver",
+        parentSku: "PH",
+        sku: "PH-S",
+        type: "simple",
+        variantAttributes: [
+          { label: "Color", value: "Silver" },
+          // An attribute the store did not describe is named by its id, with no value.
+          { label: "142", value: "" },
+        ],
+        warehouses: [{ code: "default", name: "Default Source", quantity: 4 }],
+      },
+      {
+        listPrice: 899,
+        name: "Phone Other",
+        parentSku: "PH",
+        sku: "PH-O",
+        type: "simple",
+        // An option value the store did not label is shown as stored.
+        variantAttributes: [
+          { label: "Color", value: "77" },
+          { label: "142", value: "" },
+        ],
+        warehouses: [],
+      },
     ]);
   });
   test("Then companies become partners keyed C<id> with their group, credit and email domain", () => {
@@ -63,6 +148,32 @@ describe("Given the mirror", () => {
       },
     ]);
   });
+  test("Then a mirror asks the store once for each attribute its configurable products vary on", async () => {
+    const readers = {
+      listCompanies: vi.fn(async () => []),
+      listProducts: vi.fn(async () => [
+        { id: 1, optionAttributeIds: ["93"], sku: "A", typeId: "configurable" },
+        {
+          id: 2,
+          optionAttributeIds: ["93", "142"],
+          sku: "B",
+          typeId: "configurable",
+        },
+        { id: 3, optionAttributeIds: [], sku: "C", typeId: "simple" },
+      ]),
+      listStock: vi.fn(async () => new Map()),
+      listVariantAttributes: vi.fn(async () => new Map()),
+    };
+    const erp = {
+      importRecords: vi.fn(async () => ({ data: {}, ok: true, status: 200 })),
+    };
+    await mirror({ key: 1 }, readers, erp, "Demo");
+    expect(readers.listVariantAttributes).toHaveBeenCalledExactlyOnceWith(
+      { key: 1 },
+      ["93", "142"],
+    );
+  });
+
   test("Then a mirror reads all three, imports partners, then products, and reports each step", async () => {
     const readers = {
       listCompanies: vi.fn(async () => [{ id: 1, name: "One" }]),
@@ -107,6 +218,7 @@ describe("Given the mirror", () => {
             listPrice: 1,
             name: "P",
             sku: "P1",
+            type: "simple",
             warehouses: [
               { code: "default", name: "Default Source", quantity: 2 },
             ],
