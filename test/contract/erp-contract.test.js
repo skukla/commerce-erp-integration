@@ -105,7 +105,7 @@ describe("Given the ERP contract", () => {
       expect(contract.import.partners).toContain(key);
       expect(mirror).toContain(`${key}:`);
     }
-    const webhook = readFileSync("src/lib/webhook.js", "utf8");
+    const orderSync = readFileSync("src/lib/order-sync.js", "utf8");
     for (const key of [
       "commerceOrderId",
       "commerceIncrementId",
@@ -114,9 +114,12 @@ describe("Given the ERP contract", () => {
       "total",
     ]) {
       expect(contract.order.request).toContain(key);
-      expect(webhook).toContain(`${key}:`);
+      expect(orderSync).toContain(`${key}:`);
     }
-    // the partner hints are spread in from partnerHints(), which names them in shorthand
+    // the partner hints are spread in from partnerHints() in lib/webhook.js, which names
+    // them in shorthand
+    const webhook = readFileSync("src/lib/webhook.js", "utf8");
+    expect(orderSync).toContain("...partnerHints(order)");
     for (const key of ["customerGroupId", "customerId", "email"]) {
       expect(webhook).toMatch(new RegExp(`\\b${key}[,:]`, "u"));
     }
@@ -124,7 +127,7 @@ describe("Given the ERP contract", () => {
       expect.arrayContaining(["customerGroupId", "email"]),
     );
     for (const key of contract.order.requestLine) {
-      expect(webhook).toContain(`${key}:`);
+      expect(orderSync).toContain(`${key}:`);
     }
   });
 

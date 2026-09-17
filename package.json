@@ -25,9 +25,9 @@
     "contract:check": "node scripts/contract-check.mjs"
   },
   "dependencies": {
-    "@adobe/aio-commerce-lib-admin-ui": "^1.0.1",
-    "@adobe/aio-commerce-lib-app": "^1.8.0",
-    "@adobe/aio-commerce-lib-config": "1.7.0",
+    "@adobe/aio-commerce-lib-admin-ui": "^1.1.0",
+    "@adobe/aio-commerce-lib-app": "^2.0.0",
+    "@adobe/aio-commerce-lib-config": "1.8.0",
     "@adobe/aio-commerce-sdk": "^1.4.0",
     "@adobe/aio-lib-core-logging": "^3.0.2",
     "@adobe/aio-lib-state": "^5.3.1",
@@ -40,6 +40,8 @@
     "react-dom": "^19.2.7"
   },
   "devDependencies": {
+    "@babel/core": "^7.29.7",
+    "@babel/preset-react": "^7.29.7",
     "@biomejs/biome": "2.5.13",
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.3",

@@ -18,6 +18,17 @@ async function addComment(params, orderId, data) {
 }
 
 /**
+ * Read an order.
+ * @param {object} params - Environment params from the IO Runtime request
+ * @param {number} orderId - order id
+ * @returns {Promise<object>} the order
+ */
+async function getOrder(params, orderId) {
+  const client = await getCommerceClient(resolveImsAuthParams(params));
+  return await client.get(`orders/${orderId}`).json();
+}
+
+/**
  * Invoice an order (capture).
  * @param {object} params - Environment params from the IO Runtime request
  * @param {number} orderId - order id
@@ -39,4 +50,4 @@ async function cancelOrder(params, orderId) {
   return await client.post(`orders/${orderId}/cancel`);
 }
 
-export { addComment, cancelOrder, invoiceOrder };
+export { addComment, cancelOrder, getOrder, invoiceOrder };

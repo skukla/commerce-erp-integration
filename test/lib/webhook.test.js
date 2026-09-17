@@ -1,11 +1,4 @@
-import {
-  cartLines,
-  extOrderIdOperation,
-  partnerHints,
-  readPayload,
-  toErpOrder,
-  unwrapOrder,
-} from "#lib/webhook";
+import { cartLines, partnerHints, readPayload } from "#lib/webhook";
 
 describe("Given the webhook helpers", () => {
   test("Then the body is read raw, base64 or from params", () => {
@@ -52,41 +45,6 @@ describe("Given the webhook helpers", () => {
       customerGroupId: undefined,
       customerId: null,
       email: null,
-    });
-  });
-  test("Then an order-place payload becomes an ERP order with top-level lines", () => {
-    const payload = {
-      data: {
-        order: {
-          base_grand_total: 40,
-          customer_email: "b@acme.example",
-          customer_group_id: 4,
-          entity_id: 12,
-          increment_id: "000000012",
-          items: [
-            { base_price: 20, item_id: 1, qty_ordered: 2, sku: "A" },
-            { parent_item_id: 1, sku: "child" },
-          ],
-        },
-      },
-    };
-    expect(unwrapOrder(payload)).toBe(payload.data.order);
-    expect(toErpOrder(payload.data.order)).toEqual({
-      commerceIncrementId: "000000012",
-      commerceOrderId: "12",
-      currency: "USD",
-      customerGroupId: "4",
-      customerId: null,
-      email: "b@acme.example",
-      lines: [{ commerceItemId: 1, price: 20, qty: 2, sku: "A" }],
-      total: 40,
-    });
-  });
-  test("Then the ERP number is written at the payload-relative path", () => {
-    expect(extOrderIdOperation("0000001000")).toEqual({
-      op: "replace",
-      path: "data/order/ext_order_id",
-      value: "0000001000",
     });
   });
 });

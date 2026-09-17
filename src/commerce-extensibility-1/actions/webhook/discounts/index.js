@@ -1,6 +1,7 @@
 import AioLogger from "@adobe/aio-lib-core-logging";
 
 import { erp } from "#lib/erp";
+import { settingsFor } from "#lib/settings";
 import {
   cartLines,
   noop,
@@ -44,6 +45,10 @@ async function main(params) {
     const payload = readPayload(params);
     const lines = cartLines(payload);
     if (lines.length === 0) {
+      return noop();
+    }
+    const settings = await settingsFor(payload.quote?.store_id, logger);
+    if (!settings.pricing_discount_ceiling) {
       return noop();
     }
     const res = await erp.quote(

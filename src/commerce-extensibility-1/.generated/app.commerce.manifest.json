@@ -19,7 +19,7 @@
       },
       {
         "default": true,
-        "description": "An order placed while the ERP is offline is kept and sent when the ERP is back.",
+        "description": "An order placed while the ERP is offline is sent when the ERP is back (retried for up to a day). When off, such an order is not sent.",
         "label": "Hold orders while the ERP is offline",
         "name": "orders_hold_offline",
         "type": "boolean"
@@ -81,6 +81,64 @@
             "runtimeActions": [
               "product-commerce/created",
               "product-commerce/updated"
+            ]
+          },
+          {
+            "description": "Fires after an order is saved in Commerce, used to create each new order in the ERP and write back the ERP order number",
+            "fields": [
+              {
+                "name": "increment_id"
+              },
+              {
+                "name": "store_id"
+              },
+              {
+                "name": "ext_order_id"
+              },
+              {
+                "name": "customer_email"
+              },
+              {
+                "name": "customer_group_id"
+              },
+              {
+                "name": "customer_id"
+              },
+              {
+                "name": "base_grand_total"
+              },
+              {
+                "name": "base_currency_code"
+              },
+              {
+                "name": "created_at"
+              },
+              {
+                "name": "updated_at"
+              },
+              {
+                "name": "_isNew"
+              },
+              {
+                "name": "items[].item_id"
+              },
+              {
+                "name": "items[].sku"
+              },
+              {
+                "name": "items[].qty_ordered"
+              },
+              {
+                "name": "items[].base_price"
+              },
+              {
+                "name": "items[].parent_item_id"
+              }
+            ],
+            "label": "Order Saved",
+            "name": "observer.sales_order_save_commit_after",
+            "runtimeActions": [
+              "order-commerce/created"
             ]
           },
           {
@@ -193,27 +251,10 @@
     "description": "Adobe Commerce integration to a demo ERP: orders to the ERP with the ERP number written back, contract pricing at cart time, and the ERP events (prices, stock, credit limits, order statuses) applied to Commerce.",
     "displayName": "ERP integration",
     "id": "commerce-erp-integration",
-    "version": "0.1.0"
+    "upgradeMode": "auto",
+    "version": "0.2.0"
   },
   "webhooks": [
-    {
-      "category": "modification",
-      "description": "On order placement, creates the sales order in the ERP and writes the ERP order number onto the Commerce order as ext_order_id",
-      "label": "Create the sales order in the ERP",
-      "requireAdobeAuth": true,
-      "runtimeAction": "webhook/order-create",
-      "webhook": {
-        "batch_name": "erp_order_place",
-        "fallback_error_message": "The ERP is unavailable; the order was placed and will be sent to the ERP separately.",
-        "hook_name": "erp_order_create",
-        "method": "POST",
-        "required": false,
-        "soft_timeout": 5000,
-        "timeout": 30000,
-        "webhook_method": "observer.sales_order_place_before",
-        "webhook_type": "before"
-      }
-    },
     {
       "category": "modification",
       "description": "Replaces each cart line price with the ERP contract price for the buyer business partner",

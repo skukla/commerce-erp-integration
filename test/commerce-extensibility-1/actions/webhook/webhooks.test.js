@@ -3,12 +3,18 @@ import {
   successOperation,
 } from "@adobe/aio-commerce-sdk/webhooks/responses";
 
-vi.mock("#lib/erp", () => ({ erp: { createOrder: vi.fn(), quote: vi.fn() } }));
+vi.mock("#lib/erp", () => ({ erp: { quote: vi.fn() } }));
+vi.mock("#lib/settings", () => ({
+  settingsFor: vi.fn(async () => ({
+    pricing_contract_prices: true,
+    pricing_discount_ceiling: true,
+  })),
+}));
 
 import { erp } from "#lib/erp";
+import { settingsFor } from "#lib/settings";
 import * as discounts from "#src/webhook/discounts/index";
 import * as itemPrices from "#src/webhook/item-prices/index";
-import * as orderCreate from "#src/webhook/order-create/index";
 
 /** The SDK's own "leave Commerce's outcome untouched" answer. */
 const SUCCESS = ok(successOperation());
@@ -29,46 +35,6 @@ const cart = {
 
 afterEach(() => {
   vi.clearAllMocks();
-});
-
-describe("Given the order-create webhook", () => {
-  test("Then it writes the ERP number as ext_order_id", async () => {
-    erp.createOrder.mockResolvedValue({
-      data: { number: "0000001000" },
-      ok: true,
-      status: 201,
-    });
-    const res = await orderCreate.main({
-      __ow_body: JSON.stringify({
-        data: {
-          order: { entity_id: 5, items: [{ qty_ordered: 1, sku: "A" }] },
-        },
-      }),
-    });
-    expect(res.statusCode).toBe(200);
-    expect(res.body).toEqual([
-      { op: "replace", path: "data/order/ext_order_id", value: "0000001000" },
-    ]);
-  });
-  test("Then an ERP failure or a payload without lines lets the order place untouched", async () => {
-    erp.createOrder.mockResolvedValue({ data: {}, ok: false, status: 503 });
-    expect(
-      await orderCreate.main({
-        data: {
-          order: { entity_id: 5, items: [{ qty_ordered: 1, sku: "A" }] },
-        },
-      }),
-    ).toEqual(SUCCESS);
-    expect(
-      await orderCreate.main({ data: { order: { entity_id: 5, items: [] } } }),
-    ).toEqual(SUCCESS);
-    erp.createOrder.mockRejectedValue(new Error("timeout"));
-    expect(
-      await orderCreate.main({
-        data: { order: { entity_id: 5, items: [{ sku: "A" }] } },
-      }),
-    ).toEqual(SUCCESS);
-  });
 });
 
 describe("Given the item-prices webhook", () => {
@@ -109,6 +75,16 @@ describe("Given the item-prices webhook", () => {
       status: 200,
     });
     expect(await itemPrices.main(cart)).toEqual(SUCCESS);
+  });
+  test("Then contract prices switched off for the cart's store view leave the cart to Commerce", async () => {
+    settingsFor.mockResolvedValueOnce({ pricing_contract_prices: false });
+    const res = await itemPrices.main({
+      ...cart,
+      quote: { customer_group_id: 4, store_id: 3 },
+    });
+    expect(res).toEqual(SUCCESS);
+    expect(settingsFor).toHaveBeenCalledWith(3, expect.anything());
+    expect(erp.quote).not.toHaveBeenCalled();
   });
 });
 
@@ -156,6 +132,14 @@ describe("Given the discounts webhook", () => {
       status: 200,
     });
     expect(await discounts.main(cart)).toEqual(SUCCESS);
+  });
+  test("Then the ceiling switched off for the cart's store view leaves the cart to Commerce", async () => {
+    settingsFor.mockResolvedValueOnce({ pricing_discount_ceiling: false });
+    expect(await discounts.main({ ...cart, quote: { store_id: 3 } })).toEqual(
+      SUCCESS,
+    );
+    expect(settingsFor).toHaveBeenCalledWith(3, expect.anything());
+    expect(erp.quote).not.toHaveBeenCalled();
   });
   test("Then excessOverCeiling is zero without a list price", () => {
     expect(

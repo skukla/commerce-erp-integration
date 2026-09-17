@@ -278,17 +278,52 @@ export async function setStock(params, sku, quantity, sourceCode = "default") {
 }
 
 /**
- * Clear the external order id the ERP put on an order (a sparse order save: entity id plus
- * the one field). Reset and detach use it so no Commerce order keeps a number the ERP no
- * longer has. Notes in the order history cannot be removed and stay.
+ * Put the ERP's order number on a Commerce order as `ext_order_id` (a sparse order save:
+ * entity id plus the one field). An empty value clears it.
  */
-export async function clearExtOrderId(params, orderId) {
+export async function setExtOrderId(params, orderId, value) {
   const client = await commerceClient(params);
   return client
     .post("orders", {
-      json: { entity: { entity_id: Number(orderId), ext_order_id: "" } },
+      json: { entity: { entity_id: Number(orderId), ext_order_id: value } },
     })
     .json();
+}
+
+/**
+ * Clear the external order id the ERP put on an order. Reset and detach use it so no
+ * Commerce order keeps a number the ERP no longer has. Notes in the order history cannot
+ * be removed and stay.
+ */
+export function clearExtOrderId(params, orderId) {
+  return setExtOrderId(params, orderId, "");
+}
+
+/**
+ * The order with this increment id (the number a shopper sees), or null. The order save
+ * event carries the increment id but not the entity id the order endpoints take.
+ * @returns {Promise<{ entityId: number, extOrderId: string|null, storeId: number }|null>}
+ */
+export async function findOrderByIncrementId(params, incrementId) {
+  const client = await commerceClient(params);
+  const data = await client
+    .get("orders", {
+      searchParams: searchParams(1, 1, {
+        "searchCriteria[filter_groups][0][filters][0][field]": "increment_id",
+        "searchCriteria[filter_groups][0][filters][0][value]":
+          String(incrementId),
+      }),
+    })
+    .json();
+  const order = data.items?.[0];
+  if (!order) {
+    return null;
+  }
+  return {
+    entityId: Number(order.entity_id),
+    extOrderId: order.ext_order_id || null,
+    storeId: Number(order.store_id),
+  };
 }
 
 /** Order operations the ERP's statuses map to. */

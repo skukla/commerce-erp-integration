@@ -1,9 +1,27 @@
 import { HTTP_INTERNAL_SERVER_ERROR } from "@adobe/aio-commerce-sdk/core/responses";
 
-import { addComment } from "#src/order/commerce-order-api-client";
+import { settingsFor } from "#lib/settings";
+import { addComment, getOrder } from "#src/order/commerce-order-api-client";
+
+const PROCESSING = "processing";
 
 /**
- * This function send the order status updated data to the Adobe commerce REST API
+ * With "Mark orders Processing when the ERP confirms them" on for the order's store, a
+ * confirmation also moves the order to Processing. The ERP's event names the order but not
+ * its store, so the order is read first.
+ * @returns {Promise<string|undefined>} the status to set, if any
+ */
+async function statusFor(params) {
+  if (params.data.status !== "confirmed") {
+    return;
+  }
+  const order = await getOrder(params, params.data.id);
+  const settings = await settingsFor(order?.store_id);
+  return settings.orders_status_on_confirm ? PROCESSING : undefined;
+}
+
+/**
+ * Send the ERP's status to the Commerce order as a status-history line.
  *
  * @returns {Promise<
  *   | { success: true, message: unknown }
@@ -17,7 +35,11 @@ import { addComment } from "#src/order/commerce-order-api-client";
  */
 async function sendData(params, transformed, _preProcessed) {
   try {
-    const response = await addComment(params, params.data.id, transformed);
+    const status = await statusFor(params);
+    const body = status
+      ? { statusHistory: { ...transformed.statusHistory, status } }
+      : transformed;
+    const response = await addComment(params, params.data.id, body);
     return {
       message: response,
       success: true,

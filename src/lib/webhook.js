@@ -1,8 +1,8 @@
 /*
- * What the three synchronous webhooks share: reading the body Runtime hands over,
- * resolving the buyer's business partner, and answering in Commerce's operation shapes.
- * Every failure answers `{ op: "success" }`: a cart or an order is never broken by
- * the ERP being slow or away (decision 6).
+ * What the cart webhooks share: reading the body Runtime hands over, resolving the
+ * buyer's business partner, and answering in Commerce's operation shapes. Every failure
+ * answers `{ op: "success" }`: a cart is never broken by the ERP being slow or away
+ * (decision 6). The order event (lib/order-sync.js) uses the partner hints too.
  */
 import {
   ok,
@@ -40,6 +40,7 @@ export function noop() {
 /**
  * The partner hints a cart or order carries: the customer group (a company's shared
  * catalog group), the email domain, the customer id. The ERP resolves them in order.
+ * A cart's totals payload carries only the group; an order carries all three.
  */
 export function partnerHints(source = {}) {
   const email = source.customer_email || source.customer?.email || null;
@@ -69,40 +70,6 @@ export function cartLines(payload) {
       sku: item.sku,
     }))
     .filter((line) => line.sku && Number.isFinite(line.itemId));
-}
-
-/** The order from an order-place payload, whichever wrapping it arrived in. */
-export function unwrapOrder(payload) {
-  const body = payload || {};
-  return body.order || body.data?.order || null;
-}
-
-/** ERP order request from a Commerce order. */
-export function toErpOrder(order) {
-  const rawItems = order.items ?? order.all_items ?? [];
-  const items = (Array.isArray(rawItems) ? rawItems : Object.values(rawItems))
-    .filter((item) => !item.parent_item_id && item.sku)
-    .map((item) => ({
-      commerceItemId: item.item_id ?? item.quote_item_id ?? null,
-      price: Number(item.base_price ?? item.price ?? 0),
-      qty: Number(item.qty_ordered ?? item.qty ?? 1),
-      sku: item.sku,
-    }));
-  return {
-    commerceIncrementId: order.increment_id ?? null,
-    commerceOrderId: String(
-      order.entity_id ?? order.id ?? order.quote_id ?? order.increment_id ?? "",
-    ),
-    currency: order.base_currency_code ?? order.order_currency_code ?? "USD",
-    lines: items,
-    total: Number(order.base_grand_total ?? order.grand_total ?? 0),
-    ...partnerHints(order),
-  };
-}
-
-/** The operation that puts the ERP number on the order being placed (verified path root `data/order`). */
-export function extOrderIdOperation(erpNumber) {
-  return { op: "replace", path: "data/order/ext_order_id", value: erpNumber };
 }
 
 /** @returns {number} rounded to cents */

@@ -18,7 +18,7 @@ Commerce order follow.
 
 | Direction | How | Where |
 |---|---|---|
-| Order → ERP | `observer.sales_order_place_before` webhook creates the sales order in the ERP and writes the ERP number onto the order as `ext_order_id` | `webhook/order-create` |
+| Order → ERP | the order save event (`observer.sales_order_save_commit_after`), as Adobe's integration starter kit does it: a new order is created in the ERP and the ERP number written back as `ext_order_id`, with a note on the order. While the ERP cannot take it, the website's *Hold orders while the ERP is offline* setting decides: on, I/O Events delivers again for up to a day; off, the order is not sent | `order-commerce/created` |
 | Contract prices → cart | totals-collector `item_prices` webhook replaces each line's price with the ERP's contract price for the buyer's business partner | `webhook/item-prices` |
 | Discount ceiling → cart | totals-collector `execute` webhook claws back discount below the ERP's maximum-discount ceiling | `webhook/discounts` |
 | Products → ERP | product created/updated and stock events keep the ERP's products in step; companies are refreshed from Commerce every minute | `product-commerce/*`, `stock-commerce/updated`, `erp/refresh-partners` |
@@ -26,11 +26,18 @@ Commerce order follow.
 | Reset | undo what was written onto Commerce (ledgered company writes; the ERP number on every ERP-numbered order) → wipe the ERP → mirror Commerce (products, stock, companies) into it again | `erp/reset` |
 | Detach | the first half of reset alone: undo the company writes and clear the ERP numbers, leaving the ERP untouched. Demo Builder runs it before removing the integration | `erp/detach` |
 | Mirror | the import half of reset, run at first install | `erp/mirror` |
-| Unavailable ERP (test control, not a demo scene) | `erp/set-offline` flips the ERP's offline switch; the webhooks then answer "success" and Commerce keeps its own prices and orders | `erp/set-offline` |
+| Settings | per website or store view, kept by App Management's business configuration: send orders, hold orders while offline, mark Processing on confirm, contract prices, discount ceiling | `erp/settings`, `src/lib/settings.js` |
+| Unavailable ERP (test control, not a demo scene) | `erp/set-offline` flips the ERP's offline switch; the cart webhooks then answer "success" and Commerce keeps its own prices; orders wait for the ERP as their setting says | `erp/set-offline` |
 | Commerce Admin screen | System → ERP integration (Admin UI SDK): health, counts, the four controls, a log | `src/commerce-backend-ui-2` |
 
-All three webhooks are `required: false` with short soft timeouts on purpose: an ERP that is
-slow or away never breaks a cart or an order.
+Both cart webhooks are `required: false` with short soft timeouts on purpose: an ERP that is
+slow or away never breaks a cart. Orders are never held up at checkout: they reach the ERP
+after they are saved.
+
+**Changing a webhook or event after install.** App Management's installer skips a webhook that
+is already subscribed and never updates it, and uninstall removes only what the current config
+lists. So a changed `required`, timeout or field list, a new event, or a removed webhook reaches
+Commerce only through an uninstall run with the old config, then an install with the new one.
 
 **Who is the master.** The SC prepares the demo in Commerce, so Commerce is the master and
 the ERP adapts to it: every product, stock and company change in Commerce overwrites the
@@ -46,10 +53,10 @@ Reset returns the ERP to a fresh mirror of Commerce.
 
 | Kind | Name | Handler |
 |---|---|---|
-| webhook (before) | `observer.sales_order_place_before` | `webhook/order-create` → ERP `POST orders`, answers `replace data/order/ext_order_id` |
 | webhook (totals collector) | `plugin.out_of_process_totals_collector.api.get_total_modifications.item_prices` | `webhook/item-prices` → ERP `POST pricing/quote`, answers `replace result/price_updates` |
 | webhook (totals collector) | `plugin.out_of_process_totals_collector.api.get_total_modifications.execute` | `webhook/discounts` → ERP `POST pricing/quote`, answers `replace result` (negative `base_discount`) |
 | event | `observer.catalog_product_save_commit_after` | `product-commerce/created`, `product-commerce/updated` → ERP `POST admin/import` |
+| event | `observer.sales_order_save_commit_after` | `order-commerce/created` → Commerce `GET orders` (entity by increment id) → ERP `POST orders` → Commerce `POST orders` (`ext_order_id`) and `POST orders/{id}/comments` |
 | event | `observer.cataloginventory_stock_item_save_commit_after` | `stock-commerce/updated` → Commerce `GET products` (SKU by id) → ERP `POST admin/import` |
 
 **ERP → this app** (the ERP posts to `ingestion/webhook`, published to the `erp` provider)

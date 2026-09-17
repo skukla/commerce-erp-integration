@@ -1,0 +1,240 @@
+/*
+ * A Commerce order into the ERP from the order save event. The collaborators are handed
+ * in, so these tests assert what is asked of each and what the event delivery is told.
+ */
+import { erpOrderFrom, isNewOrder, sendOrderToErp } from "#lib/order-sync";
+
+const ON = { orders_hold_offline: true, orders_send: true };
+const NEW_ORDER = {
+  base_currency_code: "USD",
+  base_grand_total: 40,
+  created_at: "2026-09-17 05:32:03",
+  customer_email: "b@acme.example",
+  customer_group_id: 4,
+  increment_id: "3000000004",
+  items: [
+    { base_price: 20, item_id: 1, qty_ordered: 2, sku: "A" },
+    { item_id: 2, parent_item_id: 1, sku: "child" },
+  ],
+  store_id: 3,
+  updated_at: "2026-09-17 05:32:03",
+};
+
+function deps(overrides = {}) {
+  return {
+    addNote: vi.fn(async () => ({})),
+    erp: {
+      createOrder: vi.fn(async () => ({
+        data: { number: "0000001002" },
+        ok: true,
+        status: 201,
+      })),
+    },
+    findOrder: vi.fn(async () => ({
+      entityId: 41,
+      extOrderId: null,
+      storeId: 3,
+    })),
+    logger: { warn: vi.fn() },
+    setExtOrderId: vi.fn(async () => ({})),
+    settingsFor: vi.fn(async () => ON),
+    ...overrides,
+  };
+}
+
+describe("Given the order save event", () => {
+  test("Then a new order is created in the ERP with its entity id, and the number is written back", async () => {
+    const d = deps();
+    const result = await sendOrderToErp({ p: 1 }, NEW_ORDER, d);
+    expect(result).toStrictEqual({
+      message: "order 3000000004 is ERP sales order 0000001002.",
+      outcome: "sent",
+      statusCode: 200,
+    });
+    expect(d.settingsFor).toHaveBeenCalledWith(3, d.logger);
+    expect(d.findOrder).toHaveBeenCalledWith({ p: 1 }, "3000000004");
+    expect(d.erp.createOrder).toHaveBeenCalledWith(
+      { p: 1 },
+      {
+        commerceIncrementId: "3000000004",
+        commerceOrderId: "41",
+        currency: "USD",
+        customerGroupId: "4",
+        customerId: null,
+        email: "b@acme.example",
+        lines: [{ commerceItemId: 1, price: 20, qty: 2, sku: "A" }],
+        total: 40,
+      },
+      20_000,
+    );
+    expect(d.setExtOrderId).toHaveBeenCalledExactlyOnceWith(
+      { p: 1 },
+      41,
+      "0000001002",
+    );
+    expect(d.addNote).toHaveBeenCalledWith(
+      { p: 1 },
+      41,
+      "Created in the ERP as sales order 0000001002",
+    );
+  });
+
+  test("Then the save that writes the number back is skipped, whatever its flags say", async () => {
+    const d = deps();
+    const again = { ...NEW_ORDER, ext_order_id: "0000001002" };
+    const result = await sendOrderToErp({}, again, d);
+    expect(result.outcome).toBe("skipped");
+    expect(d.erp.createOrder).not.toHaveBeenCalled();
+  });
+
+  test("Then a later save of an order is skipped", async () => {
+    const d = deps();
+    const later = { ...NEW_ORDER, updated_at: "2026-09-17 06:00:00" };
+    expect((await sendOrderToErp({}, later, d)).outcome).toBe("skipped");
+    expect(d.findOrder).not.toHaveBeenCalled();
+  });
+
+  test("Then Commerce's new-order flag wins over the timestamps", () => {
+    expect(isNewOrder({ ...NEW_ORDER, _isNew: false })).toBe(false);
+    expect(isNewOrder({ _isNew: true, created_at: "a", updated_at: "b" })).toBe(
+      true,
+    );
+    expect(isNewOrder({})).toBe(false);
+  });
+
+  test("Then a repeated delivery for an order that already has a number sends nothing", async () => {
+    const d = deps({
+      findOrder: vi.fn(async () => ({
+        entityId: 41,
+        extOrderId: "0000001002",
+        storeId: 3,
+      })),
+    });
+    expect((await sendOrderToErp({}, NEW_ORDER, d)).outcome).toBe("skipped");
+    expect(d.erp.createOrder).not.toHaveBeenCalled();
+  });
+
+  test("Then a website with sending off sends nothing", async () => {
+    const d = deps({
+      settingsFor: vi.fn(async () => ({ ...ON, orders_send: false })),
+    });
+    const result = await sendOrderToErp({}, NEW_ORDER, d);
+    expect(result.outcome).toBe("skipped");
+    expect(result.message).toContain("sending orders to the ERP is off");
+    expect(d.findOrder).not.toHaveBeenCalled();
+  });
+
+  test.each([
+    [
+      "an offline ERP",
+      {
+        data: { errorMessage: "Acme ERP is offline." },
+        ok: false,
+        status: 503,
+      },
+    ],
+    ["a failing ERP", { data: {}, ok: false, status: 500 }],
+    ["a busy ERP", { data: {}, ok: false, status: 429 }],
+  ])(
+    "Then %s with holding on asks for another delivery",
+    async (_label, answer) => {
+      const d = deps({ erp: { createOrder: vi.fn(async () => answer) } });
+      const result = await sendOrderToErp({}, NEW_ORDER, d);
+      expect(result.outcome).toBe("held");
+      expect(result.statusCode).toBe(503);
+      expect(d.setExtOrderId).not.toHaveBeenCalled();
+    },
+  );
+
+  test("Then an unreachable ERP with holding on asks for another delivery, with the reason", async () => {
+    const d = deps({
+      erp: {
+        createOrder: vi.fn(() =>
+          Promise.reject(new Error("ERP request timed out")),
+        ),
+      },
+    });
+    const result = await sendOrderToErp({}, NEW_ORDER, d);
+    expect(result).toStrictEqual({
+      message:
+        "order 3000000004 is waiting for the ERP (ERP request timed out).",
+      outcome: "held",
+      statusCode: 503,
+    });
+  });
+
+  test("Then an offline ERP with holding off ends the delivery", async () => {
+    const d = deps({
+      erp: {
+        createOrder: vi.fn(async () => ({ data: {}, ok: false, status: 503 })),
+      },
+      settingsFor: vi.fn(async () => ({ ...ON, orders_hold_offline: false })),
+    });
+    const result = await sendOrderToErp({}, NEW_ORDER, d);
+    expect(result.outcome).toBe("dropped");
+    expect(result.statusCode).toBe(400);
+    expect(result.message).toContain("holding orders is off");
+  });
+
+  test("Then an order the ERP refuses ends the delivery whatever the setting", async () => {
+    const d = deps({
+      erp: {
+        createOrder: vi.fn(async () => ({
+          data: { errorMessage: "commerceOrderId is required" },
+          ok: false,
+          status: 400,
+        })),
+      },
+    });
+    const result = await sendOrderToErp({}, NEW_ORDER, d);
+    expect(result).toStrictEqual({
+      message:
+        "order 3000000004 was refused by the ERP: commerceOrderId is required",
+      outcome: "dropped",
+      statusCode: 400,
+    });
+  });
+
+  test("Then an order Commerce cannot find yet is delivered again later", async () => {
+    const d = deps({ findOrder: vi.fn(async () => null) });
+    const result = await sendOrderToErp({}, NEW_ORDER, d);
+    expect(result.outcome).toBe("held");
+    expect(d.erp.createOrder).not.toHaveBeenCalled();
+  });
+
+  test("Then an event without an order number ends the delivery", async () => {
+    expect((await sendOrderToErp({}, {}, deps())).outcome).toBe("dropped");
+    expect((await sendOrderToErp({}, undefined, deps())).outcome).toBe(
+      "dropped",
+    );
+  });
+
+  test("Then a note that cannot be added does not undo a sent order", async () => {
+    const d = deps({
+      addNote: vi.fn(() => Promise.reject(new Error("403"))),
+    });
+    const result = await sendOrderToErp({}, NEW_ORDER, d);
+    expect(result.outcome).toBe("sent");
+    expect(d.logger.warn).toHaveBeenCalledWith(
+      "order 3000000004: note not added: 403",
+    );
+  });
+});
+
+describe("Given an order's lines", () => {
+  test("Then child lines and lines without a SKU are left out, and a keyed list is read", () => {
+    const request = erpOrderFrom(
+      {
+        increment_id: 7,
+        items: { a: { qty_ordered: 1, sku: "A" }, b: { sku: "" } },
+      },
+      9,
+    );
+    expect(request.lines).toStrictEqual([
+      { commerceItemId: null, price: 0, qty: 1, sku: "A" },
+    ]);
+    expect(request.commerceOrderId).toBe("9");
+    expect(request.total).toBe(0);
+    expect(request.currency).toBe("USD");
+  });
+});

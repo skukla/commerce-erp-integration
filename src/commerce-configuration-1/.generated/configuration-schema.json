@@ -8,7 +8,7 @@
   },
   {
     "default": true,
-    "description": "An order placed while the ERP is offline is kept and sent when the ERP is back.",
+    "description": "An order placed while the ERP is offline is sent when the ERP is back (retried for up to a day). When off, such an order is not sent.",
     "label": "Hold orders while the ERP is offline",
     "name": "orders_hold_offline",
     "type": "boolean"
