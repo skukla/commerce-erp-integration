@@ -27,6 +27,53 @@ export default defineConfig({
       parentMenu: "system",
     },
   },
+  // The merchant's settings, kept per scope (default, website, store, store view) by
+  // @adobe/aio-commerce-lib-config and edited on the integration's Admin page. Read
+  // through src/lib/settings.js, which answers these defaults when a read fails.
+  businessConfig: {
+    schema: [
+      {
+        default: true,
+        description:
+          "Orders placed on this website are created in the ERP, and the ERP's order number is written back.",
+        label: "Send orders to the ERP",
+        name: "orders_send",
+        type: "boolean",
+      },
+      {
+        default: true,
+        description:
+          "An order placed while the ERP is offline is kept and sent when the ERP is back.",
+        label: "Hold orders while the ERP is offline",
+        name: "orders_hold_offline",
+        type: "boolean",
+      },
+      {
+        default: true,
+        description:
+          "When the ERP confirms an order, its Commerce status becomes Processing.",
+        label: "Mark orders Processing when the ERP confirms them",
+        name: "orders_status_on_confirm",
+        type: "boolean",
+      },
+      {
+        default: true,
+        description:
+          "Cart prices come from the ERP's contract prices for the buyer's company.",
+        label: "Use ERP contract prices in the cart",
+        name: "pricing_contract_prices",
+        type: "boolean",
+      },
+      {
+        default: true,
+        description:
+          "A cart discount larger than the ERP allows for the buyer is reduced to the ERP's limit.",
+        label: "Apply the ERP's maximum discount",
+        name: "pricing_discount_ceiling",
+        type: "boolean",
+      },
+    ],
+  },
   eventing: {
     commerce: [
       {

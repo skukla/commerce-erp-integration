@@ -1,10 +1,13 @@
-# Two extension points: the App Management app (events, webhooks, install) and the
-# Commerce Admin screen. Both are generated from app.commerce.config.ts by
-# @adobe/aio-commerce-lib-app's pre-app-build hooks.
+# Three extension points: the App Management app (events, webhooks, install), the
+# merchant's settings (business configuration) and the Commerce Admin screen. All three
+# are generated from app.commerce.config.ts by @adobe/aio-commerce-lib-app's hooks.
 extensions:
   # This extension is required for app management. Do not remove.
   commerce/extensibility/1:
     $include: src/commerce-extensibility-1/ext.config.yaml
+  # This extension is required for business configuration. Do not remove.
+  commerce/configuration/1:
+    $include: src/commerce-configuration-1/ext.config.yaml
   commerce/backend-ui/2:
     $include: src/commerce-backend-ui-2/ext.config.yaml
 
