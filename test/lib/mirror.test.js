@@ -279,8 +279,14 @@ describe("Given the mirror", () => {
     const sizes = erp.importRecords.mock.calls
       .map(([, body]) => body.products?.length)
       .filter((n) => n !== undefined);
-    expect(sizes).toEqual([PRODUCT_BATCH, PRODUCT_BATCH, 50]);
-    expect(done).toEqual([0, 200, 400, 450]);
+    // 450 products in batches of PRODUCT_BATCH, the last one short.
+    const full = Math.floor(450 / PRODUCT_BATCH);
+    expect(sizes).toEqual([
+      ...Array(full).fill(PRODUCT_BATCH),
+      ...(450 % PRODUCT_BATCH ? [450 % PRODUCT_BATCH] : []),
+    ]);
+    // One report per batch, so the screen's count moves as the import runs.
+    expect(done).toEqual([0, ...sizes.map(((sum) => (n) => (sum += n))(0))]);
     expect(result.products).toEqual({ created: 450, updated: 0 });
   });
 

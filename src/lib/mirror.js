@@ -116,8 +116,19 @@ export async function mirrorPartners(params, readers, erp) {
   return { companies: companies.length, partners: result.data.partners };
 }
 
-/** Products per import request: keeps each request well under Runtime's 1 MB limit. */
-export const PRODUCT_BATCH = 200;
+/**
+ * Products per import request.
+ *
+ * Small on purpose since 2026-09-17: the ERP's screen shows the count imported
+ * so far, and one report per batch means the number only moves once per batch.
+ * At 200 a typical demo catalogue (Bodea: 182) was a single batch, so the bar
+ * went from nothing to finished with nothing in between. 25 gives a catalogue
+ * that size eight steps, at the cost of a few more requests.
+ *
+ * Also keeps each request well under Runtime's 1 MB limit, which is why it was
+ * ever capped.
+ */
+export const PRODUCT_BATCH = 25;
 
 function importOrThrow(result) {
   if (!result.ok) {
