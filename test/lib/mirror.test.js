@@ -9,15 +9,37 @@ import {
 const OFFLINE_503 = /503.*offline/u;
 
 describe("Given the mirror", () => {
-  test("Then products become products with their stock", () => {
+  test("Then products become products with stock per warehouse, named from the store's sources", () => {
     const rows = productsFrom(
       [
         { listPrice: 10, name: "A", sku: "A1" },
+        { listPrice: 3, name: "B", sku: "B1" },
         { listPrice: 5, sku: "" },
       ],
-      new Map([["A1", 7]]),
+      new Map([
+        [
+          "A1",
+          [
+            { code: "default", quantity: 7 },
+            { code: "austin_dc", quantity: 2 },
+          ],
+        ],
+      ]),
+      new Map([["default", "Default Source"]]),
     );
-    expect(rows).toEqual([{ listPrice: 10, name: "A", sku: "A1", stock: 7 }]);
+    expect(rows).toEqual([
+      {
+        listPrice: 10,
+        name: "A",
+        sku: "A1",
+        warehouses: [
+          { code: "default", name: "Default Source", quantity: 7 },
+          // A source the store did not name is named by its code.
+          { code: "austin_dc", name: "austin_dc", quantity: 2 },
+        ],
+      },
+      { listPrice: 3, name: "B", sku: "B1", warehouses: [] },
+    ]);
   });
   test("Then companies become partners keyed C<id> with their group, credit and email domain", () => {
     const rows = partnersFrom([
@@ -45,7 +67,10 @@ describe("Given the mirror", () => {
     const readers = {
       listCompanies: vi.fn(async () => [{ id: 1, name: "One" }]),
       listProducts: vi.fn(async () => [{ listPrice: 1, name: "P", sku: "P1" }]),
-      listStock: vi.fn(async () => new Map([["P1", 2]])),
+      listSources: vi.fn(async () => new Map([["default", "Default Source"]])),
+      listStock: vi.fn(
+        async () => new Map([["P1", [{ code: "default", quantity: 2 }]]]),
+      ),
     };
     const erp = {
       importRecords: vi.fn(async (_params, body) => ({
@@ -76,7 +101,18 @@ describe("Given the mirror", () => {
         ],
         projectName: "Demo",
       },
-      { products: [{ listPrice: 1, name: "P", sku: "P1", stock: 2 }] },
+      {
+        products: [
+          {
+            listPrice: 1,
+            name: "P",
+            sku: "P1",
+            warehouses: [
+              { code: "default", name: "Default Source", quantity: 2 },
+            ],
+          },
+        ],
+      },
     ]);
     expect(steps).toEqual([
       { phase: "reading", state: "running" },

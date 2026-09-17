@@ -6,7 +6,12 @@
  */
 import AioLogger from "@adobe/aio-lib-core-logging";
 
-import { listCompanies, listProducts, listStock } from "#lib/commerce";
+import {
+  listCompanies,
+  listProducts,
+  listSources,
+  listStock,
+} from "#lib/commerce";
 import { erp } from "#lib/erp";
 import { mirror } from "#lib/mirror";
 
@@ -62,7 +67,7 @@ export async function runMirror(params) {
   try {
     const result = await mirror(
       params,
-      { listCompanies, listProducts, listStock },
+      { listCompanies, listProducts, listSources, listStock },
       erp,
       params.projectName,
       report,

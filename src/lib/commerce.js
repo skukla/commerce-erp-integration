@@ -72,18 +72,42 @@ export async function listProducts(params) {
   }));
 }
 
-/** Stock per SKU from the source items of the default source. */
+/**
+ * Stock per SKU, per inventory source (Commerce multi-source inventory): each SKU maps
+ * to `[{ code, quantity }]`, one row per source it is assigned to. The ERP calls a
+ * source a warehouse and edits each one on its own.
+ */
 export async function listStock(params) {
   const client = await commerceClient(params);
   const items = await readAllPages(client, "inventory/source-items");
   const bySku = new Map();
   for (const item of items) {
-    bySku.set(
-      item.sku,
-      (bySku.get(item.sku) ?? 0) + Number(item.quantity ?? 0),
-    );
+    const rows = bySku.get(item.sku) ?? [];
+    rows.push({
+      code: item.source_code,
+      quantity: Math.max(0, Math.round(Number(item.quantity ?? 0))),
+    });
+    bySku.set(item.sku, rows);
   }
   return bySku;
+}
+
+/**
+ * Inventory source names by code. A store without the sources API answers an empty
+ * map, and each warehouse is then named by its code.
+ */
+export async function listSources(params) {
+  const client = await commerceClient(params);
+  let sources;
+  try {
+    sources = await readAllPages(client, "inventory/sources");
+  } catch (error) {
+    if (error.response?.status === 404) {
+      return new Map();
+    }
+    throw error;
+  }
+  return new Map(sources.map((source) => [source.source_code, source.name]));
 }
 
 /** B2B companies with their credit records; an instance without B2B answers an empty list. */

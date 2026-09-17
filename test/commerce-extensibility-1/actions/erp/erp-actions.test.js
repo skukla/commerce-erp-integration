@@ -17,6 +17,7 @@ vi.mock("#lib/commerce", () => ({
   clearExtOrderId: vi.fn(),
   listCompanies: vi.fn(async () => []),
   listProducts: vi.fn(async () => []),
+  listSources: vi.fn(async () => new Map()),
   listStock: vi.fn(async () => new Map()),
   setCompanyCreditLimit: vi.fn(),
   setCompanyStatus: vi.fn(),

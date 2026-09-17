@@ -13,7 +13,8 @@
     "events": ["GET", "POST /retry", "POST /requeue"]
   },
   "import": {
-    "products": ["sku", "name", "listPrice", "stock"],
+    "products": ["sku", "name", "listPrice", "warehouses"],
+    "warehouse": ["code", "name", "quantity"],
     "partners": ["id", "name", "commerceCompanyId", "customerGroupId", "emailDomain", "creditLimit", "blocked"],
     "projectName": "optional"
   },

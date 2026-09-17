@@ -4,15 +4,25 @@
  * without either system.
  */
 
-/** @returns {object[]} ERP product rows */
-export function productsFrom(products, stockBySku) {
+/**
+ * ERP product rows. Each carries its warehouses: one per inventory source the SKU is
+ * assigned to, named from the store's sources (or by code when the name is unknown).
+ * @param {Map<string, Array<{code: string, quantity: number}>>} stockBySku
+ * @param {Map<string, string>} [sourceNames]
+ * @returns {object[]}
+ */
+export function productsFrom(products, stockBySku, sourceNames = new Map()) {
   return products
     .filter((p) => p.sku)
     .map((p) => ({
       listPrice: p.listPrice,
       name: p.name || p.sku,
       sku: p.sku,
-      stock: stockBySku?.get ? (stockBySku.get(p.sku) ?? 0) : 0,
+      warehouses: (stockBySku?.get?.(p.sku) ?? []).map((row) => ({
+        code: row.code,
+        name: sourceNames.get(row.code) || row.code,
+        quantity: row.quantity,
+      })),
     }));
 }
 
@@ -80,7 +90,7 @@ const noReport = () => Promise.resolve();
 /**
  * Read Commerce and import into the ERP, reporting each step to `report` (the ERP's
  * sync record): reading, then partners, then products batch by batch.
- * @param {object} readers `{ listProducts, listStock, listCompanies }` each `async (params)`
+ * @param {object} readers `{ listProducts, listStock, listCompanies, listSources? }` each `async (params)`
  * @param {object} erp the ERP client (`importRecords`)
  * @param {(step: object) => Promise<void>} [report] receives `{ state, phase, partners, products }`
  * @returns {Promise<{ products: object, partners: object, counts: object }>}
@@ -93,12 +103,13 @@ export async function mirror(
   report = noReport,
 ) {
   await report({ phase: "reading", state: "running" });
-  const [products, stock, companies] = await Promise.all([
+  const [products, stock, companies, sourceNames] = await Promise.all([
     readers.listProducts(params),
     readers.listStock(params),
     readers.listCompanies(params),
+    readers.listSources ? readers.listSources(params) : new Map(),
   ]);
-  const productRows = productsFrom(products, stock);
+  const productRows = productsFrom(products, stock, sourceNames);
   const partners = partnersFrom(companies);
   const partnerTotal = partners.length;
   const productTotal = productRows.length;
