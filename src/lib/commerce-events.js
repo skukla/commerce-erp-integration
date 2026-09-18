@@ -12,7 +12,21 @@ export const COMMERCE_EVENTS = {
   stockItemSaved: "observer.cataloginventory_stock_item_save_commit_after",
 };
 
-/** The `origin` an ERP write carries for one of those events. */
-export function originOf(event) {
-  return { event };
+/**
+ * The `origin` an ERP write carries for one of those events: the event's name and,
+ * when the action was given one, the event's own id — the one id Commerce, I/O Events
+ * and the ERP's log then share.
+ *
+ * `params.id` is the CloudEvent `id` I/O Events delivers with every event (the
+ * CloudEvents spec requires it, and Adobe's delivery example shows it at the top level
+ * beside `data`, which is where these actions already read `data` from). Not yet seen
+ * in a live delivery to these actions, so it is optional: without it the ERP still
+ * journals the event, just without the id.
+ *
+ * @param {string} event the Commerce event name
+ * @param {object} [params] the action params, carrying the delivered CloudEvent
+ */
+export function originOf(event, params) {
+  const id = params?.id;
+  return typeof id === "string" && id ? { event, eventId: id } : { event };
 }

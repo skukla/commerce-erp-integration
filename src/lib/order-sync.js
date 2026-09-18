@@ -38,7 +38,6 @@ export function erpOrderFrom(order, entityId) {
   const rawItems = order.items ?? [];
   const items = Array.isArray(rawItems) ? rawItems : Object.values(rawItems);
   return {
-    origin: originOf(COMMERCE_EVENTS.orderSaved),
     commerceIncrementId: String(order.increment_id),
     commerceOrderId: String(entityId),
     currency: order.base_currency_code || "USD",
@@ -50,6 +49,7 @@ export function erpOrderFrom(order, entityId) {
         qty: Number(item.qty_ordered ?? item.qty ?? 1),
         sku: item.sku,
       })),
+    origin: originOf(COMMERCE_EVENTS.orderSaved),
     total: Number(order.base_grand_total ?? 0),
     ...partnerHints(order),
   };
@@ -115,7 +115,10 @@ export async function sendOrderToErp(params, order, deps) {
   try {
     res = await deps.erp.createOrder(
       params,
-      erpOrderFrom(order, found.entityId),
+      {
+        ...erpOrderFrom(order, found.entityId),
+        origin: originOf(COMMERCE_EVENTS.orderSaved, params),
+      },
       ERP_TIMEOUT_MS,
     );
   } catch (error) {

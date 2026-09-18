@@ -1,5 +1,6 @@
 import { HTTP_INTERNAL_SERVER_ERROR } from "@adobe/aio-commerce-sdk/core/responses";
 
+import { originOf } from "#lib/commerce-events";
 import { erp } from "#lib/erp";
 
 /**
@@ -9,7 +10,11 @@ import { erp } from "#lib/erp";
  */
 async function sendData(params, data) {
   try {
-    const res = await erp.importRecords(params, data);
+    // The transformer names the event; only the action's params carry its id.
+    const res = await erp.importRecords(params, {
+      ...data,
+      origin: originOf(data.origin?.event, params),
+    });
     if (!res.ok) {
       return {
         message: res.data?.errorMessage || `ERP answered ${res.status}`,

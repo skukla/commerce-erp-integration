@@ -23,7 +23,7 @@ async function sendData(params, transformed) {
     // The ERP puts `stock` on the product's default warehouse: the stock item tracks
     // Commerce's default source.
     const res = await erp.importRecords(params, {
-      origin: originOf(COMMERCE_EVENTS.stockItemSaved),
+      origin: originOf(COMMERCE_EVENTS.stockItemSaved, params),
       products: [{ sku, stock: transformed.stock }],
     });
     if (!res.ok) {
