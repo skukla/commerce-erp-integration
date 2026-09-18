@@ -100,8 +100,6 @@ export const erp = {
       timeoutMs: 60_000,
     }),
   listOrders: (params) => erpRequest(params, "orders"),
-  patchSettings: (params, patch) =>
-    erpRequest(params, "settings", { body: patch, method: "PATCH" }),
   quote: (params, body, timeoutMs) =>
     erpRequest(params, "pricing", {
       body,

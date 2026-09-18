@@ -8,12 +8,9 @@ import { isSyncActive, SyncProgress } from "#web/components/sync-progress.jsx";
 
 const SYNC_POLL_MS = 2000;
 
-/** Online, Offline or Unreachable, from the status action's answer. */
+/** Online or Unreachable, from the status action's answer. */
 function erpState(erp) {
-  if (!erp.reachable) {
-    return "Unreachable";
-  }
-  return erp.offline ? "Offline" : "Online";
+  return erp.reachable ? "Online" : "Unreachable";
 }
 
 /** The merchant's view of the integration: both apps' health, the ERP's controls, a log of what ran. */
@@ -72,7 +69,6 @@ export function MainPage() {
     },
     [refresh],
   );
-  const erpOffline = Boolean(status?.erp?.offline);
   const onSync = useCallback(
     () => run("Refresh partners", api.refreshPartners),
     [run, api],
@@ -82,13 +78,6 @@ export function MainPage() {
   const onSyncRecords = useCallback(
     () => run("Sync records", api.syncRecords),
     [run, api],
-  );
-  const onToggleOffline = useCallback(
-    () =>
-      run(erpOffline ? "Bring online" : "Take offline", () =>
-        api.setOffline(!erpOffline),
-      ),
-    [run, api, erpOffline],
   );
   const onReset = useCallback(() => run("Reset", api.reset), [run, api]);
 
@@ -143,12 +132,6 @@ export function MainPage() {
           onPress={onSyncRecords}
           variant="secondary">
           Sync records to {erpName}
-        </Button>
-        <Button
-          isDisabled={busy || !api}
-          onPress={onToggleOffline}
-          variant="secondary">
-          {erp.offline ? `Bring ${erpName} online` : `Take ${erpName} offline`}
         </Button>
         <Button isDisabled={busy || !api} onPress={onReset} variant="negative">
           Reset ERP records

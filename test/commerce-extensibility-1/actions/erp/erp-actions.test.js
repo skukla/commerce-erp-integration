@@ -4,7 +4,6 @@ vi.mock("#lib/erp", () => ({
     listOrders: vi.fn(() =>
       Promise.resolve({ data: { items: [] }, ok: true, status: 200 }),
     ),
-    patchSettings: vi.fn(),
     reportSync: vi.fn(() => Promise.resolve({ ok: true, status: 200 })),
     wipe: vi.fn(),
   },
@@ -45,7 +44,6 @@ import * as mirrorAction from "#src/erp/mirror/index";
 import * as mirrorJob from "#src/erp/mirror-job/index";
 import * as refreshJob from "#src/erp/refresh-partners-job/index";
 import * as reset from "#src/erp/reset/index";
-import * as setOffline from "#src/erp/set-offline/index";
 import * as status from "#src/erp/status/index";
 
 const CREDENTIAL_REFUSED =
@@ -62,7 +60,7 @@ afterEach(() => {
 describe("Given the status action", () => {
   test("Then it reports the ERP's health and the ledger size", async () => {
     erp.health.mockResolvedValue({
-      data: { displayName: "Acme ERP", offline: false, ok: true },
+      data: { displayName: "Acme ERP", ok: true },
       ok: true,
       status: 200,
     });
@@ -119,26 +117,6 @@ describe("Given the reset action", () => {
     const res = await reset.main({});
     expect(res.error.statusCode).toBe(500);
     expect(mirror).not.toHaveBeenCalled();
-  });
-});
-
-describe("Given the set-offline action", () => {
-  test("Then it forwards the flag to the ERP and refuses a non-boolean", async () => {
-    erp.patchSettings.mockResolvedValue({
-      data: { offline: true },
-      ok: true,
-      status: 200,
-    });
-    const res = await setOffline.main({
-      __ow_body: JSON.stringify({ offline: true }),
-    });
-    expect(erp.patchSettings).toHaveBeenCalledWith(expect.anything(), {
-      offline: true,
-    });
-    expect(res.body).toEqual({ offline: true });
-    expect((await setOffline.main({ offline: "yes" })).error.statusCode).toBe(
-      400,
-    );
   });
 });
 
