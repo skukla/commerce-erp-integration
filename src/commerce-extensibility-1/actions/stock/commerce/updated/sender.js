@@ -1,6 +1,7 @@
 import { HTTP_INTERNAL_SERVER_ERROR } from "@adobe/aio-commerce-sdk/core/responses";
 
 import { skuForProductId } from "#lib/commerce";
+import { COMMERCE_EVENTS, originOf } from "#lib/commerce-events";
 import { erp } from "#lib/erp";
 
 /**
@@ -19,7 +20,10 @@ async function sendData(params, transformed) {
         success: false,
       };
     }
+    // The ERP puts `stock` on the product's default warehouse: the stock item tracks
+    // Commerce's default source.
     const res = await erp.importRecords(params, {
+      origin: originOf(COMMERCE_EVENTS.stockItemSaved),
       products: [{ sku, stock: transformed.stock }],
     });
     if (!res.ok) {

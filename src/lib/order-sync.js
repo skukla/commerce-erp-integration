@@ -13,6 +13,7 @@
  * which of the two this answers. The ERP returns the same number for a repeated order, so a
  * repeated delivery creates nothing twice.
  */
+import { COMMERCE_EVENTS, originOf } from "#lib/commerce-events";
 import { partnerHints } from "#lib/webhook";
 
 const ERP_TIMEOUT_MS = 20_000;
@@ -37,6 +38,7 @@ export function erpOrderFrom(order, entityId) {
   const rawItems = order.items ?? [];
   const items = Array.isArray(rawItems) ? rawItems : Object.values(rawItems);
   return {
+    origin: originOf(COMMERCE_EVENTS.orderSaved),
     commerceIncrementId: String(order.increment_id),
     commerceOrderId: String(entityId),
     currency: order.base_currency_code || "USD",

@@ -18,7 +18,10 @@ describe("Given the stock event chain", () => {
     expect(await sendData({}, transformed)).toEqual({ success: true });
     expect(erp.importRecords).toHaveBeenCalledWith(
       {},
-      { products: [{ sku: "W1", stock: 7 }] },
+      {
+        origin: { event: "observer.cataloginventory_stock_item_save_commit_after" },
+        products: [{ sku: "W1", stock: 7 }],
+      },
     );
   });
   test("Then an unknown product is a 404 and a missing qty is invalid", async () => {

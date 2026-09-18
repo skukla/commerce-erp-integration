@@ -56,6 +56,7 @@ describe("Given the order save event", () => {
     expect(d.erp.createOrder).toHaveBeenCalledWith(
       { p: 1 },
       {
+        origin: { event: "observer.sales_order_save_commit_after" },
         commerceIncrementId: "3000000004",
         commerceOrderId: "41",
         currency: "USD",
