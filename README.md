@@ -27,7 +27,8 @@ Commerce order follow.
 | Detach | the first half of reset alone: undo the company writes and clear the ERP numbers, leaving the ERP untouched. Demo Builder runs it before removing the integration | `erp/detach` |
 | Mirror | the import half of reset, run at first install | `erp/mirror` |
 | Settings | per website or store view, kept by App Management's business configuration: send orders, hold orders while offline, mark Processing on confirm, contract prices, discount ceiling | `erp/settings`, `src/lib/settings.js` |
-| Commerce Admin screen | System → ERP integration (Admin UI SDK): health, counts, the four controls, a log | `src/commerce-backend-ui-2` |
+| History and Retry | one record per order sent to the ERP — sent, waiting for the ERP, or not sent — with the number of tries, kept 14 days in App Builder State (`src/lib/history.js`). A person can send one again from the Admin screen: it goes through the same send, as new, and the website's settings still apply | `erp/history` |
+| Commerce Admin screen | System → ERP integration (Admin UI SDK): health, counts, the four controls, the orders sent to the ERP with a Retry on any that did not get through, a log of this visit's actions | `src/commerce-backend-ui-2` |
 
 Both cart webhooks are `required: false` with short soft timeouts on purpose: an ERP that is
 slow or away never breaks a cart. Orders are never held up at checkout: they reach the ERP

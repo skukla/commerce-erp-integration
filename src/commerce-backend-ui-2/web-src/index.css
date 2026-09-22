@@ -48,3 +48,25 @@ main {
   max-width: 480px;
   margin: 16px 0;
 }
+.erp-history {
+  margin-top: 32px;
+}
+.erp-history-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  align-items: center;
+  margin: 12px 0;
+}
+.erp-history-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+.erp-history-table th,
+.erp-history-table td {
+  padding: 8px;
+  text-align: left;
+  vertical-align: top;
+  border-bottom: 1px solid var(--s2-color-gray-300, #ddd);
+}
