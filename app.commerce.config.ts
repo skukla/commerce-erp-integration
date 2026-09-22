@@ -4,21 +4,38 @@ const field = (name: string, source?: string) =>
   source ? { name, source } : { name };
 
 const COPY_NUMBER = /^[0-9]+$/;
+const APP_ID = /^[a-z0-9-]+$/;
 
 /**
- * Which copy of this app a deploy builds. Commerce knows an App Management app by its
- * `metadata.id`, and the library names the app's webhooks and events from it, so a second
- * copy on the same Commerce store needs an id of its own. Demo Builder sets
- * DEMO_BUILDER_COPY_NUMBER on the deploy of a second copy ("2"); the first copy is deployed
- * without it and keeps the id it was installed with, which Commerce refuses to change on an
- * upgrade. Read at build time: the running actions read the generated manifest.
+ * Which copy of this app a deploy builds, and what it calls itself to Commerce.
+ *
+ * Commerce knows an App Management app by its `metadata.id`, and the library names the
+ * app's webhooks and events from it, so a second copy on the same Commerce store needs an
+ * id of its own. Demo Builder decides that id — it is the only side that knows the other
+ * copies — and sends it as DEMO_BUILDER_APP_ID, the name the SC gave this ERP
+ * ("Contoso ERP" -> `contoso-erp`), so Commerce's Webhooks List says which ERP a hook
+ * belongs to. Without it, DEMO_BUILDER_COPY_NUMBER alone still names the copy
+ * (`erp-integration-2`), which is what a copy the SC never named gets.
+ *
+ * The first copy is deployed with neither and keeps the id it was installed with, which
+ * Commerce refuses to change on an upgrade. Read at build time: the running actions read
+ * the generated manifest.
  */
 function copyIdentity(): { appId: string; menuId: string } {
   const copy = process.env.DEMO_BUILDER_COPY_NUMBER?.trim();
-  if (!copy) {
+  const given = process.env.DEMO_BUILDER_APP_ID?.trim();
+  if (!copy && !given) {
     return { appId: "commerce-erp-integration", menuId: "erp_integration" };
   }
-  if (!COPY_NUMBER.test(copy)) {
+  if (given) {
+    if (!APP_ID.test(given)) {
+      throw new Error(
+        `DEMO_BUILDER_APP_ID must be lower-case letters, digits and hyphens, not "${given}".`,
+      );
+    }
+    return { appId: given, menuId: given.replace(/-/g, "_") };
+  }
+  if (!COPY_NUMBER.test(copy as string)) {
     throw new Error(
       `DEMO_BUILDER_COPY_NUMBER must be a number, not "${copy}".`,
     );
@@ -250,7 +267,7 @@ export default defineConfig({
     // version with every change to what this file registers, or the change never reaches
     // Commerce. "auto" runs the plan; the library marks it experimental.
     upgradeMode: "auto",
-    version: "0.3.0",
+    version: "0.4.0",
   },
   webhooks: [
     {

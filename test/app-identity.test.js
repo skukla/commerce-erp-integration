@@ -53,6 +53,28 @@ describe("Given the app's identity in Commerce", () => {
     }
   });
 
+  test("Then the id Demo Builder gives it is the id it declares", async () => {
+    const config = await loadConfig({ DEMO_BUILDER_APP_ID: "contoso-erp" });
+
+    expect(config.metadata.id).toBe("contoso-erp");
+    expect(config.adminUi.menu.id).toBe("contoso_erp");
+  });
+
+  test("Then a given id wins over the copy number", async () => {
+    const config = await loadConfig({
+      DEMO_BUILDER_APP_ID: "contoso-erp",
+      DEMO_BUILDER_COPY_NUMBER: "2",
+    });
+
+    expect(config.metadata.id).toBe("contoso-erp");
+  });
+
+  test("Then an id with anything Adobe refuses stops the build", async () => {
+    await expect(
+      loadConfig({ DEMO_BUILDER_APP_ID: "Contoso ERP" }),
+    ).rejects.toThrow("DEMO_BUILDER_APP_ID");
+  });
+
   test("Then a copy number that is not a number stops the build", async () => {
     await expect(
       loadConfig({ DEMO_BUILDER_COPY_NUMBER: "2; rm" }),
