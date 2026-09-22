@@ -16,6 +16,7 @@ vi.mock("@adobe/aio-commerce-sdk/auth", () => ({
 import {
   clearExtOrderId,
   findOrderByIncrementId,
+  getOrderByIncrementId,
   setExtOrderId,
 } from "#lib/commerce";
 
@@ -44,6 +45,12 @@ describe("Given the Commerce order calls", () => {
       "searchCriteria[filter_groups][0][filters][0][value]": "3000000004",
       "searchCriteria[pageSize]": "1",
     });
+  });
+
+  test("Then the whole order can be read by its increment id, for a retry", async () => {
+    const order = { entity_id: "41", increment_id: "3000000004", items: [] };
+    mockGet.mockReturnValueOnce(answer({ items: [order] }));
+    expect(await getOrderByIncrementId({}, "3000000004")).toStrictEqual(order);
   });
 
   test("Then an unknown number is null", async () => {

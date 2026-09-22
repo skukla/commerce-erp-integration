@@ -1,14 +1,17 @@
 /* The order save event's action: what each outcome tells I/O Events. */
 vi.mock("#lib/order-sync", () => ({ sendOrderToErp: vi.fn() }));
 vi.mock("#lib/settings", () => ({ settingsFor: vi.fn() }));
+vi.mock("#lib/history", () => ({ recordOrderOutcome: vi.fn() }));
 vi.mock("#lib/commerce", () => ({
   findOrderByIncrementId: vi.fn(),
+  getOrderByIncrementId: vi.fn(),
   orders: { comment: vi.fn() },
   setExtOrderId: vi.fn(),
 }));
 
 import { findOrderByIncrementId, orders, setExtOrderId } from "#lib/commerce";
 import { erp } from "#lib/erp";
+import { recordOrderOutcome } from "#lib/history";
 import { sendOrderToErp } from "#lib/order-sync";
 import { settingsFor } from "#lib/settings";
 import { main } from "#src/order/commerce/created/index";
@@ -55,6 +58,18 @@ describe("Given the order created event action", () => {
   test("Then a dropped order answers 400, which ends the delivery", async () => {
     sendOrderToErp.mockResolvedValueOnce(outcome("dropped", 400));
     expect((await main({ data: { value: {} } })).error.statusCode).toBe(400);
+  });
+
+  // The history on the Commerce Admin screen: every answer, with the event's order.
+  test("Then the outcome is recorded against the event's order", async () => {
+    const result = outcome("held", 503);
+    sendOrderToErp.mockResolvedValueOnce(result);
+    await main({ data: { value: { increment_id: "1" } } });
+    expect(recordOrderOutcome).toHaveBeenCalledWith(
+      { increment_id: "1" },
+      result,
+      expect.objectContaining({ logger: expect.anything() }),
+    );
   });
 
   test("Then Commerce being unreachable answers 500, which I/O Events delivers again", async () => {

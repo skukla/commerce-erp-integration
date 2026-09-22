@@ -161,3 +161,27 @@ export async function sendOrderToErp(params, order, deps) {
     `${label} was not sent (${reason}); holding orders is off for its website.`,
   );
 }
+
+const NOT_FOUND = 404;
+
+/**
+ * Send one order again, from the Commerce Admin screen's Retry. The event that first
+ * carried it is long gone, so the order is read from Commerce, and it goes through the
+ * same send as the first time — as new, since a retry is exactly a later save. The
+ * website's settings still apply, and an order that has an ERP number is left alone.
+ * @param {object} params action params (ERP and Commerce credentials)
+ * @param {string} incrementId the order number a shopper sees
+ * @param {object} deps `sendOrderToErp`'s, plus `getOrder(params, incrementId)`
+ * @returns {Promise<{ outcome: string, statusCode: number, message: string }>}
+ */
+export async function retryOrderToErp(params, incrementId, deps) {
+  const order = await deps.getOrder(params, incrementId);
+  if (!order) {
+    return {
+      message: `Commerce has no order ${incrementId}.`,
+      outcome: "dropped",
+      statusCode: NOT_FOUND,
+    };
+  }
+  return sendOrderToErp(params, { ...order, _isNew: true }, deps);
+}

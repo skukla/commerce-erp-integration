@@ -6,10 +6,9 @@ import {
 } from "@adobe/aio-commerce-sdk/core/responses";
 import AioLogger from "@adobe/aio-lib-core-logging";
 
-import { findOrderByIncrementId, orders, setExtOrderId } from "#lib/commerce";
-import { erp } from "#lib/erp";
+import { recordOrderOutcome } from "#lib/history";
+import { orderSyncDeps } from "#lib/order-deps";
 import { sendOrderToErp } from "#lib/order-sync";
-import { settingsFor } from "#lib/settings";
 
 /**
  * observer.sales_order_save_commit_after: a new Commerce order goes to the ERP and the
@@ -21,15 +20,14 @@ async function main(params) {
     level: params.LOG_LEVEL || "info",
   });
   try {
-    const result = await sendOrderToErp(params, params.data?.value, {
-      addNote: (p, orderId, comment) => orders.comment(p, orderId, comment),
-      erp,
-      findOrder: findOrderByIncrementId,
-      logger,
-      setExtOrderId,
-      settingsFor,
-    });
+    const result = await sendOrderToErp(
+      params,
+      params.data?.value,
+      orderSyncDeps(logger),
+    );
     logger.info(result.message);
+    // For the Commerce Admin screen's history and its Retry (lib/history.js).
+    await recordOrderOutcome(params.data?.value, result, { logger });
     if (result.outcome === "held") {
       return buildErrorResponse(result.statusCode, {
         body: { message: result.message },

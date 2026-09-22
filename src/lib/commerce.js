@@ -300,11 +300,11 @@ export function clearExtOrderId(params, orderId) {
 }
 
 /**
- * The order with this increment id (the number a shopper sees), or null. The order save
- * event carries the increment id but not the entity id the order endpoints take.
- * @returns {Promise<{ entityId: number, extOrderId: string|null, storeId: number }|null>}
+ * The whole order with this increment id (the number a shopper sees), or null. What the
+ * Admin screen's Retry sends again: the event that first carried the order is gone.
+ * @returns {Promise<object|null>}
  */
-export async function findOrderByIncrementId(params, incrementId) {
+export async function getOrderByIncrementId(params, incrementId) {
   const client = await commerceClient(params);
   const data = await client
     .get("orders", {
@@ -315,7 +315,16 @@ export async function findOrderByIncrementId(params, incrementId) {
       }),
     })
     .json();
-  const order = data.items?.[0];
+  return data.items?.[0] ?? null;
+}
+
+/**
+ * The order with this increment id, or null: the ids a write needs. The order save event
+ * carries the increment id but not the entity id the order endpoints take.
+ * @returns {Promise<{ entityId: number, extOrderId: string|null, storeId: number }|null>}
+ */
+export async function findOrderByIncrementId(params, incrementId) {
+  const order = await getOrderByIncrementId(params, incrementId);
   if (!order) {
     return null;
   }

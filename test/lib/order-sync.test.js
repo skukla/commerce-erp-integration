@@ -2,7 +2,12 @@
  * A Commerce order into the ERP from the order save event. The collaborators are handed
  * in, so these tests assert what is asked of each and what the event delivery is told.
  */
-import { erpOrderFrom, isNewOrder, sendOrderToErp } from "#lib/order-sync";
+import {
+  erpOrderFrom,
+  isNewOrder,
+  retryOrderToErp,
+  sendOrderToErp,
+} from "#lib/order-sync";
 
 const ON = { orders_hold_offline: true, orders_send: true };
 const NEW_ORDER = {
@@ -56,7 +61,6 @@ describe("Given the order save event", () => {
     expect(d.erp.createOrder).toHaveBeenCalledWith(
       { p: 1 },
       {
-        origin: { event: "observer.sales_order_save_commit_after" },
         commerceIncrementId: "3000000004",
         commerceOrderId: "41",
         currency: "USD",
@@ -64,6 +68,7 @@ describe("Given the order save event", () => {
         customerId: null,
         email: "b@acme.example",
         lines: [{ commerceItemId: 1, price: 20, qty: 2, sku: "A" }],
+        origin: { event: "observer.sales_order_save_commit_after" },
         total: 40,
       },
       20_000,
@@ -237,5 +242,54 @@ describe("Given an order's lines", () => {
     expect(request.commerceOrderId).toBe("9");
     expect(request.total).toBe(0);
     expect(request.currency).toBe("USD");
+  });
+});
+
+// The Commerce Admin screen's Retry: one order a person sends again. The order is read
+// from Commerce (the event that carried it is long gone) and goes through the same send.
+describe("Given a retry of one order from the Admin screen", () => {
+  const LATER = { ...NEW_ORDER, updated_at: "2026-09-17 06:10:00" };
+
+  test("Then an order that is no longer new is still sent, as the first time", async () => {
+    const d = deps({ getOrder: vi.fn(async () => LATER) });
+    const result = await retryOrderToErp({ p: 1 }, "3000000004", d);
+    expect(result.outcome).toBe("sent");
+    expect(d.getOrder).toHaveBeenCalledWith({ p: 1 }, "3000000004");
+    expect(d.erp.createOrder).toHaveBeenCalledWith(
+      { p: 1 },
+      expect.objectContaining({ commerceIncrementId: "3000000004" }),
+      expect.any(Number),
+    );
+  });
+
+  test("Then an order Commerce does not have is refused, and nothing is sent", async () => {
+    const d = deps({ getOrder: vi.fn(async () => null) });
+    const result = await retryOrderToErp({}, "999", d);
+    expect(result).toStrictEqual({
+      message: "Commerce has no order 999.",
+      outcome: "dropped",
+      statusCode: 404,
+    });
+    expect(d.erp.createOrder).not.toHaveBeenCalled();
+  });
+
+  test("Then an order that already has an ERP number is left alone", async () => {
+    const d = deps({
+      getOrder: vi.fn(async () => ({ ...LATER, ext_order_id: "0000001002" })),
+    });
+    expect((await retryOrderToErp({}, "3000000004", d)).outcome).toBe(
+      "skipped",
+    );
+    expect(d.erp.createOrder).not.toHaveBeenCalled();
+  });
+
+  test("Then the website's settings still apply", async () => {
+    const d = deps({
+      getOrder: vi.fn(async () => LATER),
+      settingsFor: vi.fn(async () => ({ ...ON, orders_send: false })),
+    });
+    const result = await retryOrderToErp({}, "3000000004", d);
+    expect(result.outcome).toBe("skipped");
+    expect(result.message).toContain("sending orders to the ERP is off");
   });
 });
