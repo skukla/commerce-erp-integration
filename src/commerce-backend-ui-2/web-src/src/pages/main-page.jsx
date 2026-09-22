@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { makeApi } from "#web/api.js";
 import { History } from "#web/components/history.jsx";
+import { OrderTrace } from "#web/components/order-trace.jsx";
 import { Stat } from "#web/components/stat.jsx";
 import { isSyncActive, SyncProgress } from "#web/components/sync-progress.jsx";
 
@@ -144,6 +145,7 @@ export function MainPage() {
         every ERP record, and mirrors Commerce again as it stands. Commerce
         orders keep their ERP numbers.
       </Text>
+      <OrderTrace api={api} erpName={erpName} onError={setError} />
       <History api={api} erpName={erpName} onError={setError} />
       {log.length > 0 && <div className="erp-log">{log.join("\n")}</div>}
     </main>

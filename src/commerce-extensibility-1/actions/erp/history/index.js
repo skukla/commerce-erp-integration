@@ -7,10 +7,13 @@ import {
 import AioLogger from "@adobe/aio-lib-core-logging";
 import openwhisk from "openwhisk";
 
+import { getOrderByIncrementId } from "#lib/commerce";
+import { erp } from "#lib/erp";
 import { HANDLER_ACTIONS, readErpEvent } from "#lib/erp-event-history";
 import { readHistory, recordOrderOutcome } from "#lib/history";
 import { orderSyncDeps } from "#lib/order-deps";
 import { retryOrderToErp } from "#lib/order-sync";
+import { buildOrderTrace } from "#lib/order-trace";
 import { readPayload } from "#lib/webhook";
 
 /** Order numbers are letters, digits and dashes; anything else never reaches Commerce. */
@@ -18,6 +21,8 @@ const ORDER_NUMBER = /^[A-Za-z0-9-]{1,50}$/u;
 /** CloudEvent ids here are UUIDs; the same characters, a little longer. */
 const EVENT_ID = /^[A-Za-z0-9-]{1,100}$/u;
 const NOT_FOUND = 404;
+/** The ERP is asked for one order inside a page load, so it waits no longer than this. */
+const TRACE_TIMEOUT_MS = 5000;
 
 /**
  * The Commerce Admin screen's history (lib/history.js).
@@ -55,6 +60,15 @@ async function main(params) {
       const [entry] = await readHistory({ ref: incrementId });
       return ok({
         body: { entry, message: result.message, outcome: result.outcome },
+      });
+    }
+    if (params.trace !== undefined) {
+      const incrementId = String(params.trace);
+      if (!ORDER_NUMBER.test(incrementId)) {
+        return badRequest("Name the order to follow by its order number.");
+      }
+      return ok({
+        body: { trace: await traceOrder(params, incrementId, logger) },
       });
     }
     const entries = await readHistory({
@@ -95,6 +109,35 @@ async function retryErpEvent(eventId, logger) {
   logger.info(`retry of ERP event ${eventId}: ${entry?.outcome}`);
   return ok({
     body: { entry, message: entry?.message, outcome: entry?.outcome },
+  });
+}
+
+/**
+ * One order as all three sides know it: Commerce's own order, this integration's record of
+ * what crossed, and — when the order reached it — the ERP's sales order with its status
+ * history. An ERP that cannot be reached, or never got the order, simply contributes
+ * nothing: the Commerce half is still the answer to "where is my order?".
+ */
+async function traceOrder(params, incrementId, logger) {
+  const [commerceOrder, crossings] = await Promise.all([
+    getOrderByIncrementId(params, incrementId).catch((error) => {
+      logger.warn(`trace: Commerce order ${incrementId}: ${error.message}`);
+      return null;
+    }),
+    readHistory({ ref: incrementId }),
+  ]);
+  const erpNumber = commerceOrder?.ext_order_id;
+  const answered = erpNumber
+    ? await erp.order(params, erpNumber, TRACE_TIMEOUT_MS).catch((error) => {
+        logger.warn(`trace: ERP order ${erpNumber}: ${error.message}`);
+        return { ok: false };
+      })
+    : { ok: false };
+  return buildOrderTrace({
+    commerceOrder,
+    crossings,
+    erpName: params.ERP_DISPLAY_NAME || "the ERP",
+    erpOrder: answered.ok ? answered.data : null,
   });
 }
 

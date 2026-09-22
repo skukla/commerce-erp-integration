@@ -60,13 +60,53 @@ main {
 }
 .erp-history-table {
   width: 100%;
-  border-collapse: collapse;
   font-size: 14px;
+  border-collapse: collapse;
 }
 .erp-history-table th,
 .erp-history-table td {
   padding: 8px;
-  text-align: left;
   vertical-align: top;
+  text-align: left;
   border-bottom: 1px solid var(--s2-color-gray-300, #ddd);
+}
+
+/* Follow an order: the search line, then one line per step, oldest first. */
+.erp-trace-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  align-items: end;
+  margin: 12px 0;
+}
+.erp-trace-steps {
+  padding: 0;
+  margin: 12px 0 0;
+  list-style: none;
+}
+.erp-step {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: baseline;
+  padding: 8px;
+  font-size: 14px;
+  border-bottom: 1px solid var(--s2-color-gray-300, #ddd);
+}
+.erp-step-when {
+  min-width: 170px;
+  color: var(--s2-color-gray-700, #666);
+}
+.erp-step-where {
+  min-width: 90px;
+  font-weight: 700;
+}
+.erp-step-detail,
+.erp-step-tries {
+  color: var(--s2-color-gray-700, #666);
+}
+/* A step that did not get through is the one the eye should land on. */
+.erp-step-failed .erp-step-what {
+  font-weight: 700;
+  color: var(--s2-color-red-900, #b40000);
 }

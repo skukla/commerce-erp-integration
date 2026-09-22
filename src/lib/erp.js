@@ -100,6 +100,9 @@ export const erp = {
       timeoutMs: 60_000,
     }),
   listOrders: (params) => erpRequest(params, "orders"),
+  /** One sales order by its ERP number, with the ERP's own status history. */
+  order: (params, number, timeoutMs) =>
+    erpRequest(params, "orders", { path: `/${number}`, timeoutMs }),
   quote: (params, body, timeoutMs) =>
     erpRequest(params, "pricing", {
       body,

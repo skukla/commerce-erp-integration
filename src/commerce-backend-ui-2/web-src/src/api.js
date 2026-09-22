@@ -44,5 +44,8 @@ export function makeApi(ims, origin = window.location.origin) {
     // Background mode: a web request is cut off after a minute, a mirror can take
     // longer. Answers 202; the page watches the ERP's last-import time.
     syncRecords: () => call("mirror?background=true", { method: "POST" }),
+    // One order's whole life, gathered from Commerce, this history and the ERP.
+    trace: (incrementId) =>
+      call(`history?trace=${encodeURIComponent(incrementId)}`),
   };
 }
