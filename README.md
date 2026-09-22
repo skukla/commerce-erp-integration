@@ -28,7 +28,7 @@ Commerce order follow.
 | Mirror | the import half of reset, run at first install | `erp/mirror` |
 | Settings | per website or store view, kept by App Management's business configuration: send orders, hold orders while offline, mark Processing on confirm, contract prices, discount ceiling | `erp/settings`, `src/lib/settings.js` |
 | History and Retry | what crossed and how it ended, kept 14 days in App Builder State. One record per order sent to the ERP — sent, waiting for the ERP, or not sent (`src/lib/history.js`) — and one per ERP event applied to Commerce — applied, not applied yet, or refused — under the event's own id, recorded by wrapping each ERP event handler (`src/lib/erp-event-history.js`). Each counts its tries. From the Admin screen a person can send an order again (the same send, as new; the website's settings still apply) or hand a saved ERP event to its handler again | `erp/history` |
-| Commerce Admin screen | System → ERP integration (Admin UI SDK): health, counts, the four controls, what crossed each way with a Retry on anything that did not get through, a log of this visit's actions | `src/commerce-backend-ui-2` |
+| Commerce Admin screen | System → the ERP's name (`ERP_DISPLAY_NAME`, else "ERP integration"; Admin UI SDK): health, counts, the four controls, what crossed each way with a Retry on anything that did not get through, a log of this visit's actions | `src/commerce-backend-ui-2` |
 
 Both cart webhooks are `required: false` with short soft timeouts on purpose: an ERP that is
 slow or away never breaks a cart. Orders are never held up at checkout: they reach the ERP
@@ -38,6 +38,13 @@ after they are saved.
 is already subscribed and never updates it, and uninstall removes only what the current config
 lists. So a changed `required`, timeout or field list, a new event, or a removed webhook reaches
 Commerce only through an uninstall run with the old config, then an install with the new one.
+
+**Two ERPs on one Commerce.** Commerce knows an App Management app by its `metadata.id`, and
+the library names the app's webhooks and events from it. Demo Builder deploys a second copy
+with `DEMO_BUILDER_COPY_NUMBER` set (`2`), which makes its id `erp-integration-2` and its menu
+id `erp_integration_2` (`app.commerce.config.ts`); the first copy is deployed without it and
+keeps `commerce-erp-integration`, since an installed app's id cannot change. A copy's id must
+not start with another's: the library counts a webhook as an app's by that prefix.
 
 **Who is the master.** The SC prepares the demo in Commerce, so Commerce is the master and
 the ERP adapts to it: every product, stock and company change in Commerce overwrites the
