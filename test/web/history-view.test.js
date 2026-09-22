@@ -24,8 +24,11 @@ describe("Given the History section", () => {
 
   test("Then the words are plain", () => {
     expect(RESULT).toStrictEqual({
+      applied: "Applied",
       dropped: "Not sent",
+      failed: "Not applied yet",
       held: "Waiting for the ERP",
+      refused: "Refused by Commerce",
       sent: "Sent",
     });
   });
@@ -39,17 +42,53 @@ describe("Given the History section", () => {
 
   test("Then a row names the order, how many tries it took, and who retried it", () => {
     expect(
-      historyRow(entry("sent", { attempts: 3, retriedBy: "admin" })),
+      historyRow(
+        entry("sent", { attempts: 3, retriedBy: "admin" }),
+        "Northwind ERP",
+      ),
     ).toMatchObject({
+      direction: "To Northwind ERP",
       key: "order.42",
-      order: "42",
       retriable: false,
+      retry: { incrementId: "42" },
       tries: "3 tries, the last by an admin",
+      what: "Order 42",
     });
     expect(historyRow(entry("held")).tries).toBe("1 try");
   });
 
   test("Then an unknown result is shown as it is, not hidden", () => {
     expect(historyRow(entry("paused")).result).toBe("paused");
+  });
+
+  // The ERP → Commerce half: named for what changed, retried by its event id.
+  const erpEvent = (kind, ref, outcome = "failed") =>
+    entry(outcome, { direction: "from-erp", eventId: "ev-1", kind, ref });
+
+  test.each([
+    ["price", "ABC", "SKU ABC"],
+    ["stock", "ABC", "SKU ABC"],
+    ["order-status", "42", "Order 42"],
+    ["shipment", "42", "Order 42"],
+    ["credit", "7", "Company 7"],
+    ["block", "7", "Company 7"],
+  ])(
+    "Then a %s event from the ERP is named for what it changed",
+    (kind, ref, what) => {
+      expect(historyRow(erpEvent(kind, ref), "Northwind ERP")).toMatchObject({
+        direction: "From Northwind ERP",
+        key: "erp.ev-1",
+        what,
+      });
+    },
+  );
+
+  test("Then an ERP event that did not get through is retried by its event id", () => {
+    expect(historyRow(erpEvent("credit", "7", "failed"))).toMatchObject({
+      retriable: true,
+      retry: { eventId: "ev-1" },
+    });
+    expect(canRetry(erpEvent("credit", "7", "refused"))).toBe(true);
+    expect(canRetry(erpEvent("credit", "7", "applied"))).toBe(false);
   });
 });

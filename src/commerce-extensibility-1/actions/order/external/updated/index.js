@@ -6,6 +6,7 @@ import {
 } from "@adobe/aio-commerce-sdk/core/responses";
 import AioLogger from "@adobe/aio-lib-core-logging";
 
+import { recordingErpEvent } from "#lib/erp-event-history";
 import { stringParameters } from "#lib/utils";
 
 import { postProcess } from "./post.js";
@@ -20,7 +21,7 @@ import { validateData } from "./validator.js";
  * @returns response object with status code, request data received and response of the invoked action
  * @param {object} params - includes the env params, type and the data of the event
  */
-async function main(params) {
+async function handle(params) {
   const logger = AioLogger("order-external-updated", {
     level: params.LOG_LEVEL || "info",
   });
@@ -54,5 +55,8 @@ async function main(params) {
     return internalServerError(error.message);
   }
 }
+
+/** Records how each event ended, for the Admin screen's history (lib/erp-event-history.js). */
+const main = recordingErpEvent("order-status", handle);
 
 export { main };

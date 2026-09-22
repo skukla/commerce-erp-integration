@@ -1,6 +1,8 @@
 /*
  * What crossed between Commerce and the ERP, and how it ended: the integration's history,
- * shown on the Commerce Admin screen with a Retry on what did not get through.
+ * shown on the Commerce Admin screen with a Retry on what did not get through. Orders sent
+ * to the ERP are recorded here; ERP events applied to Commerce in lib/erp-event-history.js,
+ * through `updateRecord`.
  *
  * One record per ORDER, not per attempt. An order the ERP cannot take is delivered again by
  * I/O Events (at 1, 2, 4 and 8 minutes, then every 15 minutes, for up to a day), so a line per
@@ -16,7 +18,8 @@ import stateLib from "@adobe/aio-lib-state";
 
 const PREFIX = "history.";
 const TTL_SECONDS = 14 * 24 * 60 * 60;
-const FAILED = new Set(["held", "dropped"]);
+/** What did not get through: orders held or not sent, ERP events not applied yet or refused. */
+const FAILED = new Set(["held", "dropped", "failed", "refused"]);
 const DEFAULT_LIMIT = 100;
 
 let statePromise;
@@ -32,7 +35,27 @@ export function resetHistoryClient(client) {
   statePromise = client ? Promise.resolve(client) : undefined;
 }
 
-const orderKey = (incrementId) => `${PREFIX}order.${incrementId}`;
+/**
+ * Write one record: `build` gets the record as it stands (or undefined) and the time, and
+ * answers the new one. Never throws — recording must not break the sync it records.
+ * @param {string} key the record's key, under `history.`
+ * @param {(before: object|undefined, now: string) => object} build
+ * @param {object} [logger]
+ * @returns {Promise<void>}
+ */
+export async function updateRecord(key, build, logger) {
+  try {
+    const client = await state();
+    const previous = await client.get(`${PREFIX}${key}`);
+    const before = previous?.value ? JSON.parse(previous.value) : undefined;
+    const entry = build(before, new Date().toISOString());
+    await client.put(`${PREFIX}${key}`, JSON.stringify(entry), {
+      ttl: TTL_SECONDS,
+    });
+  } catch (error) {
+    logger?.warn(`history: ${key} not recorded: ${error.message}`);
+  }
+}
 
 /**
  * Record how one order's send to the ERP ended.
@@ -45,13 +68,9 @@ export async function recordOrderOutcome(order, result, options = {}) {
   if (result.outcome === "skipped" || !order?.increment_id) {
     return;
   }
-  try {
-    const client = await state();
-    const key = orderKey(order.increment_id);
-    const previous = await client.get(key);
-    const before = previous?.value ? JSON.parse(previous.value) : undefined;
-    const now = new Date().toISOString();
-    const entry = {
+  await updateRecord(
+    `order.${order.increment_id}`,
+    (before, now) => ({
       attempts: (before?.attempts ?? 0) + 1,
       direction: "to-erp",
       firstAt: before?.firstAt ?? now,
@@ -61,13 +80,19 @@ export async function recordOrderOutcome(order, result, options = {}) {
       outcome: result.outcome,
       ref: String(order.increment_id),
       ...(options.retriedBy ? { retriedBy: options.retriedBy } : {}),
-    };
-    await client.put(key, JSON.stringify(entry), { ttl: TTL_SECONDS });
-  } catch (error) {
-    options.logger?.warn(
-      `history: order ${order.increment_id} not recorded: ${error.message}`,
-    );
-  }
+    }),
+    options.logger,
+  );
+}
+
+/**
+ * One record by its key under `history.`, or undefined.
+ * @param {string} key e.g. `erp.<event id>`
+ * @returns {Promise<object|undefined>}
+ */
+export async function readRecord(key) {
+  const found = await (await state()).get(`${PREFIX}${key}`);
+  return found?.value ? JSON.parse(found.value) : undefined;
 }
 
 /**

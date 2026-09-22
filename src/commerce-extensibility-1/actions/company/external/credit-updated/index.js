@@ -6,11 +6,12 @@ import {
 import AioLogger from "@adobe/aio-lib-core-logging";
 
 import { getCompanyCredit, setCompanyCreditLimit } from "#lib/commerce";
+import { recordingErpEvent } from "#lib/erp-event-history";
 import { recordCompanyWrite } from "#lib/ledger";
 import { stringParameters } from "#lib/utils";
 
 /** be-observer.company_credit_update: the ERP changed an account's credit limit; ledgered so reset can undo it. */
-async function main(params) {
+async function handle(params) {
   const logger = AioLogger("company-external-credit-updated", {
     level: params.LOG_LEVEL || "info",
   });
@@ -44,5 +45,8 @@ async function main(params) {
     return internalServerError(error.message);
   }
 }
+
+/** Records how each event ended, for the Admin screen's history (lib/erp-event-history.js). */
+const main = recordingErpEvent("credit", handle);
 
 export { main };

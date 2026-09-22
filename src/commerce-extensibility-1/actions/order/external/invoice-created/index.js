@@ -5,11 +5,12 @@ import {
 } from "@adobe/aio-commerce-sdk/core/responses";
 import AioLogger from "@adobe/aio-lib-core-logging";
 
+import { recordingErpEvent } from "#lib/erp-event-history";
 import { stringParameters } from "#lib/utils";
 import { addComment, invoiceOrder } from "#src/order/commerce-order-api-client";
 
 /** be-observer.sales_order_invoice_create: invoice the Commerce order the ERP invoiced. */
-async function main(params) {
+async function handle(params) {
   const logger = AioLogger("order-external-invoice-created", {
     level: params.LOG_LEVEL || "info",
   });
@@ -37,5 +38,8 @@ async function main(params) {
     return internalServerError(error.message);
   }
 }
+
+/** Records how each event ended, for the Admin screen's history (lib/erp-event-history.js). */
+const main = recordingErpEvent("invoice", handle);
 
 export { main };

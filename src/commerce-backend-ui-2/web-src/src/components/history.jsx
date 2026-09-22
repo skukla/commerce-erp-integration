@@ -3,19 +3,20 @@ import { useCallback, useEffect, useState } from "react";
 
 import { historyRow } from "#web/history-view.js";
 
-/** Retry for one order: disabled while any retry runs, and says which one is running. */
-function RetryButton({ onRetry, order, retrying }) {
-  const onPress = useCallback(() => onRetry(order), [onRetry, order]);
+/** Retry for one row: disabled while any retry runs, and says which one is running. */
+function RetryButton({ onRetry, row, retrying }) {
+  const onPress = useCallback(() => onRetry(row), [onRetry, row]);
   return (
     <Button isDisabled={retrying !== null} onPress={onPress} variant="primary">
-      {retrying === order ? "Retrying" : "Retry"}
+      {retrying === row.key ? "Retrying" : "Retry"}
     </Button>
   );
 }
 
 /**
- * What crossed to the ERP and how it ended, one row per order, with a Retry on an order
- * that did not get through (erp/history).
+ * What crossed between Commerce and the ERP and how it ended — orders sent to the ERP, and
+ * ERP events applied to Commerce — with a Retry on anything that did not get through
+ * (erp/history).
  */
 export function History({ api, erpName, onError }) {
   const [entries, setEntries] = useState([]);
@@ -38,39 +39,40 @@ export function History({ api, erpName, onError }) {
   }, [load]);
 
   const retry = useCallback(
-    async (order) => {
-      setRetrying(order);
+    async (row) => {
+      setRetrying(row.key);
       try {
-        await api.retryOrder(order);
+        await api.retry(row.retry);
         await load();
       } catch (e) {
-        onError(`Retry of order ${order} failed: ${e.message}`);
+        onError(`Retry of ${row.what} failed: ${e.message}`);
       }
       setRetrying(null);
     },
     [api, load, onError],
   );
 
-  const rows = entries.map(historyRow);
+  const rows = entries.map((entry) => historyRow(entry, erpName));
   return (
     <section className="erp-history">
-      <Heading level={2}>Orders sent to {erpName}</Heading>
+      <Heading level={2}>What crossed between Commerce and {erpName}</Heading>
       <div className="erp-history-controls">
         <Checkbox isSelected={failedOnly} onChange={setFailedOnly}>
-          Only orders that did not get through
+          Only what did not get through
         </Checkbox>
         <Button onPress={load} variant="secondary">
           Refresh
         </Button>
       </div>
       {rows.length === 0 ? (
-        <Text>No orders yet.</Text>
+        <Text>Nothing has crossed yet.</Text>
       ) : (
         <table className="erp-history-table">
           <thead>
             <tr>
               <th>Last update</th>
-              <th>Order</th>
+              <th>Direction</th>
+              <th>What</th>
               <th>Result</th>
               <th>Tries</th>
               <th>Details</th>
@@ -81,7 +83,8 @@ export function History({ api, erpName, onError }) {
             {rows.map((row) => (
               <tr key={row.key}>
                 <td>{new Date(row.when).toLocaleString()}</td>
-                <td>{row.order}</td>
+                <td>{row.direction}</td>
+                <td>{row.what}</td>
                 <td>{row.result}</td>
                 <td>{row.tries}</td>
                 <td>{row.message}</td>
@@ -89,8 +92,8 @@ export function History({ api, erpName, onError }) {
                   {row.retriable && (
                     <RetryButton
                       onRetry={retry}
-                      order={row.order}
                       retrying={retrying}
+                      row={row}
                     />
                   )}
                 </td>

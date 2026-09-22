@@ -1,10 +1,13 @@
 import {
   badRequest,
+  buildErrorResponse,
   internalServerError,
   ok,
 } from "@adobe/aio-commerce-sdk/core/responses";
 import AioLogger from "@adobe/aio-lib-core-logging";
+import openwhisk from "openwhisk";
 
+import { HANDLER_ACTIONS, readErpEvent } from "#lib/erp-event-history";
 import { readHistory, recordOrderOutcome } from "#lib/history";
 import { orderSyncDeps } from "#lib/order-deps";
 import { retryOrderToErp } from "#lib/order-sync";
@@ -12,6 +15,9 @@ import { readPayload } from "#lib/webhook";
 
 /** Order numbers are letters, digits and dashes; anything else never reaches Commerce. */
 const ORDER_NUMBER = /^[A-Za-z0-9-]{1,50}$/u;
+/** CloudEvent ids here are UUIDs; the same characters, a little longer. */
+const EVENT_ID = /^[A-Za-z0-9-]{1,100}$/u;
+const NOT_FOUND = 404;
 
 /**
  * The Commerce Admin screen's history (lib/history.js).
@@ -19,6 +25,8 @@ const ORDER_NUMBER = /^[A-Za-z0-9-]{1,50}$/u;
  * POST { incrementId }: send that order to the ERP again, record it as an admin's retry,
  *   and answer how it ended with the order's record. An order that still did not get
  *   through is an answer, not an error: the record says why.
+ * POST { eventId }: hand that ERP event, as it was saved, to its handler again (the
+ *   handler records itself, marked as an admin's retry), and answer its record.
  */
 async function main(params) {
   const logger = AioLogger("erp-history", {
@@ -27,7 +35,10 @@ async function main(params) {
   const method = String(params.__ow_method || "get").toLowerCase();
   try {
     if (method === "post") {
-      const { incrementId } = readPayload(params);
+      const { eventId, incrementId } = readPayload(params);
+      if (eventId !== undefined) {
+        return await retryErpEvent(eventId, logger);
+      }
       if (typeof incrementId !== "string" || !ORDER_NUMBER.test(incrementId)) {
         return badRequest("Name the order to retry by its order number.");
       }
@@ -55,6 +66,36 @@ async function main(params) {
     logger.error(`history failed: ${error.message}`);
     return internalServerError(error.message);
   }
+}
+
+/** Hand one saved ERP event to its handler again; the handler records how it ended. */
+async function retryErpEvent(eventId, logger) {
+  if (typeof eventId !== "string" || !EVENT_ID.test(eventId)) {
+    return badRequest("Name the ERP event to retry by its id.");
+  }
+  const saved = await readErpEvent(eventId);
+  const name = saved && HANDLER_ACTIONS[saved.kind];
+  if (!name) {
+    return buildErrorResponse(NOT_FOUND, {
+      body: { message: `The history has no ERP event ${eventId}.` },
+    });
+  }
+  await openwhisk().actions.invoke({
+    blocking: true,
+    name,
+    params: {
+      __retriedBy: "admin",
+      data: saved.event.data,
+      id: eventId,
+      type: saved.event.type,
+    },
+    result: true,
+  });
+  const entry = await readErpEvent(eventId);
+  logger.info(`retry of ERP event ${eventId}: ${entry?.outcome}`);
+  return ok({
+    body: { entry, message: entry?.message, outcome: entry?.outcome },
+  });
 }
 
 export { main };

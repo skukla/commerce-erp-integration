@@ -4,10 +4,19 @@ vi.mock("#lib/history", () => ({
   recordOrderOutcome: vi.fn(),
 }));
 vi.mock("#lib/order-sync", () => ({ retryOrderToErp: vi.fn() }));
+vi.mock("#lib/erp-event-history", () => ({
+  HANDLER_ACTIONS: { credit: "company-backoffice/credit-updated" },
+  readErpEvent: vi.fn(),
+}));
+const mockInvoke = vi.fn(async () => ({ statusCode: 200 }));
+vi.mock("openwhisk", () => ({
+  default: () => ({ actions: { invoke: mockInvoke } }),
+}));
 vi.mock("#lib/order-deps", () => ({
   orderSyncDeps: vi.fn((logger) => ({ logger, marker: "real deps" })),
 }));
 
+import { readErpEvent } from "#lib/erp-event-history";
 import { readHistory, recordOrderOutcome } from "#lib/history";
 import { retryOrderToErp } from "#lib/order-sync";
 import { main } from "#src/erp/history/index";
@@ -103,5 +112,57 @@ describe("Given the history action", () => {
 
     expect(res.error.statusCode).toBe(400);
     expect(retryOrderToErp).not.toHaveBeenCalled();
+  });
+
+  // An ERP event that could not be applied: the same handler, handed the saved event.
+  test("Then POST with an event id hands the saved event to its handler again, as an admin's retry", async () => {
+    const saved = {
+      event: {
+        data: { companyId: 7, creditLimit: 5000 },
+        type: "be-observer.company_credit_update",
+      },
+      eventId: "ev-1",
+      kind: "credit",
+      outcome: "failed",
+    };
+    readErpEvent.mockResolvedValueOnce(saved).mockResolvedValueOnce({
+      ...saved,
+      outcome: "applied",
+      retriedBy: "admin",
+    });
+
+    const res = await main({
+      __ow_body: JSON.stringify({ eventId: "ev-1" }),
+      __ow_method: "post",
+    });
+
+    expect(mockInvoke).toHaveBeenCalledWith({
+      blocking: true,
+      name: "company-backoffice/credit-updated",
+      params: {
+        __retriedBy: "admin",
+        data: saved.event.data,
+        id: "ev-1",
+        type: saved.event.type,
+      },
+      result: true,
+    });
+    expect(res.statusCode).toBe(200);
+    expect(res.body.entry).toMatchObject({
+      outcome: "applied",
+      retriedBy: "admin",
+    });
+  });
+
+  test("Then an event id the history does not have is refused, and nothing runs", async () => {
+    readErpEvent.mockResolvedValueOnce(undefined);
+
+    const res = await main({
+      __ow_body: JSON.stringify({ eventId: "gone" }),
+      __ow_method: "post",
+    });
+
+    expect(res.error.statusCode).toBe(404);
+    expect(mockInvoke).not.toHaveBeenCalled();
   });
 });
