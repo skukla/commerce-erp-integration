@@ -249,6 +249,16 @@ export async function setCompanyCreditLimit(
 }
 
 /** Set a product's price. */
+/** Set a SKU's name. The counterpart of the name the ERP's product event writes. */
+export async function setProductName(params, sku, name) {
+  const client = await commerceClient(params);
+  return client
+    .put(`products/${encodeURIComponent(sku)}`, {
+      json: { product: { name, sku } },
+    })
+    .json();
+}
+
 export async function setProductPrice(params, sku, price) {
   const client = await commerceClient(params);
   return client

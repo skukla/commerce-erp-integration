@@ -1,6 +1,6 @@
 /*
  * Undo what this integration wrote onto Commerce: the company credit limits and blocks,
- * and the product prices and stock the ERP decided (all from the ledger), plus the ERP
+ * and the product names, prices and stock the ERP decided (all from the ledger), plus the ERP
  * order numbers on orders (from the ERP's own order list). Reset runs it before wiping
  * the ERP; removing the integration runs it before the uninstall.
  *
@@ -12,7 +12,7 @@
  */
 
 /**
- * @param {object} deps `{ commerce: { clearExtOrderId, setCompanyCreditLimit, setCompanyStatus, setProductPrice, setStock }, erp: { listOrders }, ledger: { revertLedger } }`
+ * @param {object} deps `{ commerce: { clearExtOrderId, setCompanyCreditLimit, setCompanyStatus, setProductName, setProductPrice, setStock }, erp: { listOrders }, ledger: { revertLedger } }`
  * @returns {Promise<{ reverted: object, orders: { cleared: number, failed: object[] } }>}
  */
 export async function detach(params, deps) {
@@ -20,6 +20,7 @@ export async function detach(params, deps) {
   const reverted = await ledger.revertLedger({
     creditLimit: (companyId, creditId, before) =>
       commerce.setCompanyCreditLimit(params, creditId, companyId, before),
+    name: (sku, before) => commerce.setProductName(params, sku, before),
     price: (sku, before) => commerce.setProductPrice(params, sku, before),
     status: (companyId, before) =>
       commerce.setCompanyStatus(params, companyId, before),

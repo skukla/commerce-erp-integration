@@ -258,3 +258,89 @@ describe("Given the ERP writing a product's price or stock into Commerce", () =>
     expect(result.reverted).toBe(1);
   });
 });
+
+/*
+ * The ERP's product event writes a NAME as well as a price — one Commerce call sets
+ * both. Only the price was ledgered, so removing the integration put the price back
+ * and left the ERP's wording on every product it had touched.
+ */
+describe("Given the ERP writing a product's name into Commerce", () => {
+  let state;
+  beforeEach(() => {
+    state = memoryState();
+    resetLedgerClient(state);
+  });
+
+  test("Then the name is its own entry, beside the price of the same write", async () => {
+    await recordProductWrite({
+      after: 89,
+      before: 120,
+      field: "price",
+      sku: "CS-ROUTER-11",
+    });
+    await recordProductWrite({
+      after: "Router, 11-port",
+      before: "ACME Router 11",
+      field: "name",
+      sku: "CS-ROUTER-11",
+    });
+
+    expect(await readLedger()).toMatchObject([
+      { before: 120, field: "price", id: "CS-ROUTER-11", kind: "product" },
+      {
+        before: "ACME Router 11",
+        field: "name",
+        id: "CS-ROUTER-11",
+        kind: "product",
+      },
+    ]);
+  });
+
+  test("Then the first name Commerce held is what is kept, however often the ERP writes", async () => {
+    await recordProductWrite({
+      after: "Second",
+      before: "Commerce original",
+      field: "name",
+      sku: "A1",
+    });
+    await recordProductWrite({
+      after: "Third",
+      before: "Second",
+      field: "name",
+      sku: "A1",
+    });
+
+    expect(await readLedger()).toMatchObject([
+      { after: "Third", before: "Commerce original", field: "name", id: "A1" },
+    ]);
+  });
+
+  test("Then revert hands the name to the name writer, not the price writer", async () => {
+    await recordProductWrite({
+      after: "ERP wording",
+      before: "Commerce original",
+      field: "name",
+      sku: "A1",
+    });
+    await recordProductWrite({
+      after: 89,
+      before: 120,
+      field: "price",
+      sku: "A1",
+    });
+    const writers = {
+      creditLimit: vi.fn(),
+      name: vi.fn(),
+      price: vi.fn(),
+      status: vi.fn(),
+      stock: vi.fn(),
+    };
+
+    const result = await revertLedger(writers);
+
+    expect(writers.name).toHaveBeenCalledWith("A1", "Commerce original");
+    expect(writers.price).toHaveBeenCalledWith("A1", 120);
+    expect(writers.name).toHaveBeenCalledTimes(1);
+    expect(result.reverted).toBe(2);
+  });
+});

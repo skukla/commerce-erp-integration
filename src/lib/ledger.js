@@ -100,7 +100,7 @@ async function recordWrite({ kind, id, field, before, after, extra = {} }) {
  *
  * @param {object} write `{ companyId, field, before, after, extra }`
  */
-export async function recordCompanyWrite({
+export function recordCompanyWrite({
   companyId,
   field,
   before,
@@ -123,13 +123,7 @@ export async function recordCompanyWrite({
  *
  * @param {object} write `{ sku, field, before, after, extra }` — `extra.source` for stock
  */
-export async function recordProductWrite({
-  sku,
-  field,
-  before,
-  after,
-  extra = {},
-}) {
+export function recordProductWrite({ sku, field, before, after, extra = {} }) {
   return recordWrite({ after, before, extra, field, id: sku, kind: "product" });
 }
 
@@ -145,8 +139,11 @@ export async function clearLedger() {
  */
 function revertOne(entry, writers) {
   if (entry.kind === "product") {
-    return entry.field === "stock"
-      ? writers.stock(entry.id, entry.source, entry.before)
+    if (entry.field === "stock") {
+      return writers.stock(entry.id, entry.source, entry.before);
+    }
+    return entry.field === "name"
+      ? writers.name(entry.id, entry.before)
       : writers.price(entry.id, entry.before);
   }
   return entry.field === "creditLimit"
@@ -159,7 +156,7 @@ function revertOne(entry, writers) {
  *
 @param {object} writers one per thing the ERP can change:
  *   `{ creditLimit(companyId, creditId, before), status(companyId, before),
- *      price(sku, before), stock(sku, source, before) }`
+ *      name(sku, before), price(sku, before), stock(sku, source, before) }`
  * @returns {Promise<{ reverted: number, failed: {id, field, error}[] }>}
  */
 export async function revertLedger(writers) {

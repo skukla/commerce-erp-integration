@@ -6,7 +6,7 @@ import {
 } from "@adobe/aio-commerce-sdk/core/responses";
 import AioLogger from "@adobe/aio-lib-core-logging";
 
-import { priceOf } from "#lib/commerce-before";
+import { nameOf, priceOf } from "#lib/commerce-before";
 import { recordingErpEvent } from "#lib/erp-event-history";
 import { recordProductWrite } from "#lib/ledger";
 import { stringParameters } from "#lib/utils";
@@ -42,7 +42,8 @@ async function handle(params) {
     const preProcessed = preProcess(params, transformed);
     // What Commerce held before this write, so removing the integration can put it
     // back: Commerce is the permanent system and the ERP is transient (lib/ledger.js).
-    const before = await priceOf(params, transformed.product.sku);
+    const beforePrice = await priceOf(params, transformed.product.sku);
+    const beforeName = await nameOf(params, transformed.product.sku);
     logger.debug(`Start sending data: ${JSON.stringify(transformed)}`);
     const result = await sendData(params, transformed, preProcessed);
     if (!result.success) {
@@ -51,11 +52,20 @@ async function handle(params) {
         body: { message: result.message },
       });
     }
-    if (before !== undefined) {
+    if (beforePrice !== undefined) {
       await recordProductWrite({
         after: Number(transformed.product.price),
-        before,
+        before: beforePrice,
         field: "price",
+        sku: transformed.product.sku,
+      });
+    }
+    // The same write sets the name, so the name needs putting back too.
+    if (beforeName !== undefined) {
+      await recordProductWrite({
+        after: transformed.product.name,
+        before: beforeName,
+        field: "name",
         sku: transformed.product.sku,
       });
     }

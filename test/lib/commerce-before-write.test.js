@@ -9,7 +9,7 @@ vi.mock("#lib/commerce", () => ({
   commerceClient: vi.fn(async () => ({ get: mockGet })),
 }));
 
-import { priceOf, quantityOf } from "#lib/commerce-before";
+import { nameOf, priceOf, quantityOf } from "#lib/commerce-before";
 
 const json = (value) => ({ json: () => Promise.resolve(value) });
 
@@ -44,6 +44,32 @@ describe("Given the price Commerce holds for a SKU", () => {
     await priceOf({}, "A/1");
 
     expect(mockGet).toHaveBeenCalledWith("products/A%2F1");
+  });
+});
+
+describe("Given the name Commerce holds for a SKU", () => {
+  test("Then it is read as the string to put back", async () => {
+    mockGet.mockReturnValue(json({ name: "Commerce wording", sku: "A1" }));
+
+    expect(await nameOf({}, "A1")).toBe("Commerce wording");
+    expect(mockGet).toHaveBeenCalledWith("products/A1");
+  });
+
+  // An empty name is not a value anyone wants restored, and it is not an answer.
+  test("Then an empty or absent name is undefined, so nothing is put back", async () => {
+    mockGet.mockReturnValue(json({ name: "", sku: "A1" }));
+    expect(await nameOf({}, "A1")).toBeUndefined();
+
+    mockGet.mockReturnValue(json({ sku: "A1" }));
+    expect(await nameOf({}, "A1")).toBeUndefined();
+  });
+
+  test("Then a read that fails is undefined rather than a guess", async () => {
+    mockGet.mockImplementation(() => {
+      throw new Error("500");
+    });
+
+    expect(await nameOf({}, "A1")).toBeUndefined();
   });
 });
 

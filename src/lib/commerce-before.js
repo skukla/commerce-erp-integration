@@ -36,6 +36,30 @@ export async function priceOf(params, sku) {
 }
 
 /**
+ * The name Commerce holds for a SKU.
+ *
+ * The ERP's product event writes a name as well as a price, so the name needs putting
+ * back too — an SC who removes the integration should not be left with the ERP's
+ * wording on every product in the permanent system.
+ *
+ * @param {object} params - the action params (Commerce credentials)
+ * @param {string} sku - the SKU
+ * @returns {Promise<string|undefined>} the name, or NOT_READ
+ */
+export async function nameOf(params, sku) {
+  try {
+    const client = await commerceClient(params);
+    const product = await client
+      .get(`products/${encodeURIComponent(sku)}`)
+      .json();
+    const name = product?.name;
+    return typeof name === "string" && name !== "" ? name : NOT_READ;
+  } catch {
+    return NOT_READ;
+  }
+}
+
+/**
  * The quantity Commerce holds for a SKU at ONE source. Two sources of a SKU are two
  * different values to put back, so they are read — and recorded — separately.
  *
