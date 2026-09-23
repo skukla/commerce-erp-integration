@@ -86,7 +86,7 @@
   "events": {
     "be-observer.catalog_product_update": {
       "raisedBy": "product.price",
-      "value": ["sku", "name", "price", "description"]
+      "value": ["sku", "name", "price"]
     },
     "be-observer.catalog_stock_update": {
       "raisedBy": "product.stock",
