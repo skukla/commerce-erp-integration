@@ -1,25 +1,37 @@
 import { useIms } from "@adobe/aio-commerce-lib-admin-ui/web";
-import { Button, Heading, InlineAlert, Text } from "@react-spectrum/s2";
+import {
+  Heading,
+  InlineAlert,
+  Picker,
+  PickerItem,
+  Tab,
+  TabList,
+  TabPanel,
+  Tabs,
+  Text,
+} from "@react-spectrum/s2";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { makeApi } from "#web/api.js";
-import { History } from "#web/components/history.jsx";
-import { OrderTrace } from "#web/components/order-trace.jsx";
-import { Stat } from "#web/components/stat.jsx";
-import { isSyncActive, SyncProgress } from "#web/components/sync-progress.jsx";
+import { SettingsForm } from "#web/components/settings-form.jsx";
+import { StatusTab } from "#web/components/status-tab.jsx";
+import { isSyncActive } from "#web/components/sync-progress.jsx";
+import { scopeChoices } from "#web/settings-view.js";
 
 const SYNC_POLL_MS = 2000;
 
-/** Online or Unreachable, from the status action's answer. */
-function erpState(erp) {
-  return erp.reachable ? "Online" : "Unreachable";
-}
-
-/** The merchant's view of the integration: both apps' health, the ERP's controls, a log of what ran. */
+/**
+ * The integration's page in the Commerce Admin, laid out like Live Search: a scope bar,
+ * then tabs. Settings is what a merchant comes here to change — what is sent to the ERP
+ * and what Commerce does with its answers, per website; Status & sync is how it is doing
+ * and what has crossed.
+ */
 export function MainPage() {
   const { data: ims, error: imsError } = useIms();
   const api = useMemo(() => (ims ? makeApi(ims) : null), [ims]);
   const [status, setStatus] = useState(null);
+  const [scopes, setScopes] = useState(null);
+  const [scopeId, setScopeId] = useState("");
   const [error, setError] = useState(null);
   const [busy, setBusy] = useState(false);
   const [log, setLog] = useState([]);
@@ -39,6 +51,18 @@ export function MainPage() {
   useEffect(() => {
     refresh();
   }, [refresh]);
+
+  // The scopes a merchant can switch between are read once: the settings action syncs
+  // Commerce's websites the first time anyone asks for them.
+  useEffect(() => {
+    if (!api) {
+      return;
+    }
+    api
+      .settings()
+      .then((page) => setScopes(page.scopes))
+      .catch((e) => setError(`Scopes could not be read: ${e.message}`));
+  }, [api]);
 
   // While the ERP reports a sync in progress, keep reading it. This also picks up a
   // sync started elsewhere (the ERP's own Settings) or before the page was opened.
@@ -71,17 +95,10 @@ export function MainPage() {
     },
     [refresh],
   );
-  const onSync = useCallback(
-    () => run("Refresh partners", api.refreshPartners),
-    [run, api],
-  );
-  // The mirror runs in the background and reports each step to the ERP; the effect
-  // above follows it.
-  const onSyncRecords = useCallback(
-    () => run("Sync records", api.syncRecords),
-    [run, api],
-  );
-  const onReset = useCallback(() => run("Reset", api.reset), [run, api]);
+
+  const choices = scopeChoices(scopes);
+  const scopeLevel =
+    choices.find((choice) => choice.id === scopeId)?.level ?? "global";
 
   if (imsError) {
     return (
@@ -91,11 +108,10 @@ export function MainPage() {
       </InlineAlert>
     );
   }
-  const erp = status?.erp ?? {};
-  const erpName = erp.displayName || "the ERP";
+  const erpName = status?.erp?.displayName || "the ERP";
   return (
     <main>
-      <Heading level={1}>ERP integration</Heading>
+      <Heading level={1}>{erpName}</Heading>
       <Text>
         Orders flow to {erpName} with its number written back; contract prices
         and the discount ceiling apply at cart time; the ERP's prices, stock,
@@ -107,47 +123,43 @@ export function MainPage() {
           <Text>{error}</Text>
         </InlineAlert>
       )}
-      <div className="erp-grid">
-        <Stat label="ERP" value={erpState(erp)} />
-        <Stat label="Products" value={erp.counts?.products ?? "–"} />
-        <Stat
-          label="Business partners"
-          value={erp.counts?.businessPartners ?? "–"}
-        />
-        <Stat label="Sales orders" value={erp.counts?.salesOrders ?? "–"} />
-        <Stat label="ERP events pending" value={erp.counts?.events ?? "–"} />
-        <Stat
-          label="Company changes to undo on reset"
-          value={status?.ledger?.entries ?? "–"}
-        />
+      <div className="erp-scope-bar">
+        <Picker
+          aria-label="Scope"
+          items={choices}
+          onSelectionChange={setScopeId}
+          selectedKey={scopeId}>
+          {(choice) => <PickerItem id={choice.id}>{choice.label}</PickerItem>}
+        </Picker>
+        <span className="erp-scope-note">
+          Settings apply to this scope and anything under it.
+        </span>
       </div>
-      <Text>
-        Last import into the ERP: {erp.lastImportAt || "never"}. Last wipe:{" "}
-        {erp.lastWipeAt || "never"}.
-      </Text>
-      <div className="erp-actions">
-        <Button isDisabled={busy || !api} onPress={onSync} variant="primary">
-          Refresh partners from Commerce
-        </Button>
-        <Button
-          isDisabled={busy || !api || isSyncActive(sync)}
-          onPress={onSyncRecords}
-          variant="secondary">
-          Sync records to {erpName}
-        </Button>
-        <Button isDisabled={busy || !api} onPress={onReset} variant="negative">
-          Reset ERP records
-        </Button>
-      </div>
-      <SyncProgress erpName={erpName} sync={sync} />
-      <Text>
-        Reset undoes the company blocks and credit limits the ERP set, wipes
-        every ERP record, and mirrors Commerce again as it stands. Commerce
-        orders keep their ERP numbers.
-      </Text>
-      <OrderTrace api={api} erpName={erpName} onError={setError} />
-      <History api={api} erpName={erpName} onError={setError} />
-      {log.length > 0 && <div className="erp-log">{log.join("\n")}</div>}
+      <Tabs aria-label="ERP integration">
+        <TabList>
+          <Tab id="settings">Settings</Tab>
+          <Tab id="status">Status &amp; sync</Tab>
+        </TabList>
+        <TabPanel id="settings">
+          <SettingsForm
+            api={api}
+            onError={setError}
+            scopeId={scopeId}
+            scopeLevel={scopeLevel}
+          />
+        </TabPanel>
+        <TabPanel id="status">
+          <StatusTab
+            api={api}
+            busy={busy}
+            erpName={erpName}
+            log={log}
+            onError={setError}
+            run={run}
+            status={status}
+          />
+        </TabPanel>
+      </Tabs>
     </main>
   );
 }

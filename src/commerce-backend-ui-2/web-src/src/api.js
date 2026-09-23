@@ -40,6 +40,12 @@ export function makeApi(ims, origin = window.location.origin) {
     reset: () => call("reset", { method: "POST" }),
     // `{ incrementId }` for an order, `{ eventId }` for an ERP event (history-view.js).
     retry: (target) => call("history", { body: target, method: "POST" }),
+    // The merchant's settings at one scope, and a save of only what changed. `null`
+    // for a value means "use the wider scope's value" (erp/settings).
+    saveSettings: (scope, values) =>
+      call("settings", { body: { scope, values }, method: "PATCH" }),
+    settings: (scope) =>
+      call(scope ? `settings?scope=${encodeURIComponent(scope)}` : "settings"),
     status: () => call("status"),
     // Background mode: a web request is cut off after a minute, a mirror can take
     // longer. Answers 202; the page watches the ERP's last-import time.

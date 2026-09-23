@@ -8,6 +8,51 @@ main {
   max-width: 960px;
   padding: 24px;
 }
+
+/* The scope bar, as Stores ▸ Configuration and Live Search have one: what the settings
+   below apply to. */
+.erp-scope-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  align-items: center;
+  padding: 12px 16px;
+  margin: 16px 0;
+  background: var(--s2-color-gray-75, #f5f5f5);
+  border-radius: 8px;
+}
+.erp-scope-note {
+  font-size: 13px;
+  color: var(--s2-color-gray-700, #666);
+}
+
+/* Settings: a section per group, one line per setting, Save at the top. */
+.erp-settings-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin: 16px 0;
+}
+.erp-settings-section {
+  margin: 24px 0;
+}
+.erp-setting {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: baseline;
+  padding: 10px 0;
+}
+.erp-setting-description {
+  flex: 1 1 320px;
+  font-size: 13px;
+  color: var(--s2-color-gray-700, #666);
+}
+.erp-setting-origin {
+  font-size: 13px;
+  color: var(--s2-color-gray-600, #888);
+}
 .erp-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
