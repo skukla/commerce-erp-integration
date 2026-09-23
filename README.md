@@ -39,6 +39,13 @@ is already subscribed and never updates it, and uninstall removes only what the 
 lists. So a changed `required`, timeout or field list, a new event, or a removed webhook reaches
 Commerce only through an uninstall run with the old config, then an install with the new one.
 
+**Looking at the Admin page without Commerce.** `npm run preview` builds the page's own
+components against stand-in data (`preview/`) and serves it on 8978. It is the real shell,
+the real components and the real build pipeline — only the answers are made up — so the
+layout can be checked without a Commerce Admin, a sign-in or a deployed app. Build it with
+Parcel, not another bundler: Spectrum's styles come from a build-time macro, and without it
+everything renders unstyled. `?tab=status` opens the other tab.
+
 **Two ERPs on one Commerce.** Commerce knows an App Management app by its `metadata.id`, and
 the library names the app's webhooks and events from it. Demo Builder deploys a second copy
 with `DEMO_BUILDER_COPY_NUMBER` set (`2`), which makes its id `erp-integration-2` and its menu

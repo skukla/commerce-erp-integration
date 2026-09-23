@@ -26,9 +26,8 @@ function SettingField({ field, onChange, onUseDefault }) {
         {field.label}
       </Switch>
       <span className="erp-setting-description">{field.description}</span>
-      {field.inherited ? (
-        <span className="erp-setting-origin">Inherited</span>
-      ) : (
+      {field.inherited && <span className="erp-setting-origin">Inherited</span>}
+      {field.clearable && (
         <Button onPress={useDefault} variant="secondary">
           Use Default
         </Button>

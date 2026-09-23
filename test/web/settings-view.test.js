@@ -50,10 +50,32 @@ describe("Given the settings a merchant edits", () => {
     ]);
   });
 
+  // Nothing at the Default Config can be CLEARED — there is no wider scope to fall back
+  // to — so the page must not offer it there (the first screenshots offered it).
+  test("Then a field says whether this scope can clear it", () => {
+    const [atDefault] = settingSections(FIELDS, VALUES, {
+      scopeLevel: "global",
+    });
+    const [atWebsite] = settingSections(FIELDS, VALUES, {
+      scopeLevel: "website",
+    });
+
+    expect(atDefault.fields.map((f) => f.clearable)).toStrictEqual([
+      false,
+      false,
+    ]);
+    // Set at this website, so it can go back to the default; the other is inherited.
+    expect(atWebsite.fields.map((f) => f.clearable)).toStrictEqual([
+      false,
+      true,
+    ]);
+  });
+
   test("Then each field carries its value and whether it is inherited", () => {
     const [orders] = settingSections(FIELDS, VALUES, { scopeLevel: "website" });
 
     expect(orders.fields[0]).toStrictEqual({
+      clearable: false,
       description: "Orders go to the ERP.",
       inherited: true,
       label: "Send orders",

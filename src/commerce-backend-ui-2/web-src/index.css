@@ -4,9 +4,24 @@ body,
   height: 100%;
   margin: 0;
 }
+
+/* Spectrum's own font stack, stated once here.
+ *
+ * A Spectrum component styles ITSELF; it does not set a font on the page. So the page's
+ * heading and its paragraph — the two things outside any Spectrum container — inherited
+ * the browser's default and rendered in Times, which is the "it does not look like
+ * Commerce" the AB-10 plan opens with. Measured 2026-09-23 against the production build:
+ * an h3 inside a tab reads adobe-clean, the h1 above the tabs reads Times New Roman.
+ *
+ * The stack is copied from what Spectrum computes rather than imported, because
+ * `page.css` exposes no variable for it; if Spectrum's stack changes, this is the line
+ * to update. */
 main {
   max-width: 960px;
   padding: 24px;
+  font-family:
+    adobe-clean-spectrum-vf, adobe-clean-variable, adobe-clean, ui-sans-serif,
+    system-ui, sans-serif;
 }
 
 /* The scope bar, as Stores ▸ Configuration and Live Search have one: what the settings

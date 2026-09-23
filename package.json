@@ -22,7 +22,8 @@
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
     "build:admin-ui": "NODE_ENV=production parcel build --target admin-ui --no-cache",
-    "contract:check": "node scripts/contract-check.mjs"
+    "contract:check": "node scripts/contract-check.mjs",
+    "preview": "parcel build --target preview --no-cache && python3 -m http.server --directory preview-dist 8978"
   },
   "dependencies": {
     "@adobe/aio-commerce-lib-admin-ui": "^1.1.0",
@@ -87,6 +88,18 @@
       "sourceMap": false,
       "engines": {
         "browsers": "last 2 Chrome versions, last 2 Safari versions, last 2 Firefox versions, last 2 Edge versions"
+      }
+    },
+    "preview": {
+      "context": "browser",
+      "includeNodeModules": true,
+      "distDir": "preview-dist",
+      "publicUrl": "./",
+      "source": "preview/index.html",
+      "optimize": false,
+      "sourceMap": false,
+      "engines": {
+        "browsers": "last 2 Chrome versions"
       }
     }
   }

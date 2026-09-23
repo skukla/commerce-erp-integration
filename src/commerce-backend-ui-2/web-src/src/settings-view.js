@@ -46,9 +46,13 @@ export function settingSections(fields, values, { scopeLevel } = {}) {
       field.name.startsWith(`${section.prefix}_`),
     );
     const held = byName.get(field.name);
+    const inherited = atDefault ? false : !held || held.origin !== scopeLevel;
     sections[index === -1 ? SECTIONS.length : index].fields.push({
+      // Clearable means "this scope sets it and a wider one can take over again". At
+      // Default Config there is nothing wider, so nothing is ever clearable there.
+      clearable: !(atDefault || inherited),
       description: field.description,
-      inherited: atDefault ? false : !held || held.origin !== scopeLevel,
+      inherited,
       label: field.label,
       name: field.name,
       value: held ? held.value : field.default,

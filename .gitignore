@@ -43,3 +43,4 @@ coverage
 logs
 
 test/test-coverage
+preview-dist

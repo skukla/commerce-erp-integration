@@ -1,30 +1,17 @@
 import { useIms } from "@adobe/aio-commerce-lib-admin-ui/web";
-import {
-  Heading,
-  InlineAlert,
-  Picker,
-  PickerItem,
-  Tab,
-  TabList,
-  TabPanel,
-  Tabs,
-  Text,
-} from "@react-spectrum/s2";
+import { Heading, InlineAlert, Text } from "@react-spectrum/s2";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { makeApi } from "#web/api.js";
-import { SettingsForm } from "#web/components/settings-form.jsx";
-import { StatusTab } from "#web/components/status-tab.jsx";
+import { PageShell } from "#web/components/page-shell.jsx";
 import { isSyncActive } from "#web/components/sync-progress.jsx";
-import { scopeChoices } from "#web/settings-view.js";
 
 const SYNC_POLL_MS = 2000;
 
 /**
- * The integration's page in the Commerce Admin, laid out like Live Search: a scope bar,
- * then tabs. Settings is what a merchant comes here to change — what is sent to the ERP
- * and what Commerce does with its answers, per website; Status & sync is how it is doing
- * and what has crossed.
+ * The integration's page in the Commerce Admin: everything it needs from the actions —
+ * the sign-in, the status, the scopes — and `PageShell` for how it looks. Split so the
+ * layout can be rendered against stand-in data without a Commerce Admin (AB-10, step 4).
  */
 export function MainPage() {
   const { data: ims, error: imsError } = useIms();
@@ -96,10 +83,6 @@ export function MainPage() {
     [refresh],
   );
 
-  const choices = scopeChoices(scopes);
-  const scopeLevel =
-    choices.find((choice) => choice.id === scopeId)?.level ?? "global";
-
   if (imsError) {
     return (
       <InlineAlert variant="negative">
@@ -108,58 +91,19 @@ export function MainPage() {
       </InlineAlert>
     );
   }
-  const erpName = status?.erp?.displayName || "the ERP";
   return (
-    <main>
-      <Heading level={1}>{erpName}</Heading>
-      <Text>
-        Orders flow to {erpName} with its number written back; contract prices
-        and the discount ceiling apply at cart time; the ERP's prices, stock,
-        credit limits and order statuses flow back here every minute.
-      </Text>
-      {error && (
-        <InlineAlert variant="negative">
-          <Heading>Something went wrong</Heading>
-          <Text>{error}</Text>
-        </InlineAlert>
-      )}
-      <div className="erp-scope-bar">
-        <Picker
-          aria-label="Scope"
-          items={choices}
-          onSelectionChange={setScopeId}
-          selectedKey={scopeId}>
-          {(choice) => <PickerItem id={choice.id}>{choice.label}</PickerItem>}
-        </Picker>
-        <span className="erp-scope-note">
-          Settings apply to this scope and anything under it.
-        </span>
-      </div>
-      <Tabs aria-label="ERP integration">
-        <TabList>
-          <Tab id="settings">Settings</Tab>
-          <Tab id="status">Status &amp; sync</Tab>
-        </TabList>
-        <TabPanel id="settings">
-          <SettingsForm
-            api={api}
-            onError={setError}
-            scopeId={scopeId}
-            scopeLevel={scopeLevel}
-          />
-        </TabPanel>
-        <TabPanel id="status">
-          <StatusTab
-            api={api}
-            busy={busy}
-            erpName={erpName}
-            log={log}
-            onError={setError}
-            run={run}
-            status={status}
-          />
-        </TabPanel>
-      </Tabs>
-    </main>
+    <PageShell
+      api={api}
+      busy={busy}
+      erpName={status?.erp?.displayName || "the ERP"}
+      error={error}
+      log={log}
+      onError={setError}
+      onScopeChange={setScopeId}
+      run={run}
+      scopeId={scopeId}
+      scopes={scopes}
+      status={status}
+    />
   );
 }
