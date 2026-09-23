@@ -10,16 +10,17 @@ import { erp } from "#lib/erp";
 import * as ledger from "#lib/ledger";
 
 /**
- * POST detach: undo what this integration wrote onto Commerce (company credit limits and
- * blocks, ERP numbers on orders) without touching the ERP. Demo Builder runs it before
- * removing the integration; reset runs the same code before wiping the ERP.
+ * POST detach: undo what this integration wrote onto Commerce — company credit limits and
+ * blocks, the prices and stock the ERP decided, and the ERP numbers on orders — without
+ * touching the ERP. Demo Builder runs it before removing the integration; reset runs the
+ * same code before wiping the ERP.
  */
 async function main(params) {
   const logger = AioLogger("erp-detach", { level: params.LOG_LEVEL || "info" });
   try {
     const result = await detach(params, { commerce, erp, ledger });
     logger.info(
-      `detach: reverted ${result.reverted.reverted} company write(s), cleared ${result.orders.cleared} order number(s)`,
+      `detach: reverted ${result.reverted.reverted} Commerce change(s), cleared ${result.orders.cleared} order number(s)`,
     );
     return ok({ body: result });
   } catch (error) {

@@ -23,8 +23,18 @@ Commerce order follow.
 | Discount ceiling → cart | totals-collector `execute` webhook claws back discount below the ERP's maximum-discount ceiling | `webhook/discounts` |
 | Products → ERP | product created/updated and stock events keep the ERP's products in step; companies are refreshed from Commerce every minute | `product-commerce/*`, `stock-commerce/updated`, `erp/refresh-partners` |
 | ERP → Commerce | the ERP publishes its events to the ingestion webhook; they are published to Adobe I/O Events and the handlers apply them: price → product, stock → source item, credit limit and block → company (ledgered), order status → comment / shipment / invoice / cancel | `ingestion/webhook`, `*-backoffice/*` |
-| Reset | undo what was written onto Commerce (ledgered company writes; the ERP number on every ERP-numbered order) → wipe the ERP → mirror Commerce (products, stock, companies) into it again | `erp/reset` |
-| Detach | the first half of reset alone: undo the company writes and clear the ERP numbers, leaving the ERP untouched. Demo Builder runs it before removing the integration | `erp/detach` |
+| Reset | undo what was written onto Commerce (every ledgered write: company credit limits and blocks, and the prices and stock the ERP decided; plus the ERP number on every ERP-numbered order) → wipe the ERP → mirror Commerce (products, stock, companies) into it again | `erp/reset` |
+| Detach | the first half of reset alone: undo every ledgered write and clear the ERP numbers, leaving the ERP untouched. Demo Builder runs it before removing the integration | `erp/detach` |
+
+**Commerce is the permanent system; the ERP is transient.** In a demo the SC's store is what
+persists and the ERP is rebuilt at will, so everything this integration writes into Commerce
+that Commerce CAN undo is recorded before the write and put back on removal: company credit
+limits and blocks, and product prices and stock (`src/lib/ledger.js`, read by
+`src/lib/commerce-before.js`). What stays is only what Commerce itself cannot delete — notes
+in order histories, shipments, invoices and cancellations. ORDERS are the stated exception:
+Commerce has no API to delete one, so the ERP's number is cleared from it instead. Any new
+ERP → Commerce write has to answer the same question before it ships: can Commerce undo it,
+and if so, where is it ledgered?
 | Mirror | the import half of reset, run at first install | `erp/mirror` |
 | Settings | per website or store view, kept by App Management's business configuration: send orders, hold orders while offline, mark Processing on confirm, contract prices, discount ceiling | `erp/settings`, `src/lib/settings.js` |
 | History and Retry | what crossed and how it ended, kept 14 days in App Builder State. One record per order sent to the ERP — sent, waiting for the ERP, or not sent (`src/lib/history.js`) — and one per ERP event applied to Commerce — applied, not applied yet, or refused — under the event's own id, recorded by wrapping each ERP event handler (`src/lib/erp-event-history.js`). Each counts its tries. From the Admin screen a person can send an order again (the same send, as new; the website's settings still apply) or hand a saved ERP event to its handler again | `erp/history` |

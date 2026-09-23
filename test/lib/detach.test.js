@@ -76,4 +76,33 @@ describe("Given detach", () => {
       { error: "ERP orders answered 503", orderId: "*" },
     ]);
   });
+  // Commerce is the permanent system and the ERP is transient (owner, 2026-09-23): a
+  // price or a stock level the ERP decided has to go back when the integration does,
+  // the same way company credit and blocks already did.
+  test("Then it hands the ledger a way to put prices and stock back too", async () => {
+    const commerce = {
+      clearExtOrderId: vi.fn(async () => ({})),
+      setCompanyCreditLimit: vi.fn(),
+      setCompanyStatus: vi.fn(),
+      setProductPrice: vi.fn(),
+      setStock: vi.fn(),
+    };
+    const erp = {
+      listOrders: vi.fn(async () => ({ data: { items: [] }, ok: true })),
+    };
+    let handed;
+    const ledger = {
+      revertLedger: vi.fn(async (writers) => {
+        handed = writers;
+        return { failed: [], reverted: 0 };
+      }),
+    };
+
+    await detach({ p: 1 }, { commerce, erp, ledger });
+
+    await handed.price("A1", 120);
+    await handed.stock("A1", "east", 10);
+    expect(commerce.setProductPrice).toHaveBeenCalledWith({ p: 1 }, "A1", 120);
+    expect(commerce.setStock).toHaveBeenCalledWith({ p: 1 }, "A1", 10, "east");
+  });
 });

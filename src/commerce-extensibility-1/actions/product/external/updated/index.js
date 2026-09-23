@@ -6,7 +6,9 @@ import {
 } from "@adobe/aio-commerce-sdk/core/responses";
 import AioLogger from "@adobe/aio-lib-core-logging";
 
+import { priceOf } from "#lib/commerce-before";
 import { recordingErpEvent } from "#lib/erp-event-history";
+import { recordProductWrite } from "#lib/ledger";
 import { stringParameters } from "#lib/utils";
 
 import { postProcess } from "./post.js";
@@ -38,12 +40,23 @@ async function handle(params) {
     const transformed = transformData(params);
     logger.debug(`Preprocess data: ${stringParameters(params)}`);
     const preProcessed = preProcess(params, transformed);
+    // What Commerce held before this write, so removing the integration can put it
+    // back: Commerce is the permanent system and the ERP is transient (lib/ledger.js).
+    const before = await priceOf(params, transformed.product.sku);
     logger.debug(`Start sending data: ${JSON.stringify(transformed)}`);
     const result = await sendData(params, transformed, preProcessed);
     if (!result.success) {
       logger.error(`Send data failed: ${result.message}`);
       return buildErrorResponse(result.statusCode, {
         body: { message: result.message },
+      });
+    }
+    if (before !== undefined) {
+      await recordProductWrite({
+        after: Number(transformed.product.price),
+        before,
+        field: "price",
+        sku: transformed.product.sku,
       });
     }
     logger.debug(`Postprocess data: ${stringParameters(params)}`);

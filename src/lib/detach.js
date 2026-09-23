@@ -1,13 +1,18 @@
 /*
- * Undo what this integration wrote onto Commerce that Commerce cannot undo itself:
- * the company credit limits and blocks (from the ledger) and the ERP order numbers on
- * orders (from the ERP's own order list). Reset runs it before wiping the ERP; removing
- * the integration runs it before the uninstall. Notes in order histories, shipments,
- * invoices and cancellations stay: Commerce cannot delete them.
+ * Undo what this integration wrote onto Commerce: the company credit limits and blocks,
+ * and the product prices and stock the ERP decided (all from the ledger), plus the ERP
+ * order numbers on orders (from the ERP's own order list). Reset runs it before wiping
+ * the ERP; removing the integration runs it before the uninstall.
+ *
+ * Commerce is the permanent system in a demo and the ERP is transient (owner,
+ * 2026-09-23), so the rule is: everything the ERP wrote that Commerce CAN undo goes
+ * back. What stays is what Commerce itself cannot delete — notes in order histories,
+ * shipments, invoices and cancellations. Orders are the stated exception: Commerce has
+ * no API to delete one, so the ERP's number is cleared instead.
  */
 
 /**
- * @param {object} deps `{ commerce: { clearExtOrderId, setCompanyCreditLimit, setCompanyStatus }, erp: { listOrders }, ledger: { revertLedger } }`
+ * @param {object} deps `{ commerce: { clearExtOrderId, setCompanyCreditLimit, setCompanyStatus, setProductPrice, setStock }, erp: { listOrders }, ledger: { revertLedger } }`
  * @returns {Promise<{ reverted: object, orders: { cleared: number, failed: object[] } }>}
  */
 export async function detach(params, deps) {
@@ -15,8 +20,11 @@ export async function detach(params, deps) {
   const reverted = await ledger.revertLedger({
     creditLimit: (companyId, creditId, before) =>
       commerce.setCompanyCreditLimit(params, creditId, companyId, before),
+    price: (sku, before) => commerce.setProductPrice(params, sku, before),
     status: (companyId, before) =>
       commerce.setCompanyStatus(params, companyId, before),
+    stock: (sku, source, before) =>
+      commerce.setStock(params, sku, before, source),
   });
   const orders = { cleared: 0, failed: [] };
   const listed = await erp.listOrders(params);

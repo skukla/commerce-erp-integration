@@ -6,7 +6,9 @@ import {
 } from "@adobe/aio-commerce-sdk/core/responses";
 import AioLogger from "@adobe/aio-lib-core-logging";
 
+import { quantityOf } from "#lib/commerce-before";
 import { recordingErpEvent } from "#lib/erp-event-history";
+import { recordProductWrite } from "#lib/ledger";
 import { stringParameters } from "#lib/utils";
 
 import { postProcess } from "./post.js";
@@ -38,12 +40,34 @@ async function handle(params) {
     const transformed = transformData(params);
     logger.debug(`Preprocess data: ${stringParameters(params)}`);
     const preProcessed = preProcess(params, transformed);
+    // One read per source item, before the write: two sources of a SKU are two
+    // different values to put back when the integration is removed (lib/ledger.js).
+    const before = await Promise.all(
+      transformed.sourceItems.map((item) =>
+        quantityOf(params, item.sku, item.source_code),
+      ),
+    );
     logger.debug(`Start sending data: ${JSON.stringify(transformed)}`);
     const result = await sendData(params, transformed, preProcessed);
     if (!result.success) {
       logger.error(`Send data failed: ${result.message}`);
       return buildErrorResponse(result.statusCode, {
         body: { message: result.message },
+      });
+    }
+    // Sequential on purpose: the ledger is one document, and parallel writes to it
+    // would race each other's read-modify-write.
+    for (const [index, item] of transformed.sourceItems.entries()) {
+      if (before[index] === undefined) {
+        continue;
+      }
+      // biome-ignore lint/performance/noAwaitInLoops: one ledger document, in order
+      await recordProductWrite({
+        after: Number(item.quantity),
+        before: before[index],
+        extra: { source: item.source_code },
+        field: "stock",
+        sku: item.sku,
       });
     }
     logger.debug(`Postprocess data: ${stringParameters(params)}`);
