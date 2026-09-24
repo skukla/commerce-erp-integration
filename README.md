@@ -153,8 +153,9 @@ aio app deploy     # into the workspace `aio app use` points at
 ```
 
 App Management then installs the app into the Commerce instance (events, webhooks, the
-Admin screen registration). Demo Builder drives that install; by hand, use the app's
-generated install API.
+Admin screen registration). Demo Builder drives that install and then starts the first sync
+(`POST erp/mirror?background=true`); by hand, use the app's generated install API, then Sync
+records on the Admin page or the ERP's Settings page.
 
 ### The pair in a box
 
