@@ -1,5 +1,9 @@
 vi.mock("#lib/erp", () => ({ erp: { importRecords: vi.fn() } }));
-vi.mock("#lib/commerce", () => ({ skuForProductId: vi.fn() }));
+vi.mock("#lib/commerce", () => ({
+  productAttributes: vi.fn(async () => ({})),
+  skuForProductId: vi.fn(),
+  sourceCodesOf: vi.fn(async () => []),
+}));
 
 import { skuForProductId } from "#lib/commerce";
 import { erp } from "#lib/erp";

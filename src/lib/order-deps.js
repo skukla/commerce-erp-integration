@@ -7,10 +7,13 @@ import {
   findOrderByIncrementId,
   getOrderByIncrementId,
   orders,
+  productAttributes,
   setExtOrderId,
+  sourceCodesOf,
 } from "#lib/commerce";
 import { erp } from "#lib/erp";
 import { settingsFor } from "#lib/settings";
+import { ownsSku } from "#lib/structure";
 
 /**
  * @param {object} logger the action's logger
@@ -23,6 +26,8 @@ export function orderSyncDeps(logger) {
     findOrder: findOrderByIncrementId,
     getOrder: getOrderByIncrementId,
     logger,
+    ownsSku: (p, sku, settings) =>
+      ownsSku(p, sku, settings, { productAttributes, sourceCodesOf }),
     setExtOrderId,
     settingsFor,
   };

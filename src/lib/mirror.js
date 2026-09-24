@@ -4,6 +4,8 @@
  * without either system.
  */
 
+import { ownershipFilter, salesOrgOf, structureFrom } from "#lib/structure";
+
 function warehousesFor(sku, stockBySku, sourceNames) {
   return (stockBySku?.get?.(sku) ?? []).map((row) => ({
     code: row.code,
@@ -79,22 +81,79 @@ export function productsFrom(
   });
 }
 
-/** @returns {object[]} ERP business-partner rows; ids are `C<companyId>` */
-export function partnersFrom(companies) {
-  return companies.map((c) => ({
-    blocked: Boolean(c.blocked),
-    commerceCompanyId: String(c.id),
-    creditLimit: c.creditLimit ?? undefined,
-    customerGroupId:
-      c.customerGroupId === undefined || c.customerGroupId === null
-        ? undefined
-        : String(c.customerGroupId),
-    emailDomain: c.email?.includes("@")
-      ? c.email.split("@")[1].toLowerCase()
-      : undefined,
-    id: `C${c.id}`,
-    name: c.name,
-  }));
+/**
+ * ERP business-partner rows; ids are `C<companyId>`. With the websites and each website's
+ * sales organisation (business structure), a company's admin website names the sales
+ * organisation it buys through; a company with no admin website belongs to none yet.
+ * @param {Array<{id:number, code:string}>} [websites]
+ * @param {Map<number, string>} [salesOrgByWebsite] website id → sales organisation code
+ * @returns {object[]}
+ */
+export function partnersFrom(
+  companies,
+  websites = [],
+  salesOrgByWebsite = new Map(),
+) {
+  const siteById = new Map(websites.map((site) => [site.id, site]));
+  return companies.map((c) => {
+    const site =
+      c.websiteId === undefined || c.websiteId === null
+        ? null
+        : siteById.get(Number(c.websiteId));
+    return {
+      blocked: Boolean(c.blocked),
+      commerceCompanyId: String(c.id),
+      creditLimit: c.creditLimit ?? undefined,
+      customerGroupId:
+        c.customerGroupId === undefined || c.customerGroupId === null
+          ? undefined
+          : String(c.customerGroupId),
+      emailDomain: c.email?.includes("@")
+        ? c.email.split("@")[1].toLowerCase()
+        : undefined,
+      id: `C${c.id}`,
+      legalAddress: c.legalAddress ?? null,
+      legalName: c.legalName ?? null,
+      name: c.name,
+      resellerId: c.resellerId ?? null,
+      salesOrgs: site ? [salesOrgByWebsite.get(site.id) ?? "1000"] : [],
+      vatTaxId: c.vatTaxId ?? null,
+      website: site ? { code: site.code, id: site.id } : null,
+    };
+  });
+}
+
+/**
+ * The websites, each website's settings and the structure block, read once per mirror.
+ * Readers without `listWebsites` (older tests, a store that refuses the read) get an
+ * empty structure and partners in no sales organisation.
+ */
+async function readStructure(params, readers) {
+  if (!readers.listWebsites) {
+    return { salesOrgByWebsite: new Map(), structure: null, websites: [] };
+  }
+  const [websites, configs] = await Promise.all([
+    readers.listWebsites(params),
+    readers.storeConfigs ? readers.storeConfigs(params) : new Map(),
+  ]);
+  const settingsByWebsite = new Map();
+  if (readers.websiteSettings) {
+    for (const site of websites) {
+      // biome-ignore lint/performance/noAwaitInLoops: a handful of websites, read in order
+      settingsByWebsite.set(site.id, await readers.websiteSettings(site.code));
+    }
+  }
+  const salesOrgByWebsite = new Map(
+    websites.map((site) => [
+      site.id,
+      salesOrgOf(settingsByWebsite.get(site.id)).salesOrg,
+    ]),
+  );
+  return {
+    salesOrgByWebsite,
+    structure: structureFrom(websites, configs, settingsByWebsite),
+    websites,
+  };
 }
 
 /**
@@ -103,8 +162,11 @@ export function partnersFrom(companies) {
  * reaches the ERP without a reset.
  */
 export async function mirrorPartners(params, readers, erp) {
-  const companies = await readers.listCompanies(params);
-  const partners = partnersFrom(companies);
+  const [companies, { websites, salesOrgByWebsite }] = await Promise.all([
+    readers.listCompanies(params),
+    readStructure(params, readers),
+  ]);
+  const partners = partnersFrom(companies, websites, salesOrgByWebsite);
   // No products key at all: the ERP's last-import time means a full mirror, and a
   // partners-only import must not move it.
   const result = await erp.importRecords(params, { partners });
@@ -154,9 +216,10 @@ const noReport = () => Promise.resolve();
 /**
  * Read Commerce and import into the ERP, reporting each step to `report` (the ERP's
  * sync record): reading, then partners, then products batch by batch.
- * @param {object} readers `{ listProducts, listStock, listCompanies, listSources?, listVariantAttributes? }`
+ * @param {object} readers `{ listProducts, listStock, listCompanies, listSources?, listVariantAttributes?, listWebsites?, storeConfigs?, websiteSettings? }`
  * @param {object} erp the ERP client (`importRecords`)
  * @param {(step: object) => Promise<void>} [report] receives `{ state, phase, partners, products }`
+ * @param {object} [settings] the pair's settings (Default Config): which products belong to this ERP
  * @returns {Promise<{ products: object, partners: object, counts: object }>}
  */
 export async function mirror(
@@ -165,14 +228,18 @@ export async function mirror(
   erp,
   projectName,
   report = noReport,
+  settings = {},
 ) {
   await report({ phase: "reading", state: "running" });
-  const [products, stock, companies, sourceNames] = await Promise.all([
-    readers.listProducts(params),
-    readers.listStock(params),
-    readers.listCompanies(params),
-    readers.listSources ? readers.listSources(params) : new Map(),
-  ]);
+  const [products, stock, companies, sourceNames, structureRead] =
+    await Promise.all([
+      readers.listProducts(params),
+      readers.listStock(params),
+      readers.listCompanies(params),
+      readers.listSources ? readers.listSources(params) : new Map(),
+      readStructure(params, readers),
+    ]);
+  const { websites, salesOrgByWebsite, structure } = structureRead;
   const attributeIds = [
     ...new Set(products.flatMap((p) => p.optionAttributeIds ?? [])),
   ];
@@ -180,8 +247,17 @@ export async function mirror(
     readers.listVariantAttributes && attributeIds.length > 0
       ? await readers.listVariantAttributes(params, attributeIds)
       : new Map();
-  const productRows = productsFrom(products, stock, sourceNames, attributes);
-  const partners = partnersFrom(companies);
+  // Which products belong to this ERP (rule M3): the rest are another ERP's and stay out.
+  const filter = ownershipFilter(settings);
+  const owned = products.filter((p) =>
+    filter.owns({
+      customAttributes: p.customAttributes,
+      sourceCodes: (stock.get(p.sku) ?? []).map((row) => row.code),
+    }),
+  );
+  const skipped = products.length - owned.length;
+  const productRows = productsFrom(owned, stock, sourceNames, attributes);
+  const partners = partnersFrom(companies, websites, salesOrgByWebsite);
   const partnerTotal = partners.length;
   const productTotal = productRows.length;
 
@@ -191,8 +267,14 @@ export async function mirror(
     products: { done: 0, total: productTotal },
     state: "running",
   });
+  // The structure block rides with the partners import: the full mirror is the one
+  // place Commerce's websites and their sales organisations reach the ERP (contract v2).
   const partnerResult = importOrThrow(
-    await erp.importRecords(params, { partners, projectName }),
+    await erp.importRecords(params, {
+      partners,
+      projectName,
+      ...(structure ? { structure } : {}),
+    }),
   );
 
   const productResult = { created: 0, updated: 0 };
@@ -218,7 +300,12 @@ export async function mirror(
     });
   }
   return {
-    counts: { companies: companies.length, products: products.length },
+    counts: {
+      companies: companies.length,
+      products: products.length,
+      skipped,
+      ...(skipped ? { owns: filter.describe } : {}),
+    },
     partners: partnerResult.partners,
     products: productResult,
   };

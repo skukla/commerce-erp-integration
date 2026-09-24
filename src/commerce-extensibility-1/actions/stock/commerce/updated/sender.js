@@ -1,8 +1,14 @@
 import { HTTP_INTERNAL_SERVER_ERROR } from "@adobe/aio-commerce-sdk/core/responses";
 
-import { skuForProductId } from "#lib/commerce";
+import {
+  productAttributes,
+  skuForProductId,
+  sourceCodesOf,
+} from "#lib/commerce";
 import { COMMERCE_EVENTS, originOf } from "#lib/commerce-events";
 import { erp } from "#lib/erp";
+import { settingsFor } from "#lib/settings";
+import { ownsSku } from "#lib/structure";
 
 /**
  * Look the SKU up in Commerce (the stock event names only the product id) and import the
@@ -18,6 +24,20 @@ async function sendData(params, transformed) {
         message: `no product with id ${transformed.productId}`,
         statusCode: 404,
         success: false,
+      };
+    }
+    // Rule M3: a product another ERP owns is not sent, and that is a success, not a refusal.
+    const settings = await settingsFor(null);
+    if (
+      !(await ownsSku(params, sku, settings, {
+        productAttributes,
+        sourceCodesOf,
+      }))
+    ) {
+      return {
+        message: `${sku} is not this ERP's product`,
+        skipped: true,
+        success: true,
       };
     }
     // The ERP puts `stock` on the product's default warehouse: the stock item tracks

@@ -3,6 +3,7 @@ import AioLogger from "@adobe/aio-lib-core-logging";
 import * as commerce from "#lib/commerce";
 import { erp } from "#lib/erp";
 import { mirrorPartners } from "#lib/mirror";
+import { websiteSettings } from "#lib/settings";
 import { refreshStock } from "#lib/stock-refresh";
 import * as snapshot from "#lib/stock-snapshot";
 
@@ -21,7 +22,11 @@ async function main(params) {
   });
   const out = { ok: true };
   try {
-    const partners = await mirrorPartners(params, commerce, erp);
+    const partners = await mirrorPartners(
+      params,
+      { ...commerce, websiteSettings: (code) => websiteSettings(code, logger) },
+      erp,
+    );
     logger.info(`refreshed ${partners.companies} companies into the ERP`);
     out.partners = partners;
   } catch (error) {

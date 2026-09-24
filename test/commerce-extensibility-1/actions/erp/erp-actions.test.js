@@ -19,8 +19,12 @@ vi.mock("#lib/commerce", () => ({
   listSources: vi.fn(async () => new Map()),
   listStock: vi.fn(async () => new Map()),
   listVariantAttributes: vi.fn(async () => new Map()),
+  listWebsites: vi.fn(async () => []),
+  productAttributes: vi.fn(async () => ({})),
   setCompanyCreditLimit: vi.fn(),
   setCompanyStatus: vi.fn(),
+  sourceCodesOf: vi.fn(async () => []),
+  storeConfigs: vi.fn(async () => new Map()),
 }));
 vi.mock("#lib/stock-refresh", () => ({
   refreshStock: vi.fn(async () => ({ changed: [], seeded: false, sent: 0 })),
@@ -136,6 +140,7 @@ describe("Given the mirror action", () => {
       expect.anything(),
       "Bodea",
       expect.any(Function),
+      expect.objectContaining({ structure_owns: "all" }),
     );
     expect(res.statusCode).toBe(200);
     expect(mockInvoke).not.toHaveBeenCalled();

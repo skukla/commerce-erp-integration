@@ -7,6 +7,10 @@
 const mockGet = vi.fn();
 vi.mock("#lib/commerce", () => ({
   commerceClient: vi.fn(async () => ({ get: mockGet })),
+  listWebsites: vi.fn(async () => []),
+  productAttributes: vi.fn(async () => ({})),
+  sourceCodesOf: vi.fn(async () => []),
+  storeConfigs: vi.fn(async () => new Map()),
 }));
 
 import { nameOf, priceOf, quantityOf } from "#lib/commerce-before";

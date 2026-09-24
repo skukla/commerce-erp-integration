@@ -12,9 +12,12 @@ import {
   listSources,
   listStock,
   listVariantAttributes,
+  listWebsites,
+  storeConfigs,
 } from "#lib/commerce";
 import { erp } from "#lib/erp";
 import { mirror } from "#lib/mirror";
+import { settingsFor, websiteSettings } from "#lib/settings";
 
 const NO_ASSOCIATION = /No association record/u;
 const COMMERCE_REFUSED =
@@ -74,10 +77,14 @@ export async function runMirror(params) {
         listSources,
         listStock,
         listVariantAttributes,
+        listWebsites,
+        storeConfigs,
+        websiteSettings: (code) => websiteSettings(code, logger),
       },
       erp,
       params.projectName,
       report,
+      await settingsFor(null, logger),
     );
     await report({ state: "done" });
     return result;

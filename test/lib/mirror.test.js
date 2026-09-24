@@ -144,9 +144,62 @@ describe("Given the mirror", () => {
         customerGroupId: "4",
         emailDomain: "acme.example",
         id: "C7",
+        legalAddress: null,
+        legalName: null,
         name: "Acme",
+        resellerId: null,
+        salesOrgs: [],
+        vatTaxId: null,
+        website: null,
       },
     ]);
+  });
+  // Business structure: the company admin's website names the sales organisation the
+  // company buys through; the legal identity rides along for the customer document.
+  test("Then a company's admin website gives its sales organisation, and its legal identity comes with it", () => {
+    const rows = partnersFrom(
+      [
+        {
+          id: 7,
+          legalAddress: {
+            city: "Austin",
+            countryId: "US",
+            postcode: "78701",
+            region: "TX",
+            street: ["1 Main St"],
+            telephone: null,
+          },
+          legalName: "Acme Trading LLC",
+          name: "Acme",
+          resellerId: "R-77",
+          vatTaxId: "US12-3456789",
+          websiteId: 2,
+        },
+        { id: 8, name: "Nowhere Ltd", websiteId: 9 },
+      ],
+      [
+        { code: "base", id: 1 },
+        { code: "eu", id: 2 },
+      ],
+      new Map([[2, "2000"]]),
+    );
+    expect(rows[0]).toMatchObject({
+      legalAddress: {
+        city: "Austin",
+        countryId: "US",
+        postcode: "78701",
+        region: "TX",
+        street: ["1 Main St"],
+        telephone: null,
+      },
+      legalName: "Acme Trading LLC",
+      resellerId: "R-77",
+      salesOrgs: ["2000"],
+      vatTaxId: "US12-3456789",
+      website: { code: "eu", id: 2 },
+    });
+    // A website the read did not list: the company belongs to no sales organisation yet.
+    expect(rows[1]).toMatchObject({ salesOrgs: [], website: null });
   });
   test("Then a mirror asks the store once for each attribute its configurable products vary on", async () => {
     const readers = {
@@ -207,7 +260,13 @@ describe("Given the mirror", () => {
             customerGroupId: undefined,
             emailDomain: undefined,
             id: "C1",
+            legalAddress: null,
+            legalName: null,
             name: "One",
+            resellerId: null,
+            salesOrgs: [],
+            vatTaxId: null,
+            website: null,
           },
         ],
         projectName: "Demo",
@@ -243,7 +302,7 @@ describe("Given the mirror", () => {
       { phase: "products", products: { done: 1, total: 1 }, state: "running" },
     ]);
     expect(result).toEqual({
-      counts: { companies: 1, products: 1 },
+      counts: { companies: 1, products: 1, skipped: 0 },
       partners: { created: 1, updated: 0 },
       products: { created: 1, updated: 0 },
     });
@@ -343,5 +402,128 @@ describe("Given the every-minute partner refresh", () => {
     );
     const [, body] = importRecords.mock.calls[0];
     expect(Object.keys(body)).toEqual(["partners"]);
+  });
+});
+
+describe("Given the business structure in a mirror", () => {
+  const readers = {
+    listCompanies: async () => [{ id: 7, name: "Acme", websiteId: 1 }],
+    listProducts: async () => [
+      {
+        customAttributes: { erp_owner: "ACME" },
+        id: 1,
+        listPrice: 1,
+        name: "Ours",
+        sku: "A",
+        typeId: "simple",
+      },
+      {
+        customAttributes: { erp_owner: "NW" },
+        id: 2,
+        listPrice: 1,
+        name: "Theirs",
+        sku: "B",
+        typeId: "simple",
+      },
+      {
+        customAttributes: {},
+        id: 3,
+        listPrice: 1,
+        name: "East only",
+        sku: "C",
+        typeId: "simple",
+      },
+    ],
+    listSources: async () =>
+      new Map([
+        ["default", "Default Source"],
+        ["east", "East DC"],
+      ]),
+    listStock: async () =>
+      new Map([
+        ["A", [{ code: "default", quantity: 1 }]],
+        ["B", [{ code: "default", quantity: 1 }]],
+        ["C", [{ code: "east", quantity: 1 }]],
+      ]),
+    listWebsites: async () => [
+      { code: "base", id: 1, name: "Main" },
+      { code: "eu", id: 2, name: "Europe" },
+    ],
+    storeConfigs: async () =>
+      new Map([
+        [1, { currency: "USD", locale: "en_US" }],
+        [2, { currency: "EUR", locale: "de_DE" }],
+      ]),
+    websiteSettings: async (code) =>
+      code === "eu"
+        ? { structure_sales_org: "2000", structure_sales_org_name: "Online EU" }
+        : {},
+  };
+  const erp = () => ({
+    importRecords: vi.fn(async () => ({
+      data: { partners: {}, products: {} },
+      ok: true,
+      status: 200,
+    })),
+  });
+
+  test("Then the partners import carries the structure block and each partner's sales organisation", async () => {
+    const client = erp();
+    await mirror({}, readers, client, "Demo");
+    const [, partnersBody] = client.importRecords.mock.calls[0];
+    expect(
+      partnersBody.structure.websites.map((w) => [
+        w.code,
+        w.salesOrg,
+        w.salesOrgName,
+        w.storeInfo.currency,
+      ]),
+    ).toEqual([
+      ["base", "1000", null, "USD"],
+      ["eu", "2000", "Online EU", "EUR"],
+    ]);
+    expect(partnersBody.partners[0]).toMatchObject({
+      salesOrgs: ["1000"],
+      website: { code: "base", id: 1 },
+    });
+  });
+  test("Then only the products this ERP owns are sent, by attribute or by source, and the count says what was left out", async () => {
+    const byAttribute = erp();
+    const result = await mirror({}, readers, byAttribute, "Demo", undefined, {
+      structure_owns: "attribute",
+      structure_owns_attribute: "erp_owner=ACME",
+    });
+    const sent = byAttribute.importRecords.mock.calls
+      .slice(1)
+      .flatMap(([, body]) => body.products ?? [])
+      .map((p) => p.sku);
+    expect(sent).toEqual(["A"]);
+    expect(result.counts).toMatchObject({
+      owns: "products whose erp_owner is ACME",
+      products: 3,
+      skipped: 2,
+    });
+    const bySource = erp();
+    await mirror({}, readers, bySource, "Demo", undefined, {
+      structure_owns: "sources",
+      structure_owns_sources: "east",
+    });
+    expect(
+      bySource.importRecords.mock.calls
+        .slice(1)
+        .flatMap(([, body]) => body.products ?? [])
+        .map((p) => p.sku),
+    ).toEqual(["C"]);
+    const all = erp();
+    const everything = await mirror({}, readers, all, "Demo");
+    expect(everything.counts.skipped).toBe(0);
+    expect(everything.counts.owns).toBeUndefined();
+  });
+  test("Then the minute partner refresh carries the same sales organisations", async () => {
+    const client = erp();
+    await mirrorPartners({}, readers, client);
+    const [, body] = client.importRecords.mock.calls[0];
+    expect(Object.keys(body)).toEqual(["partners"]);
+    expect(body.partners[0].salesOrgs).toEqual(["1000"]);
   });
 });

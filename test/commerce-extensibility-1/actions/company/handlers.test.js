@@ -2,8 +2,12 @@ vi.mock("#lib/commerce", () => ({
   COMPANY_STATUS: { APPROVED: 1, BLOCKED: 3 },
   getCompany: vi.fn(async () => ({ id: 7, status: 1 })),
   getCompanyCredit: vi.fn(async () => ({ credit_limit: 1000, id: 42 })),
+  listWebsites: vi.fn(async () => []),
+  productAttributes: vi.fn(async () => ({})),
   setCompanyCreditLimit: vi.fn(async () => ({})),
   setCompanyStatus: vi.fn(async () => ({})),
+  sourceCodesOf: vi.fn(async () => []),
+  storeConfigs: vi.fn(async () => new Map()),
 }));
 vi.mock("#lib/ledger", () => ({ recordCompanyWrite: vi.fn(async () => []) }));
 vi.mock("#src/order/commerce-order-api-client", () => ({

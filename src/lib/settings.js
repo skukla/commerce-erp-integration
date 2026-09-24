@@ -146,6 +146,28 @@ export async function settingsFor(storeViewId, logger) {
   return values;
 }
 
+/**
+ * The settings at one website's scope, with Default Config beneath it: what an order
+ * from that website carries as its sales organisation (business structure). Never
+ * throws; unreadable answers the declared defaults.
+ * @param {string} websiteCode the website's code
+ */
+export async function websiteSettings(websiteCode, logger) {
+  let values = { ...SETTING_DEFAULTS };
+  try {
+    ready();
+    values = await readFirst([
+      byCodeAndLevel(websiteCode, "website"),
+      DEFAULT_SCOPE,
+    ]);
+  } catch (error) {
+    logger?.warn(
+      `settings for website ${websiteCode} unreadable, using defaults: ${error.message}`,
+    );
+  }
+  return values;
+}
+
 async function readFirst([selector, ...rest]) {
   try {
     return await readScope(selector);

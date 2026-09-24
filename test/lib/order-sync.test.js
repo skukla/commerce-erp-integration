@@ -296,6 +296,9 @@ describe("Given a retry of one order from the Admin screen", () => {
   });
 });
 
+const NO_LINE =
+  /no line of order .* belongs to this ERP \(products whose erp_owner is ACME\)/u;
+
 describe("Given the business structure on an order", () => {
   test("Then the website's sales organisation rides on the request, and the written-back number carries the pair's prefix", async () => {
     const d = deps();
@@ -320,5 +323,38 @@ describe("Given the business structure on an order", () => {
       41,
       "Created in Northwind ERP as sales order 0000001002",
     );
+  });
+});
+
+describe("Given two ERPs on one store: which orders are this ERP's (rule M3)", () => {
+  test("Then an order with no line this ERP owns is skipped, in words; one with an owned line is sent", async () => {
+    const d = deps();
+    d.settingsFor = vi.fn(async () => ({
+      orders_hold_offline: true,
+      orders_send: true,
+      structure_owns: "attribute",
+      structure_owns_attribute: "erp_owner=ACME",
+    }));
+    d.ownsSku = vi.fn(async (_p, sku) => sku === "OURS");
+    const none = await sendOrderToErp(
+      {},
+      { ...NEW_ORDER, items: [{ item_id: 1, qty_ordered: 1, sku: "THEIRS" }] },
+      d,
+    );
+    expect(none.outcome).toBe("skipped");
+    expect(none.message).toMatch(NO_LINE);
+    expect(d.erp.createOrder).not.toHaveBeenCalled();
+    const some = await sendOrderToErp(
+      {},
+      {
+        ...NEW_ORDER,
+        items: [
+          { item_id: 1, qty_ordered: 1, sku: "THEIRS" },
+          { item_id: 2, qty_ordered: 1, sku: "OURS" },
+        ],
+      },
+      d,
+    );
+    expect(some.outcome).toBe("sent");
   });
 });

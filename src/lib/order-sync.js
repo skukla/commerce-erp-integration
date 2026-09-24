@@ -14,7 +14,13 @@
  * repeated delivery creates nothing twice.
  */
 import { COMMERCE_EVENTS, originOf } from "#lib/commerce-events";
-import { orderPrefix, salesOrgOf, withPrefix } from "#lib/structure";
+import {
+  OWNS,
+  orderPrefix,
+  ownershipFilter,
+  salesOrgOf,
+  withPrefix,
+} from "#lib/structure";
 import { partnerHints } from "#lib/webhook";
 
 const ERP_TIMEOUT_MS = 20_000;
@@ -60,6 +66,28 @@ export function erpOrderFrom(order, entityId, settings = {}) {
   };
 }
 
+/**
+ * Which ERP sells a mixed order is the routing layer's call (out of scope); but an order
+ * with NO line this ERP owns is not this ERP's at all (rule M3). Under `all`, every order is.
+ */
+async function hasOwnedLine(params, order, settings, deps) {
+  if (ownershipFilter(settings).mode === OWNS.ALL || !deps.ownsSku) {
+    return true;
+  }
+  const rawItems = order.items ?? [];
+  const items = Array.isArray(rawItems) ? rawItems : Object.values(rawItems);
+  const skus = items
+    .filter((item) => !item.parent_item_id && item.sku)
+    .map((item) => item.sku);
+  for (const sku of skus) {
+    // biome-ignore lint/performance/noAwaitInLoops: a few lines, each one read
+    if (await deps.ownsSku(params, sku, settings)) {
+      return true;
+    }
+  }
+  return false;
+}
+
 const canRetry = (status) =>
   status === undefined ||
   status === TOO_MANY_REQUESTS ||
@@ -69,7 +97,7 @@ const canRetry = (status) =>
  * Send one order event's order to the ERP.
  * @param {object} params action params (ERP and Commerce credentials)
  * @param {object} order the event's `data.value`
- * @param {object} deps `{ erp, findOrder, setExtOrderId, addNote, settingsFor, logger }`
+ * @param {object} deps `{ erp, findOrder, setExtOrderId, addNote, settingsFor, ownsSku?, logger }`
  * @returns {Promise<{ outcome: "sent"|"skipped"|"held"|"dropped", statusCode: number, message: string }>}
  */
 export async function sendOrderToErp(params, order, deps) {
@@ -98,6 +126,13 @@ export async function sendOrderToErp(params, order, deps) {
       "skipped",
       200,
       `${label}: sending orders to the ERP is off for its website.`,
+    );
+  }
+  if (!(await hasOwnedLine(params, order, settings, deps))) {
+    return result(
+      "skipped",
+      200,
+      `no line of ${label} belongs to this ERP (${ownershipFilter(settings).describe})`,
     );
   }
   const found = await deps.findOrder(params, order.increment_id);

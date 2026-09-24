@@ -35,6 +35,7 @@ vi.mock("#lib/settings", () => ({
     pricing_contract_prices: true,
     pricing_discount_ceiling: true,
   }),
+  websiteSettings: async () => ({ structure_sales_org: "1000" }),
 }));
 vi.mock("#lib/erp", () => {
   const { call } = box.erp;
@@ -155,6 +156,9 @@ async function deliverErpEvents() {
 }
 
 const writesOf = (kind) => box.commerce.writes.filter((w) => w.kind === kind);
+/* The mirror's readers as a plain object: a mocked module namespace throws on a property
+   it does not export, and the mirror probes for the optional readers. */
+const readers = { ...box.commerce.lib, websiteSettings: async () => ({}) };
 const TEN_DIGITS = /^\d{10}$/u;
 const PREFIXED = /^ERP-\d{10}$/u;
 const RECEIVED_FROM_COMMERCE = /received from Commerce/u;
@@ -164,7 +168,7 @@ const erpOrder = async (number) => (await erp.order({}, number)).data;
 
 /** The store mirrored into the ERP and the first Commerce order sent, as a demo starts. */
 async function seeded() {
-  await mirror({}, commerceLib, erp, "Box");
+  await mirror({}, readers, erp, "Box");
   const res = await orderCreated.main(
     box.commerce.events.orderSaved(55, { isNew: true }),
   );
@@ -321,7 +325,7 @@ describe("Pair in a box: the entity matrix, both directions", () => {
   });
 
   test("Credit, ERP → Commerce: an over-limit order is held in the ERP and put On Hold in Commerce; release takes it off; reject takes it off and cancels", async () => {
-    await mirror({}, commerceLib, erp, "Box");
+    await mirror({}, readers, erp, "Box");
     box.commerce.db.orders.get(55).base_grand_total = 5000;
     box.commerce.db.orders.get(55).items[0].base_price = 400;
     await orderCreated.main(
@@ -431,11 +435,9 @@ describe("Pair in a box: the entity matrix, both directions", () => {
 
   test("Inventory, Commerce → ERP: a source quantity edited in Commerce reaches the ERP within the minute, and the ERP's own write is not echoed", async () => {
     await seeded();
-    expect((await refreshStock({}, commerceLib, erp, snapshot)).seeded).toBe(
-      true,
-    );
+    expect((await refreshStock({}, readers, erp, snapshot)).seeded).toBe(true);
     box.commerce.adminSetSourceItem("A1", "east", 3);
-    const moved = await refreshStock({}, commerceLib, erp, snapshot);
+    const moved = await refreshStock({}, readers, erp, snapshot);
     expect(moved).toEqual({ changed: ["A1"], seeded: false, sent: 1 });
     const product = (await box.erp.call("products", { path: "/A1" })).data;
     expect(product.warehouses.find((w) => w.code === "east").quantity).toBe(3);
@@ -447,7 +449,7 @@ describe("Pair in a box: the entity matrix, both directions", () => {
     });
     await deliverErpEvents();
     expect(box.commerce.db.sourceItems.get("A1|default")).toBe(41);
-    expect(await refreshStock({}, commerceLib, erp, snapshot)).toEqual({
+    expect(await refreshStock({}, readers, erp, snapshot)).toEqual({
       changed: [],
       seeded: false,
       sent: 0,

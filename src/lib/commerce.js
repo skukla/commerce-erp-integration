@@ -154,6 +154,56 @@ export async function listSources(params) {
   return new Map(sources.map((source) => [source.source_code, source.name]));
 }
 
+/** The company's credit record, or null when it has none (or the read fails). */
+async function creditOf(client, companyId) {
+  try {
+    return await client.get(`companyCredits/company/${companyId}`).json();
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * The company admin's website id, or null. The admin's website is the buyer's sales
+ * organisation (business structure): `website_id` is documented on the customer object.
+ */
+async function adminWebsiteOf(client, company) {
+  if (!company.super_user_id) {
+    return null;
+  }
+  try {
+    const admin = await client.get(`customers/${company.super_user_id}`).json();
+    return admin?.website_id === undefined || admin.website_id === null
+      ? null
+      : Number(admin.website_id);
+  } catch {
+    return null;
+  }
+}
+
+/** One company as the mirror sees it: credit, legal identity (read 2026-09-24), admin website. */
+async function companyRow(client, company) {
+  const [credit, websiteId] = await Promise.all([
+    creditOf(client, company.id),
+    adminWebsiteOf(client, company),
+  ]);
+  return {
+    blocked: Number(company.status) === COMPANY_STATUS.BLOCKED,
+    creditId: credit?.id ?? null,
+    creditLimit: credit ? Number(credit.credit_limit ?? 0) : null,
+    customerGroupId: company.customer_group_id,
+    email: company.company_email ?? null,
+    id: company.id,
+    legalAddress: legalAddressOf(company),
+    legalName: company.legal_name ?? null,
+    name: company.company_name,
+    resellerId: company.reseller_id ?? null,
+    status: company.status,
+    vatTaxId: company.vat_tax_id ?? null,
+    websiteId,
+  };
+}
+
 /** B2B companies with their credit records; an instance without B2B answers an empty list. */
 export async function listCompanies(params) {
   const client = await commerceClient(params);
@@ -168,25 +218,92 @@ export async function listCompanies(params) {
   }
   const out = [];
   for (const company of companies) {
-    let credit = null;
-    try {
-      // biome-ignore lint/performance/noAwaitInLoops: one credit record per company
-      credit = await client.get(`companyCredits/company/${company.id}`).json();
-    } catch {
-      credit = null;
-    }
-    out.push({
-      blocked: Number(company.status) === COMPANY_STATUS.BLOCKED,
-      creditId: credit?.id ?? null,
-      creditLimit: credit ? Number(credit.credit_limit ?? 0) : null,
-      customerGroupId: company.customer_group_id,
-      email: company.company_email ?? null,
-      id: company.id,
-      name: company.company_name,
-      status: company.status,
-    });
+    // biome-ignore lint/performance/noAwaitInLoops: a few companies, each with two reads, in order
+    out.push(await companyRow(client, company));
   }
   return out;
+}
+
+/** The company's legal address from the company object's own fields, or null when it has none. */
+function legalAddressOf(company) {
+  let street = [];
+  if (Array.isArray(company.street)) {
+    street = company.street.filter(Boolean);
+  } else if (company.street) {
+    street = [String(company.street)];
+  }
+  const address = {
+    city: company.city ?? null,
+    countryId: company.country_id ?? null,
+    postcode: company.postcode ?? null,
+    region: company.region ?? null,
+    street,
+    telephone: company.telephone ?? null,
+  };
+  const empty =
+    street.length === 0 &&
+    !address.city &&
+    !address.countryId &&
+    !address.postcode &&
+    !address.region &&
+    !address.telephone;
+  return empty ? null : address;
+}
+
+/**
+ * Commerce's websites (`GET store/websites`, read-only on every platform), without the
+ * Admin website, whose codes collide with store codes in the config store.
+ * @returns {Promise<Array<{ id: number, code: string, name: string }>>}
+ */
+export async function listWebsites(params) {
+  const client = await commerceClient(params);
+  const sites = await client.get("store/websites").json();
+  return (sites ?? [])
+    .filter((site) => site.code !== "admin")
+    .map((site) => ({ code: site.code, id: Number(site.id), name: site.name }));
+}
+
+/**
+ * What the store configuration says per website: its base currency and locale
+ * (`GET store/storeConfigs`, one row per store view; the first view of a website speaks
+ * for it). Store Information (address, VAT) is NOT here, nor anywhere over REST.
+ * @returns {Promise<Map<number, { currency: string|null, locale: string|null }>>}
+ */
+export async function storeConfigs(params) {
+  const client = await commerceClient(params);
+  const configs = await client.get("store/storeConfigs").json();
+  const byWebsite = new Map();
+  for (const config of configs ?? []) {
+    const websiteId = Number(config.website_id);
+    if (!byWebsite.has(websiteId)) {
+      byWebsite.set(websiteId, {
+        currency: config.base_currency_code ?? null,
+        locale: config.locale ?? null,
+      });
+    }
+  }
+  return byWebsite;
+}
+
+/** The inventory sources one SKU is assigned to (for the ownership check on an event). */
+export async function sourceCodesOf(params, sku) {
+  const client = await commerceClient(params);
+  const items = await readAllPages(client, "inventory/source-items", {
+    "searchCriteria[filter_groups][0][filters][0][field]": "sku",
+    "searchCriteria[filter_groups][0][filters][0][value]": String(sku),
+  });
+  return items.map((item) => item.source_code);
+}
+
+/** One product's custom attributes, code → value (for the ownership check on an event). */
+export async function productAttributes(params, sku) {
+  const client = await commerceClient(params);
+  const product = await client
+    .get(`products/${encodeURIComponent(sku)}`)
+    .json();
+  return Object.fromEntries(
+    (product?.custom_attributes ?? []).map((a) => [a.attribute_code, a.value]),
+  );
 }
 
 /** @returns {Promise<string|null>} the SKU of a product id, null when unknown */

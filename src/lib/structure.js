@@ -70,3 +70,116 @@ export function salesOrgOf(settings) {
     ? { salesOrg, salesOrgName: name }
     : { salesOrg };
 }
+
+/** The ownership modes (rule M3): which products belong to this ERP. */
+export const OWNS = Object.freeze({
+  ALL: "all",
+  ATTRIBUTE: "attribute",
+  SOURCES: "sources",
+});
+
+/** "default, east" → ["default", "east"] */
+const codesOf = (text) =>
+  String(text ?? "")
+    .split(",")
+    .map((code) => code.trim())
+    .filter(Boolean);
+
+/** "erp_owner=ACME" → { code: "erp_owner", value: "ACME" }, or null */
+function attributeOf(text) {
+  const at = String(text ?? "").indexOf("=");
+  if (at <= 0) {
+    return null;
+  }
+  return {
+    code: text.slice(0, at).trim(),
+    value: text.slice(at + 1).trim(),
+  };
+}
+
+/**
+ * Which products belong to this ERP, from the pair's settings (rule M3). `owns` takes a
+ * product as the mirror sees it: `sourceCodes` (the inventory sources it is stocked in)
+ * and `customAttributes` (code → value). Under `all` every product is owned, which is
+ * today's single-pair behaviour; a mode whose setting is blank owns nothing, loudly.
+ * @returns {{ mode: string, owns: (product: object) => boolean, describe: string }}
+ */
+export function ownershipFilter(settings) {
+  const mode = settings?.structure_owns || OWNS.ALL;
+  if (mode === OWNS.SOURCES) {
+    const codes = new Set(codesOf(settings?.structure_owns_sources));
+    return {
+      describe: `products stocked in ${codes.size ? [...codes].join(", ") : "no source (the setting is blank)"}`,
+      mode,
+      owns: (product) =>
+        (product.sourceCodes ?? []).some((code) => codes.has(code)),
+    };
+  }
+  if (mode === OWNS.ATTRIBUTE) {
+    const attribute = attributeOf(settings?.structure_owns_attribute);
+    return {
+      describe: attribute
+        ? `products whose ${attribute.code} is ${attribute.value}`
+        : "products whose attribute names this ERP (the setting is blank)",
+      mode,
+      owns: (product) =>
+        Boolean(attribute) &&
+        String(product.customAttributes?.[attribute.code] ?? "") ===
+          attribute.value,
+    };
+  }
+  return { describe: "every product", mode: OWNS.ALL, owns: () => true };
+}
+
+/**
+ * Does this ERP own a SKU, asked of Commerce (a product or stock event names a SKU and
+ * little else). `all` answers without a read.
+ * @param {object} readers `{ sourceCodesOf(params, sku), productAttributes(params, sku) }`
+ */
+export async function ownsSku(params, sku, settings, readers) {
+  const filter = ownershipFilter(settings);
+  if (filter.mode === OWNS.ALL) {
+    return true;
+  }
+  if (filter.mode === OWNS.SOURCES) {
+    return filter.owns({
+      sourceCodes: await readers.sourceCodesOf(params, sku),
+    });
+  }
+  return filter.owns({
+    customAttributes: await readers.productAttributes(params, sku),
+  });
+}
+
+/**
+ * The structure block the full mirror sends the ERP (contract `import.structure`):
+ * Commerce's websites, each with the sales organisation its setting names and what the
+ * store configuration says about it. Store Information (address, VAT) is not readable
+ * over REST (composite-entity research, 2026-09-24), so those stay null here and the
+ * ERP's Organisation card says so.
+ * @param {Array<{id:number, code:string, name:string}>} websites
+ * @param {Map<number, {currency:string|null, locale:string|null}>} configs by website id
+ * @param {Map<number, object>} settingsByWebsite the website-scoped settings, by website id
+ */
+export function structureFrom(websites, configs, settingsByWebsite) {
+  return {
+    websites: websites.map((site) => {
+      const settings = settingsByWebsite.get(site.id) ?? {};
+      const config = configs.get(site.id) ?? {};
+      const locale = typeof config.locale === "string" ? config.locale : "";
+      const { salesOrg, salesOrgName } = salesOrgOf(settings);
+      return {
+        code: site.code,
+        name: site.name,
+        salesOrg,
+        salesOrgName: salesOrgName ?? null,
+        storeInfo: {
+          address: null,
+          countryId: locale.includes("_") ? locale.split("_")[1] : null,
+          currency: config.currency ?? null,
+          vatNumber: null,
+        },
+      };
+    }),
+  };
+}
