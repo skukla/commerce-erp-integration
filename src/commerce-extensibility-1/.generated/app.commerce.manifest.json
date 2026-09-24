@@ -393,7 +393,7 @@
     "displayName": "ERP integration",
     "id": "commerce-erp-integration",
     "upgradeMode": "auto",
-    "version": "0.5.0"
+    "version": "0.6.0"
   },
   "webhooks": [
     {
