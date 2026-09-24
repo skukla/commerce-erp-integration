@@ -1,6 +1,6 @@
 {
   "name": "demo-erp",
-  "contractVersion": 1,
+  "contractVersion": 2,
   "description": "What the ERP promises its subscribers: the routes it serves, the shapes it accepts, and the events it publishes. The Commerce integration vendors this file and its tests fail when the two disagree.",
   "routes": {
     "health": ["GET"],
@@ -20,7 +20,13 @@
     "productTypes": ["simple", "configurable"],
     "variantAttribute": ["label", "value"],
     "warehouse": ["code", "name", "quantity"],
-    "partners": ["id", "name", "commerceCompanyId", "customerGroupId", "emailDomain", "creditLimit", "blocked"],
+    "partners": ["id", "name", "commerceCompanyId", "customerGroupId", "emailDomain", "creditLimit", "blocked", "salesOrgs", "legalName", "vatTaxId", "resellerId", "legalAddress", "website"],
+    "partnersNote": "salesOrgs, legalName, vatTaxId, resellerId, legalAddress and website arrive with contract version 2 (business structure); an ERP at version 1 ignores them, an integration at version 1 does not send them",
+    "legalAddress": ["street", "city", "region", "postcode", "countryId", "telephone"],
+    "website": ["id", "code"],
+    "structure": ["websites"],
+    "structureWebsite": ["code", "name", "salesOrg", "salesOrgName", "storeInfo"],
+    "storeInfo": ["currency", "countryId", "vatNumber", "address"],
     "stock": ["sku", "warehouses"],
     "stockNote": "quantities per warehouse for products the ERP already has (the integration's minute refresh of Commerce's source items); a SKU the ERP does not have is reported under stock.unknown and not created; a stock-only import does not move lastImportAt",
     "projectName": "optional"
@@ -32,9 +38,9 @@
     "unknownLine": ["sku", "qty", "unknown"]
   },
   "order": {
-    "request": ["commerceOrderId", "commerceIncrementId", "partnerId", "commerceCompanyId", "email", "customerGroupId", "lines", "currency", "total"],
+    "request": ["commerceOrderId", "commerceIncrementId", "partnerId", "commerceCompanyId", "email", "customerGroupId", "lines", "currency", "total", "salesOrg", "salesOrgName"],
     "requestLine": ["sku", "qty", "price", "commerceItemId"],
-    "response": ["number", "commerceOrderId", "commerceIncrementId", "partnerId", "lines", "currency", "total", "status", "header", "shipments", "invoice", "creditStatus", "creditReason", "creditDecidedAt", "history", "createdAt"],
+    "response": ["number", "commerceOrderId", "commerceIncrementId", "partnerId", "lines", "currency", "total", "status", "header", "shipments", "invoice", "creditStatus", "creditReason", "creditDecidedAt", "history", "createdAt", "salesOrg", "salesOrgName"],
     "fromCommerce": {
       "note": "A move made IN Commerce carries origin: { event, eventId? }. The ERP records it, journals it as received, and raises no outbound event for it, so Commerce is not asked to do it twice.",
       "commerceShipment": ["commerceShipmentId", "items", "sourceCode", "origin"],
