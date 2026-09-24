@@ -309,14 +309,19 @@ for orders paid on account, the company's credit balance.
 
 ## Two ERPs on one store
 
-Once a second pair is installed (its own app id, its own prefix, its own ownership rule),
-the same walk-through holds per pair: each ERP shows only the products it owns, each
-Commerce order carries the number of the ERP that took it, and the Mapping tab of each
-pair says which products are its own. The nine moments of a split order (one order,
+The direction (owner, 2026-09-24): ONE integration serving several ERPs, the way the customer
+would build it. Each ERP is a configured target inside the same integration (its own address,
+name, order-number prefix and ownership rule); the routing consumer is part of the integration
+and passes orders straight through when there is one target. The mock ERPs stay separate
+systems, each with its own screen and look. Once a second target exists, the same walk-through
+holds per ERP: each shows only the products it owns, each Commerce order carries the number
+of the ERP that took it in its own order attribute, and the Mapping tab says which products
+belong to which ERP. Today's build serves one target; that single-ERP skeleton is what the
+target list grows out of. The nine moments of a split order (one order,
 lines owned by two ERPs) belong to the routing integration and are written when it exists.
 
 The pattern behind it, in the words to give a customer: an order placed in Commerce is
-consumed ONCE, by the routing integration's consumer action; it decides which ERP owns each
+consumed ONCE, by the integration's routing consumer action; it decides which ERP owns each
 line (the product's owning-system attribute), splits the order into parts, and hands each
 part to that ERP pair's own runtime actions, which raise that pair's own events towards its
 ERP. The pairs stop listening to Commerce for new orders and know nothing of one another,
