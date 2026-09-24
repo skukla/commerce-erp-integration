@@ -347,12 +347,18 @@ export async function getCompanyCredit(params, companyId) {
   return client.get(`companyCredits/company/${companyId}`).json();
 }
 
-/** Set a company's status (blocked = 3, approved = 1). */
+/**
+ * Set a company's status (blocked = 3, approved = 1). Commerce's company PUT is a
+ * whole-record write: a body of only `{id, status}` is refused ("No such entity with
+ * customerGroupId = null", measured 2026-09-24 on ACCS), so the company is read first
+ * and written back with the one field changed.
+ */
 export async function setCompanyStatus(params, companyId, status) {
   const client = await commerceClient(params);
+  const company = await client.get(`company/${companyId}`).json();
   return client
     .put(`company/${companyId}`, {
-      json: { company: { id: companyId, status } },
+      json: { company: { ...company, id: companyId, status } },
     })
     .json();
 }
@@ -365,12 +371,18 @@ export async function setCompanyCreditLimit(
   creditLimit,
 ) {
   const client = await commerceClient(params);
+  // Commerce refuses the write without the record's currency ("currency_code is
+  // required", measured 2026-09-24 on ACCS): the ERP's credit event and detach's
+  // revert both failed with 400 until the currency travelled with the limit. Read
+  // it from the record rather than assume a store's base currency.
+  const current = await client.get(`companyCredits/${creditId}`).json();
   return client
     .put(`companyCredits/${creditId}`, {
       json: {
         creditLimit: {
           company_id: companyId,
           credit_limit: creditLimit,
+          currency_code: current.currency_code,
           id: creditId,
         },
       },
