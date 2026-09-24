@@ -76,13 +76,19 @@ afterEach(() => {
 });
 
 describe("Given the declared settings", () => {
-  test("Then every setting defaults to on", () => {
+  test("Then every switch defaults to on, and the structure fields to a single ERP selling everything as sales organisation 1000", () => {
     expect(SETTING_DEFAULTS).toStrictEqual({
       orders_hold_offline: true,
       orders_send: true,
       orders_status_on_confirm: true,
       pricing_contract_prices: true,
       pricing_discount_ceiling: true,
+      structure_order_prefix: "",
+      structure_owns: "all",
+      structure_owns_attribute: "",
+      structure_owns_sources: "",
+      structure_sales_org: "1000",
+      structure_sales_org_name: "",
     });
   });
 });
@@ -243,5 +249,58 @@ describe("Given the settings page", () => {
         pricing_discount_ceiling: true,
       }),
     ).toBeNull();
+  });
+});
+
+const FOUR_CHARS = /exactly four upper-case letters or digits/u;
+const TEXT_OR_NULL = /must be text or null/u;
+const PREFIX_WORDS = /one to six upper-case/u;
+const ONE_OF_OWNS = /must be one of all, sources, attribute/u;
+const ATTRIBUTE_WORDS = /attribute code and a value/u;
+const BOOLEAN_WORDS = /true, false or null/u;
+
+describe("Given the Structure settings (business-structure plan, step 02)", () => {
+  test("Then a save takes a value of the setting's own type and refuses the rest, in words", async () => {
+    const lib = await import("#lib/settings");
+    expect(lib.saveProblem({ structure_sales_org: "2000" })).toBeNull();
+    expect(lib.saveProblem({ structure_sales_org: "EU01" })).toBeNull();
+    expect(lib.saveProblem({ structure_sales_org: "20" })).toMatch(FOUR_CHARS);
+    expect(lib.saveProblem({ structure_sales_org: "" })).toMatch(FOUR_CHARS);
+    expect(lib.saveProblem({ structure_sales_org: true })).toMatch(
+      TEXT_OR_NULL,
+    );
+    expect(lib.saveProblem({ structure_sales_org: null })).toBeNull();
+    expect(lib.saveProblem({ structure_order_prefix: "ACME" })).toBeNull();
+    expect(lib.saveProblem({ structure_order_prefix: "" })).toBeNull();
+    expect(lib.saveProblem({ structure_order_prefix: "acme-erp" })).toMatch(
+      PREFIX_WORDS,
+    );
+    expect(lib.saveProblem({ structure_owns: "sources" })).toBeNull();
+    expect(lib.saveProblem({ structure_owns: "everything" })).toMatch(
+      ONE_OF_OWNS,
+    );
+    expect(
+      lib.saveProblem({ structure_owns_sources: "default, east" }),
+    ).toBeNull();
+    expect(
+      lib.saveProblem({ structure_owns_attribute: "erp_owner=ACME" }),
+    ).toBeNull();
+    expect(lib.saveProblem({ structure_owns_attribute: "erp_owner" })).toMatch(
+      ATTRIBUTE_WORDS,
+    );
+    expect(lib.saveProblem({ orders_send: "yes" })).toMatch(BOOLEAN_WORDS);
+  });
+  test("Then every structure setting has a declared default, and the sales organisation defaults to 1000", async () => {
+    const lib = await import("#lib/settings");
+    expect(lib.SETTING_DEFAULTS.structure_sales_org).toBe("1000");
+    expect(lib.SETTING_DEFAULTS.structure_owns).toBe("all");
+    for (const name of [
+      "structure_sales_org_name",
+      "structure_order_prefix",
+      "structure_owns_sources",
+      "structure_owns_attribute",
+    ]) {
+      expect(lib.SETTING_DEFAULTS[name]).toBe("");
+    }
   });
 });

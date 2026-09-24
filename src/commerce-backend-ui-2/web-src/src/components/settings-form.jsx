@@ -3,14 +3,50 @@ import {
   Divider,
   Heading,
   InlineAlert,
+  Picker,
+  PickerItem,
   Switch,
   Text,
+  TextField,
 } from "@react-spectrum/s2";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { pendingChanges, settingSections } from "#web/settings-view.js";
 
-/** One setting: the switch, what it does, and — on a narrower scope — where it comes from. */
+/** The control a field is edited with: a switch for a boolean, a pick from a list, a text box otherwise. */
+function Control({ field, onChange }) {
+  const pick = useCallback((key) => onChange(String(key)), [onChange]);
+  if (field.type === "list") {
+    return (
+      <Picker
+        label={field.label}
+        onSelectionChange={pick}
+        selectedKey={field.value}>
+        {(field.options ?? []).map((option) => (
+          <PickerItem id={option.value} key={option.value}>
+            {option.label}
+          </PickerItem>
+        ))}
+      </Picker>
+    );
+  }
+  if (field.type === "text") {
+    return (
+      <TextField
+        label={field.label}
+        onChange={onChange}
+        value={field.value ?? ""}
+      />
+    );
+  }
+  return (
+    <Switch isSelected={field.value} onChange={onChange}>
+      {field.label}
+    </Switch>
+  );
+}
+
+/** One setting: its control, what it does, and — on a narrower scope — where it comes from. */
 function SettingField({ field, onChange, onUseDefault }) {
   const change = useCallback(
     (value) => onChange(field.name, value),
@@ -22,9 +58,7 @@ function SettingField({ field, onChange, onUseDefault }) {
   );
   return (
     <div className="erp-setting">
-      <Switch isSelected={field.value} onChange={change}>
-        {field.label}
-      </Switch>
+      <Control field={field} onChange={change} />
       <span className="erp-setting-description">{field.description}</span>
       {field.inherited && <span className="erp-setting-origin">Inherited</span>}
       {field.clearable && (

@@ -14,6 +14,7 @@ import { readHistory, recordOrderOutcome } from "#lib/history";
 import { orderSyncDeps } from "#lib/order-deps";
 import { retryOrderToErp } from "#lib/order-sync";
 import { buildOrderTrace } from "#lib/order-trace";
+import { splitExtOrderId } from "#lib/structure";
 import { readPayload } from "#lib/webhook";
 
 /** Order numbers are letters, digits and dashes; anything else never reaches Commerce. */
@@ -126,7 +127,8 @@ async function traceOrder(params, incrementId, logger) {
     }),
     readHistory({ ref: incrementId }),
   ]);
-  const erpNumber = commerceOrder?.ext_order_id;
+  // The Commerce field carries this pair's prefix (rule M4); the ERP is asked by number.
+  const erpNumber = splitExtOrderId(commerceOrder?.ext_order_id).number;
   const answered = erpNumber
     ? await erp.order(params, erpNumber, TRACE_TIMEOUT_MS).catch((error) => {
         logger.warn(`trace: ERP order ${erpNumber}: ${error.message}`);

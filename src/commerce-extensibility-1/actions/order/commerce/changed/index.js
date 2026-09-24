@@ -9,6 +9,7 @@ import AioLogger from "@adobe/aio-lib-core-logging";
 import { orderChangeFromCommerce } from "#lib/commerce-changes";
 import { erp } from "#lib/erp";
 import { recordCommerceChange } from "#lib/history";
+import { settingsFor } from "#lib/settings";
 
 /**
  * observer.sales_order_save_commit_after, the saves that are NOT a new order: a cancellation or a
@@ -26,6 +27,7 @@ async function main(params) {
       params.data?.value ?? params.data,
       {
         erp,
+        settingsFor,
       },
     );
     logger.info(result.message);

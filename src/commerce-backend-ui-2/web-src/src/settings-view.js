@@ -13,6 +13,7 @@
 const SECTIONS = [
   { prefix: "orders", title: "Orders" },
   { prefix: "pricing", title: "Pricing" },
+  { prefix: "structure", title: "Structure" },
 ];
 
 /** Anything not matching a known prefix still has a home. */
@@ -55,6 +56,9 @@ export function settingSections(fields, values, { scopeLevel } = {}) {
       inherited,
       label: field.label,
       name: field.name,
+      // How the field is drawn: a switch, a text box, or a pick from `options`.
+      ...(field.options ? { options: field.options } : {}),
+      type: field.type ?? "boolean",
       value: held ? held.value : field.default,
     });
   }

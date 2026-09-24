@@ -1,3 +1,5 @@
+import { splitExtOrderId } from "#lib/structure";
+
 /*
  * One order's whole life, in one list.
  *
@@ -135,7 +137,10 @@ export function buildOrderTrace({
     steps,
     summary: {
       commerceStatus: commerceOrder?.status ?? null,
-      erpNumber: erpOrder?.number ?? commerceOrder?.ext_order_id ?? null,
+      erpNumber:
+        erpOrder?.number ??
+        splitExtOrderId(commerceOrder?.ext_order_id).number ??
+        null,
       erpStatus: erpOrder?.status ?? null,
       incrementId: commerceOrder?.increment_id ?? null,
       reachedErp: Boolean(erpOrder),

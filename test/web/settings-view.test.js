@@ -80,6 +80,7 @@ describe("Given the settings a merchant edits", () => {
       inherited: true,
       label: "Send orders",
       name: "orders_send",
+      type: "boolean",
       value: true,
     });
     // Set at this scope, so it can be cleared back to the wider scope's value.
@@ -163,5 +164,33 @@ describe("Given the scopes a merchant can pick", () => {
     expect(scopeChoices(undefined)).toStrictEqual([
       { id: "", label: "Default Config", level: "global" },
     ]);
+  });
+});
+
+describe("Given the Structure settings on the page", () => {
+  test("Then they form their own section and each field says how it is drawn", () => {
+    const sections = settingSections(
+      [
+        { default: true, name: "orders_send", type: "boolean" },
+        { default: "1000", name: "structure_sales_org", type: "text" },
+        {
+          default: "all",
+          name: "structure_owns",
+          options: [{ label: "All", value: "all" }],
+          type: "list",
+        },
+      ],
+      [],
+    );
+    expect(sections.map((s) => s.title)).toEqual(["Orders", "Structure"]);
+    const [, structure] = sections;
+    expect(structure.fields.map((f) => [f.name, f.type, f.value])).toEqual([
+      ["structure_sales_org", "text", "1000"],
+      ["structure_owns", "list", "all"],
+    ]);
+    expect(structure.fields[1].options).toEqual([
+      { label: "All", value: "all" },
+    ]);
+    expect(sections[0].fields[0].type).toBe("boolean");
   });
 });

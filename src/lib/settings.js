@@ -29,6 +29,73 @@ export const SETTING_DEFAULTS = Object.freeze(
   Object.fromEntries(SCHEMA.map((field) => [field.name, field.default])),
 );
 
+/** Each setting's declared type, by name. */
+const SETTING_TYPES = Object.freeze(
+  Object.fromEntries(SCHEMA.map((field) => [field.name, field.type])),
+);
+
+/** The values a list setting may take, by name. */
+const LIST_VALUES = Object.freeze(
+  Object.fromEntries(
+    SCHEMA.filter((field) => field.type === "list").map((field) => [
+      field.name,
+      field.options.map((option) => option.value),
+    ]),
+  ),
+);
+
+/**
+ * What a text setting must look like, and the words when it does not (business-structure
+ * plan, step 02). A blank is allowed where the setting has a fallback.
+ */
+export const TEXT_RULES = Object.freeze({
+  structure_order_prefix: {
+    pattern: /^[A-Z0-9]{1,6}$/u,
+    words:
+      "one to six upper-case letters or digits, like ACME, or blank to derive it from the ERP's name",
+  },
+  structure_owns_attribute: {
+    pattern: /^[a-z0-9_]+=[^=\s]+$/u,
+    words: "an attribute code and a value, as erp_owner=ACME, or blank",
+  },
+  structure_owns_sources: {
+    pattern: /^[a-z0-9_-]+(,\s*[a-z0-9_-]+)*$/u,
+    words:
+      "comma-separated inventory source codes, like default, east, or blank",
+  },
+  structure_sales_org: {
+    blankAllowed: false,
+    pattern: /^[A-Z0-9]{4}$/u,
+    words: "exactly four upper-case letters or digits, like 1000 or EU01",
+  },
+});
+
+/** Why one value is wrong for its setting, or null. */
+function valueProblem(name, value) {
+  const type = SETTING_TYPES[name];
+  if (type === "boolean") {
+    return typeof value === "boolean"
+      ? null
+      : `${name} must be true, false or null`;
+  }
+  if (typeof value !== "string") {
+    return `${name} must be text or null`;
+  }
+  if (type === "list") {
+    return LIST_VALUES[name].includes(value)
+      ? null
+      : `${name} must be one of ${LIST_VALUES[name].join(", ")}`;
+  }
+  const rule = TEXT_RULES[name];
+  if (!rule) {
+    return null;
+  }
+  if (value === "") {
+    return rule.blankAllowed === false ? `${name} must be ${rule.words}` : null;
+  }
+  return rule.pattern.test(value) ? null : `${name} must be ${rule.words}`;
+}
+
 const CACHE_MS = 60_000;
 const DEFAULT_SCOPE = byCodeAndLevel("global", "global");
 const cache = new Map();
@@ -57,7 +124,7 @@ async function readScope(selector) {
  * Never throws.
  * @param {number|string|null|undefined} storeViewId Commerce's numeric store view id
  * @param {{ warn: Function }} [logger]
- * @returns {Promise<Record<string, boolean>>}
+ * @returns {Promise<Record<string, boolean|string>>}
  */
 export async function settingsFor(storeViewId, logger) {
   const id = Number(storeViewId);
@@ -131,11 +198,12 @@ export async function settingsPage(params, scopeId) {
   const scopes = await settingScopes(params);
   const { scope, config } = await getConfiguration(selectorFor(scopeId));
   return {
-    fields: SCHEMA.map(({ name, label, description, type }) => ({
+    fields: SCHEMA.map(({ name, label, description, type, options }) => ({
       default: SETTING_DEFAULTS[name],
       description,
       label,
       name,
+      ...(options ? { options } : {}),
       type,
     })),
     scope,
@@ -145,8 +213,8 @@ export async function settingsPage(params, scopeId) {
 }
 
 /**
- * Validate a save: known settings only, each true, false, or null (use the wider
- * scope's value).
+ * Validate a save: known settings only, each a value its type allows, or null (use the
+ * wider scope's value).
  * @returns {string|null} what is wrong, or null
  */
 export function saveProblem(changes) {
@@ -162,8 +230,12 @@ export function saveProblem(changes) {
       return `${name} is not a setting`;
     }
     const value = changes[name];
-    if (value !== null && typeof value !== "boolean") {
-      return `${name} must be true, false or null`;
+    if (value === null) {
+      continue;
+    }
+    const problem = valueProblem(name, value);
+    if (problem) {
+      return problem;
     }
   }
   return null;

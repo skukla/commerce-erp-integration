@@ -14,6 +14,7 @@
  * repeated delivery creates nothing twice.
  */
 import { COMMERCE_EVENTS, originOf } from "#lib/commerce-events";
+import { orderPrefix, salesOrgOf, withPrefix } from "#lib/structure";
 import { partnerHints } from "#lib/webhook";
 
 const ERP_TIMEOUT_MS = 20_000;
@@ -33,8 +34,11 @@ export function isNewOrder(order) {
   );
 }
 
-/** The ERP's order request for a Commerce order and its entity id. */
-export function erpOrderFrom(order, entityId) {
+/**
+ * The ERP's order request for a Commerce order and its entity id. The website's settings
+ * name the sales organisation the order belongs to (business structure).
+ */
+export function erpOrderFrom(order, entityId, settings = {}) {
   const rawItems = order.items ?? [];
   const items = Array.isArray(rawItems) ? rawItems : Object.values(rawItems);
   return {
@@ -50,6 +54,7 @@ export function erpOrderFrom(order, entityId) {
         sku: item.sku,
       })),
     origin: originOf(COMMERCE_EVENTS.orderSaved),
+    ...salesOrgOf(settings),
     total: Number(order.base_grand_total ?? 0),
     ...partnerHints(order),
   };
@@ -116,7 +121,7 @@ export async function sendOrderToErp(params, order, deps) {
     res = await deps.erp.createOrder(
       params,
       {
-        ...erpOrderFrom(order, found.entityId),
+        ...erpOrderFrom(order, found.entityId, settings),
         origin: originOf(COMMERCE_EVENTS.orderSaved, params),
       },
       ERP_TIMEOUT_MS,
@@ -126,12 +131,17 @@ export async function sendOrderToErp(params, order, deps) {
   }
   const number = res?.ok ? res.data?.number : undefined;
   if (number) {
-    await deps.setExtOrderId(params, found.entityId, number);
+    // The prefix tells this ERP's numbers from another's on the same store (rule M4).
+    await deps.setExtOrderId(
+      params,
+      found.entityId,
+      withPrefix(number, orderPrefix(settings, params)),
+    );
     await deps
       .addNote(
         params,
         found.entityId,
-        `Created in the ERP as sales order ${number}`,
+        `Created in ${params?.ERP_DISPLAY_NAME || "the ERP"} as sales order ${number}`,
       )
       .catch((error) =>
         deps.logger?.warn(`${label}: note not added: ${error.message}`),

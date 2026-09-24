@@ -33,5 +33,62 @@
     "label": "Apply the ERP's maximum discount",
     "name": "pricing_discount_ceiling",
     "type": "boolean"
+  },
+  {
+    "default": "1000",
+    "description": "The ERP sales organisation that sells through this website (four letters or digits, like an SAP sales org). Orders from this website carry it.",
+    "label": "ERP sales organisation for this website",
+    "name": "structure_sales_org",
+    "type": "text"
+  },
+  {
+    "default": "",
+    "description": "What the ERP calls that sales organisation. Blank: the ERP prints the website's name.",
+    "label": "Sales organisation name",
+    "name": "structure_sales_org_name",
+    "type": "text"
+  },
+  {
+    "default": "",
+    "description": "Put in front of the ERP order number written onto Commerce orders, as ACME-0000001042, so two ERPs on one store tell their orders apart. Blank: the first four letters of the ERP's name. Set at Default Config.",
+    "label": "Prefix on ERP order numbers in Commerce",
+    "name": "structure_order_prefix",
+    "type": "text"
+  },
+  {
+    "default": "all",
+    "description": "Which products belong to this ERP. All: every product (one ERP). Inventory sources: the products stocked in the sources named below. Attribute: the products whose attribute names this ERP. Set at Default Config.",
+    "label": "Which products belong to this ERP",
+    "name": "structure_owns",
+    "options": [
+      {
+        "label": "All products",
+        "value": "all"
+      },
+      {
+        "label": "Products in the inventory sources named below",
+        "value": "sources"
+      },
+      {
+        "label": "Products whose attribute names this ERP",
+        "value": "attribute"
+      }
+    ],
+    "selectionMode": "single",
+    "type": "list"
+  },
+  {
+    "default": "",
+    "description": "Comma-separated inventory source codes this ERP ships from (used with Inventory sources above).",
+    "label": "Inventory sources this ERP ships from",
+    "name": "structure_owns_sources",
+    "type": "text"
+  },
+  {
+    "default": "",
+    "description": "A product attribute and value that names this ERP, as erp_owner=ACME (used with Attribute above).",
+    "label": "Product attribute that names this ERP",
+    "name": "structure_owns_attribute",
+    "type": "text"
   }
 ]

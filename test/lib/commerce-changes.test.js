@@ -8,6 +8,7 @@ import {
 const ok = (data) => ({ data, ok: true, status: 200 });
 const gone = { data: {}, ok: false, status: 404 };
 const REMAIN = /2 EA remain/u;
+const ANOTHER_ERP = /another ERP's \(prefix NW; this pair's is ACME\)/u;
 const erpOrder = (extra = {}) => ({
   creditStatus: "approved",
   header: "confirmed",
@@ -242,5 +243,22 @@ describe("Given a change made in Commerce", () => {
       ).outcome,
     ).toBe("skipped");
     expect(d.erp.order).toHaveBeenCalledTimes(3);
+  });
+});
+
+describe("Given two ERPs on one store (rules M4 and M2)", () => {
+  test("Then a prefixed number is another pair's when the prefix is not ours, and ours when it is; an unprefixed one is asked of the ERP", async () => {
+    const d = deps({
+      settingsFor: vi.fn(async () => ({ structure_order_prefix: "ACME" })),
+    });
+    const other = await mine({}, "NW-0000001003", d);
+    expect(other.answer).toMatchObject({ outcome: "skipped" });
+    expect(other.answer.message).toMatch(ANOTHER_ERP);
+    expect(d.erp.order).not.toHaveBeenCalled();
+    const ours = await mine({}, "ACME-0000001003", d);
+    expect(ours.number).toBe("0000001003");
+    expect(d.erp.order).toHaveBeenCalledWith({}, "0000001003");
+    const legacy = await mine({}, "0000001003", d);
+    expect(legacy.number).toBe("0000001003");
   });
 });

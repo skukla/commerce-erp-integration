@@ -102,6 +102,7 @@ import * as ledger from "#lib/ledger";
 import { mirror } from "#lib/mirror";
 import { refreshStock } from "#lib/stock-refresh";
 import * as snapshot from "#lib/stock-snapshot";
+import { splitExtOrderId } from "#lib/structure";
 import * as creditUpdated from "#src/company/external/credit-updated/index";
 import * as statusUpdated from "#src/company/external/status-updated/index";
 import * as orderChanged from "#src/order/commerce/changed/index";
@@ -155,6 +156,7 @@ async function deliverErpEvents() {
 
 const writesOf = (kind) => box.commerce.writes.filter((w) => w.kind === kind);
 const TEN_DIGITS = /^\d{10}$/u;
+const PREFIXED = /^ERP-\d{10}$/u;
 const RECEIVED_FROM_COMMERCE = /received from Commerce/u;
 const ON_CREDIT_HOLD =
   /^On credit hold in the ERP .*Credit limit 1,000\.00 exceeded/u;
@@ -167,7 +169,10 @@ async function seeded() {
     box.commerce.events.orderSaved(55, { isNew: true }),
   );
   expect(res.statusCode).toBe(200);
-  const number = box.commerce.db.orders.get(55).ext_order_id;
+  // Written back with the pair's prefix (rule M4); no ERP name in the box, so ERP-.
+  const ext = box.commerce.db.orders.get(55).ext_order_id;
+  expect(ext).toMatch(PREFIXED);
+  const { number } = splitExtOrderId(ext);
   expect(number).toMatch(TEN_DIGITS);
   return number;
 }
@@ -191,7 +196,7 @@ describe("Pair in a box: the entity matrix, both directions", () => {
     ]);
     expect(order.partnerId).toBe("C7");
     expect(writesOf("setExtOrderId")).toEqual([
-      { kind: "setExtOrderId", orderId: "55", value: number },
+      { kind: "setExtOrderId", orderId: "55", value: `ERP-${number}` },
     ]);
     // The write-back saves the order again; that save is not a new order and creates nothing.
     const again = await orderCreated.main(box.commerce.events.orderSaved(55));
@@ -322,7 +327,9 @@ describe("Pair in a box: the entity matrix, both directions", () => {
     await orderCreated.main(
       box.commerce.events.orderSaved(55, { isNew: true }),
     );
-    const number = box.commerce.db.orders.get(55).ext_order_id;
+    const { number } = splitExtOrderId(
+      box.commerce.db.orders.get(55).ext_order_id,
+    );
     expect((await erpOrder(number)).creditStatus).toBe("held");
     let delivered = await deliverErpEvents();
     expect(delivered).toEqual([
@@ -350,7 +357,9 @@ describe("Pair in a box: the entity matrix, both directions", () => {
     await orderCreated.main(
       box.commerce.events.orderSaved(56, { isNew: true }),
     );
-    const second = box.commerce.db.orders.get(56).ext_order_id;
+    const second = splitExtOrderId(
+      box.commerce.db.orders.get(56).ext_order_id,
+    ).number;
     await deliverErpEvents();
     expect(box.commerce.db.orders.get(56).state).toBe("holded");
     await box.erp.call("orders", {

@@ -10,6 +10,7 @@
  * delivery.
  */
 import { COMMERCE_EVENTS, originOf } from "#lib/commerce-events";
+import { orderPrefix, splitExtOrderId } from "#lib/structure";
 
 const OK = 200;
 const BAD_REQUEST = 400;
@@ -23,14 +24,15 @@ const answer = (outcome, statusCode, message) => ({
 
 /**
  * The ERP order behind a Commerce order, or the answer that ends the delivery.
- * @param {object} deps `{ erp }`
+ * @param {object} deps `{ erp, settingsFor? }` — with `settingsFor`, the prefix is checked first
  * @param {string|null|undefined} extOrderId the Commerce order's ext_order_id
  * @returns {Promise<{ answer: object|null, number: string|null, order: object|null }>} `answer`
  *   is the outcome that ends this delivery when the order is not this ERP's
  */
 export async function mine(params, extOrderId, deps) {
   const not = (result) => ({ answer: result, number: null, order: null });
-  if (!extOrderId) {
+  const { prefix, number } = splitExtOrderId(extOrderId);
+  if (!number) {
     return not(
       answer(
         "skipped",
@@ -39,20 +41,34 @@ export async function mine(params, extOrderId, deps) {
       ),
     );
   }
-  const own = await deps.erp.order(params, extOrderId);
+  // Rule M4 before rule M2: two ERPs number alike, so the prefix says whose number it is
+  // before the ERP is asked. A number from before prefixes existed carries none and is asked.
+  if (prefix && deps.settingsFor) {
+    const ours = orderPrefix(await deps.settingsFor(null), params);
+    if (prefix !== ours) {
+      return not(
+        answer(
+          "skipped",
+          OK,
+          `sales order ${extOrderId} is another ERP's (prefix ${prefix}; this pair's is ${ours})`,
+        ),
+      );
+    }
+  }
+  const own = await deps.erp.order(params, number);
   if (own.ok) {
-    return { answer: null, number: String(extOrderId), order: own.data };
+    return { answer: null, number, order: own.data };
   }
   if (own.status === 404) {
     return not(
-      answer("skipped", OK, `sales order ${extOrderId} is not this ERP's`),
+      answer("skipped", OK, `sales order ${number} is not this ERP's`),
     );
   }
   return not(
     answer(
       "held",
       UNAVAILABLE,
-      `the ERP answered ${own.status} for sales order ${extOrderId}`,
+      `the ERP answered ${own.status} for sales order ${number}`,
     ),
   );
 }

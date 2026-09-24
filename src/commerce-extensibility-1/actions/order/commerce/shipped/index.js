@@ -9,6 +9,7 @@ import AioLogger from "@adobe/aio-lib-core-logging";
 import { shipmentFromCommerce } from "#lib/commerce-changes";
 import { erp } from "#lib/erp";
 import { recordCommerceChange } from "#lib/history";
+import { settingsFor } from "#lib/settings";
 import { getOrder } from "#src/order/commerce-order-api-client";
 
 /**
@@ -27,6 +28,7 @@ async function main(params) {
       {
         erp,
         getOrder,
+        settingsFor,
       },
     );
     logger.info(result.message);

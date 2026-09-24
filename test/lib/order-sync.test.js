@@ -69,14 +69,16 @@ describe("Given the order save event", () => {
         email: "b@acme.example",
         lines: [{ commerceItemId: 1, price: 20, qty: 2, sku: "A" }],
         origin: { event: "observer.sales_order_save_commit_after" },
+        salesOrg: "1000",
         total: 40,
       },
       20_000,
     );
+    // Written back with this pair's prefix (rule M4): no setting and no ERP name here, so ERP.
     expect(d.setExtOrderId).toHaveBeenCalledExactlyOnceWith(
       { p: 1 },
       41,
-      "0000001002",
+      "ERP-0000001002",
     );
     expect(d.addNote).toHaveBeenCalledWith(
       { p: 1 },
@@ -291,5 +293,32 @@ describe("Given a retry of one order from the Admin screen", () => {
     const result = await retryOrderToErp({}, "3000000004", d);
     expect(result.outcome).toBe("skipped");
     expect(result.message).toContain("sending orders to the ERP is off");
+  });
+});
+
+describe("Given the business structure on an order", () => {
+  test("Then the website's sales organisation rides on the request, and the written-back number carries the pair's prefix", async () => {
+    const d = deps();
+    d.settingsFor = vi.fn(async () => ({
+      orders_hold_offline: true,
+      orders_send: true,
+      structure_order_prefix: "NW",
+      structure_sales_org: "2000",
+      structure_sales_org_name: "Online EU",
+    }));
+    await sendOrderToErp({ ERP_DISPLAY_NAME: "Northwind ERP" }, NEW_ORDER, d);
+    const [, request] = d.erp.createOrder.mock.calls[0];
+    expect(request.salesOrg).toBe("2000");
+    expect(request.salesOrgName).toBe("Online EU");
+    expect(d.setExtOrderId).toHaveBeenCalledWith(
+      expect.anything(),
+      41,
+      "NW-0000001002",
+    );
+    expect(d.addNote).toHaveBeenCalledWith(
+      expect.anything(),
+      41,
+      "Created in Northwind ERP as sales order 0000001002",
+    );
   });
 });
