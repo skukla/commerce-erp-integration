@@ -32,7 +32,7 @@
     "projectName": "optional"
   },
   "quote": {
-    "request": ["partnerId", "commerceCompanyId", "email", "customerGroupId", "lines", "date"],
+    "request": ["partnerId", "commerceCompanyId", "email", "customerGroupId", "lines", "date", "salesOrg"],
     "requestLine": ["sku", "qty"],
     "responseLine": ["sku", "qty", "listPrice", "contractPrice", "discountPercent", "maxDiscountPercent", "source", "lineTotal", "notApplied"],
     "unknownLine": ["sku", "qty", "unknown"]
