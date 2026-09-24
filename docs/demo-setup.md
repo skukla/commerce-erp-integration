@@ -60,10 +60,12 @@ their orders apart by the prefix on the ERP number; each pair decides which prod
 own. Demo Builder deploys the second copy with its own app id (`erp-integration-2`); this
 guide covers what Commerce needs.
 
-Pick ONE way to split the catalog. Inventory sources is the realistic one (each ERP ships
-from its own warehouses). The attribute is for a store that has no sources set up.
+Pick ONE way to split the catalog. **The product attribute is the story** (owner, 2026-09-24):
+in a real deployment a PIM writes the owning system onto each product, and Commerce carries
+it as an attribute; the demo sets that attribute in Commerce directly. Inventory sources
+remain an alternative for a store whose warehouses already map one-to-one onto ERPs.
 
-### 3a. Split by inventory source
+### 3a. Split by inventory source (alternative)
 
 | Have | Where in Admin | Check | Undo |
 |---|---|---|---|
@@ -75,7 +77,7 @@ from its own warehouses). The attribute is for a store that has no sources set u
 A product stocked in both ERPs' sources belongs to both. A product in neither belongs to
 no ERP and is skipped by both mirrors, with a history entry saying why.
 
-### 3b. Split by a product attribute
+### 3b. Split by a product attribute (the story)
 
 | Have | Where in Admin | Check | Undo |
 |---|---|---|---|

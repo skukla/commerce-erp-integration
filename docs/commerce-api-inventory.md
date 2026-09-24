@@ -50,6 +50,7 @@ row says otherwise.
 | `POST order/{id}/refund` or `POST orders/{id}/refund` (credit memo) | AB-26r | credit memo | to validate |
 | `GET transactions` / invoice `state` (paid) | AB-26s | payment captured → ERP incoming payment | to validate |
 | company credit balance operations (increase / decrease / reimburse) | AB-26s | ERP payment → company balance | to validate — exact paths to be read from the live instance's REST schema, never typed from memory |
+| custom order attributes on the order (ACCS only: code + value pairs shown on the Admin order view; created via GraphQL or the Admin; editable only while the order is Pending) | AB-26t (Q-num) | one attribute per ERP number when two ERPs share an order | **to validate**: the write path over REST (extension/custom attributes on `POST orders`) or GraphQL; whether the Pending-only rule holds for an API write after the order leaves Pending. Owner asked for this 2026-09-24; Experience League order-processing page and ACCS release notes name the feature |
 
 ## Commerce events
 
