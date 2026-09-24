@@ -23,9 +23,9 @@
     "projectName": "optional"
   },
   "quote": {
-    "request": ["partnerId", "commerceCompanyId", "email", "customerGroupId", "lines"],
+    "request": ["partnerId", "commerceCompanyId", "email", "customerGroupId", "lines", "date"],
     "requestLine": ["sku", "qty"],
-    "responseLine": ["sku", "qty", "listPrice", "contractPrice", "discountPercent", "maxDiscountPercent", "source", "lineTotal"],
+    "responseLine": ["sku", "qty", "listPrice", "contractPrice", "discountPercent", "maxDiscountPercent", "source", "lineTotal", "notApplied"],
     "unknownLine": ["sku", "qty", "unknown"]
   },
   "order": {
