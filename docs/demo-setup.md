@@ -98,6 +98,11 @@ An order with lines from both ERPs reaches both: each ERP receives it and takes 
 Splitting an order between ERPs is the routing layer's job, which this pair does not do
 (see the multi-ERP research in the Demo Builder repository).
 
+## Giving the demo
+
+Once the instance has what a story needs, [`walkthrough.md`](walkthrough.md) is the path to
+walk: the ERP screen by screen, Commerce from the other side, and how each relates.
+
 ## Putting it all back
 
 - **Reset** on either pair's Admin screen undoes every write the integration made onto

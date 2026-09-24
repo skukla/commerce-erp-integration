@@ -130,6 +130,11 @@ inventory source or by an `erp_owner` attribute, a prefix per pair) need things 
 Commerce first. [`docs/demo-setup.md`](docs/demo-setup.md) says what, where in the Admin, how to
 check it over the API, and how to undo each one.
 
+**Giving the demo.** [`docs/walkthrough.md`](docs/walkthrough.md) walks the ERP screen by screen
+along the twenty-minute path, then Commerce from the other side, and closes with one table per
+business concept saying which screen on each side holds it and what joins them (the printable
+twin of the Admin page's Mapping tab).
+
 ## Inputs
 
 | Variable | What |
