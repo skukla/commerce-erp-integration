@@ -25,6 +25,10 @@ const DESCRIBE = {
     message: `company ${d.companyId}: credit limit ${d.creditLimit}`,
     ref: d.companyId,
   }),
+  hold: (d) => ({
+    message: `order ${d.incrementId}: ${d.held ? "on credit hold" : "credit hold released"}`,
+    ref: d.incrementId,
+  }),
   invoice: (d) => ({
     message: `order ${d.incrementId}: invoiced`,
     ref: d.incrementId,

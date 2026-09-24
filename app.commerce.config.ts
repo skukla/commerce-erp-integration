@@ -236,6 +236,13 @@ export default defineConfig({
             runtimeActions: ["order-backoffice/cancelled"],
           },
           {
+            description:
+              "The ERP put a sales order on credit hold, or released it",
+            label: "ERP Order Credit Hold",
+            name: "be-observer.sales_order_hold",
+            runtimeActions: ["order-backoffice/hold"],
+          },
+          {
             description: "The ERP changed an account credit limit",
             label: "ERP Company Credit Updated",
             name: "be-observer.company_credit_update",

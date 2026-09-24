@@ -89,6 +89,18 @@ describe("Given an ERP event applied to Commerce", () => {
     ["invoice", { incrementId: "42" }, "order 42: invoiced", "42"],
     ["cancel", { incrementId: "42" }, "order 42: cancelled", "42"],
     [
+      "hold",
+      { held: true, incrementId: "42" },
+      "order 42: on credit hold",
+      "42",
+    ],
+    [
+      "hold",
+      { held: false, incrementId: "42" },
+      "order 42: credit hold released",
+      "42",
+    ],
+    [
       "credit",
       { companyId: 7, creditLimit: 5000 },
       "company 7: credit limit 5000",

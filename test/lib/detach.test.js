@@ -6,6 +6,7 @@ describe("Given detach", () => {
       clearExtOrderId: vi.fn(async () => ({})),
       setCompanyCreditLimit: vi.fn(),
       setCompanyStatus: vi.fn(),
+      unholdIfHeld: vi.fn(async () => true),
     };
     const erp = {
       listOrders: vi.fn(async () => ({
@@ -25,9 +26,47 @@ describe("Given detach", () => {
     const result = await detach({}, { commerce, erp, ledger });
     expect(commerce.clearExtOrderId).toHaveBeenCalledTimes(1);
     expect(commerce.clearExtOrderId).toHaveBeenCalledWith({}, "55");
+    expect(commerce.unholdIfHeld).not.toHaveBeenCalled();
     expect(result).toEqual({
+      holds: { failed: [], released: 0 },
       orders: { cleared: 1, failed: [] },
       reverted: { failed: [], reverted: 2 },
+    });
+  });
+  // A credit hold is a state Commerce can undo, so an order the ERP still holds comes off
+  // hold when the ERP goes; one Commerce already released is left alone and not counted.
+  test("Then every order the ERP still holds is taken off hold, and a refusal is reported", async () => {
+    const commerce = {
+      clearExtOrderId: vi.fn(async () => ({})),
+      unholdIfHeld: vi
+        .fn()
+        .mockResolvedValueOnce(true)
+        .mockResolvedValueOnce(false)
+        .mockRejectedValueOnce(new Error("locked")),
+    };
+    const erp = {
+      listOrders: vi.fn(async () => ({
+        data: {
+          items: [
+            { commerceOrderId: "1", creditStatus: "held" },
+            { commerceOrderId: "2", creditStatus: "held" },
+            { commerceOrderId: "3", creditStatus: "held" },
+            { commerceOrderId: "4", creditStatus: "approved" },
+          ],
+        },
+        ok: true,
+        status: 200,
+      })),
+    };
+    const ledger = {
+      revertLedger: vi.fn(async () => ({ failed: [], reverted: 0 })),
+    };
+    const result = await detach({ p: 1 }, { commerce, erp, ledger });
+    expect(commerce.unholdIfHeld).toHaveBeenCalledTimes(3);
+    expect(commerce.unholdIfHeld).toHaveBeenCalledWith({ p: 1 }, "1");
+    expect(result.holds).toEqual({
+      failed: [{ error: "locked", orderId: "3" }],
+      released: 1,
     });
   });
   test("Then a Commerce refusal on one order is reported and the rest continue", async () => {

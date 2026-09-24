@@ -92,7 +92,8 @@ Reset returns the ERP to a fresh mirror of Commerce.
 | `be-observer.sales_order_status_update` | `order-backoffice/updated` | `POST orders/{id}/comments` |
 | `be-observer.sales_order_shipment_create` | `order-backoffice/shipment-created` | `POST order/{id}/ship` |
 | `be-observer.sales_order_invoice_create` | `order-backoffice/invoice-created` | `POST order/{id}/invoice`, `POST orders/{id}/comments` |
-| `be-observer.sales_order_cancel` | `order-backoffice/cancelled` | `POST orders/{id}/cancel` |
+| `be-observer.sales_order_cancel` | `order-backoffice/cancelled` | `GET orders/{id}`, `POST orders/{id}/unhold` when On Hold, `POST orders/{id}/cancel` |
+| `be-observer.sales_order_hold` | `order-backoffice/hold` | asks the ERP `GET orders/{number}` first (rule M2); `GET orders/{id}`, `POST orders/{id}/hold` or `/unhold`, `POST orders/{id}/comments` |
 | `be-observer.company_credit_update` | `company-backoffice/credit-updated` | `GET companyCredits/company/{id}`, `PUT companyCredits/{id}` (ledgered) |
 | `be-observer.company_status_update` | `company-backoffice/status-updated` | `GET company/{id}`, `PUT company/{id}` (ledgered) |
 

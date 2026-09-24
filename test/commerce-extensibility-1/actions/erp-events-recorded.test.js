@@ -21,8 +21,8 @@ function eventHandlers() {
 }
 
 describe("Given the ERP event handlers", () => {
-  test("Then there are the eight the ERP's contract names", () => {
-    expect(eventHandlers()).toHaveLength(8);
+  test("Then there are the nine the ERP's contract names", () => {
+    expect(eventHandlers()).toHaveLength(9);
   });
 
   test.each(eventHandlers())("Then %s records its events", (file) => {

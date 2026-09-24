@@ -50,4 +50,31 @@ async function cancelOrder(params, orderId) {
   return await client.post(`orders/${orderId}/cancel`);
 }
 
-export { addComment, cancelOrder, getOrder, invoiceOrder };
+/**
+ * Put an order On Hold (Commerce's own hold: no shipment, invoice or edit until unheld).
+ * @param {object} params - Environment params from the IO Runtime request
+ * @param {number} orderId - order id
+ */
+async function holdOrder(params, orderId) {
+  const client = await getCommerceClient(resolveImsAuthParams(params));
+  return await client.post(`orders/${orderId}/hold`);
+}
+
+/**
+ * Take an order off hold.
+ * @param {object} params - Environment params from the IO Runtime request
+ * @param {number} orderId - order id
+ */
+async function unholdOrder(params, orderId) {
+  const client = await getCommerceClient(resolveImsAuthParams(params));
+  return await client.post(`orders/${orderId}/unhold`);
+}
+
+export {
+  addComment,
+  cancelOrder,
+  getOrder,
+  holdOrder,
+  invoiceOrder,
+  unholdOrder,
+};

@@ -7,7 +7,12 @@ import AioLogger from "@adobe/aio-lib-core-logging";
 
 import { recordingErpEvent } from "#lib/erp-event-history";
 import { stringParameters } from "#lib/utils";
-import { addComment, cancelOrder } from "#src/order/commerce-order-api-client";
+import {
+  addComment,
+  cancelOrder,
+  getOrder,
+  unholdOrder,
+} from "#src/order/commerce-order-api-client";
 
 /**
  * be-observer.sales_order_cancel: cancel the Commerce order the ERP cancelled, and say
@@ -25,6 +30,11 @@ async function handle(params) {
     return badRequest("the event carries no orderId");
   }
   try {
+    // Commerce cannot cancel an order On Hold: a rejected credit hold comes off hold first.
+    const order = await getOrder(params, orderId);
+    if (order?.state === "holded") {
+      await unholdOrder(params, orderId);
+    }
     await cancelOrder(params, orderId);
     const erp = params.data.erpNumber
       ? ` (ERP sales order ${params.data.erpNumber})`

@@ -8,12 +8,13 @@
  * 2026-09-23), so the rule is: everything the ERP wrote that Commerce CAN undo goes
  * back. What stays is what Commerce itself cannot delete — notes in order histories,
  * shipments, invoices and cancellations. Orders are the stated exception: Commerce has
- * no API to delete one, so the ERP's number is cleared instead.
+ * no API to delete one, so the ERP's number is cleared instead — and an order the ERP
+ * still holds for credit is taken off hold, since a hold is a state Commerce can undo.
  */
 
 /**
- * @param {object} deps `{ commerce: { clearExtOrderId, setCompanyCreditLimit, setCompanyStatus, setProductName, setProductPrice, setStock }, erp: { listOrders }, ledger: { revertLedger } }`
- * @returns {Promise<{ reverted: object, orders: { cleared: number, failed: object[] } }>}
+ * @param {object} deps `{ commerce: { clearExtOrderId, unholdIfHeld, setCompanyCreditLimit, setCompanyStatus, setProductName, setProductPrice, setStock }, erp: { listOrders }, ledger: { revertLedger } }`
+ * @returns {Promise<{ reverted: object, orders: { cleared: number, failed: object[] }, holds: { released: number, failed: object[] } }>}
  */
 export async function detach(params, deps) {
   const { commerce, erp, ledger } = deps;
@@ -28,13 +29,14 @@ export async function detach(params, deps) {
       commerce.setStock(params, sku, before, source),
   });
   const orders = { cleared: 0, failed: [] };
+  const holds = { failed: [], released: 0 };
   const listed = await erp.listOrders(params);
   if (!listed.ok) {
     orders.failed.push({
       error: `ERP orders answered ${listed.status}`,
       orderId: "*",
     });
-    return { orders, reverted };
+    return { holds, orders, reverted };
   }
   for (const order of listed.data.items ?? []) {
     if (!order.commerceOrderId) {
@@ -50,6 +52,19 @@ export async function detach(params, deps) {
         orderId: order.commerceOrderId,
       });
     }
+    if (order.creditStatus !== "held") {
+      continue;
+    }
+    try {
+      if (await commerce.unholdIfHeld(params, order.commerceOrderId)) {
+        holds.released += 1;
+      }
+    } catch (error) {
+      holds.failed.push({
+        error: error.message,
+        orderId: order.commerceOrderId,
+      });
+    }
   }
-  return { orders, reverted };
+  return { holds, orders, reverted };
 }

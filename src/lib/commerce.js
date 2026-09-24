@@ -345,6 +345,22 @@ export async function findOrderByIncrementId(params, incrementId) {
   };
 }
 
+/**
+ * Take an order off hold if it is On Hold; answers whether it was. Detach and reset use it
+ * for every order the ERP still holds, so no Commerce order stays On Hold for an ERP that
+ * is being wiped or removed.
+ * @returns {Promise<boolean>} true when the order was On Hold and is not any more
+ */
+export async function unholdIfHeld(params, orderId) {
+  const client = await commerceClient(params);
+  const order = await client.get(`orders/${orderId}`).json();
+  if (order?.state !== "holded") {
+    return false;
+  }
+  await client.post(`orders/${orderId}/unhold`);
+  return true;
+}
+
 /** Order operations the ERP's statuses map to. */
 export const orders = {
   cancel: async (params, orderId) =>
