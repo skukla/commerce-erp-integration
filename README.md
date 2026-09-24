@@ -136,6 +136,19 @@ App Management then installs the app into the Commerce instance (events, webhook
 Admin screen registration). Demo Builder drives that install; by hand, use the app's
 generated install API.
 
+### The pair in a box
+
+`test/box/` runs the ERP in this process (the sibling `demo-erp` checkout, by path, against
+its own in-memory database) behind this app's ERP client, with a fake Commerce in front
+that records every write. `test/box/journeys.test.js` walks the entity matrix both ways
+(order, confirm, shipment from either side, invoice, credit hold and release and reject,
+cancel and hold made in Commerce, prices and stock with the ledger's revert on reset, the
+minute stock refresh, product delete, company block and credit limit) and asks the two
+questions the sync has to answer: did the change arrive, and did nothing come back twice.
+The fake's shapes are typed from the 2.4.9 REST definitions, not captured live; the API
+inventory (`docs/commerce-api-inventory.md`) replaces them with captures once a credential
+exists. It runs with `npm test`.
+
 ## Licence
 
 Apache-2.0. The scaffolding is the starter kit's, which is Adobe's under the same licence
