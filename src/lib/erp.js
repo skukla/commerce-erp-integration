@@ -91,6 +91,13 @@ export async function erpRequest(
 export const erp = {
   createOrder: (params, order, timeoutMs) =>
     erpRequest(params, "orders", { body: order, method: "POST", timeoutMs }),
+  /** A product Commerce deleted; `body.origin` names the event for the ERP's journal. */
+  deleteProduct: (params, sku, body) =>
+    erpRequest(params, "products", {
+      body,
+      method: "DELETE",
+      path: `/${encodeURIComponent(sku)}`,
+    }),
   health: (params) => erpRequest(params, "health"),
   importRecords: (params, body) =>
     erpRequest(params, "admin", {

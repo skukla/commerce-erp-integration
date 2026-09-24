@@ -152,6 +152,14 @@ export default defineConfig({
           },
           {
             description:
+              "Fires after a product is deleted in Commerce, so the ERP copy goes too instead of lingering until the next reset",
+            fields: [field("id"), field("sku")],
+            label: "Product Deleted",
+            name: "observer.catalog_product_delete_commit_after",
+            runtimeActions: ["product-commerce/deleted"],
+          },
+          {
+            description:
               "Fires after an order is saved in Commerce, used to create each new order in the ERP and write back the ERP order number",
             fields: [
               field("increment_id"),

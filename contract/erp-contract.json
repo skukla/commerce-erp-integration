@@ -6,7 +6,7 @@
     "health": ["GET"],
     "settings": ["GET", "PATCH"],
     "admin": ["POST /wipe", "POST /import", "POST /sync"],
-    "products": ["GET", "GET /:sku", "PATCH /:sku"],
+    "products": ["GET", "GET /:sku", "PATCH /:sku", "DELETE /:sku"],
     "partners": ["GET", "GET /:id", "PATCH /:id"],
     "pricing": ["GET", "POST", "DELETE /:id", "POST /quote"],
     "orders": ["GET", "GET /:number", "POST", "POST /:number/confirm", "POST /:number/cancel", "POST /:number/shipments", "POST /:number/shipments/:shipment/post", "POST /:number/lines/:item/close", "POST /:number/invoice", "POST /:number/credit/release", "POST /:number/credit/reject", "POST /:number/status"],
