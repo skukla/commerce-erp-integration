@@ -19,7 +19,9 @@ describe("Given the stock event chain", () => {
     expect(erp.importRecords).toHaveBeenCalledWith(
       {},
       {
-        origin: { event: "observer.cataloginventory_stock_item_save_commit_after" },
+        origin: {
+          event: "observer.cataloginventory_stock_item_save_commit_after",
+        },
         products: [{ sku: "W1", stock: 7 }],
       },
     );

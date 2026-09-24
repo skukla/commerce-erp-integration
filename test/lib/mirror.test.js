@@ -282,11 +282,17 @@ describe("Given the mirror", () => {
     // 450 products in batches of PRODUCT_BATCH, the last one short.
     const full = Math.floor(450 / PRODUCT_BATCH);
     expect(sizes).toEqual([
-      ...Array(full).fill(PRODUCT_BATCH),
+      ...new Array(full).fill(PRODUCT_BATCH),
       ...(450 % PRODUCT_BATCH ? [450 % PRODUCT_BATCH] : []),
     ]);
     // One report per batch, so the screen's count moves as the import runs.
-    expect(done).toEqual([0, ...sizes.map(((sum) => (n) => (sum += n))(0))]);
+    const running = [];
+    let sum = 0;
+    for (const n of sizes) {
+      sum += n;
+      running.push(sum);
+    }
+    expect(done).toEqual([0, ...running]);
     expect(result.products).toEqual({ created: 450, updated: 0 });
   });
 

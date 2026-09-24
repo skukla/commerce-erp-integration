@@ -92,9 +92,9 @@ describe("Given detach", () => {
     };
     let handed;
     const ledger = {
-      revertLedger: vi.fn(async (writers) => {
+      revertLedger: vi.fn((writers) => {
         handed = writers;
-        return { failed: [], reverted: 0 };
+        return Promise.resolve({ failed: [], reverted: 0 });
       }),
     };
 

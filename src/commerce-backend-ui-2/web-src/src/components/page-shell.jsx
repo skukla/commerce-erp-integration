@@ -42,9 +42,9 @@ export function PageShell({
     <main>
       <Heading level={1}>{erpName}</Heading>
       <Text>
-        Orders flow to {erpName} with its number written back; contract prices and
-        the discount ceiling apply at cart time; the ERP's prices, stock, credit
-        limits and order statuses flow back here every minute.
+        Orders flow to {erpName} with its number written back; contract prices
+        and the discount ceiling apply at cart time; the ERP's prices, stock,
+        credit limits and order statuses flow back here every minute.
       </Text>
       {error && (
         <InlineAlert variant="negative">
