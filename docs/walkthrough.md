@@ -315,6 +315,14 @@ Commerce order carries the number of the ERP that took it, and the Mapping tab o
 pair says which products are its own. The nine moments of a split order (one order,
 lines owned by two ERPs) belong to the routing integration and are written when it exists.
 
+The pattern behind it, in the words to give a customer: an order placed in Commerce is
+consumed ONCE, by the routing integration's consumer action; it decides which ERP owns each
+line (the product's owning-system attribute), splits the order into parts, and hands each
+part to that ERP pair's own runtime actions, which raise that pair's own events towards its
+ERP. The pairs stop listening to Commerce for new orders and know nothing of one another,
+so adding an ERP is adding a pair and a rule, and the split logic sits in one replaceable
+place. Each pair writes its number into its own custom order attribute on the Commerce order.
+
 ## What this walk-through has not proved live
 
 Written from the code and the preview on 2026-09-24. Before a first showing, walk it once
