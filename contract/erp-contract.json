@@ -12,7 +12,8 @@
     "orders": ["GET", "GET /:number", "POST", "POST /:number/confirm", "POST /:number/cancel", "POST /:number/shipments", "POST /:number/shipments/:shipment/post", "POST /:number/lines/:item/close", "POST /:number/invoice", "POST /:number/credit/release", "POST /:number/credit/reject", "POST /:number/status"],
     "shipments": ["GET", "GET /:number"],
     "invoices": ["GET", "GET /:number"],
-    "events": ["GET", "POST /retry", "POST /requeue"]
+    "events": ["GET", "POST /retry", "POST /requeue"],
+    "search": ["GET"]
   },
   "import": {
     "products": ["sku", "name", "listPrice", "warehouses", "type", "parentSku", "variantAttributes"],
