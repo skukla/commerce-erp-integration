@@ -256,3 +256,36 @@ main {
 .erp-map-hash code {
   font-size: 12px;
 }
+
+/* The look-up on a card: one entity as both systems hold it. */
+.erp-lookup {
+  padding: 12px 0 4px;
+  border-top: 1px solid var(--s2-color-gray-200, #eee);
+}
+.erp-lookup-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: end;
+}
+.erp-lookup-table {
+  width: 100%;
+  margin-top: 12px;
+  font-size: 13px;
+  border-collapse: collapse;
+}
+.erp-lookup-table th,
+.erp-lookup-table td {
+  padding: 6px 8px;
+  vertical-align: top;
+  text-align: left;
+  border-bottom: 1px solid var(--s2-color-gray-200, #eee);
+}
+.erp-lookup-table th:first-child,
+.erp-lookup-table td:first-child {
+  width: 140px;
+  color: var(--s2-color-gray-700, #666);
+}
+.erp-lookup-missing {
+  color: var(--s2-color-gray-600, #888);
+}

@@ -1,3 +1,5 @@
+import { companyLookup, productLookup } from "#lib/lookup";
+
 /*
  * Stand-in answers for the Admin page's actions, in the shapes the actions really return
  * (erp/status, erp/settings, erp/history — see each action). The preview renders the real
@@ -189,6 +191,69 @@ const TRACE = {
 
 const values = new Map();
 
+/* The look-up, arranged by the real module from stand-in records: the shapes stay honest. */
+const LOOKUP_PRODUCT = {
+  commerce: {
+    name: "Wireless router",
+    price: 199,
+    sku: "CS-ROUTER-11",
+    status: 1,
+    type_id: "simple",
+  },
+  erp: {
+    available: 37,
+    committed: 5,
+    listPrice: 199,
+    name: "Wireless router",
+    salesStatus: "sellable",
+    sku: "CS-ROUTER-11",
+    stock: 42,
+    type: "simple",
+    unit: "EA",
+    warehouses: [{ code: "default", quantity: 42 }],
+  },
+};
+const LOOKUP_COMPANY = {
+  commerce: {
+    company_name: "Contoso Supply",
+    id: 7,
+    legal_name: "Contoso Supply Inc.",
+    status: 1,
+    vat_tax_id: "US 91-7654321",
+  },
+  credit: { balance: -1200, credit_limit: 120_000, currency_code: "USD" },
+  erp: {
+    blocking: "open",
+    commerceCompanyId: "7",
+    credit: { available: 118_800, exposure: 1200, limit: 120_000 },
+    creditLimit: 120_000,
+    id: "C000102",
+    legalName: "Contoso Supply Inc.",
+    name: "Contoso Supply",
+    paymentTerms: "NET60",
+    salesOrgs: ["1000", "2000"],
+    vatTaxId: "US 91-7654321",
+  },
+};
+function fakeLookup(query) {
+  if (query.sku !== undefined) {
+    const known = query.sku === LOOKUP_PRODUCT.commerce.sku;
+    return productLookup({
+      commerce: known ? LOOKUP_PRODUCT.commerce : null,
+      erp: known ? LOOKUP_PRODUCT.erp : null,
+      sku: query.sku,
+      sourceCodes: known ? ["default"] : [],
+    });
+  }
+  const known = String(query.company) === "7";
+  return companyLookup({
+    commerce: known ? LOOKUP_COMPANY.commerce : null,
+    companyId: String(query.company),
+    credit: known ? LOOKUP_COMPANY.credit : null,
+    erp: known ? LOOKUP_COMPANY.erp : null,
+  });
+}
+
 export function fakeApi() {
   return {
     history: (failedOnly) =>
@@ -199,6 +264,7 @@ export function fakeApi() {
             )
           : HISTORY,
       }),
+    lookup: (query) => Promise.resolve(fakeLookup(query)),
     refreshPartners: () => Promise.resolve({ partners: 5 }),
     reset: () => Promise.resolve({ wiped: { products: 182 } }),
     retry: () => Promise.resolve({ outcome: "sent" }),

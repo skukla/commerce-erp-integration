@@ -147,6 +147,20 @@ export const erp = {
   /** One sales order by its ERP number, with the ERP's own status history. */
   order: (params, number, timeoutMs) =>
     erpRequest(params, "orders", { path: `/${number}`, timeoutMs }),
+  /** One business partner's document by its ERP id (with its credit figures). */
+  partner: (params, id, timeoutMs) =>
+    erpRequest(params, "partners", {
+      path: `/${encodeURIComponent(id)}`,
+      timeoutMs,
+    }),
+  partners: (params, timeoutMs) =>
+    erpRequest(params, "partners", { timeoutMs }),
+  /** One product's document by SKU (with committed and available). */
+  product: (params, sku, timeoutMs) =>
+    erpRequest(params, "products", {
+      path: `/${encodeURIComponent(sku)}`,
+      timeoutMs,
+    }),
   quote: (params, body, timeoutMs) =>
     erpRequest(params, "pricing", {
       body,

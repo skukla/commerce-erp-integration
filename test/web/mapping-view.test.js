@@ -349,6 +349,19 @@ describe("Given what has crossed", () => {
     expect(byKey(cards({ status: null }), "order").figures).toStrictEqual([]);
   });
 
+  test("Then the buying organization and the sellable item offer a look-up, the others do not", () => {
+    const all = cards();
+    expect(byKey(all, "buying").lookup).toStrictEqual({
+      kind: "company",
+      label: "Commerce company id",
+    });
+    expect(byKey(all, "item").lookup).toStrictEqual({
+      kind: "sku",
+      label: "SKU",
+    });
+    expect(byKey(all, "order").lookup).toBeNull();
+  });
+
   test("Then each card says where in the ERP's screen its records live", () => {
     expect(byKey(cards(), "order").erpHash).toBe("#orders");
     expect(byKey(cards(), "buying").erpHash).toBe("#partners");

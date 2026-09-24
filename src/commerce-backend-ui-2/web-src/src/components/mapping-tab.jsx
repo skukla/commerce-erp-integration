@@ -1,6 +1,7 @@
 import { Button, Heading, InlineAlert, Text } from "@react-spectrum/s2";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
+import { Lookup } from "#web/components/lookup.jsx";
 import { SettingField } from "#web/components/setting-field.jsx";
 import { mappingCards, syncText } from "#web/mapping-view.js";
 import { pendingChanges } from "#web/settings-view.js";
@@ -35,7 +36,7 @@ function MapRow({ row }) {
  * setting that makes it, the pieces as rows with the ownership arrow, the card's other
  * settings, and what has crossed for it.
  */
-function MapCard({ card, erpName, onChange, onUseDefault }) {
+function MapCard({ api, card, erpName, onChange, onError, onUseDefault }) {
   return (
     <section className="erp-map-card">
       <div className="erp-map-head">
@@ -78,6 +79,14 @@ function MapCard({ card, erpName, onChange, onUseDefault }) {
             />
           ))}
         </div>
+      )}
+      {card.lookup && (
+        <Lookup
+          api={api}
+          erpName={erpName}
+          lookup={card.lookup}
+          onError={onError}
+        />
       )}
       <div className="erp-map-foot">
         {card.figures.map((figure) => (
@@ -225,10 +234,12 @@ export function MappingTab({
       </div>
       {cards.map((card) => (
         <MapCard
+          api={api}
           card={card}
           erpName={erpName}
           key={card.key}
           onChange={onChange}
+          onError={onError}
           onUseDefault={onUseDefault}
         />
       ))}

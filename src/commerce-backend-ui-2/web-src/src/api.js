@@ -36,6 +36,8 @@ export function makeApi(ims, origin = window.location.origin) {
   return {
     history: (failedOnly) =>
       call(failedOnly ? "history?failedOnly=true" : "history"),
+    // `{ sku }` or `{ company }`: one entity as both systems hold it (erp/lookup).
+    lookup: (query) => call(`lookup?${new URLSearchParams(query).toString()}`),
     refreshPartners: () => call("refresh-partners", { method: "POST" }),
     reset: () => call("reset", { method: "POST" }),
     // `{ incrementId }` for an order, `{ eventId }` for an ERP event (history-view.js).

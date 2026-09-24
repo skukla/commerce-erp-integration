@@ -44,6 +44,7 @@ const CARDS = [
     join: { fields: [], text: "Joined by the Commerce company id." },
     key: "buying",
     kinds: ["block"],
+    lookup: { kind: "company", label: "Commerce company id" },
     rows: [
       {
         commerce: "company: name, status, admin",
@@ -147,6 +148,7 @@ const CARDS = [
     join: { fields: [], text: "Joined by the SKU." },
     key: "item",
     kinds: [],
+    lookup: { kind: "sku", label: "SKU" },
     rows: [
       {
         commerce: "product: SKU, name, type",
@@ -502,7 +504,8 @@ export function syncText(side, heading) {
  * @param {object[]} args.history the history records (both directions)
  * @param {string} args.erpName what the ERP is called
  * @returns {object[]} one card per concept plus Other, each with `systems`, `join`
- *   (text + dressed fields), `rows` (with arrows), `settings` (dressed), `sync`, `figures`, `erpHash`
+ *   (text + dressed fields), `rows` (with arrows), `settings` (dressed), `sync`, `figures`,
+ *   `erpHash`, and `lookup` (the look-up the card offers: `{ kind, label }` or null)
  */
 export function mappingCards({
   erpName,
@@ -532,6 +535,7 @@ export function mappingCards({
     figures: erp ? card.figures(erp, erpName) : [],
     join: { fields: card.join.fields.flatMap(dress), text: card.join.text },
     key: card.key,
+    lookup: card.lookup ?? null,
     rows: card.rows.map((row) => ({ ...row, arrow: ARROW[row.owner] })),
     settings: card.key === "other" ? unclaimed : card.settings.flatMap(dress),
     sync: syncOf(card, history),

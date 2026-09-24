@@ -322,6 +322,19 @@ export async function skuForProductId(params, productId) {
   return data.items?.[0]?.sku ?? null;
 }
 
+/** @returns {Promise<object|null>} the product by SKU, or null when Commerce has none */
+export async function getProduct(params, sku) {
+  const client = await commerceClient(params);
+  try {
+    return await client.get(`products/${encodeURIComponent(sku)}`).json();
+  } catch (error) {
+    if (error.response?.status === 404) {
+      return null;
+    }
+    throw error;
+  }
+}
+
 /** @returns {Promise<object>} the company */
 export async function getCompany(params, companyId) {
   const client = await commerceClient(params);
