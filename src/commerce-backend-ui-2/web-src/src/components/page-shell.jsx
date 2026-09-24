@@ -10,7 +10,7 @@ import {
   Text,
 } from "@react-spectrum/s2";
 
-import { SettingsForm } from "#web/components/settings-form.jsx";
+import { MappingTab } from "#web/components/mapping-tab.jsx";
 import { StatusTab } from "#web/components/status-tab.jsx";
 import { scopeChoices } from "#web/settings-view.js";
 
@@ -31,8 +31,8 @@ export function PageShell({
   run,
   scopeId,
   scopes,
-  /** Which tab opens first; the page opens on Settings, a preview may ask for another. */
-  selectedTab = "settings",
+  /** Which tab opens first; the page opens on the map, a preview may ask for another. */
+  selectedTab = "mapping",
   status,
 }) {
   const choices = scopeChoices(scopes);
@@ -61,20 +61,23 @@ export function PageShell({
           {(choice) => <PickerItem id={choice.id}>{choice.label}</PickerItem>}
         </Picker>
         <span className="erp-scope-note">
-          Settings apply to this scope and anything under it.
+          The joins and switches below apply to this scope and anything under
+          it.
         </span>
       </div>
       <Tabs aria-label="ERP integration" defaultSelectedKey={selectedTab}>
         <TabList>
-          <Tab id="settings">Settings</Tab>
+          <Tab id="mapping">Mapping</Tab>
           <Tab id="status">Status &amp; sync</Tab>
         </TabList>
-        <TabPanel id="settings">
-          <SettingsForm
+        <TabPanel id="mapping">
+          <MappingTab
             api={api}
+            erpName={erpName}
             onError={onError}
             scopeId={scopeId}
             scopeLevel={scopeLevel}
+            status={status}
           />
         </TabPanel>
         <TabPanel id="status">

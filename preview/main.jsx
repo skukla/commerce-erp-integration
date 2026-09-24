@@ -65,7 +65,7 @@ function Preview() {
               ]
             : null
         }
-        selectedTab={asked.get("tab") || "settings"}
+        selectedTab={asked.get("tab") || "mapping"}
         status={status}
       />
     </Provider>

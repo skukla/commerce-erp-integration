@@ -1,119 +1,14 @@
 /*
- * What the Settings tab shows: the fields grouped as a merchant reads them, the scopes
- * they can switch between, and what a Save actually sends.
+ * The settings' scopes and saves: the scopes a merchant can switch between, and what a
+ * Save actually sends. How they are shown is mapping-view.test.js.
  */
-import {
-  pendingChanges,
-  scopeChoices,
-  settingSections,
-} from "#web/settings-view.js";
-
-const FIELDS = [
-  {
-    default: true,
-    description: "Orders go to the ERP.",
-    label: "Send orders",
-    name: "orders_send",
-    type: "boolean",
-  },
-  {
-    default: true,
-    description: "Held while it is offline.",
-    label: "Hold orders",
-    name: "orders_hold_offline",
-    type: "boolean",
-  },
-  {
-    default: true,
-    description: "Cart prices come from the ERP.",
-    label: "Use contract prices",
-    name: "pricing_contract_prices",
-    type: "boolean",
-  },
-];
+import { pendingChanges, scopeChoices } from "#web/settings-view.js";
 
 const VALUES = [
   { name: "orders_send", origin: "global", value: true },
   { name: "orders_hold_offline", origin: "website", value: false },
   { name: "pricing_contract_prices", origin: "global", value: true },
 ];
-
-describe("Given the settings a merchant edits", () => {
-  test("Then they are grouped by what they are about, in the schema's order", () => {
-    const sections = settingSections(FIELDS, VALUES, { scopeLevel: "website" });
-
-    expect(
-      sections.map((s) => [s.title, s.fields.map((f) => f.name)]),
-    ).toStrictEqual([
-      ["Orders", ["orders_send", "orders_hold_offline"]],
-      ["Pricing", ["pricing_contract_prices"]],
-    ]);
-  });
-
-  // Nothing at the Default Config can be CLEARED — there is no wider scope to fall back
-  // to — so the page must not offer it there (the first screenshots offered it).
-  test("Then a field says whether this scope can clear it", () => {
-    const [atDefault] = settingSections(FIELDS, VALUES, {
-      scopeLevel: "global",
-    });
-    const [atWebsite] = settingSections(FIELDS, VALUES, {
-      scopeLevel: "website",
-    });
-
-    expect(atDefault.fields.map((f) => f.clearable)).toStrictEqual([
-      false,
-      false,
-    ]);
-    // Set at this website, so it can go back to the default; the other is inherited.
-    expect(atWebsite.fields.map((f) => f.clearable)).toStrictEqual([
-      false,
-      true,
-    ]);
-  });
-
-  test("Then each field carries its value and whether it is inherited", () => {
-    const [orders] = settingSections(FIELDS, VALUES, { scopeLevel: "website" });
-
-    expect(orders.fields[0]).toStrictEqual({
-      clearable: false,
-      description: "Orders go to the ERP.",
-      inherited: true,
-      label: "Send orders",
-      name: "orders_send",
-      type: "boolean",
-      value: true,
-    });
-    // Set at this scope, so it can be cleared back to the wider scope's value.
-    expect(orders.fields[1]).toMatchObject({ inherited: false, value: false });
-  });
-
-  // A value the SHOWN scope sets is not inherited; one that arrived from a wider scope is.
-  // The comparison is against the scope being shown, not a fixed level — the same field
-  // reads as set at a website and inherited at that website's store view.
-  test("Then a value set at a wider scope than the one shown is inherited", () => {
-    const atStoreView = settingSections(FIELDS, VALUES, {
-      scopeLevel: "storeView",
-    });
-
-    expect(atStoreView[0].fields.map((f) => f.inherited)).toStrictEqual([
-      true,
-      true,
-    ]);
-  });
-
-  // At the Default Config there is nothing wider to inherit from.
-  test("Then nothing is inherited at the default scope", () => {
-    const [orders] = settingSections(FIELDS, VALUES, { scopeLevel: "global" });
-
-    expect(orders.fields.every((f) => f.inherited === false)).toBe(true);
-  });
-
-  test("Then a field the page has no value for falls back to the schema's default", () => {
-    const [, pricing] = settingSections(FIELDS, [], { scopeLevel: "website" });
-
-    expect(pricing.fields[0]).toMatchObject({ inherited: true, value: true });
-  });
-});
 
 describe("Given a save", () => {
   test("Then only what changed is sent", () => {
@@ -164,33 +59,5 @@ describe("Given the scopes a merchant can pick", () => {
     expect(scopeChoices(undefined)).toStrictEqual([
       { id: "", label: "Default Config", level: "global" },
     ]);
-  });
-});
-
-describe("Given the Structure settings on the page", () => {
-  test("Then they form their own section and each field says how it is drawn", () => {
-    const sections = settingSections(
-      [
-        { default: true, name: "orders_send", type: "boolean" },
-        { default: "1000", name: "structure_sales_org", type: "text" },
-        {
-          default: "all",
-          name: "structure_owns",
-          options: [{ label: "All", value: "all" }],
-          type: "list",
-        },
-      ],
-      [],
-    );
-    expect(sections.map((s) => s.title)).toEqual(["Orders", "Structure"]);
-    const [, structure] = sections;
-    expect(structure.fields.map((f) => [f.name, f.type, f.value])).toEqual([
-      ["structure_sales_org", "text", "1000"],
-      ["structure_owns", "list", "all"],
-    ]);
-    expect(structure.fields[1].options).toEqual([
-      { label: "All", value: "all" },
-    ]);
-    expect(sections[0].fields[0].type).toBe("boolean");
   });
 });

@@ -35,7 +35,7 @@ organisation sells through it.
 |---|---|---|---|
 | A second website, with a store and a store view | Stores → Settings → All Stores → Create Website (then a store and a store view under it) | `GET store/websites` lists both codes; `GET store/storeConfigs` shows one row per store view with `website_id` and `base_currency_code` | Stores → All Stores → the website → Delete Web Site |
 | A different base currency on the second website, if you want the invoice to say EUR | Stores → Configuration → General → Currency Setup, scope set to that website | `GET store/storeConfigs`: the second website's `base_currency_code` | set the scope back to Use Default |
-| The sales organisation for each website | the integration's Admin screen (System → the ERP's name) → Settings → Structure, scope picker set to the website: *ERP sales organisation for this website* (four letters or digits, `2000`) and *Sales organisation name* (`Online EU`) | the ERP's Settings → Organisation card lists both after a Reset; or `GET health` on the ERP and read `structure.salesOrgs` | set the field back to `1000` at that scope, or clear the website override |
+| The sales organisation for each website | the integration's Admin screen (System → the ERP's name) → Mapping → the Selling organization card, scope picker set to the website: *ERP sales organisation for this website* (four letters or digits, `2000`) and *Sales organisation name* (`Online EU`) | the ERP's Settings → Organisation card lists both after a Reset; or `GET health` on the ERP and read `structure.salesOrgs` | set the field back to `1000` at that scope, or clear the website override |
 | A company whose admin user belongs to the second website | Customers → Companies → the company → Company Admin; the admin's customer account must be on that website (Customers → All Customers → the account → Account Information → Associate to Website) | `GET company/{id}` gives `super_user_id`; `GET customers/{super_user_id}` gives `website_id` = the second website's id | move the customer back to the main website |
 | An order from the second website | the storefront on the second website's URL | `GET orders/{id}` shows `store_id` of a store view under that website; in the ERP the order header prints `2000 · Online EU` | Reset (clears the ERP number; the Commerce order stays) |
 
@@ -70,7 +70,7 @@ from its own warehouses). The attribute is for a store that has no sources set u
 | One inventory source per ERP (the default source can be one of them) | Stores → Inventory → Sources → Add New Source (code `east`, a name, an address) | `GET inventory/sources` lists the codes | Commerce cannot delete a source; disable it (Enabled: No) and unassign the products |
 | Each product assigned to the source of the ERP that owns it, with a quantity | Catalog → Products → the product → Sources → Assign Sources | `GET inventory/source-items?searchCriteria[filter_groups][0][filters][0][field]=sku&searchCriteria[filter_groups][0][filters][0][value]=<sku>` lists the product's `source_code`s | unassign the source on the product |
 | A stock that sells those sources on your website (so the storefront can sell them) | Stores → Inventory → Stocks | `GET inventory/stocks` | edit the stock's sources |
-| On each pair: *Which products belong to this ERP* = Products in the inventory sources named below; *Inventory sources this ERP ships from* = its codes | the pair's Admin screen → Settings → Structure, scope Default Config | after a Reset, each ERP's Products page holds only its products; `GET health` on each ERP: `counts.products` | set the mode back to All products |
+| On each pair: *Which products belong to this ERP* = Products in the inventory sources named below; *Inventory sources this ERP ships from* = its codes | the pair's Admin screen → Mapping → the Fulfilment source card, scope Default Config | after a Reset, each ERP's Products page holds only its products; `GET health` on each ERP: `counts.products` | set the mode back to All products |
 
 A product stocked in both ERPs' sources belongs to both. A product in neither belongs to
 no ERP and is skipped by both mirrors, with a history entry saying why.
@@ -81,7 +81,7 @@ no ERP and is skipped by both mirrors, with a history entry saying why.
 |---|---|---|---|
 | A product attribute `erp_owner`, **Text Field**, added to the attribute set | Stores → Attributes → Product → Add New Attribute; then Stores → Attributes → Attribute Set → drag it into the set | `GET products/attributes/erp_owner` answers with `frontend_input: "text"` | delete the attribute (same screen) |
 | A value on every product naming its ERP (`ACME`, `NORTH`) | Catalog → Products → the product; or a mass update via Actions → Update Attributes | `GET products/<sku>`: `custom_attributes` holds `erp_owner` with the value | clear the value, or delete the attribute |
-| On each pair: *Which products belong to this ERP* = Products whose attribute names this ERP; *Product attribute that names this ERP* = `erp_owner=ACME` | the pair's Admin screen → Settings → Structure, scope Default Config | as 3a | set the mode back to All products |
+| On each pair: *Which products belong to this ERP* = Products whose attribute names this ERP; *Product attribute that names this ERP* = `erp_owner=ACME` | the pair's Admin screen → Mapping → the Fulfilment source card, scope Default Config | as 3a | set the mode back to All products |
 
 Make it a Text Field. For a Dropdown attribute the API carries the option's number, not its
 label, and the setting would have to name that number.
@@ -90,7 +90,7 @@ label, and the setting would have to name that number.
 
 | Have | Where | Check | Undo |
 |---|---|---|---|
-| A different order-number prefix on each pair | Settings → Structure → *Prefix on ERP order numbers in Commerce* (`ACME`, `NORTH`; blank derives it from the ERP's name, which is only safe when the two names start differently) | after an order: `GET orders/{id}` shows `ext_order_id` like `ACME-0000001042`; the other pair's orders carry the other prefix | Reset clears the ERP numbers |
+| A different order-number prefix on each pair | Mapping → the Order card → *Prefix on ERP order numbers in Commerce* (`ACME`, `NORTH`; blank derives it from the ERP's name, which is only safe when the two names start differently) | after an order: `GET orders/{id}` shows `ext_order_id` like `ACME-0000001042`; the other pair's orders carry the other prefix | Reset clears the ERP numbers |
 | Each ERP's own name | Demo Builder's ERP component (`ERP_DISPLAY_NAME`), or the ERP's Settings → Name | the ERP's screen title | rename |
 | Optionally, each ERP on its own website (story 2) so each also reads as its own sales organisation | as story 2 | as story 2 | as story 2 |
 
