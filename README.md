@@ -18,7 +18,7 @@ Commerce order follow.
 
 | Direction | How | Where |
 |---|---|---|
-| Order → ERP | the order save event (`observer.sales_order_save_commit_after`), as Adobe's integration starter kit does it: a new order is created in the ERP and the ERP number written back as `ext_order_id`, with a note on the order. While the ERP cannot take it, the website's *Hold orders while the ERP is offline* setting decides: on, I/O Events delivers again for up to a day; off, the order is not sent | `order-commerce/created` |
+| Order → ERP | the order save event (`observer.sales_order_save_commit_after`), as Adobe's integration starter kit does it: a new order is created in the ERP, carrying the sales organisation its website's *Structure* setting names, and the ERP number is written back as `ext_order_id` with the pair's prefix in front (`ACME-0000001042`), with a note on the order. Under an ownership mode other than *All products*, an order with no line this ERP owns is skipped with a history entry saying why. While the ERP cannot take it, the website's *Hold orders while the ERP is offline* setting decides: on, I/O Events delivers again for up to a day; off, the order is not sent | `order-commerce/created` |
 | Contract prices → cart | totals-collector `item_prices` webhook replaces each line's price with the ERP's contract price for the buyer's business partner | `webhook/item-prices` |
 | Discount ceiling → cart | totals-collector `execute` webhook claws back discount below the ERP's maximum-discount ceiling | `webhook/discounts` |
 | Products → ERP | product created/updated and stock events keep the ERP's products in step; companies, and the stock of every inventory source, are refreshed from Commerce every minute | `product-commerce/*`, `stock-commerce/updated`, `erp/refresh-partners` |
@@ -36,7 +36,8 @@ Commerce has no API to delete one, so the ERP's number is cleared from it instea
 ERP → Commerce write has to answer the same question before it ships: can Commerce undo it,
 and if so, where is it ledgered?
 | Mirror | the import half of reset, run at first install | `erp/mirror` |
-| Settings | per website or store view, kept by App Management's business configuration: send orders, hold orders while offline, mark Processing on confirm, contract prices, discount ceiling | `erp/settings`, `src/lib/settings.js` |
+| Settings | per website or store view, kept by App Management's business configuration: send orders, hold orders while offline, mark Processing on confirm, contract prices, discount ceiling; and the **Structure** group below | `erp/settings`, `src/lib/settings.js` |
+| Structure | the business-structure mapping, owned by Commerce because the merchant's structure is: per website, the ERP sales organisation that sells through it (`structure_sales_org`, four letters or digits, default `1000`) and its name; per pair at Default Config, the prefix on ERP order numbers (`structure_order_prefix`, blank derives it from the ERP's name) and which products belong to this ERP (`structure_owns`: all · the products stocked in named inventory sources · the products whose attribute names this ERP, with `structure_owns_sources` / `structure_owns_attribute`). Text settings are validated on save (`src/lib/settings.js` `TEXT_RULES`). The mirror, the product and stock events filter by ownership; the order carries the sales organisation | `app.commerce.config.ts`, `src/lib/structure.js` |
 | History and Retry | what crossed and how it ended, kept 14 days in App Builder State. One record per order sent to the ERP — sent, waiting for the ERP, or not sent (`src/lib/history.js`) — and one per ERP event applied to Commerce — applied, not applied yet, or refused — under the event's own id, recorded by wrapping each ERP event handler (`src/lib/erp-event-history.js`). Each counts its tries. From the Admin screen a person can send an order again (the same send, as new; the website's settings still apply) or hand a saved ERP event to its handler again | `erp/history` |
 | Commerce Admin screen | System → the ERP's name (`ERP_DISPLAY_NAME`, else "ERP integration"; Admin UI SDK): health, counts, the four controls, what crossed each way with a Retry on anything that did not get through, a log of this visit's actions | `src/commerce-backend-ui-2` |
 
@@ -102,7 +103,12 @@ Reset returns the ERP to a fresh mirror of Commerce.
 | `be-observer.company_status_update` | `company-backoffice/status-updated` | `GET company/{id}`, `PUT company/{id}` (ledgered) |
 
 **This app → Commerce, on its own** (mirror, reset, detach, the minute refresh): `GET products`,
-`GET inventory/source-items`, `GET company`, `GET companyCredits/company/{id}`; reset and detach
+`GET inventory/source-items`, `GET inventory/sources` (source names, 404-tolerant), `GET company`,
+`GET companyCredits/company/{id}`, `GET customers/{id}` (a company admin's website),
+`GET store/websites` and `GET store/storeConfigs` (the structure block: each website, its base currency
+and locale; Store Information is not readable over REST, so the ERP's Organisation card prints what
+the store configuration says and nothing more); for an ownership check on a product or stock event,
+`GET inventory/source-items` for that SKU or `GET products/{sku}`; reset and detach
 also revert ledgered `PUT companyCredits/{id}` and `PUT company/{id}` and clear `ext_order_id`
 with a sparse `POST orders` (entity id + the one field) on every order the ERP numbered.
 
@@ -114,6 +120,14 @@ contract, vendored. `test/contract/erp-contract.test.js` fails when this app sub
 event the ERP does not raise, handles keys it does not send, or calls a route it does not
 serve. `npm run contract:check` fetches the ERP's current contract and says when the vendored
 copy is behind.
+
+## What the Commerce instance needs
+
+One ERP needs nothing beyond a store: every setting has a default. The business-structure
+story (two websites as two sales organisations) and the two-ERP story (products split by
+inventory source or by an `erp_owner` attribute, a prefix per pair) need things prepared in
+Commerce first. [`docs/demo-setup.md`](docs/demo-setup.md) says what, where in the Admin, how to
+check it over the API, and how to undo each one.
 
 ## Inputs
 
