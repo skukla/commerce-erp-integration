@@ -85,11 +85,20 @@ describe("Given the ERP order events the kit has no handler for", () => {
       },
     });
   });
-  test("Then cancelled cancels the order, and a missing id is refused", async () => {
-    expect((await cancelled.main({ data: { orderId: 55 } })).statusCode).toBe(
-      200,
-    );
+  test("Then cancelled cancels the order, notes the ERP's reason, and a missing id is refused", async () => {
+    const res = await cancelled.main({
+      data: { erpNumber: "0000001000", orderId: 55, reason: "Duplicate order" },
+    });
+    expect(res.statusCode).toBe(200);
     expect(cancelOrder).toHaveBeenCalledWith(expect.anything(), 55);
+    expect(addComment).toHaveBeenCalledWith(expect.anything(), 55, {
+      statusHistory: {
+        comment:
+          "Cancelled in the ERP (ERP sales order 0000001000): Duplicate order",
+        is_customer_notified: 0,
+        is_visible_on_front: 1,
+      },
+    });
     expect((await cancelled.main({ data: {} })).error.statusCode).toBe(400);
   });
 });

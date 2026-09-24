@@ -39,7 +39,7 @@
     "be-observer.sales_order_status_update": { "raisedBy": "order.confirmed", "value": ["id", "orderId", "incrementId", "erpNumber", "status", "items", "notifyCustomer"] },
     "be-observer.sales_order_shipment_create": { "raisedBy": "order.shipped", "value": ["id", "orderId", "incrementId", "erpNumber", "status", "items", "notifyCustomer", "stockSourceCode"], "note": "items are THAT shipment's quantities, not the whole order; stockSourceCode names the warehouse it shipped from, or is null" },
     "be-observer.sales_order_invoice_create": { "raisedBy": "order.invoiced", "value": ["id", "orderId", "incrementId", "erpNumber", "status", "items", "notifyCustomer"] },
-    "be-observer.sales_order_cancel": { "raisedBy": "order.cancelled", "value": ["id", "orderId", "incrementId", "erpNumber", "status", "items", "notifyCustomer"] },
+    "be-observer.sales_order_cancel": { "raisedBy": "order.cancelled", "value": ["id", "orderId", "incrementId", "erpNumber", "status", "items", "notifyCustomer", "reason"], "note": "reason is one of the ERP's own cancellation reasons, for the Commerce order comment" },
     "be-observer.company_credit_update": { "raisedBy": "partner.creditLimit", "value": ["partnerId", "companyId", "creditLimit"] },
     "be-observer.company_status_update": { "raisedBy": "partner.blocked", "value": ["partnerId", "companyId", "blocked"] }
   },
