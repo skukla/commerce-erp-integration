@@ -64,6 +64,40 @@ export async function updateRecord(key, build, logger) {
  * @param {{ retriedBy?: string, logger?: object }} [options]
  * @returns {Promise<void>}
  */
+/**
+ * A change made in Commerce that was told to the ERP (or not), for the Admin screen's
+ * history: one record per Commerce document and kind, so a redelivery updates its own row.
+ * A skipped change (not this ERP's, nothing to do) leaves no row.
+ * @param {string} kind shipped | invoiced | changed
+ * @param {object} value the event's value (increment_id, entity_id, order_id)
+ * @param {{ outcome: string, statusCode: number, message: string }} result
+ */
+export async function recordCommerceChange(kind, value, result, options = {}) {
+  if (result.outcome === "skipped") {
+    return;
+  }
+  const ref = String(
+    value?.increment_id ?? value?.entity_id ?? value?.order_id ?? "",
+  );
+  if (!ref) {
+    return;
+  }
+  await updateRecord(
+    `commerce.${kind}.${ref}`,
+    (before, now) => ({
+      attempts: (before?.attempts ?? 0) + 1,
+      direction: "to-erp",
+      firstAt: before?.firstAt ?? now,
+      kind,
+      lastAt: now,
+      message: result.message,
+      outcome: result.outcome,
+      ref,
+    }),
+    options,
+  );
+}
+
 export async function recordOrderOutcome(order, result, options = {}) {
   if (result.outcome === "skipped" || !order?.increment_id) {
     return;

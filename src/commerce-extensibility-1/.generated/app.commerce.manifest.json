@@ -136,6 +136,12 @@
                 "name": "_isNew"
               },
               {
+                "name": "state"
+              },
+              {
+                "name": "status"
+              },
+              {
                 "name": "items[].item_id"
               },
               {
@@ -154,7 +160,61 @@
             "label": "Order Saved",
             "name": "observer.sales_order_save_commit_after",
             "runtimeActions": [
-              "order-commerce/created"
+              "order-commerce/created",
+              "order-commerce/changed"
+            ]
+          },
+          {
+            "description": "Fires after a shipment is saved in Commerce, so a shipment made in Commerce Admin is recorded on the ERP order",
+            "fields": [
+              {
+                "name": "entity_id"
+              },
+              {
+                "name": "order_id"
+              },
+              {
+                "name": "increment_id"
+              },
+              {
+                "name": "items[].order_item_id"
+              },
+              {
+                "name": "items[].qty"
+              },
+              {
+                "name": "items[].sku"
+              },
+              {
+                "name": "extension_attributes.source_code"
+              }
+            ],
+            "label": "Shipment Saved",
+            "name": "observer.sales_order_shipment_save_after",
+            "runtimeActions": [
+              "order-commerce/shipped"
+            ]
+          },
+          {
+            "description": "Fires after an invoice is saved in Commerce, so an invoice made in Commerce Admin invoices the ERP order",
+            "fields": [
+              {
+                "name": "entity_id"
+              },
+              {
+                "name": "order_id"
+              },
+              {
+                "name": "increment_id"
+              },
+              {
+                "name": "state"
+              }
+            ],
+            "label": "Invoice Saved",
+            "name": "observer.sales_order_invoice_save_after",
+            "runtimeActions": [
+              "order-commerce/invoiced"
             ]
           },
           {

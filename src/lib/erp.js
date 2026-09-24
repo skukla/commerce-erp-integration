@@ -98,6 +98,43 @@ export const erp = {
       method: "DELETE",
       path: `/${encodeURIComponent(sku)}`,
     }),
+  /**
+   * The moves a change made IN Commerce asks of the ERP (contract order.fromCommerce). Each
+   * body carries `origin: { event, eventId? }`, which is what keeps the ERP from raising its
+   * own event for it and sending the change straight back.
+   */
+  fromCommerce: {
+    cancel: (params, number, body) =>
+      erpRequest(params, "orders", {
+        body,
+        method: "POST",
+        path: `/${number}/cancel`,
+      }),
+    hold: (params, number, body) =>
+      erpRequest(params, "orders", {
+        body,
+        method: "POST",
+        path: `/${number}/credit/hold`,
+      }),
+    invoice: (params, number, body) =>
+      erpRequest(params, "orders", {
+        body,
+        method: "POST",
+        path: `/${number}/commerce-invoice`,
+      }),
+    release: (params, number, body) =>
+      erpRequest(params, "orders", {
+        body,
+        method: "POST",
+        path: `/${number}/credit/release`,
+      }),
+    ship: (params, number, body) =>
+      erpRequest(params, "orders", {
+        body,
+        method: "POST",
+        path: `/${number}/commerce-shipment`,
+      }),
+  },
   health: (params) => erpRequest(params, "health"),
   importRecords: (params, body) =>
     erpRequest(params, "admin", {

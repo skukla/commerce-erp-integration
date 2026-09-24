@@ -7,9 +7,14 @@
  * (2026-09-18: a product rename arrived and nothing said so).
  */
 export const COMMERCE_EVENTS = {
+  // Fires before the commit (no "_commit_after" variant exists for these two, read in the
+  // events reference 2026-09-24), so the record may not be readable yet when it arrives;
+  // the handlers answer 503 to be delivered again when a read finds nothing.
+  invoiceSaved: "observer.sales_order_invoice_save_after",
   orderSaved: "observer.sales_order_save_commit_after",
   productDeleted: "observer.catalog_product_delete_commit_after",
   productSaved: "observer.catalog_product_save_commit_after",
+  shipmentSaved: "observer.sales_order_shipment_save_after",
   stockItemSaved: "observer.cataloginventory_stock_item_save_commit_after",
 };
 

@@ -173,6 +173,8 @@ export default defineConfig({
               field("created_at"),
               field("updated_at"),
               field("_isNew"),
+              field("state"),
+              field("status"),
               field("items[].item_id"),
               field("items[].sku"),
               field("items[].qty_ordered"),
@@ -181,7 +183,36 @@ export default defineConfig({
             ],
             label: "Order Saved",
             name: "observer.sales_order_save_commit_after",
-            runtimeActions: ["order-commerce/created"],
+            runtimeActions: ["order-commerce/created", "order-commerce/changed"],
+          },
+          {
+            description:
+              "Fires after a shipment is saved in Commerce, so a shipment made in Commerce Admin is recorded on the ERP order",
+            fields: [
+              field("entity_id"),
+              field("order_id"),
+              field("increment_id"),
+              field("items[].order_item_id"),
+              field("items[].qty"),
+              field("items[].sku"),
+              field("extension_attributes.source_code"),
+            ],
+            label: "Shipment Saved",
+            name: "observer.sales_order_shipment_save_after",
+            runtimeActions: ["order-commerce/shipped"],
+          },
+          {
+            description:
+              "Fires after an invoice is saved in Commerce, so an invoice made in Commerce Admin invoices the ERP order",
+            fields: [
+              field("entity_id"),
+              field("order_id"),
+              field("increment_id"),
+              field("state"),
+            ],
+            label: "Invoice Saved",
+            name: "observer.sales_order_invoice_save_after",
+            runtimeActions: ["order-commerce/invoiced"],
           },
           {
             description:

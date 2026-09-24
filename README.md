@@ -82,6 +82,9 @@ Reset returns the ERP to a fresh mirror of Commerce.
 | event | `observer.catalog_product_save_commit_after` | `product-commerce/created`, `product-commerce/updated` → ERP `POST admin/import` |
 | event | `observer.catalog_product_delete_commit_after` | `product-commerce/deleted` → ERP `DELETE products/{sku}` (a deleted parent's variants stay as products of their own) |
 | event | `observer.sales_order_save_commit_after` | `order-commerce/created` → Commerce `GET orders` (entity by increment id) → ERP `POST orders` → Commerce `POST orders` (`ext_order_id`) and `POST orders/{id}/comments` |
+| event | `observer.sales_order_save_commit_after` (saves that are not a new order) | `order-commerce/changed` → asks the ERP `GET orders/{number}` first (rule M2) → ERP `POST orders/{number}/cancel`, `/credit/hold` or `/credit/release`, each with an `origin` so the ERP does not echo it |
+| event | `observer.sales_order_shipment_save_after` | `order-commerce/shipped` → Commerce `GET orders/{id}` → ERP `GET orders/{number}` → ERP `POST orders/{number}/commerce-shipment` (origin) |
+| event | `observer.sales_order_invoice_save_after` | `order-commerce/invoiced` → Commerce `GET orders/{id}` → ERP `GET orders/{number}` → ERP `POST orders/{number}/commerce-invoice` (origin) |
 | event | `observer.cataloginventory_stock_item_save_commit_after` | `stock-commerce/updated` → Commerce `GET products` (SKU by id) → ERP `POST admin/import` |
 
 **ERP → this app** (the ERP posts to `ingestion/webhook`, published to the `erp` provider)
