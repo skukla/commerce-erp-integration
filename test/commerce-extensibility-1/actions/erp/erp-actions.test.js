@@ -22,6 +22,13 @@ vi.mock("#lib/commerce", () => ({
   setCompanyCreditLimit: vi.fn(),
   setCompanyStatus: vi.fn(),
 }));
+vi.mock("#lib/stock-refresh", () => ({
+  refreshStock: vi.fn(async () => ({ changed: [], seeded: false, sent: 0 })),
+}));
+vi.mock("#lib/stock-snapshot", () => ({
+  readSnapshot: vi.fn(),
+  writeSnapshot: vi.fn(),
+}));
 vi.mock("#lib/mirror", () => ({
   mirror: vi.fn(async () => ({
     counts: { companies: 0, products: 0 },
@@ -42,16 +49,16 @@ import { erp } from "#lib/erp";
 import { mirror } from "#lib/mirror";
 import * as mirrorAction from "#src/erp/mirror/index";
 import * as mirrorJob from "#src/erp/mirror-job/index";
-import * as refreshJob from "#src/erp/refresh-partners-job/index";
+import * as refreshJob from "#src/erp/refresh-job/index";
 import * as reset from "#src/erp/reset/index";
 import * as status from "#src/erp/status/index";
 
 const CREDENTIAL_REFUSED =
   /^Commerce refused the integration's credential \(401\)/u;
 const TIMER_RULE =
-  /erp-refresh-on-timer:\n\s+trigger: erp-refresh-timer\n\s+action: refresh-partners-job\n/u;
+  /erp-refresh-on-timer:\n\s+trigger: erp-refresh-timer\n\s+action: refresh-job\n/u;
 const REFRESH_JOB_CONFIG =
-  /^refresh-partners-job:\n {2}function: \.\/refresh-partners-job\/index\.js\n {2}web: 'no'/mu;
+  /^refresh-job:\n {2}function: \.\/refresh-job\/index\.js\n {2}web: 'no'/mu;
 
 afterEach(() => {
   vi.clearAllMocks();
@@ -239,7 +246,7 @@ describe("Given the mirror worker", () => {
   });
 });
 
-describe("Given the partner refresh timer", () => {
+describe("Given the refresh timer", () => {
   test("Then the timer starts the non-web worker, which needs no sign-in", () => {
     const ext = readFileSync(
       "src/commerce-extensibility-1/ext.config.yaml",
@@ -253,21 +260,37 @@ describe("Given the partner refresh timer", () => {
     expect(actions).toMatch(REFRESH_JOB_CONFIG);
   });
 
-  test("Then the worker refreshes partners and reports failures instead of throwing", async () => {
+  test("Then the worker refreshes partners and stock, and reports either half's failure instead of throwing", async () => {
     const { mirrorPartners } = await import("#lib/mirror");
+    const { refreshStock } = await import("#lib/stock-refresh");
     mirrorPartners.mockResolvedValueOnce({
       companies: 4,
       partners: { updated: 4 },
     });
+    refreshStock.mockResolvedValueOnce({
+      changed: ["A1"],
+      seeded: false,
+      sent: 1,
+    });
     expect(await refreshJob.main({})).toEqual({
-      companies: 4,
       ok: true,
-      partners: { updated: 4 },
+      partners: { companies: 4, partners: { updated: 4 } },
+      stock: { changed: ["A1"], seeded: false, sent: 1 },
     });
     mirrorPartners.mockRejectedValueOnce(new Error("Commerce 503"));
     expect(await refreshJob.main({})).toEqual({
-      error: "Commerce 503",
       ok: false,
+      partnersError: "Commerce 503",
+      stock: { changed: [], seeded: false, sent: 0 },
+    });
+    mirrorPartners.mockResolvedValueOnce({ companies: 0, partners: {} });
+    refreshStock.mockRejectedValueOnce(
+      new Error("ERP stock import answered 400"),
+    );
+    expect(await refreshJob.main({})).toEqual({
+      ok: false,
+      partners: { companies: 0, partners: {} },
+      stockError: "ERP stock import answered 400",
     });
   });
 });

@@ -59,7 +59,8 @@ runtimeManifest:
       license: Apache-2.0
       actions:
         $include: ./actions/erp/actions.config.yaml
-      # Commerce raises no event for companies, so every minute the partners are refreshed from it.
+      # Commerce raises no event for companies, nor for a source item's quantity (its legacy
+      # stock event is the default source only), so every minute both are refreshed from it.
       # The rule starts the non-web worker: a timer carries no Adobe sign-in, and the web
       # action refresh-partners requires one.
       triggers:
@@ -70,7 +71,7 @@ runtimeManifest:
       rules:
         erp-refresh-on-timer:
           trigger: erp-refresh-timer
-          action: refresh-partners-job
+          action: refresh-job
 
     # This package definition is auto-generated. Do not remove or manually edit.
     app-management:

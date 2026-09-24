@@ -104,8 +104,8 @@ reset:
   annotations:
     require-adobe-auth: true
     final: true
-refresh-partners-job:
-  function: ./refresh-partners-job/index.js
+refresh-job:
+  function: ./refresh-job/index.js
   web: 'no'
   runtime: nodejs:24
   limits:

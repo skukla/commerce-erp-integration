@@ -1,5 +1,6 @@
 import { HTTP_INTERNAL_SERVER_ERROR } from "@adobe/aio-commerce-sdk/core/responses";
 
+import { noteWritten } from "#lib/stock-snapshot";
 import { updateStock } from "#src/stock/commerce-stock-api-client";
 
 /**
@@ -18,6 +19,8 @@ import { updateStock } from "#src/stock/commerce-stock-api-client";
 async function sendData(params, transformed, _preProcessed) {
   try {
     const response = await updateStock(params, transformed);
+    // Remembered as Commerce's own quantity now, so the minute refresh does not echo it.
+    await noteWritten(transformed.sourceItems ?? []);
     return {
       message: response,
       success: true,

@@ -21,6 +21,8 @@
     "variantAttribute": ["label", "value"],
     "warehouse": ["code", "name", "quantity"],
     "partners": ["id", "name", "commerceCompanyId", "customerGroupId", "emailDomain", "creditLimit", "blocked"],
+    "stock": ["sku", "warehouses"],
+    "stockNote": "quantities per warehouse for products the ERP already has (the integration's minute refresh of Commerce's source items); a SKU the ERP does not have is reported under stock.unknown and not created; a stock-only import does not move lastImportAt",
     "projectName": "optional"
   },
   "quote": {
