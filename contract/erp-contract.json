@@ -9,7 +9,7 @@
     "products": ["GET", "GET /:sku", "PATCH /:sku"],
     "partners": ["GET", "GET /:id", "PATCH /:id"],
     "pricing": ["GET", "POST", "DELETE /:id", "POST /quote"],
-    "orders": ["GET", "GET /:number", "POST", "POST /:number/confirm", "POST /:number/cancel", "POST /:number/shipments", "POST /:number/shipments/:shipment/post", "POST /:number/lines/:item/close", "POST /:number/invoice", "POST /:number/status"],
+    "orders": ["GET", "GET /:number", "POST", "POST /:number/confirm", "POST /:number/cancel", "POST /:number/shipments", "POST /:number/shipments/:shipment/post", "POST /:number/lines/:item/close", "POST /:number/invoice", "POST /:number/credit/release", "POST /:number/credit/reject", "POST /:number/status"],
     "shipments": ["GET", "GET /:number"],
     "invoices": ["GET", "GET /:number"],
     "events": ["GET", "POST /retry", "POST /requeue"]
@@ -31,7 +31,7 @@
   "order": {
     "request": ["commerceOrderId", "commerceIncrementId", "partnerId", "commerceCompanyId", "email", "customerGroupId", "lines", "currency", "total"],
     "requestLine": ["sku", "qty", "price", "commerceItemId"],
-    "response": ["number", "commerceOrderId", "commerceIncrementId", "partnerId", "lines", "currency", "total", "status", "header", "shipments", "invoice", "history", "createdAt"]
+    "response": ["number", "commerceOrderId", "commerceIncrementId", "partnerId", "lines", "currency", "total", "status", "header", "shipments", "invoice", "creditStatus", "creditReason", "creditDecidedAt", "history", "createdAt"]
   },
   "events": {
     "be-observer.catalog_product_update": { "raisedBy": "product.price", "value": ["sku", "name", "price"] },
