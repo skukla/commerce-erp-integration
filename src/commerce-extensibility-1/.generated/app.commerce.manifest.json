@@ -26,7 +26,7 @@
       },
       {
         "default": "",
-        "description": "A status code to set on the Commerce order when the ERP confirms it, created at Stores \u2192 Settings \u2192 Order Status and assigned to the Pending state (not as its default), for example erp_confirmed. Blank: a note only. No status can move an order to Processing; Commerce does that itself when the order is invoiced or shipped.",
+        "description": "A status code to set on the Commerce order when the ERP confirms it, created at Stores → Settings → Order Status and assigned to the Pending state (not as its default), for example erp_confirmed. Blank: a note only. No status can move an order to Processing; Commerce does that itself when the order is invoiced or shipped.",
         "label": "Order status when the ERP confirms",
         "name": "orders_confirm_status",
         "type": "text"
@@ -135,6 +135,7 @@
             ],
             "label": "Product Created or Updated",
             "name": "observer.catalog_product_save_commit_after",
+            "priority": true,
             "runtimeActions": [
               "product-commerce/created",
               "product-commerce/updated"
@@ -152,6 +153,7 @@
             ],
             "label": "Product Deleted",
             "name": "observer.catalog_product_delete_commit_after",
+            "priority": true,
             "runtimeActions": [
               "product-commerce/deleted"
             ]
@@ -216,6 +218,7 @@
             ],
             "label": "Order Saved",
             "name": "observer.sales_order_save_commit_after",
+            "priority": true,
             "runtimeActions": [
               "order-commerce/created",
               "order-commerce/changed"
@@ -248,6 +251,7 @@
             ],
             "label": "Shipment Saved",
             "name": "observer.sales_order_shipment_save_after",
+            "priority": true,
             "runtimeActions": [
               "order-commerce/shipped"
             ]
@@ -270,6 +274,7 @@
             ],
             "label": "Invoice Saved",
             "name": "observer.sales_order_invoice_save_after",
+            "priority": true,
             "runtimeActions": [
               "order-commerce/invoiced"
             ]
@@ -292,6 +297,7 @@
             ],
             "label": "Stock Item Updated",
             "name": "observer.cataloginventory_stock_item_save_commit_after",
+            "priority": true,
             "runtimeActions": [
               "stock-commerce/updated"
             ]
@@ -388,12 +394,21 @@
       }
     ]
   },
+  "installation": {
+    "customInstallationSteps": [
+      {
+        "description": "Names this app's Commerce event provider in Commerce's eventing configuration, which the installer leaves blank.",
+        "name": "Set the event provider id",
+        "script": "./src/installation/set-event-provider.js"
+      }
+    ]
+  },
   "metadata": {
     "description": "Adobe Commerce integration to a demo ERP: orders to the ERP with the ERP number written back, contract pricing at cart time, and the ERP events (prices, stock, credit limits, order statuses) applied to Commerce.",
     "displayName": "ERP integration",
     "id": "commerce-erp-integration",
     "upgradeMode": "auto",
-    "version": "0.7.0"
+    "version": "0.8.0"
   },
   "webhooks": [
     {
@@ -405,19 +420,19 @@
       "webhook": {
         "batch_name": "erp_totals_collector_item_prices",
         "fallback_error_message": "ERP pricing is unavailable; Commerce kept its own prices for this cart.",
+        "headers": [
+          {
+            "name": "X-OW-EXTRA-LOGGING",
+            "value": "on"
+          }
+        ],
         "hook_name": "erp_contract_price",
         "method": "POST",
         "required": false,
         "soft_timeout": 1000,
         "timeout": 10000,
         "webhook_method": "plugin.out_of_process_totals_collector.api.get_total_modifications.item_prices",
-        "webhook_type": "after",
-        "headers": [
-          {
-            "name": "X-OW-EXTRA-LOGGING",
-            "value": "on"
-          }
-        ]
+        "webhook_type": "after"
       }
     },
     {
@@ -429,19 +444,19 @@
       "webhook": {
         "batch_name": "erp_totals_collector",
         "fallback_error_message": "ERP discounts are unavailable; Commerce kept its own totals for this cart.",
+        "headers": [
+          {
+            "name": "X-OW-EXTRA-LOGGING",
+            "value": "on"
+          }
+        ],
         "hook_name": "erp_discount_ceiling",
         "method": "POST",
         "required": false,
         "soft_timeout": 1000,
         "timeout": 10000,
         "webhook_method": "plugin.out_of_process_totals_collector.api.get_total_modifications.execute",
-        "webhook_type": "after",
-        "headers": [
-          {
-            "name": "X-OW-EXTRA-LOGGING",
-            "value": "on"
-          }
-        ]
+        "webhook_type": "after"
       }
     }
   ]

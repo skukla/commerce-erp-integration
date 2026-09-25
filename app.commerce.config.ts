@@ -382,6 +382,18 @@ export default defineConfig({
       },
     ],
   },
+  installation: {
+    // The installer leaves Commerce's eventing provider id blank; this step fills it in for
+    // the first copy on a store (src/installation/set-event-provider.js).
+    customInstallationSteps: [
+      {
+        description:
+          "Names this app's Commerce event provider in Commerce's eventing configuration, which the installer leaves blank.",
+        name: "Set the event provider id",
+        script: "./src/installation/set-event-provider.js",
+      },
+    ],
+  },
   metadata: {
     description:
       "Adobe Commerce integration to a demo ERP: orders to the ERP with the ERP number written back, contract pricing at cart time, and the ERP events (prices, stock, credit limits, order statuses) applied to Commerce.",
@@ -392,7 +404,7 @@ export default defineConfig({
     // version with every change to what this file registers, or the change never reaches
     // Commerce. "auto" runs the plan; the library marks it experimental.
     upgradeMode: "auto",
-    version: "0.7.0",
+    version: "0.8.0",
   },
   webhooks: [
     {
