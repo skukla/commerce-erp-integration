@@ -47,7 +47,7 @@ async function handle(params) {
       statusHistory: {
         comment: `Cancelled in the ERP${erp}${reason}`,
         is_customer_notified: 0,
-        is_visible_on_front: 1,
+        is_visible_on_front: 0,
       },
     });
     return ok("Order cancelled successfully");

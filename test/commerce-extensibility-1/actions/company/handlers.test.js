@@ -102,7 +102,7 @@ describe("Given the ERP order events the kit has no handler for", () => {
       statusHistory: {
         comment: "Invoiced in the ERP (ERP sales order 0000001000)",
         is_customer_notified: 0,
-        is_visible_on_front: 1,
+        is_visible_on_front: 0,
       },
     });
   });
@@ -117,7 +117,7 @@ describe("Given the ERP order events the kit has no handler for", () => {
         comment:
           "Cancelled in the ERP (ERP sales order 0000001000): Duplicate order",
         is_customer_notified: 0,
-        is_visible_on_front: 1,
+        is_visible_on_front: 0,
       },
     });
     expect((await cancelled.main({ data: {} })).error.statusCode).toBe(400);
@@ -142,7 +142,7 @@ describe("Given the ERP's credit hold event", () => {
         comment:
           "On credit hold in the ERP (ERP sales order 0000001000): Credit limit 1,000.00 exceeded by 100.00",
         is_customer_notified: 0,
-        is_visible_on_front: 1,
+        is_visible_on_front: 0,
       },
     });
   });
@@ -169,7 +169,7 @@ describe("Given the ERP's credit hold event", () => {
       statusHistory: {
         comment: "Credit hold released in the ERP (ERP sales order 0000001000)",
         is_customer_notified: 0,
-        is_visible_on_front: 1,
+        is_visible_on_front: 0,
       },
     });
     erp.order.mockResolvedValueOnce({

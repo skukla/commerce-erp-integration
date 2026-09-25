@@ -86,7 +86,7 @@ async function apply(params, event) {
         ? `On credit hold in the ERP${erpNote}${reason}`
         : `Credit hold released in the ERP${erpNote}`,
       is_customer_notified: 0,
-      is_visible_on_front: 1,
+      is_visible_on_front: 0,
     },
   });
   return event.held ? "Order put on hold" : "Order taken off hold";

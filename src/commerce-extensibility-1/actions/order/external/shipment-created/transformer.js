@@ -9,7 +9,7 @@ function transformData(params) {
     ? ` (ERP sales order ${params.data.erpNumber})`
     : "";
   return {
-    comment: { comment: `Shipped from the ERP${erp}`, is_visible_on_front: 1 },
+    comment: { comment: `Shipped from the ERP${erp}`, is_visible_on_front: 0 },
     extension_attributes: {
       source_code: params.data.stockSourceCode || "default",
     },

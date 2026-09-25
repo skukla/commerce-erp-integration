@@ -12,7 +12,7 @@ function transformData(params) {
     statusHistory: {
       comment: `Order ${params.data.status} in the ERP${erp}`,
       is_customer_notified: params.data?.notifyCustomer ? 1 : 0,
-      is_visible_on_front: 1,
+      is_visible_on_front: 0,
     },
   };
 }

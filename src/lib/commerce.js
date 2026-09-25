@@ -547,7 +547,7 @@ export const orders = {
           statusHistory: {
             comment,
             is_customer_notified: 0,
-            is_visible_on_front: 1,
+            is_visible_on_front: 0,
             ...(status ? { status } : {}),
           },
         },
@@ -565,7 +565,7 @@ export const orders = {
     (await commerceClient(params))
       .post(`order/${orderId}/ship`, {
         json: {
-          comment: { comment, is_visible_on_front: 1 },
+          comment: { comment, is_visible_on_front: 0 },
           items,
           notify: false,
         },
