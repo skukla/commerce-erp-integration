@@ -31,9 +31,13 @@ event ever needs to be normal, know that on a sandbox it may never leave.
 I/O Events → Send Test Event* sends a `connection_testing` probe. It proves the credentials
 and the provider; it says nothing about whether real events are dispatched.
 
-**Provider ID.** The Admin's eventing configuration needs the event provider's id filled in
-(the installer does not do it on every instance); with it blank, "Execute Synchronization"
-succeeds and nothing is sent.
+**Provider ID.** The Admin's eventing configuration needs the event provider's id filled in;
+with it blank, "Execute Synchronization" succeeds and nothing is sent. The installer in
+`@adobe/aio-commerce-lib-app` 2.0.0 never sends it (its eventing configuration call carries
+enabled, environment, instance, merchant and workspace only), so this app sets it itself: a
+custom installation step (`src/installation/set-event-provider.js`) writes this app's Commerce
+provider id with `PUT V1/eventing/updateConfiguration`. Only the first copy on a store does,
+since the field is one per store and cannot be read; removing that copy clears it.
 
 ## Where to look when an event does not arrive
 
