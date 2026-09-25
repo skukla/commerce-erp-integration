@@ -7,6 +7,7 @@ import {
 import AioLogger from "@adobe/aio-lib-core-logging";
 
 import { nameOf, priceOf } from "#lib/commerce-before";
+import { currentPriceEvent, currentProduct } from "#lib/erp-current";
 import { recordingErpEvent } from "#lib/erp-event-history";
 import { recordProductWrite } from "#lib/ledger";
 import { stringParameters } from "#lib/utils";
@@ -36,23 +37,30 @@ async function handle(params) {
       logger.error(`Validation failed with error: ${validation.message}`);
       return badRequest(validation.message);
     }
-    logger.debug(`Transform data: ${stringParameters(params)}`);
-    const transformed = transformData(params);
+    // The event says which SKU changed; the ERP says what it is now (lib/erp-current.js).
+    const { sku } = params.data;
+    const product = await currentProduct(params, sku);
+    if (!product) {
+      return badRequest(`The ERP has no product ${sku}; nothing to apply`);
+    }
+    const current = { ...params, data: currentPriceEvent(sku, product) };
+    logger.debug(`Transform data: ${stringParameters(current)}`);
+    const transformed = transformData(current);
     logger.debug(`Preprocess data: ${stringParameters(params)}`);
-    const preProcessed = preProcess(params, transformed);
+    const preProcessed = preProcess(current, transformed);
     // What Commerce held before this write, so removing the integration can put it
     // back: Commerce is the permanent system and the ERP is transient (lib/ledger.js).
     const beforePrice = await priceOf(params, transformed.product.sku);
     const beforeName = await nameOf(params, transformed.product.sku);
     logger.debug(`Start sending data: ${JSON.stringify(transformed)}`);
-    const result = await sendData(params, transformed, preProcessed, logger);
+    const result = await sendData(current, transformed, preProcessed, logger);
     if (!result.success) {
       logger.error(`Send data failed: ${result.message}`);
       return buildErrorResponse(result.statusCode, {
         body: { message: result.message },
       });
     }
-    if (beforePrice !== undefined) {
+    if (beforePrice !== undefined && transformed.product.price !== undefined) {
       await recordProductWrite({
         after: Number(transformed.product.price),
         before: beforePrice,
@@ -61,7 +69,7 @@ async function handle(params) {
       });
     }
     // The same write sets the name, so the name needs putting back too.
-    if (beforeName !== undefined) {
+    if (beforeName !== undefined && transformed.product.name !== undefined) {
       await recordProductWrite({
         after: transformed.product.name,
         before: beforeName,
@@ -70,7 +78,7 @@ async function handle(params) {
       });
     }
     logger.debug(`Postprocess data: ${stringParameters(params)}`);
-    postProcess(params, transformed, preProcessed, result);
+    postProcess(current, transformed, preProcessed, result);
     logger.debug("Process finished successfully");
     return ok("Product updated successfully");
   } catch (error) {

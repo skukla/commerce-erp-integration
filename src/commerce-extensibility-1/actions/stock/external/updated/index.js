@@ -7,6 +7,7 @@ import {
 import AioLogger from "@adobe/aio-lib-core-logging";
 
 import { quantityOf } from "#lib/commerce-before";
+import { currentProducts, currentStockLines } from "#lib/erp-current";
 import { recordingErpEvent } from "#lib/erp-event-history";
 import { recordProductWrite } from "#lib/ledger";
 import { stringParameters } from "#lib/utils";
@@ -36,10 +37,22 @@ async function handle(params) {
       logger.error(`Validation failed with error: ${validation.message}`);
       return badRequest(validation.message);
     }
-    logger.debug(`Transform data: ${stringParameters(params)}`);
-    const transformed = transformData(params);
+    // The event says which SKUs and warehouses changed; the ERP says the quantities now
+    // (lib/erp-current.js). A line the ERP no longer has is dropped.
+    const lines = currentStockLines(
+      params.data,
+      await currentProducts(params, params.data),
+    );
+    if (lines.length === 0) {
+      return badRequest(
+        "The ERP holds none of these products or warehouses; nothing to apply",
+      );
+    }
+    const current = { ...params, data: lines };
+    logger.debug(`Transform data: ${stringParameters(current)}`);
+    const transformed = transformData(current);
     logger.debug(`Preprocess data: ${stringParameters(params)}`);
-    const preProcessed = preProcess(params, transformed);
+    const preProcessed = preProcess(current, transformed);
     // One read per source item, before the write: two sources of a SKU are two
     // different values to put back when the integration is removed (lib/ledger.js).
     const before = await Promise.all(
@@ -48,7 +61,7 @@ async function handle(params) {
       ),
     );
     logger.debug(`Start sending data: ${JSON.stringify(transformed)}`);
-    const result = await sendData(params, transformed, preProcessed);
+    const result = await sendData(current, transformed, preProcessed);
     if (!result.success) {
       logger.error(`Send data failed: ${result.message}`);
       return buildErrorResponse(result.statusCode, {
@@ -71,7 +84,7 @@ async function handle(params) {
       });
     }
     logger.debug(`Postprocess data: ${stringParameters(params)}`);
-    postProcess(params, transformed, preProcessed, result);
+    postProcess(current, transformed, preProcessed, result);
     logger.debug("Process finished successfully");
     return ok("Stock updated successfully");
   } catch (error) {

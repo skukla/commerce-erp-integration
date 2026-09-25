@@ -7,13 +7,15 @@
  * @returns {{ product: object }}
  */
 function transformData(params) {
-  return {
-    product: {
-      name: params.data.name,
-      price: params.data.price,
-      sku: params.data.sku,
-    },
-  };
+  const product = { sku: params.data.sku };
+  // A configurable parent carries no price (lib/erp-current.js); a name may be absent too.
+  if (params.data.name !== undefined) {
+    product.name = params.data.name;
+  }
+  if (params.data.price !== undefined) {
+    product.price = params.data.price;
+  }
+  return { product };
 }
 
 export { transformData };

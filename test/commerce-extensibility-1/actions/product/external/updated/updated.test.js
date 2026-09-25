@@ -1,3 +1,11 @@
+vi.mock("#lib/erp-current", async (importOriginal) => ({
+  ...(await importOriginal()),
+  currentProduct: vi.fn(async () => ({
+    listPrice: 10,
+    name: "Now",
+    type: "simple",
+  })),
+}));
 vi.mock("#src/product/external/updated/validator");
 
 import { validateData } from "#src/product/external/updated/validator";
@@ -70,6 +78,27 @@ describe("Given product external updated action", () => {
       validateData.mockReturnValue(SUCCESSFUL_VALIDATION_RESPONSE);
       sendData.mockReturnValue(SUCCESSFUL_SEND_DATA_RESPONSE);
       expect(await action.main(IGNORED_PARAMS)).toMatchObject(SUCCESS_RESPONSE);
+    });
+  });
+  describe("When the event carries values the ERP has since changed", () => {
+    test("Then Commerce is sent what the ERP holds now", async () => {
+      validateData.mockReturnValue({ success: true });
+      sendData.mockReturnValue({ success: true });
+      await action.main({ data: { name: "Old name", price: 55, sku: "S1" } });
+      expect(sendData.mock.calls.at(-1)[1]).toEqual({
+        product: { name: "Now", price: 10, sku: "S1" },
+      });
+    });
+    test("Then a SKU the ERP no longer has is refused, not written", async () => {
+      const { currentProduct } = await import("#lib/erp-current");
+      currentProduct.mockResolvedValueOnce(null);
+      validateData.mockReturnValue({ success: true });
+      sendData.mockClear();
+      const response = await action.main({ data: { price: 1, sku: "GONE" } });
+      expect(response).toMatchObject({
+        error: { statusCode: HTTP_BAD_REQUEST },
+      });
+      expect(sendData).not.toHaveBeenCalled();
     });
   });
 });
