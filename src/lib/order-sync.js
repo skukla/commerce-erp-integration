@@ -5,7 +5,15 @@
  *
  * The event carries the order's increment id but not its entity id, so the order is looked
  * up, created in the ERP, and the ERP's number written back as `ext_order_id`. That save
- * raises the event again; an order that is not new, or already has a number, is skipped.
+ * raises the event again; an order that already has a number is skipped.
+ *
+ * Whether the order is "new" is NOT decided by Commerce's `_isNew` flag. An order placed
+ * through the REST cart (`PUT carts/{id}/order`) is saved more than once while it is placed,
+ * and the commit event Commerce sends carries `_isNew: false` (measured 2026-09-25 on
+ * ACCS: order 3000000005 arrived with the flag false and was skipped, so the ERP never saw
+ * it). What decides is whether the ERP already has the order: the event's `ext_order_id`,
+ * or the number on the Commerce record. The ERP's create is idempotent on the Commerce
+ * order id, so a second save before the number is written back cannot double-create.
  *
  * I/O Events retries a delivery answered with a 5xx (at 1, 2, 4 and 8 minutes, then every
  * 15 minutes, for up to a day) and drops one answered with a 4xx. So when the ERP cannot
@@ -29,7 +37,11 @@ const SERVER_ERROR = 500;
 const UNAVAILABLE = 503;
 const BAD_REQUEST = 400;
 
-/** A new order: Commerce marks it, or its first save has equal created and updated times. */
+/**
+ * A new order by Commerce's own account: its `_isNew` flag, else equal created and updated
+ * times. Kept as a description for readers; `sendOrderToErp` no longer gates on it, because
+ * the flag is false on an order placed through the REST cart.
+ */
 export function isNewOrder(order) {
   if (typeof order._isNew === "boolean") {
     return order._isNew;
@@ -116,9 +128,6 @@ export async function sendOrderToErp(params, order, deps) {
       200,
       `${label} already has ERP number ${order.ext_order_id}.`,
     );
-  }
-  if (!isNewOrder(order)) {
-    return result("skipped", 200, `${label} is not new.`);
   }
   const settings = await deps.settingsFor(order.store_id, deps.logger);
   if (!settings.orders_send) {

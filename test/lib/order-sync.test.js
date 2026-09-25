@@ -95,11 +95,18 @@ describe("Given the order save event", () => {
     expect(d.erp.createOrder).not.toHaveBeenCalled();
   });
 
-  test("Then a later save of an order is skipped", async () => {
+  test("Then a later save WITHOUT an ERP number is sent again, whatever Commerce's new-flag says", async () => {
+    // An order placed through the REST cart arrives with `_isNew: false` (measured
+    // 2026-09-25); the ERP's create is idempotent, so a resend is the safe answer.
     const d = deps();
-    const later = { ...NEW_ORDER, updated_at: "2026-09-17 06:00:00" };
-    expect((await sendOrderToErp({}, later, d)).outcome).toBe("skipped");
-    expect(d.findOrder).not.toHaveBeenCalled();
+    const later = {
+      ...NEW_ORDER,
+      _isNew: false,
+      updated_at: "2026-09-17 06:00:00",
+    };
+    const result = await sendOrderToErp({}, later, d);
+    expect(result.outcome).toBe("sent");
+    expect(d.erp.createOrder).toHaveBeenCalled();
   });
 
   test("Then Commerce's new-order flag wins over the timestamps", () => {
