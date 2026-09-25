@@ -454,9 +454,9 @@ describe("Given an order on its way to the ERP", () => {
   test("Then a write-back that fails is a failure naming the ERP's number, delivered again", async () => {
     const d = deps({
       recordProgress: vi.fn(() => Promise.resolve()),
-      setExtOrderId: vi.fn(async () => {
-        throw new Error("Request timed out");
-      }),
+      setExtOrderId: vi.fn(() =>
+        Promise.reject(new Error("Request timed out")),
+      ),
     });
     const result = await sendOrderToErp({}, NEW_ORDER, d);
     expect(result).toStrictEqual({
