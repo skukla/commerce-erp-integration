@@ -74,6 +74,9 @@ Reset returns the ERP to a fresh mirror of Commerce.
 
 ## APIs and events, in one place
 
+How the events travel, why every Commerce subscription is priority (the sandbox's normal event
+cron does not run), and where to look when one does not arrive: [`docs/eventing.md`](docs/eventing.md).
+
 **Commerce → this app**
 
 | Kind | Name | Handler |
