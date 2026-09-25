@@ -147,6 +147,16 @@ export const erp = {
   /** One sales order by its ERP number, with the ERP's own status history. */
   order: (params, number, timeoutMs) =>
     erpRequest(params, "orders", { path: `/${number}`, timeoutMs }),
+  /**
+   * The sales orders carrying a customer reference (the buyer's Commerce order number):
+   * a standard ERP filter (SAP PurchaseOrderByCustomer, Business Central
+   * externalDocumentNumber). Answers `{ items }`.
+   */
+  ordersByReference: (params, reference, timeoutMs) =>
+    erpRequest(params, "orders", {
+      path: `?reference=${encodeURIComponent(reference)}`,
+      timeoutMs,
+    }),
   /** One business partner's document by its ERP id (with its credit figures). */
   partner: (params, id, timeoutMs) =>
     erpRequest(params, "partners", {

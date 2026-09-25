@@ -78,6 +78,7 @@ describe("Given one order followed end to end", () => {
     });
 
     expect(trace.summary).toStrictEqual({
+      commerceAnswered: true,
       commerceStatus: "processing",
       erpNumber: "0000001042",
       erpStatus: "shipped",

@@ -93,4 +93,23 @@ describe("Given one order's trace", () => {
       tries: "4 tries",
     });
   });
+
+  test("Then a Commerce that did not answer is said first, and the ERP half still stands", () => {
+    expect(
+      traceHeadline(
+        {
+          commerceAnswered: false,
+          commerceStatus: null,
+          erpNumber: "0000001042",
+          erpStatus: "confirmed",
+          incrementId: "000000042",
+          reachedErp: true,
+        },
+        "Northwind ERP",
+      ),
+    ).toBe(
+      "Commerce did not answer, so its part of this order is missing. " +
+        "Order 000000042 is Northwind ERP order 0000001042: confirmed there.",
+    );
+  });
 });

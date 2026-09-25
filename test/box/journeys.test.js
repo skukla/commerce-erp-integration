@@ -69,6 +69,11 @@ vi.mock("#lib/erp", () => {
         call("admin", { body, method: "POST", params, path: "/import" }),
       listOrders: (params) => call("orders", { params }),
       order: (params, number) => call("orders", { params, path: `/${number}` }),
+      ordersByReference: (params, reference) =>
+        call("orders", {
+          params,
+          path: `?reference=${encodeURIComponent(reference)}`,
+        }),
       product: (params, sku) =>
         call("products", { params, path: `/${encodeURIComponent(sku)}` }),
       quote: (params, body) =>

@@ -109,9 +109,11 @@ function erpSteps(erpOrder, erpName) {
  */
 export function buildOrderTrace({
   commerceOrder,
+  commerceUnavailable = false,
   crossings,
   erpName,
   erpOrder,
+  incrementId,
 }) {
   const steps = [];
   if (commerceOrder) {
@@ -136,13 +138,18 @@ export function buildOrderTrace({
   return {
     steps,
     summary: {
+      // False when Commerce did not answer (a timeout), as opposed to having no such order:
+      // the steps then come from the history and the ERP alone.
+      commerceAnswered: !commerceUnavailable,
       commerceStatus: commerceOrder?.status ?? null,
       erpNumber:
         erpOrder?.number ??
         splitExtOrderId(commerceOrder?.ext_order_id).number ??
         null,
       erpStatus: erpOrder?.status ?? null,
-      incrementId: commerceOrder?.increment_id ?? null,
+      incrementId:
+        commerceOrder?.increment_id ??
+        (commerceUnavailable ? (incrementId ?? null) : null),
       reachedErp: Boolean(erpOrder),
     },
   };

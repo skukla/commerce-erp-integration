@@ -120,15 +120,23 @@ async function retryErpEvent(eventId, logger) {
  * nothing: the Commerce half is still the answer to "where is my order?".
  */
 async function traceOrder(params, incrementId, logger) {
+  let commerceUnavailable = false;
   const [commerceOrder, crossings] = await Promise.all([
     getOrderByIncrementId(params, incrementId).catch((error) => {
       logger.warn(`trace: Commerce order ${incrementId}: ${error.message}`);
+      commerceUnavailable = true;
       return null;
     }),
     readHistory({ ref: incrementId }),
   ]);
   // The Commerce field carries this pair's prefix (rule M4); the ERP is asked by number.
-  const erpNumber = splitExtOrderId(commerceOrder?.ext_order_id).number;
+  // When Commerce did not answer, the ERP is asked by the order's reference instead, so a
+  // slow Commerce read does not also lose the ERP half of the story.
+  const erpNumber =
+    splitExtOrderId(commerceOrder?.ext_order_id).number ??
+    (commerceUnavailable
+      ? await erpNumberByReference(params, incrementId, logger)
+      : undefined);
   const answered = erpNumber
     ? await erp.order(params, erpNumber, TRACE_TIMEOUT_MS).catch((error) => {
         logger.warn(`trace: ERP order ${erpNumber}: ${error.message}`);
@@ -137,10 +145,26 @@ async function traceOrder(params, incrementId, logger) {
     : { ok: false };
   return buildOrderTrace({
     commerceOrder,
+    commerceUnavailable,
     crossings,
     erpName: params.ERP_DISPLAY_NAME || "the ERP",
     erpOrder: answered.ok ? answered.data : null,
+    incrementId,
   });
+}
+
+/** The ERP's number for the order carrying this reference, or undefined. Never throws. */
+async function erpNumberByReference(params, incrementId, logger) {
+  try {
+    const answer = await erp.ordersByReference(
+      params,
+      incrementId,
+      TRACE_TIMEOUT_MS,
+    );
+    return answer.ok ? answer.data?.items?.[0]?.number : undefined;
+  } catch (error) {
+    logger.warn(`trace: ERP orders for ${incrementId}: ${error.message}`);
+  }
 }
 
 export { main };

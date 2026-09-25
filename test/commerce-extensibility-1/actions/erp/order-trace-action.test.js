@@ -10,7 +10,9 @@ vi.mock("#lib/erp-event-history", () => ({
 }));
 vi.mock("#lib/order-deps", () => ({ orderSyncDeps: vi.fn(() => ({})) }));
 vi.mock("#lib/commerce", () => ({ getOrderByIncrementId: vi.fn() }));
-vi.mock("#lib/erp", () => ({ erp: { order: vi.fn() } }));
+vi.mock("#lib/erp", () => ({
+  erp: { order: vi.fn(), ordersByReference: vi.fn() },
+}));
 
 import { getOrderByIncrementId } from "#lib/commerce";
 import { erp } from "#lib/erp";
@@ -116,5 +118,51 @@ describe("Given a request to follow one order", () => {
 
     expect(res.error.statusCode).toBe(400);
     expect(getOrderByIncrementId).not.toHaveBeenCalled();
+  });
+
+  // D7 (2026-09-25): a slow Commerce read used to blank the whole trace, ERP half included.
+  test("Then a Commerce that does not answer still yields the ERP half, found by reference", async () => {
+    getOrderByIncrementId.mockRejectedValue(new Error("Request timed out"));
+    readHistory.mockResolvedValue([]);
+    erp.ordersByReference.mockResolvedValue({
+      data: { items: [{ number: "0000001042" }] },
+      ok: true,
+    });
+    erp.order.mockResolvedValue({
+      data: {
+        history: [{ at: "2026-09-20T09:00:30Z", status: "created" }],
+        number: "0000001042",
+        status: "created",
+      },
+      ok: true,
+    });
+
+    const res = await main({ __ow_method: "get", trace: "000000042" });
+
+    expect(erp.ordersByReference).toHaveBeenCalledWith(
+      expect.anything(),
+      "000000042",
+      expect.any(Number),
+    );
+    expect(erp.order).toHaveBeenCalledWith(
+      expect.anything(),
+      "0000001042",
+      expect.any(Number),
+    );
+    expect(res.body.trace.summary).toMatchObject({
+      commerceAnswered: false,
+      erpNumber: "0000001042",
+      incrementId: "000000042",
+      reachedErp: true,
+    });
+  });
+
+  test("Then an order Commerce simply does not have is not looked up in the ERP", async () => {
+    getOrderByIncrementId.mockResolvedValue(null);
+    readHistory.mockResolvedValue([]);
+
+    await main({ __ow_method: "get", trace: "no-such" });
+
+    expect(erp.ordersByReference).not.toHaveBeenCalled();
   });
 });

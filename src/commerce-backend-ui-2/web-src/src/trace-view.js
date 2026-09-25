@@ -45,10 +45,22 @@ export function traceHeadline(summary, erpName) {
   if (!summary?.incrementId) {
     return "No order with that number.";
   }
+  const missing =
+    summary.commerceAnswered === false
+      ? "Commerce did not answer, so its part of this order is missing. "
+      : "";
+  return missing + erpHeadline(summary, erpName);
+}
+
+/** What the ERP half says about the order. */
+function erpHeadline(summary, erpName) {
   if (!summary.reachedErp) {
     return summary.erpNumber
       ? `Order ${summary.incrementId} is ${erpName} order ${summary.erpNumber}, which ${erpName} did not answer for.`
       : `Order ${summary.incrementId} has not reached ${erpName}.`;
   }
-  return `Order ${summary.incrementId} is ${erpName} order ${summary.erpNumber}: ${summary.erpStatus} there, ${summary.commerceStatus} in Commerce.`;
+  const inCommerce = summary.commerceStatus
+    ? `, ${summary.commerceStatus} in Commerce`
+    : "";
+  return `Order ${summary.incrementId} is ${erpName} order ${summary.erpNumber}: ${summary.erpStatus} there${inCommerce}.`;
 }
