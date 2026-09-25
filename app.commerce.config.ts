@@ -24,7 +24,7 @@ const APP_ID = /^[a-z0-9-]+$/;
 function copyIdentity(): { appId: string; menuId: string } {
   const copy = process.env.DEMO_BUILDER_COPY_NUMBER?.trim();
   const given = process.env.DEMO_BUILDER_APP_ID?.trim();
-  if (!copy && !given) {
+  if (!(copy || given)) {
     return { appId: "commerce-erp-integration", menuId: "erp_integration" };
   }
   if (given) {
@@ -159,8 +159,14 @@ export default defineConfig({
         name: "structure_owns",
         options: [
           { label: "All products", value: "all" },
-          { label: "Products in the inventory sources named below", value: "sources" },
-          { label: "Products whose attribute names this ERP", value: "attribute" },
+          {
+            label: "Products in the inventory sources named below",
+            value: "sources",
+          },
+          {
+            label: "Products whose attribute names this ERP",
+            value: "attribute",
+          },
         ],
         selectionMode: "single",
         type: "list",
@@ -183,6 +189,14 @@ export default defineConfig({
       },
     ],
   },
+  /*
+   * Every Commerce event is subscribed as PRIORITY. Commerce sends normal events through the
+   * `event_data_batch_send` cron and priority events through a message-queue consumer within a
+   * second; on the Cloud Service sandbox the cron was not dispatching at all (measured
+   * 2026-09-25: a product save never reached the registration until the subscription was
+   * marked priority, then arrived in five seconds), and Adobe's own support guidance for that
+   * symptom is to enable priority on the subscription. Priority costs nothing here.
+   */
   eventing: {
     commerce: [
       {
@@ -201,6 +215,7 @@ export default defineConfig({
             ],
             label: "Product Created or Updated",
             name: "observer.catalog_product_save_commit_after",
+            priority: true,
             runtimeActions: [
               "product-commerce/created",
               "product-commerce/updated",
@@ -212,6 +227,7 @@ export default defineConfig({
             fields: [field("id"), field("sku")],
             label: "Product Deleted",
             name: "observer.catalog_product_delete_commit_after",
+            priority: true,
             runtimeActions: ["product-commerce/deleted"],
           },
           {
@@ -239,7 +255,11 @@ export default defineConfig({
             ],
             label: "Order Saved",
             name: "observer.sales_order_save_commit_after",
-            runtimeActions: ["order-commerce/created", "order-commerce/changed"],
+            priority: true,
+            runtimeActions: [
+              "order-commerce/created",
+              "order-commerce/changed",
+            ],
           },
           {
             description:
@@ -255,6 +275,7 @@ export default defineConfig({
             ],
             label: "Shipment Saved",
             name: "observer.sales_order_shipment_save_after",
+            priority: true,
             runtimeActions: ["order-commerce/shipped"],
           },
           {
@@ -268,6 +289,7 @@ export default defineConfig({
             ],
             label: "Invoice Saved",
             name: "observer.sales_order_invoice_save_after",
+            priority: true,
             runtimeActions: ["order-commerce/invoiced"],
           },
           {
@@ -281,6 +303,7 @@ export default defineConfig({
             ],
             label: "Stock Item Updated",
             name: "observer.cataloginventory_stock_item_save_commit_after",
+            priority: true,
             runtimeActions: ["stock-commerce/updated"],
           },
         ],
