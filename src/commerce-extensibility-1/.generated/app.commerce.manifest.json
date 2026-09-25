@@ -409,9 +409,15 @@
         "method": "POST",
         "required": false,
         "soft_timeout": 1000,
-        "timeout": 5000,
+        "timeout": 10000,
         "webhook_method": "plugin.out_of_process_totals_collector.api.get_total_modifications.item_prices",
-        "webhook_type": "after"
+        "webhook_type": "after",
+        "headers": [
+          {
+            "name": "X-OW-EXTRA-LOGGING",
+            "value": "on"
+          }
+        ]
       }
     },
     {
@@ -427,9 +433,15 @@
         "method": "POST",
         "required": false,
         "soft_timeout": 1000,
-        "timeout": 5000,
+        "timeout": 10000,
         "webhook_method": "plugin.out_of_process_totals_collector.api.get_total_modifications.execute",
-        "webhook_type": "after"
+        "webhook_type": "after",
+        "headers": [
+          {
+            "name": "X-OW-EXTRA-LOGGING",
+            "value": "on"
+          }
+        ]
       }
     }
   ]

@@ -73,7 +73,7 @@ Changing a subscription after install needs an uninstall + install of the app in
 
 | Webhook | Plugin hook | Status |
 |---|---|---|
-| `erp_contract_price` | `plugin.out_of_process_totals_collector.api.get_total_modifications.item_prices` (`required: false`, 1s soft / 5s hard) | used today |
+| `erp_contract_price` | `plugin.out_of_process_totals_collector.api.get_total_modifications.item_prices` (`required: false`, 1s soft / 10s hard, runs recorded via X-OW-EXTRA-LOGGING) | used today |
 | `erp_discount_ceiling` | `…get_total_modifications.execute` | used today |
 | availability check at add-to-cart / order placement (`required: true`) | AB-19 | to validate the plugin hook name |
 | credit check at order placement (`required: true`) | AB-20 | to validate |

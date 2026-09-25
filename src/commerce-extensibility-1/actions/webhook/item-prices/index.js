@@ -10,9 +10,10 @@ import {
   readPayload,
 } from "#lib/webhook";
 
-// Commerce's soft_timeout (1 s) only logs; its hard timeout (5 s, app.commerce.config.ts) aborts.
-// Three seconds lets a cold ERP action answer; a slower one falls back to Commerce's prices.
-const ERP_TIMEOUT_MS = 3000;
+// Commerce's soft_timeout (1 s) only logs; its hard timeout (10 s, app.commerce.config.ts)
+// aborts, and this action's own Runtime limit is 15 s. Six seconds lets a cold ERP action
+// answer; a slower one falls back to Commerce's own prices.
+const ERP_TIMEOUT_MS = 6000;
 
 /**
  * Totals collector, item prices: each cart line's price becomes the ERP's contract price
@@ -26,10 +27,16 @@ async function main(params) {
     const payload = readPayload(params);
     const lines = cartLines(payload);
     if (lines.length === 0) {
+      logger.info(
+        `no cart lines in the payload (keys: ${Object.keys(payload).join(", ") || "none"}; quote keys: ${Object.keys(payload.quote ?? {}).join(", ") || "none"})`,
+      );
       return noop();
     }
     const settings = await settingsFor(payload.quote?.store_id, logger);
     if (!settings.pricing_contract_prices) {
+      logger.info(
+        "pricing_contract_prices is off for this store; Commerce keeps its prices",
+      );
       return noop();
     }
     const res = await erp.quote(
@@ -57,6 +64,9 @@ async function main(params) {
       }))
       .filter((u) => Number.isFinite(u.base_price) && u.base_price >= 0);
     if (priceUpdates.length === 0) {
+      logger.info(
+        `no contract price for partner ${res.data.partnerId} on ${lines.map((l) => l.sku).join(", ")} (hints: ${JSON.stringify(partnerHints(payload.quote))})`,
+      );
       return noop();
     }
     logger.info(

@@ -4,7 +4,7 @@ item-prices:
   web: 'yes'
   runtime: nodejs:24
   limits:
-    timeout: 10000
+    timeout: 15000
   inputs:
     LOG_LEVEL: $LOG_LEVEL
     AIO_COMMERCE_AUTH_IMS_CLIENT_ID: $AIO_COMMERCE_AUTH_IMS_CLIENT_ID
@@ -23,7 +23,7 @@ discounts:
   web: 'yes'
   runtime: nodejs:24
   limits:
-    timeout: 10000
+    timeout: 15000
   inputs:
     LOG_LEVEL: $LOG_LEVEL
     AIO_COMMERCE_AUTH_IMS_CLIENT_ID: $AIO_COMMERCE_AUTH_IMS_CLIENT_ID

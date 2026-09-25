@@ -406,11 +406,19 @@ export default defineConfig({
         batch_name: "erp_totals_collector_item_prices",
         fallback_error_message:
           "ERP pricing is unavailable; Commerce kept its own prices for this cart.",
+        // Runtime records a blocking web action's run only when it failed, unless the
+        // request carries this header (Adobe Runtime, "Logging and monitoring"). Commerce
+        // sends the headers registered here, so every cart webhook run is readable
+        // afterwards — the only way to see what Commerce actually sent (2026-09-25).
+        headers: [{ name: "X-OW-EXTRA-LOGGING", value: "on" }],
         hook_name: "erp_contract_price",
         method: "POST",
         required: false,
         soft_timeout: 1000,
-        timeout: 5000,
+        // Ten seconds, not five: a cold Runtime action plus a cold ERP quote measured
+        // 3.8 s warm on 2026-09-25, and a cart that loses its contract prices to a cold
+        // start is worse than a cart that waits. Adobe's own example uses 30 s.
+        timeout: 10_000,
         webhook_method:
           "plugin.out_of_process_totals_collector.api.get_total_modifications.item_prices",
         webhook_type: "after",
@@ -427,11 +435,19 @@ export default defineConfig({
         batch_name: "erp_totals_collector",
         fallback_error_message:
           "ERP discounts are unavailable; Commerce kept its own totals for this cart.",
+        // Runtime records a blocking web action's run only when it failed, unless the
+        // request carries this header (Adobe Runtime, "Logging and monitoring"). Commerce
+        // sends the headers registered here, so every cart webhook run is readable
+        // afterwards — the only way to see what Commerce actually sent (2026-09-25).
+        headers: [{ name: "X-OW-EXTRA-LOGGING", value: "on" }],
         hook_name: "erp_discount_ceiling",
         method: "POST",
         required: false,
         soft_timeout: 1000,
-        timeout: 5000,
+        // Ten seconds, not five: a cold Runtime action plus a cold ERP quote measured
+        // 3.8 s warm on 2026-09-25, and a cart that loses its contract prices to a cold
+        // start is worse than a cart that waits. Adobe's own example uses 30 s.
+        timeout: 10_000,
         webhook_method:
           "plugin.out_of_process_totals_collector.api.get_total_modifications.execute",
         webhook_type: "after",

@@ -11,9 +11,10 @@ import {
   round2,
 } from "#lib/webhook";
 
-// Commerce's soft_timeout (1 s) only logs; its hard timeout (5 s, app.commerce.config.ts) aborts.
-// Three seconds lets a cold ERP action answer; a slower one falls back to Commerce's prices.
-const ERP_TIMEOUT_MS = 3000;
+// Commerce's soft_timeout (1 s) only logs; its hard timeout (10 s, app.commerce.config.ts)
+// aborts, and this action's own Runtime limit is 15 s. Six seconds lets a cold ERP action
+// answer; a slower one falls back to Commerce's own totals.
+const ERP_TIMEOUT_MS = 6000;
 
 /**
  * Totals collector, execute: hold each line at the ERP's maximum-discount ceiling. The
@@ -45,10 +46,16 @@ async function main(params) {
     const payload = readPayload(params);
     const lines = cartLines(payload);
     if (lines.length === 0) {
+      logger.info(
+        `no cart lines in the payload (keys: ${Object.keys(payload).join(", ") || "none"}; quote keys: ${Object.keys(payload.quote ?? {}).join(", ") || "none"})`,
+      );
       return noop();
     }
     const settings = await settingsFor(payload.quote?.store_id, logger);
     if (!settings.pricing_discount_ceiling) {
+      logger.info(
+        "pricing_discount_ceiling is off for this store; Commerce keeps its totals",
+      );
       return noop();
     }
     const res = await erp.quote(
@@ -82,6 +89,9 @@ async function main(params) {
       }
     }
     if (clawback === 0) {
+      logger.info(
+        `no discount over the ceiling for partner ${res.data.partnerId} (hints: ${JSON.stringify(partnerHints(payload.quote))})`,
+      );
       return noop();
     }
     logger.info(
