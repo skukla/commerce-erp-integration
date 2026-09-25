@@ -22,14 +22,14 @@ What to have, so there is something to show:
 |---|---|---|---|
 | Products with stock | Catalog → Products | `GET products?searchCriteria[pageSize]=5` returns items | your usual catalog reset |
 | At least one B2B company with a credit limit | Customers → Companies; the company's Credit tab | `GET company` lists it; `GET companyCredits/company/{id}` shows `credit_limit` | delete the company (Customers → Companies) |
-| Each company in a customer group of its own (assign it a shared catalog, which gives it one) | Catalog → Shared Catalogs → Assign Companies | `GET company/{id}` shows a `customer_group_id` no other company has | assign the company back to the General group |
+| Each company that gets its own prices assigned to a shared catalog of its own (one no other company is assigned to; creating a shared catalog creates its customer group) | Catalog → Shared Catalogs → Add Shared Catalog, then Assign Companies | `GET company/{id}` shows a `customer_group_id` no other company has | assign the company back to the default shared catalog |
 | Optional: a status that shows "confirmed in the ERP" on a pending order | Stores → Settings → Order Status → Create New Status (code `erp_confirmed`), then Assign Status to State: state Pending, NOT as default; put the code in the ERP settings' "Order status when the ERP confirms" | the order's Comments History shows the status after the ERP confirms | clear the setting; unassign the status |
 | An order or two placed as a company user | the storefront | `GET orders?searchCriteria[pageSize]=5` | the integration's Reset clears the ERP's number from each order; Commerce cannot delete an order |
 
 The customer group matters more than it looks. An order names its buyer's company, so the
 ERP books it to the right account whatever the group. A cart does not: the pricing webhooks
 carry only the customer group and the buyer's email, so a company left in the General group
-(Commerce's default for every company) prices as the walk-in customer at cart time, and its
+(Commerce's default: a company created without choosing a shared catalog joins the default one, and so its group) prices as the walk-in customer at cart time, and its
 contract prices and discounts do not show until the order lands. Measured 2026-09-25 with
 three companies sharing group 1.
 
