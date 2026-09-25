@@ -1,6 +1,8 @@
 import { getCommerceClient } from "@adobe/aio-commerce-lib-app";
 import { resolveImsAuthParams } from "@adobe/aio-commerce-sdk/auth";
 
+import { COMMERCE_FETCH_OPTIONS } from "#lib/commerce";
+
 /**
  * This function call Adobe commerce rest API to add a comment to an order
  *
@@ -11,7 +13,7 @@ import { resolveImsAuthParams } from "@adobe/aio-commerce-sdk/auth";
 async function addComment(params, orderId, data) {
   // App Management requires IMS. It's fine to only resolve IMS authentication.
   const imsAuthParams = resolveImsAuthParams(params);
-  const client = await getCommerceClient(imsAuthParams);
+  const client = await getCommerceClient(imsAuthParams, COMMERCE_FETCH_OPTIONS);
   return await client.post(`orders/${orderId}/comments`, {
     json: data,
   });
@@ -24,7 +26,10 @@ async function addComment(params, orderId, data) {
  * @returns {Promise<object>} the order
  */
 async function getOrder(params, orderId) {
-  const client = await getCommerceClient(resolveImsAuthParams(params));
+  const client = await getCommerceClient(
+    resolveImsAuthParams(params),
+    COMMERCE_FETCH_OPTIONS,
+  );
   return await client.get(`orders/${orderId}`).json();
 }
 
@@ -34,7 +39,10 @@ async function getOrder(params, orderId) {
  * @param {number} orderId - order id
  */
 async function invoiceOrder(params, orderId) {
-  const client = await getCommerceClient(resolveImsAuthParams(params));
+  const client = await getCommerceClient(
+    resolveImsAuthParams(params),
+    COMMERCE_FETCH_OPTIONS,
+  );
   return await client.post(`order/${orderId}/invoice`, {
     json: { capture: true, notify: false },
   });
@@ -46,7 +54,10 @@ async function invoiceOrder(params, orderId) {
  * @param {number} orderId - order id
  */
 async function cancelOrder(params, orderId) {
-  const client = await getCommerceClient(resolveImsAuthParams(params));
+  const client = await getCommerceClient(
+    resolveImsAuthParams(params),
+    COMMERCE_FETCH_OPTIONS,
+  );
   return await client.post(`orders/${orderId}/cancel`);
 }
 
@@ -56,7 +67,10 @@ async function cancelOrder(params, orderId) {
  * @param {number} orderId - order id
  */
 async function holdOrder(params, orderId) {
-  const client = await getCommerceClient(resolveImsAuthParams(params));
+  const client = await getCommerceClient(
+    resolveImsAuthParams(params),
+    COMMERCE_FETCH_OPTIONS,
+  );
   return await client.post(`orders/${orderId}/hold`);
 }
 
@@ -66,7 +80,10 @@ async function holdOrder(params, orderId) {
  * @param {number} orderId - order id
  */
 async function unholdOrder(params, orderId) {
-  const client = await getCommerceClient(resolveImsAuthParams(params));
+  const client = await getCommerceClient(
+    resolveImsAuthParams(params),
+    COMMERCE_FETCH_OPTIONS,
+  );
   return await client.post(`orders/${orderId}/unhold`);
 }
 

@@ -43,6 +43,7 @@ function seed() {
         },
       ],
     ]),
+    customers: new Map(),
     invoices: [],
     nextId: 900,
     orders: new Map([
@@ -124,6 +125,10 @@ export function createFakeCommerce() {
       order(orderId).ext_order_id = "";
       record("clearExtOrderId", { orderId: String(orderId) });
       return {};
+    },
+    customerCompanyId: async (_p, customerId) => {
+      const companyId = db.customers.get(Number(customerId))?.company_id;
+      return companyId === undefined ? null : String(companyId);
     },
     findOrderByIncrementId: async (_p, incrementId) => {
       const o = [...db.orders.values()].find(

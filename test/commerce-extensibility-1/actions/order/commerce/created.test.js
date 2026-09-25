@@ -3,6 +3,7 @@ vi.mock("#lib/order-sync", () => ({ sendOrderToErp: vi.fn() }));
 vi.mock("#lib/settings", () => ({ settingsFor: vi.fn() }));
 vi.mock("#lib/history", () => ({ recordOrderOutcome: vi.fn() }));
 vi.mock("#lib/commerce", () => ({
+  customerCompanyId: vi.fn(),
   findOrderByIncrementId: vi.fn(),
   getOrderByIncrementId: vi.fn(),
   listWebsites: vi.fn(async () => []),
@@ -13,7 +14,12 @@ vi.mock("#lib/commerce", () => ({
   storeConfigs: vi.fn(async () => new Map()),
 }));
 
-import { findOrderByIncrementId, orders, setExtOrderId } from "#lib/commerce";
+import {
+  customerCompanyId,
+  findOrderByIncrementId,
+  orders,
+  setExtOrderId,
+} from "#lib/commerce";
 import { erp } from "#lib/erp";
 import { recordOrderOutcome } from "#lib/history";
 import { sendOrderToErp } from "#lib/order-sync";
@@ -39,12 +45,21 @@ describe("Given the order created event action", () => {
     const [passedParams, order, deps] = sendOrderToErp.mock.calls[0];
     expect(passedParams).toBe(params);
     expect(order).toStrictEqual({ increment_id: "1" });
+    expect(deps.companyIdOf).toBe(customerCompanyId);
     expect(deps.erp).toBe(erp);
     expect(deps.findOrder).toBe(findOrderByIncrementId);
     expect(deps.setExtOrderId).toBe(setExtOrderId);
     expect(deps.settingsFor).toBe(settingsFor);
     await deps.addNote(params, 41, "note");
     expect(orders.comment).toHaveBeenCalledWith(params, 41, "note");
+  });
+
+  test("Then a payload delivered without the `value` wrapper is the order itself, as the other order actions read it", async () => {
+    sendOrderToErp.mockResolvedValueOnce(outcome("sent", 200));
+    await main({ data: { increment_id: "2" } });
+    expect(sendOrderToErp.mock.calls[0][1]).toStrictEqual({
+      increment_id: "2",
+    });
   });
 
   test("Then a skipped order is a success, so it is not delivered again", async () => {

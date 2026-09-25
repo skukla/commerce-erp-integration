@@ -16,9 +16,42 @@ export const COMPANY_STATUS = {
 
 const PAGE_SIZE = 100;
 
+/**
+ * How long one Commerce call may take. The library's own default is ky's ten seconds,
+ * and this sandbox exceeds it routinely: on 2026-09-25 the write-back of an ERP number
+ * timed out at ten seconds (and landed anyway, so the run was logged as failed and
+ * delivered again), and every credit-hold delivery for the same order failed the same
+ * way. Thirty seconds sits under the event actions' 60-second Runtime limit with room
+ * for the ERP call beside it. The kit's own clients (actions/../commerce-*-api-client.js)
+ * take the same options.
+ */
+export const COMMERCE_TIMEOUT_MS = 30_000;
+/** The fetch options every Commerce client here is built with. */
+export const COMMERCE_FETCH_OPTIONS = { timeout: COMMERCE_TIMEOUT_MS };
+
 /** @returns {Promise<import("@adobe/aio-commerce-lib-api/commerce").AdobeCommerceHttpClient>} */
 export function commerceClient(params) {
-  return getCommerceClient(resolveImsAuthParams(params));
+  return getCommerceClient(
+    resolveImsAuthParams(params),
+    COMMERCE_FETCH_OPTIONS,
+  );
+}
+
+/**
+ * The Commerce company a customer belongs to, as a string, or null for a customer with
+ * none. The order event names the customer and the customer group but not the company,
+ * and the group cannot name the company: Commerce puts every company in General unless a
+ * shared catalog gives it a group of its own (measured 2026-09-25: three companies on
+ * group 1, an order booked to the wrong one).
+ */
+export async function customerCompanyId(params, customerId) {
+  const client = await commerceClient(params);
+  const customer = await client.get(`customers/${Number(customerId)}`).json();
+  const companyId =
+    customer?.extension_attributes?.company_attributes?.company_id;
+  return companyId === undefined || companyId === null
+    ? null
+    : String(companyId);
 }
 
 function searchParams(page, pageSize, extra = {}) {

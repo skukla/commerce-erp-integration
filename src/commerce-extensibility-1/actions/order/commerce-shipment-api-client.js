@@ -1,6 +1,8 @@
 import { getCommerceClient } from "@adobe/aio-commerce-lib-app";
 import { resolveImsAuthParams } from "@adobe/aio-commerce-sdk/auth";
 
+import { COMMERCE_FETCH_OPTIONS } from "#lib/commerce";
+
 /**
  * This function call Adobe commerce rest API to create a shipment
  *
@@ -11,7 +13,7 @@ import { resolveImsAuthParams } from "@adobe/aio-commerce-sdk/auth";
 async function createShipment(params, orderId, data) {
   // App Management requires IMS. It's fine to only resolve IMS authentication.
   const imsAuthParams = resolveImsAuthParams(params);
-  const client = await getCommerceClient(imsAuthParams);
+  const client = await getCommerceClient(imsAuthParams, COMMERCE_FETCH_OPTIONS);
   return await client.post(`order/${orderId}/ship`, {
     json: data,
   });
@@ -26,7 +28,7 @@ async function createShipment(params, orderId, data) {
 async function updateShipment(params, data) {
   // App Management requires IMS. It's fine to only resolve IMS authentication.
   const imsAuthParams = resolveImsAuthParams(params);
-  const client = await getCommerceClient(imsAuthParams);
+  const client = await getCommerceClient(imsAuthParams, COMMERCE_FETCH_OPTIONS);
   return await client.post("shipment", {
     json: data,
   });

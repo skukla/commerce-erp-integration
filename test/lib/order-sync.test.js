@@ -61,6 +61,7 @@ describe("Given the order save event", () => {
     expect(d.erp.createOrder).toHaveBeenCalledWith(
       { p: 1 },
       {
+        commerceCompanyId: null,
         commerceIncrementId: "3000000004",
         commerceOrderId: "41",
         currency: "USD",
@@ -85,6 +86,58 @@ describe("Given the order save event", () => {
       41,
       "Created in the ERP as sales order 0000001002",
     );
+  });
+
+  test("Then the buyer's company goes with the order, and a company that cannot be read is null, not a guess", async () => {
+    const withCompany = deps({ companyIdOf: vi.fn(async () => "21") });
+    await sendOrderToErp(
+      { p: 1 },
+      { ...NEW_ORDER, customer_id: 44 },
+      withCompany,
+    );
+    expect(withCompany.companyIdOf).toHaveBeenCalledWith({ p: 1 }, 44);
+    expect(withCompany.erp.createOrder.mock.calls[0][1]).toMatchObject({
+      commerceCompanyId: "21",
+      customerId: 44,
+    });
+
+    const failing = deps({
+      companyIdOf: vi.fn(async () => {
+        throw new Error("Request timed out");
+      }),
+    });
+    const result = await sendOrderToErp(
+      {},
+      { ...NEW_ORDER, customer_id: 44 },
+      failing,
+    );
+    expect(result.outcome).toBe("sent");
+    expect(
+      failing.erp.createOrder.mock.calls[0][1].commerceCompanyId,
+    ).toBeNull();
+    expect(failing.logger.warn).toHaveBeenCalledWith(
+      "order 3000000004: company of customer 44 not read: Request timed out",
+    );
+
+    const guest = deps({ companyIdOf: vi.fn() });
+    await sendOrderToErp({}, NEW_ORDER, guest);
+    expect(guest.companyIdOf).not.toHaveBeenCalled();
+  });
+
+  test("Then the write-back's own save event, carrying no order number, is skipped, and one with nothing is dropped naming its fields", async () => {
+    const d = deps();
+    expect(
+      await sendOrderToErp({}, { entity_id: 6, ext_order_id: "ACME-1" }, d),
+    ).toStrictEqual({
+      message: "the save that wrote the ERP number back.",
+      outcome: "skipped",
+      statusCode: 200,
+    });
+    expect(await sendOrderToErp({}, { entity_id: 6 }, d)).toMatchObject({
+      message: "The event carries no order number (fields: entity_id).",
+      outcome: "dropped",
+    });
+    expect(d.findOrder).not.toHaveBeenCalled();
   });
 
   test("Then the save that writes the number back is skipped, whatever its flags say", async () => {

@@ -4,6 +4,7 @@
  * screen's Retry, so both send an order the same way.
  */
 import {
+  customerCompanyId,
   findOrderByIncrementId,
   getOrderByIncrementId,
   orders,
@@ -22,6 +23,7 @@ import { ownsSku } from "#lib/structure";
 export function orderSyncDeps(logger) {
   return {
     addNote: (p, orderId, comment) => orders.comment(p, orderId, comment),
+    companyIdOf: customerCompanyId,
     erp,
     findOrder: findOrderByIncrementId,
     getOrder: getOrderByIncrementId,

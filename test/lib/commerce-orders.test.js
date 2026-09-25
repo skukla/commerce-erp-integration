@@ -13,8 +13,11 @@ vi.mock("@adobe/aio-commerce-sdk/auth", () => ({
   resolveImsAuthParams: vi.fn(() => ({})),
 }));
 
+import { getCommerceClient } from "@adobe/aio-commerce-lib-app";
+
 import {
   clearExtOrderId,
+  customerCompanyId,
   findOrderByIncrementId,
   getOrderByIncrementId,
   setExtOrderId,
@@ -51,6 +54,25 @@ describe("Given the Commerce order calls", () => {
     const order = { entity_id: "41", increment_id: "3000000004", items: [] };
     mockGet.mockReturnValueOnce(answer({ items: [order] }));
     expect(await getOrderByIncrementId({}, "3000000004")).toStrictEqual(order);
+  });
+
+  test("Then every client waits thirty seconds for Commerce, not the library's ten", async () => {
+    mockGet.mockReturnValueOnce(answer({ items: [] }));
+    await findOrderByIncrementId({}, "3000000004");
+    expect(getCommerceClient).toHaveBeenCalledWith({}, { timeout: 30_000 });
+  });
+
+  test("Then a customer's company is read off the customer record, null for a customer in none", async () => {
+    mockGet.mockReturnValueOnce(
+      answer({
+        extension_attributes: { company_attributes: { company_id: 21 } },
+        id: 44,
+      }),
+    );
+    expect(await customerCompanyId({}, "44")).toBe("21");
+    expect(mockGet.mock.calls[0][0]).toBe("customers/44");
+    mockGet.mockReturnValueOnce(answer({ extension_attributes: {}, id: 45 }));
+    expect(await customerCompanyId({}, 45)).toBeNull();
   });
 
   test("Then an unknown number is null", async () => {

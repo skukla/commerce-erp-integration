@@ -20,14 +20,11 @@ async function main(params) {
     level: params.LOG_LEVEL || "info",
   });
   try {
-    const result = await sendOrderToErp(
-      params,
-      params.data?.value,
-      orderSyncDeps(logger),
-    );
+    const order = params.data?.value ?? params.data;
+    const result = await sendOrderToErp(params, order, orderSyncDeps(logger));
     logger.info(result.message);
     // For the Commerce Admin screen's history and its Retry (lib/history.js).
-    await recordOrderOutcome(params.data?.value, result, { logger });
+    await recordOrderOutcome(order, result, { logger });
     if (result.outcome === "held") {
       return buildErrorResponse(result.statusCode, {
         body: { message: result.message },

@@ -56,10 +56,18 @@ export function isNewOrder(order) {
  * The ERP's order request for a Commerce order and its entity id. The website's settings
  * name the sales organisation the order belongs to (business structure).
  */
-export function erpOrderFrom(order, entityId, settings = {}) {
+export function erpOrderFrom(
+  order,
+  entityId,
+  settings = {},
+  commerceCompanyId = null,
+) {
   const rawItems = order.items ?? [];
   const items = Array.isArray(rawItems) ? rawItems : Object.values(rawItems);
   return {
+    // The buyer's company names the ERP partner outright; the group and email in
+    // partnerHints are the ERP's fallbacks (lib/commerce.js customerCompanyId).
+    commerceCompanyId,
     commerceIncrementId: String(order.increment_id),
     commerceOrderId: String(entityId),
     currency: order.base_currency_code || "USD",
@@ -100,6 +108,26 @@ async function hasOwnedLine(params, order, settings, deps) {
   return false;
 }
 
+/**
+ * The buyer's Commerce company, so the ERP books the order to the right partner. Null
+ * for a guest, for a customer in no company, or when the read fails: the ERP then falls
+ * back to its other hints, and a wrong company is worse than the walk-in partner.
+ */
+async function companyOf(params, order, deps) {
+  const customerId = order.customer_id;
+  if (!deps.companyIdOf || customerId === undefined || customerId === null) {
+    return null;
+  }
+  try {
+    return await deps.companyIdOf(params, customerId);
+  } catch (error) {
+    deps.logger?.warn(
+      `order ${order.increment_id}: company of customer ${customerId} not read: ${error.message}`,
+    );
+    return null;
+  }
+}
+
 const canRetry = (status) =>
   status === undefined ||
   status === TOO_MANY_REQUESTS ||
@@ -119,7 +147,18 @@ export async function sendOrderToErp(params, order, deps) {
     statusCode,
   });
   if (!order?.increment_id) {
-    return result("dropped", BAD_REQUEST, "The event carries no order number.");
+    if (order?.ext_order_id) {
+      // Commerce raises the save event again for the write-back of the ERP number, with
+      // only the saved fields in it (measured 2026-09-25: a 400 "no order number" three
+      // milliseconds after the write-back). Ours, and done.
+      return result("skipped", 200, "the save that wrote the ERP number back.");
+    }
+    const fields = Object.keys(order ?? {}).join(", ") || "none";
+    return result(
+      "dropped",
+      BAD_REQUEST,
+      `The event carries no order number (fields: ${fields}).`,
+    );
   }
   const label = `order ${order.increment_id}`;
   if (order.ext_order_id) {
@@ -160,12 +199,13 @@ export async function sendOrderToErp(params, order, deps) {
     );
   }
 
+  const commerceCompanyId = await companyOf(params, order, deps);
   let res;
   try {
     res = await deps.erp.createOrder(
       params,
       {
-        ...erpOrderFrom(order, found.entityId, settings),
+        ...erpOrderFrom(order, found.entityId, settings, commerceCompanyId),
         origin: originOf(COMMERCE_EVENTS.orderSaved, params),
       },
       ERP_TIMEOUT_MS,
