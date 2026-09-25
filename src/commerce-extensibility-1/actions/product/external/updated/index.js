@@ -45,7 +45,7 @@ async function handle(params) {
     const beforePrice = await priceOf(params, transformed.product.sku);
     const beforeName = await nameOf(params, transformed.product.sku);
     logger.debug(`Start sending data: ${JSON.stringify(transformed)}`);
-    const result = await sendData(params, transformed, preProcessed);
+    const result = await sendData(params, transformed, preProcessed, logger);
     if (!result.success) {
       logger.error(`Send data failed: ${result.message}`);
       return buildErrorResponse(result.statusCode, {

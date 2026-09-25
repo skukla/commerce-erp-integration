@@ -15,9 +15,18 @@ import { updateProduct } from "#src/product/commerce-product-api-client";
  * @param {object} transformed - transformed received data
  * @param {object} preProcessed - preprocessed result data
  */
-async function sendData(params, transformed, _preProcessed) {
+async function sendData(params, transformed, _preProcessed, logger) {
   try {
-    const response = await updateProduct(params, transformed);
+    // Timed, because on 2026-09-25 three runs hit the action's 60 s limit with nothing
+    // logged after "Start processing": the client's own timeout is 30 s, so the time went
+    // before the PUT (the association read, the IMS token) or the PUT hung past it.
+    const started = Date.now();
+    const response = await updateProduct(params, transformed, (stage) =>
+      logger?.info(`${stage} after ${Date.now() - started} ms`),
+    );
+    logger?.info(
+      `PUT products/${transformed.product?.sku} answered after ${Date.now() - started} ms`,
+    );
     return {
       message: response,
       success: true,
