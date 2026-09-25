@@ -79,6 +79,30 @@ describe("Given the integration's history", () => {
     });
   });
 
+  // D8: the steps of one send are not extra tries, and the ERP's number survives a failure.
+  test("Then mid-send steps do not count as tries, and the ERP's number is kept", async () => {
+    await recordOrderOutcome(
+      order("42"),
+      { message: "being sent", outcome: "sending" },
+      { progress: true },
+    );
+    await recordOrderOutcome(
+      order("42"),
+      { erpNumber: "0000001002", message: "writing back", outcome: "sending" },
+      { progress: true },
+    );
+    await recordOrderOutcome(order("42"), {
+      message: "write-back failed",
+      outcome: "failed",
+    });
+
+    expect((await readHistory())[0]).toMatchObject({
+      attempts: 1,
+      erpNumber: "0000001002",
+      outcome: "failed",
+    });
+  });
+
   test("Then a skipped order is not recorded — it fires on every later save", async () => {
     await recordOrderOutcome(order("42"), {
       message: "not new",

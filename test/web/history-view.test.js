@@ -29,6 +29,7 @@ describe("Given the History section", () => {
       failed: "Not applied yet",
       held: "Waiting for the ERP",
       refused: "Refused by Commerce",
+      sending: "Sending",
       sent: "Sent",
     });
   });
@@ -38,6 +39,13 @@ describe("Given the History section", () => {
     expect(canRetry(entry("held"))).toBe(true);
     expect(canRetry(entry("dropped"))).toBe(true);
     expect(canRetry(entry("sent"))).toBe(false);
+  });
+
+  // D8: a send still "sending" minutes later was cut off; one in flight is left alone.
+  test("Then a send stuck on Sending is offered Retry, and one in flight is not", () => {
+    const at = Date.parse("2026-09-22T10:08:00.000Z");
+    expect(canRetry(entry("sending"), at + 30_000)).toBe(false);
+    expect(canRetry(entry("sending"), at + 5 * 60_000)).toBe(true);
   });
 
   test("Then a row names the order, how many tries it took, and who retried it", () => {

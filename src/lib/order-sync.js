@@ -137,8 +137,8 @@ const canRetry = (status) =>
  * Send one order event's order to the ERP.
  * @param {object} params action params (ERP and Commerce credentials)
  * @param {object} order the event's `data.value`
- * @param {object} deps `{ erp, findOrder, setExtOrderId, addNote, settingsFor, ownsSku?, logger }`
- * @returns {Promise<{ outcome: "sent"|"skipped"|"held"|"dropped", statusCode: number, message: string }>}
+ * @param {object} deps `{ erp, findOrder, setExtOrderId, addNote, settingsFor, ownsSku?, recordProgress?, logger }`
+ * @returns {Promise<{ outcome: "sent"|"skipped"|"held"|"dropped"|"failed", statusCode: number, message: string, erpNumber?: string }>}
  */
 export async function sendOrderToErp(params, order, deps) {
   const result = (outcome, statusCode, message) => ({
@@ -200,6 +200,23 @@ export async function sendOrderToErp(params, order, deps) {
   }
 
   const commerceCompanyId = await companyOf(params, order, deps);
+  const erpName = params?.ERP_DISPLAY_NAME || "the ERP";
+  // Say the handover has started BEFORE the ERP is called (D8, 2026-09-25): a run that dies
+  // after the ERP took the order used to leave no record at all, so the Admin screen said
+  // it was never sent. The order itself says so too, as a staff note.
+  await deps.recordProgress?.(order, {
+    message: `${label} is being sent to ${erpName}.`,
+    outcome: "sending",
+  });
+  await deps
+    .addNote(
+      params,
+      found.entityId,
+      `Sent to ${erpName}, waiting for confirmation`,
+    )
+    .catch((error) =>
+      deps.logger?.warn(`${label}: note not added: ${error.message}`),
+    );
   let res;
   try {
     res = await deps.erp.createOrder(
@@ -215,22 +232,43 @@ export async function sendOrderToErp(params, order, deps) {
   }
   const number = res?.ok ? res.data?.number : undefined;
   if (number) {
-    // The prefix tells this ERP's numbers from another's on the same store (rule M4).
-    await deps.setExtOrderId(
-      params,
-      found.entityId,
-      withPrefix(number, orderPrefix(settings, params)),
-    );
+    await deps.recordProgress?.(order, {
+      erpNumber: number,
+      message: `${label} is ERP sales order ${number}; writing the number back to Commerce.`,
+      outcome: "sending",
+    });
+    try {
+      // The prefix tells this ERP's numbers from another's on the same store (rule M4).
+      await deps.setExtOrderId(
+        params,
+        found.entityId,
+        withPrefix(number, orderPrefix(settings, params)),
+      );
+    } catch (error) {
+      // The ERP has the order; only the write-back failed. Delivered again, the ERP answers
+      // the same sales order (it creates once per Commerce order), so a retry is safe.
+      return {
+        ...result(
+          "failed",
+          UNAVAILABLE,
+          `${label} is ERP sales order ${number}, but writing the number back to Commerce failed: ${error.message}`,
+        ),
+        erpNumber: number,
+      };
+    }
     await deps
       .addNote(
         params,
         found.entityId,
-        `Created in ${params?.ERP_DISPLAY_NAME || "the ERP"} as sales order ${number}`,
+        `Created in ${erpName} as sales order ${number}`,
       )
       .catch((error) =>
         deps.logger?.warn(`${label}: note not added: ${error.message}`),
       );
-    return result("sent", 200, `${label} is ERP sales order ${number}.`);
+    return {
+      ...result("sent", 200, `${label} is ERP sales order ${number}.`),
+      erpNumber: number,
+    };
   }
 
   const reason =

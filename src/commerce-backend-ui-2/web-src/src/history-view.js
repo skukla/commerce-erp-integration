@@ -11,8 +11,12 @@ export const RESULT = {
   failed: "Not applied yet",
   held: "Waiting for the ERP",
   refused: "Refused by Commerce",
+  sending: "Sending",
   sent: "Sent",
 };
+
+/** A send still "sending" after this long did not finish (an action is cut off at 60 s). */
+const STUCK_AFTER_MS = 2 * 60 * 1000;
 
 const NOT_THROUGH = new Set(["held", "dropped", "failed", "refused"]);
 
@@ -33,7 +37,10 @@ const SUBJECT = {
  * Retry is offered for anything that did not get through. Held orders and failed ERP
  * events are also delivered again by I/O Events for up to a day; a person need not wait.
  */
-export function canRetry(entry) {
+export function canRetry(entry, now = Date.now()) {
+  if (entry.outcome === "sending") {
+    return now - Date.parse(entry.lastAt) > STUCK_AFTER_MS;
+  }
   return NOT_THROUGH.has(entry.outcome);
 }
 

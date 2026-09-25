@@ -105,7 +105,8 @@ export async function recordOrderOutcome(order, result, options = {}) {
   await updateRecord(
     `order.${order.increment_id}`,
     (before, now) => ({
-      attempts: (before?.attempts ?? 0) + 1,
+      // A step recorded mid-send (`progress`) is not another attempt.
+      attempts: (before?.attempts ?? 0) + (options.progress ? 0 : 1),
       direction: "to-erp",
       firstAt: before?.firstAt ?? now,
       kind: "order",
@@ -113,6 +114,11 @@ export async function recordOrderOutcome(order, result, options = {}) {
       message: result.message,
       outcome: result.outcome,
       ref: String(order.increment_id),
+      // The ERP's number, once it answered one: kept through later records, so a failed
+      // write-back still says which sales order the ERP made (D8).
+      ...(result.erpNumber || before?.erpNumber
+        ? { erpNumber: result.erpNumber ?? before.erpNumber }
+        : {}),
       ...(options.retriedBy ? { retriedBy: options.retriedBy } : {}),
     }),
     options.logger,

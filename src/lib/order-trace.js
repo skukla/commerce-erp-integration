@@ -62,7 +62,9 @@ function retryFor(crossing) {
 function sendStep(crossing, erpName) {
   const what = {
     dropped: `Not sent to ${erpName}`,
+    failed: `Taken by ${erpName}; its number did not reach Commerce`,
     held: `Waiting for ${erpName}`,
+    sending: `Sending to ${erpName}`,
     sent: `Sent to ${erpName}`,
   };
   return step(

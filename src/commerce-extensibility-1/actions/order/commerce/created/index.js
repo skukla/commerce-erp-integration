@@ -25,7 +25,9 @@ async function main(params) {
     logger.info(result.message);
     // For the Commerce Admin screen's history and its Retry (lib/history.js).
     await recordOrderOutcome(order, result, { logger });
-    if (result.outcome === "held") {
+    // Held (the ERP is away) and failed (the ERP took it, the write-back did not land) both
+    // ask I/O Events to deliver again; a retry is safe (lib/order-sync.js).
+    if (result.outcome === "held" || result.outcome === "failed") {
       return buildErrorResponse(result.statusCode, {
         body: { message: result.message },
       });

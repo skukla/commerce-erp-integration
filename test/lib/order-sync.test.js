@@ -52,6 +52,7 @@ describe("Given the order save event", () => {
     const d = deps();
     const result = await sendOrderToErp({ p: 1 }, NEW_ORDER, d);
     expect(result).toStrictEqual({
+      erpNumber: "0000001002",
       message: "order 3000000004 is ERP sales order 0000001002.",
       outcome: "sent",
       statusCode: 200,
@@ -416,5 +417,59 @@ describe("Given two ERPs on one store: which orders are this ERP's (rule M3)", (
       d,
     );
     expect(some.outcome).toBe("sent");
+  });
+});
+
+// D8 (2026-09-25): a run that died after the ERP took the order left no record, so the Admin
+// screen said "never sent" about an order the ERP had.
+describe("Given an order on its way to the ERP", () => {
+  test("Then the handover is recorded and noted on the order BEFORE the ERP is called", async () => {
+    const calls = [];
+    const d = deps({
+      addNote: vi.fn(async (_p, _id, note) => calls.push(`note: ${note}`)),
+      recordProgress: vi.fn(async (_order, step) =>
+        calls.push(
+          `record: ${step.outcome}${step.erpNumber ? ` ${step.erpNumber}` : ""}`,
+        ),
+      ),
+    });
+    d.erp.createOrder.mockImplementation(() => {
+      calls.push("erp: create");
+      return Promise.resolve({
+        data: { number: "0000001002" },
+        ok: true,
+        status: 201,
+      });
+    });
+    await sendOrderToErp({}, NEW_ORDER, d);
+    expect(calls).toStrictEqual([
+      "record: sending",
+      "note: Sent to the ERP, waiting for confirmation",
+      "erp: create",
+      "record: sending 0000001002",
+      "note: Created in the ERP as sales order 0000001002",
+    ]);
+  });
+
+  test("Then a write-back that fails is a failure naming the ERP's number, delivered again", async () => {
+    const d = deps({
+      recordProgress: vi.fn(() => Promise.resolve()),
+      setExtOrderId: vi.fn(async () => {
+        throw new Error("Request timed out");
+      }),
+    });
+    const result = await sendOrderToErp({}, NEW_ORDER, d);
+    expect(result).toStrictEqual({
+      erpNumber: "0000001002",
+      message:
+        "order 3000000004 is ERP sales order 0000001002, but writing the number back to Commerce failed: Request timed out",
+      outcome: "failed",
+      statusCode: 503,
+    });
+  });
+
+  test("Then a send with nothing to record still works (the hook is optional)", async () => {
+    const result = await sendOrderToErp({}, NEW_ORDER, deps());
+    expect(result.outcome).toBe("sent");
   });
 });
