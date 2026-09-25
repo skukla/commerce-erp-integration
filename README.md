@@ -130,6 +130,10 @@ inventory source or by an `erp_owner` attribute, a prefix per pair) need things 
 Commerce first. [`docs/demo-setup.md`](docs/demo-setup.md) says what, where in the Admin, how to
 check it over the API, and how to undo each one.
 
+**What live testing taught.** [`docs/live-validation-learnings.md`](docs/live-validation-learnings.md)
+is the ledger of facts learned against a real instance, each with the test that pins it. A live
+run that teaches something new adds a row there in the same commit as the fix.
+
 **Giving the demo.** [`docs/walkthrough.md`](docs/walkthrough.md) walks the ERP screen by screen
 along the twenty-minute path, then Commerce from the other side, and closes with one table per
 business concept saying which screen on each side holds it and what joins them (the printable
