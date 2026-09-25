@@ -125,6 +125,24 @@ event the ERP does not raise, handles keys it does not send, or calls a route it
 serve. `npm run contract:check` fetches the ERP's current contract and says when the vendored
 copy is behind.
 
+## After you install
+
+Two things Commerce needs that no API does:
+
+1. **An order status for "confirmed in the ERP".** Commerce lets a comment set only a status of
+   the order's current state, and a new order stays Pending until it is invoiced or shipped. So
+   an order the ERP confirmed looks the same as one it never saw, unless it has a status of its
+   own. In Admin: **Stores > Settings > Order Status**, create `erp_confirmed` ("Confirmed in
+   ERP"), assign it to **Pending** (not as the default), then pick it for "Order status when the
+   ERP confirms" on this app's **Mapping** tab. Without it the confirmation is a note only.
+2. **A shared catalog of its own for each company that gets its own prices.** At the cart,
+   Commerce tells the pricing webhooks only the buyer's customer group, so companies that share a
+   group get the same prices. A shared catalog comes with its own customer group: **Catalog >
+   Shared Catalogs > Add Shared Catalog**, then **Assign Companies**.
+
+The event provider id Commerce's eventing configuration needs is set by the install itself
+(`src/installation/set-event-provider.js`); nothing to paste.
+
 ## What the Commerce instance needs
 
 One ERP needs nothing beyond a store: every setting has a default. The business-structure
