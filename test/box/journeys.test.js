@@ -22,16 +22,16 @@ vi.mock("@adobe/aio-lib-state", () => ({
 }));
 vi.mock("#lib/settings", () => ({
   SETTING_DEFAULTS: {
+    orders_confirm_status: "",
     orders_hold_offline: true,
     orders_send: true,
-    orders_status_on_confirm: true,
     pricing_contract_prices: true,
     pricing_discount_ceiling: true,
   },
   settingsFor: async () => ({
+    orders_confirm_status: "",
     orders_hold_offline: true,
     orders_send: true,
-    orders_status_on_confirm: true,
     pricing_contract_prices: true,
     pricing_discount_ceiling: true,
   }),
@@ -209,7 +209,7 @@ describe("Pair in a box: the entity matrix, both directions", () => {
     expect(writesOf("setExtOrderId")).toHaveLength(1);
   });
 
-  test("Order, ERP → Commerce: confirming in the ERP leaves a note and moves the order to Processing", async () => {
+  test("Order, ERP → Commerce: confirming in the ERP leaves a note; the order stays Pending (Commerce moves it only on invoice or shipment)", async () => {
     const number = await seeded();
     expect(
       (
@@ -228,9 +228,9 @@ describe("Pair in a box: the entity matrix, both directions", () => {
       comment: `Order confirmed in the ERP (ERP sales order ${number})`,
       kind: "comment",
       orderId: "55",
-      status: "processing",
+      status: undefined,
     });
-    expect(box.commerce.db.orders.get(55).status).toBe("processing");
+    expect(box.commerce.db.orders.get(55).status).toBe("pending");
   });
 
   test("Shipment, ERP → Commerce → ERP: the ERP ships, Commerce records one shipment from that source, and Commerce's event back is matched, not shipped twice", async () => {

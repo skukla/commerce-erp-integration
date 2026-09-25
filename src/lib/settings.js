@@ -49,6 +49,11 @@ const LIST_VALUES = Object.freeze(
  * plan, step 02). A blank is allowed where the setting has a fallback.
  */
 export const TEXT_RULES = Object.freeze({
+  orders_confirm_status: {
+    pattern: /^[a-z][a-z0-9_]*$/u,
+    words:
+      "a status code as created at Stores → Settings → Order Status, like erp_confirmed, or blank for a note only",
+  },
   structure_order_prefix: {
     pattern: /^[A-Z0-9]{1,6}$/u,
     words:

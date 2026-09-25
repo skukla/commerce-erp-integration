@@ -23,6 +23,7 @@ What to have, so there is something to show:
 | Products with stock | Catalog → Products | `GET products?searchCriteria[pageSize]=5` returns items | your usual catalog reset |
 | At least one B2B company with a credit limit | Customers → Companies; the company's Credit tab | `GET company` lists it; `GET companyCredits/company/{id}` shows `credit_limit` | delete the company (Customers → Companies) |
 | Each company in a customer group of its own (assign it a shared catalog, which gives it one) | Catalog → Shared Catalogs → Assign Companies | `GET company/{id}` shows a `customer_group_id` no other company has | assign the company back to the General group |
+| Optional: a status that shows "confirmed in the ERP" on a pending order | Stores → Settings → Order Status → Create New Status (code `erp_confirmed`), then Assign Status to State: state Pending, NOT as default; put the code in the ERP settings' "Order status when the ERP confirms" | the order's Comments History shows the status after the ERP confirms | clear the setting; unassign the status |
 | An order or two placed as a company user | the storefront | `GET orders?searchCriteria[pageSize]=5` | the integration's Reset clears the ERP's number from each order; Commerce cannot delete an order |
 
 The customer group matters more than it looks. An order names its buyer's company, so the
@@ -31,6 +32,14 @@ carry only the customer group and the buyer's email, so a company left in the Ge
 (Commerce's default for every company) prices as the walk-in customer at cart time, and its
 contract prices and discounts do not show until the order lands. Measured 2026-09-25 with
 three companies sharing group 1.
+
+A confirmation in the ERP cannot move a Commerce order to Processing. Adobe's documentation
+(Experience League, "Order status" and "Order workflow and processing", read 2026-09-25):
+states drive the workflow and are not visible; statuses communicate progress and "have no
+impact on the order processing workflow"; an order leaves Pending when payment is received
+(an invoice) or it ships; and a comment may set only a status of the order's current state,
+custom ones included. So the ERP's confirmation lands as a note, plus the optional status
+above, and Processing follows the invoice or shipment as Commerce requires.
 
 ## Story 2: the business structure (two websites as two sales organisations)
 

@@ -333,11 +333,7 @@ const CARDS = [
         rule: "not mirrored yet (the way back from invoiced)",
       },
     ],
-    settings: [
-      "orders_send",
-      "orders_hold_offline",
-      "orders_status_on_confirm",
-    ],
+    settings: ["orders_send", "orders_hold_offline", "orders_confirm_status"],
     title: "Order",
   },
   {

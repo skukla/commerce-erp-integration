@@ -78,9 +78,9 @@ afterEach(() => {
 describe("Given the declared settings", () => {
   test("Then every switch defaults to on, and the structure fields to a single ERP selling everything as sales organisation 1000", () => {
     expect(SETTING_DEFAULTS).toStrictEqual({
+      orders_confirm_status: "",
       orders_hold_offline: true,
       orders_send: true,
-      orders_status_on_confirm: true,
       pricing_contract_prices: true,
       pricing_discount_ceiling: true,
       structure_order_prefix: "",

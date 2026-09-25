@@ -29,7 +29,7 @@ row says otherwise.
 | `PUT companyCredits/{creditId}` | `setCompanyCreditLimit` | ERP limit → Commerce; revert | used today |
 | `GET orders` (`increment_id` filter), `GET orders/{id}` | `getOrderByIncrementId`, kit `getOrder` | order save event → entity id | used today |
 | `POST orders` (sparse: `entity.entity_id` + `ext_order_id`) | `setExtOrderId`, `clearExtOrderId` | ERP number write-back; clear on detach | used today |
-| `POST orders/{id}/comments` (`statusHistory` ± `status`) | `orders.comment`, kit `addComment` | notes; Processing on confirm | used today |
+| `POST orders/{id}/comments` (`statusHistory` ± `status`) | `orders.comment`, kit `addComment` | notes; a custom status on confirm (a comment sets only a status of the order's current state) | used today |
 | `POST orders/{id}/cancel` | `orders.cancel`, kit `cancelOrder` | ERP cancel | used today |
 | `POST order/{id}/ship` (`items[]`, `comment`, `notify`, `arguments.extension_attributes.source_code`) | kit shipment client | ERP shipment, per-item, per source | used today (`source_code` path: kit transformer — confirm the live response records the source) |
 | `POST order/{id}/invoice` (`capture: true`, `notify: false`) | `orders.invoice`, kit `invoiceOrder` | ERP invoice, whole order | used today |

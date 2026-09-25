@@ -24,12 +24,12 @@ const SETTINGS_FIELDS = [
     type: "boolean",
   },
   {
-    default: true,
+    default: "",
     description:
-      "When the ERP confirms an order, its Commerce status becomes Processing.",
-    label: "Mark orders Processing when the ERP confirms them",
-    name: "orders_status_on_confirm",
-    type: "boolean",
+      "A status code to set on the Commerce order when the ERP confirms it, created at Stores → Settings → Order Status and assigned to the Pending state (not as its default), for example erp_confirmed. Blank: a note only. No status can move an order to Processing; Commerce does that itself when the order is invoiced or shipped.",
+    label: "Order status when the ERP confirms",
+    name: "orders_confirm_status",
+    type: "text",
   },
   {
     default: true,

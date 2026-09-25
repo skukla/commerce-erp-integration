@@ -261,8 +261,19 @@ export function createFakeCommerce() {
         orderId: String(orderId),
         status: data.statusHistory?.status,
       });
-      if (data.statusHistory?.status) {
-        order(orderId).status = data.statusHistory.status;
+      const status = data.statusHistory?.status;
+      if (status) {
+        // As Commerce does (measured 2026-09-25): a comment may set only a status of the
+        // order's current state, and `processing` is not one of state `new`.
+        const o = order(orderId);
+        if (status === "processing" && o.state === "new") {
+          const refused = new Error(
+            'Request failed with status code 400 Bad Request: The status "processing" is not part of the order status history.',
+          );
+          refused.response = { statusCode: 400 };
+          throw refused;
+        }
+        o.status = status;
       }
       return {};
     },
