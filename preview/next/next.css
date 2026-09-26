@@ -1,0 +1,223 @@
+/* The redesigned Admin page (preview). One column of content beside a short side list. */
+.nx-page {
+  max-width: 1180px;
+  padding: 24px 32px 48px;
+  font-family: adobe-clean, "Source Sans Pro", sans-serif;
+}
+
+.nx-header {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  padding-bottom: 20px;
+  border-bottom: 1px solid #e1e1e1;
+}
+.nx-mark {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  font-size: 18px;
+  font-weight: 800;
+  color: #fff;
+  background: var(--erp-color);
+  border-radius: 10px;
+}
+.nx-title h1 {
+  margin: 0 0 2px;
+  font-size: 26px;
+}
+
+.nx-body {
+  display: grid;
+  grid-template-columns: 180px 1fr;
+  gap: 32px;
+  padding-top: 24px;
+}
+
+.nx-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.nx-nav-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 9px 12px;
+  font-size: 15px;
+  color: #222;
+  text-decoration: none;
+  border-radius: 8px;
+}
+.nx-nav-item:hover {
+  background: #f3f3f3;
+}
+.nx-nav-item[aria-current="page"] {
+  font-weight: 700;
+  color: var(--erp-color);
+  background: color-mix(in srgb, var(--erp-color) 12%, white);
+}
+.nx-count {
+  padding: 1px 7px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #fff;
+  background: #d7373f;
+  border-radius: 10px;
+}
+
+.nx-section h2 {
+  margin: 0 0 16px;
+  font-size: 20px;
+}
+.nx-section-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+.nx-section-head h2 {
+  margin: 0;
+}
+.nx-lede {
+  display: block;
+  margin-bottom: 16px;
+  color: #505050;
+}
+.nx-table {
+  width: 100%;
+}
+
+/* The connection map. */
+.nx-conn-head,
+.nx-conn-row {
+  display: grid;
+  grid-template-columns: 1.3fr 36px 1.3fr 1fr 150px 16px;
+  gap: 12px;
+  align-items: center;
+}
+.nx-conn-head {
+  padding: 0 14px 8px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #6e6e6e;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.nx-erp-name {
+  color: var(--erp-color);
+}
+.nx-conn-list {
+  padding: 0;
+  margin: 0;
+  overflow: hidden;
+  list-style: none;
+  border: 1px solid #e1e1e1;
+  border-radius: 10px;
+}
+.nx-conn + .nx-conn {
+  border-top: 1px solid #ececec;
+}
+.nx-conn-row {
+  width: 100%;
+  padding: 13px 14px;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  background: none;
+  border: 0;
+}
+.nx-conn-row:hover {
+  background: #fafafa;
+}
+.nx-conn-side {
+  font-size: 15px;
+  font-weight: 600;
+}
+.nx-conn-join {
+  font-size: 13px;
+  color: #6e6e6e;
+}
+.nx-chevron {
+  color: #8e8e8e;
+}
+.nx-arrow {
+  justify-self: center;
+  vertical-align: middle;
+}
+.nx-arrow-to-erp {
+  color: #0265dc;
+}
+.nx-arrow-from-erp {
+  color: var(--erp-color);
+}
+.nx-arrow-both {
+  color: #8a5cd6;
+}
+.nx-conn-detail {
+  padding: 10px 14px 14px 14px;
+  font-size: 13px;
+  color: #6e6e6e;
+  background: #fafafa;
+  border-top: 1px dashed #e1e1e1;
+}
+.nx-fields {
+  padding: 0;
+  margin: 8px 0 0;
+  list-style: none;
+}
+.nx-fields li {
+  display: grid;
+  grid-template-columns: 1.3fr 36px 1.3fr 1fr 150px 16px;
+  gap: 12px;
+  align-items: center;
+  padding: 4px 0;
+  font-size: 14px;
+  color: #444;
+}
+.nx-legend {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  margin-top: 10px;
+  font-size: 13px;
+  color: #6e6e6e;
+}
+.nx-legend .nx-arrow {
+  margin-left: 10px;
+}
+
+/* Settings. */
+.nx-group {
+  padding: 8px 18px 14px;
+  margin: 0 0 16px;
+  border: 1px solid #e1e1e1;
+  border-radius: 10px;
+}
+.nx-group legend {
+  padding: 0 6px;
+  font-size: 15px;
+  font-weight: 700;
+}
+.nx-field {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 4px 16px;
+  align-items: center;
+  padding: 10px 0;
+  border-bottom: 1px solid #f0f0f0;
+}
+.nx-field:last-child {
+  border-bottom: 0;
+}
+.nx-help {
+  grid-column: 1 / -1;
+  font-size: 13px;
+  color: #6e6e6e;
+}
+.nx-actions {
+  display: flex;
+  justify-content: flex-end;
+}

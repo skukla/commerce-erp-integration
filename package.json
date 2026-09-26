@@ -95,7 +95,10 @@
       "includeNodeModules": true,
       "distDir": "preview-dist",
       "publicUrl": "./",
-      "source": "preview/index.html",
+      "source": [
+        "preview/index.html",
+        "preview/next.html"
+      ],
       "optimize": false,
       "sourceMap": false,
       "engines": {
