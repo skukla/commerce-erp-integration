@@ -404,7 +404,7 @@ export default defineConfig({
     // version with every change to what this file registers, or the change never reaches
     // Commerce. "auto" runs the plan; the library marks it experimental.
     upgradeMode: "auto",
-    version: "0.8.0",
+    version: "0.8.1",
   },
   webhooks: [
     {
@@ -417,7 +417,7 @@ export default defineConfig({
       webhook: {
         batch_name: "erp_totals_collector_item_prices",
         fallback_error_message:
-          "ERP pricing is unavailable; Commerce kept its own prices for this cart.",
+          "ERP pricing is unavailable, so this cart cannot be updated right now. Please try again in a moment.",
         // Runtime records a blocking web action's run only when it failed, unless the
         // request carries this header (Adobe Runtime, "Logging and monitoring"). Commerce
         // sends the headers registered here, so every cart webhook run is readable
@@ -425,11 +425,14 @@ export default defineConfig({
         headers: [{ name: "X-OW-EXTRA-LOGGING", value: "on" }],
         hook_name: "erp_contract_price",
         method: "POST",
+        // Asked for, not what happens: Commerce as a Cloud Service stores and runs every
+        // webhook as required (measured 2026-09-26). A failing hook stops the cart with
+        // fallback_error_message, so that message says the cart cannot be updated.
         required: false,
         soft_timeout: 1000,
         // Ten seconds, not five: a cold Runtime action plus a cold ERP quote measured
-        // 3.8 s warm on 2026-09-25, and a cart that loses its contract prices to a cold
-        // start is worse than a cart that waits. Adobe's own example uses 30 s.
+        // 3.8 s warm on 2026-09-25, and a cart that fails on a cold start is worse than
+        // a cart that waits. Adobe's own example uses 30 s.
         timeout: 10_000,
         webhook_method:
           "plugin.out_of_process_totals_collector.api.get_total_modifications.item_prices",
@@ -446,7 +449,7 @@ export default defineConfig({
       webhook: {
         batch_name: "erp_totals_collector",
         fallback_error_message:
-          "ERP discounts are unavailable; Commerce kept its own totals for this cart.",
+          "ERP discounts are unavailable, so this cart cannot be updated right now. Please try again in a moment.",
         // Runtime records a blocking web action's run only when it failed, unless the
         // request carries this header (Adobe Runtime, "Logging and monitoring"). Commerce
         // sends the headers registered here, so every cart webhook run is readable
@@ -454,11 +457,14 @@ export default defineConfig({
         headers: [{ name: "X-OW-EXTRA-LOGGING", value: "on" }],
         hook_name: "erp_discount_ceiling",
         method: "POST",
+        // Asked for, not what happens: Commerce as a Cloud Service stores and runs every
+        // webhook as required (measured 2026-09-26). A failing hook stops the cart with
+        // fallback_error_message, so that message says the cart cannot be updated.
         required: false,
         soft_timeout: 1000,
         // Ten seconds, not five: a cold Runtime action plus a cold ERP quote measured
-        // 3.8 s warm on 2026-09-25, and a cart that loses its contract prices to a cold
-        // start is worse than a cart that waits. Adobe's own example uses 30 s.
+        // 3.8 s warm on 2026-09-25, and a cart that fails on a cold start is worse than
+        // a cart that waits. Adobe's own example uses 30 s.
         timeout: 10_000,
         webhook_method:
           "plugin.out_of_process_totals_collector.api.get_total_modifications.execute",

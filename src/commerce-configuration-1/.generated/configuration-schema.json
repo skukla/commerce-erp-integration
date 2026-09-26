@@ -15,7 +15,7 @@
   },
   {
     "default": "",
-    "description": "A status code to set on the Commerce order when the ERP confirms it, created at Stores \u2192 Settings \u2192 Order Status and assigned to the Pending state (not as its default), for example erp_confirmed. Blank: a note only. No status can move an order to Processing; Commerce does that itself when the order is invoiced or shipped.",
+    "description": "A status code to set on the Commerce order when the ERP confirms it, created at Stores → Settings → Order Status and assigned to the Pending state (not as its default), for example erp_confirmed. Blank: a note only. No status can move an order to Processing; Commerce does that itself when the order is invoiced or shipped.",
     "label": "Order status when the ERP confirms",
     "name": "orders_confirm_status",
     "type": "text"

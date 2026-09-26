@@ -408,7 +408,7 @@
     "displayName": "ERP integration",
     "id": "commerce-erp-integration",
     "upgradeMode": "auto",
-    "version": "0.8.0"
+    "version": "0.8.1"
   },
   "webhooks": [
     {
@@ -419,7 +419,7 @@
       "runtimeAction": "webhook/item-prices",
       "webhook": {
         "batch_name": "erp_totals_collector_item_prices",
-        "fallback_error_message": "ERP pricing is unavailable; Commerce kept its own prices for this cart.",
+        "fallback_error_message": "ERP pricing is unavailable, so this cart cannot be updated right now. Please try again in a moment.",
         "headers": [
           {
             "name": "X-OW-EXTRA-LOGGING",
@@ -443,7 +443,7 @@
       "runtimeAction": "webhook/discounts",
       "webhook": {
         "batch_name": "erp_totals_collector",
-        "fallback_error_message": "ERP discounts are unavailable; Commerce kept its own totals for this cart.",
+        "fallback_error_message": "ERP discounts are unavailable, so this cart cannot be updated right now. Please try again in a moment.",
         "headers": [
           {
             "name": "X-OW-EXTRA-LOGGING",
