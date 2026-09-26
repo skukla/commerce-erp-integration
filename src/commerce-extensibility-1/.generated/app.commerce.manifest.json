@@ -4,8 +4,7 @@
       "description": "Health of the ERP integration, sync log, reset and controls",
       "id": "erp_integration",
       "label": "ERP integration",
-      "pageTitle": "ERP integration",
-      "parentMenu": "system"
+      "pageTitle": "ERP integration"
     },
     "order": {
       "gridColumns": {

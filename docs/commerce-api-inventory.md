@@ -82,7 +82,7 @@ Changing a subscription after install needs an uninstall + install of the app in
 
 | Feature | Used | Slice | Status |
 |---|---|---|---|
-| `adminUi.menu` under System (extension point `commerce/backend-ui/2`) | yes | — | used today |
+| `adminUi.menu` under Apps, no parent menu set (extension point `commerce/backend-ui/2`) | yes | — | used today |
 | `businessConfig` schema → App Management form, per-scope values (`@adobe/aio-commerce-lib-config`) | yes (five booleans) | AB-26j adds `text`/`list` fields | text-type rendering **to validate** (a person looks at the form once) |
 | Order grid columns, order view buttons, mass actions (Admin UI SDK v2 order extension points) | no | AB-26m | to validate on the target backend |
 

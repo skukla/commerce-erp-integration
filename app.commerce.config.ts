@@ -71,13 +71,14 @@ const erpName = process.env.ERP_DISPLAY_NAME?.trim() || "ERP integration";
  */
 export default defineConfig({
   adminUi: {
+    // No parentMenu: an app's entry then sits under Commerce Admin's Apps menu, beside the
+    // other ERP's entry and any other installed app, rather than among System's tools.
     menu: {
       description:
         "Health of the ERP integration, sync log, reset and controls",
       id: menuId,
       label: erpName,
       pageTitle: erpName,
-      parentMenu: "system",
     },
     // This ERP's column on Sales > Orders: its order number and where the send stands
     // (erp/order-grid, from the integration's order history). A copy has its own column.
