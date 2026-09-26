@@ -1,11 +1,11 @@
 /**
  * A stock event is usable when it names a product and a quantity.
  *
- * @param {object} params - the action params (`data.value` is the stock item)
+ * @param {object} data - the event's `data` (`value` is the stock item), as `main` hands it
  * @returns {{ success: boolean, message?: string }}
  */
-function validateData(params) {
-  const item = params?.data?.value ?? params?.data;
+function validateData(data) {
+  const item = data?.value ?? data;
   if (!item?.product_id) {
     return { message: "the stock event carries no product_id", success: false };
   }
