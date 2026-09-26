@@ -79,6 +79,23 @@ export default defineConfig({
       pageTitle: erpName,
       parentMenu: "system",
     },
+    // This ERP's column on Sales > Orders: its order number and where the send stands
+    // (erp/order-grid, from the integration's order history). A copy has its own column.
+    order: {
+      gridColumns: {
+        columns: [
+          {
+            align: "left",
+            id: `${menuId}_order`,
+            label: erpName,
+            type: "string",
+          },
+        ],
+        description: `${erpName}'s order number and whether the order reached it`,
+        label: `${erpName} order`,
+        runtimeAction: "erp/order-grid",
+      },
+    },
   },
   // The merchant's settings, kept per scope (default, website, store, store view) by
   // @adobe/aio-commerce-lib-config and edited on the integration's Admin page. Read
@@ -404,7 +421,7 @@ export default defineConfig({
     // version with every change to what this file registers, or the change never reaches
     // Commerce. "auto" runs the plan; the library marks it experimental.
     upgradeMode: "auto",
-    version: "0.8.1",
+    version: "0.8.2",
   },
   webhooks: [
     {

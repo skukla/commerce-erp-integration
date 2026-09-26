@@ -6,6 +6,21 @@
       "label": "ERP integration",
       "pageTitle": "ERP integration",
       "parentMenu": "system"
+    },
+    "order": {
+      "gridColumns": {
+        "columns": [
+          {
+            "align": "left",
+            "id": "erp_integration_order",
+            "label": "ERP integration",
+            "type": "string"
+          }
+        ],
+        "description": "ERP integration's order number and whether the order reached it",
+        "label": "ERP integration order",
+        "runtimeAction": "erp/order-grid"
+      }
     }
   },
   "businessConfig": {
@@ -408,7 +423,7 @@
     "displayName": "ERP integration",
     "id": "commerce-erp-integration",
     "upgradeMode": "auto",
-    "version": "0.8.1"
+    "version": "0.8.2"
   },
   "webhooks": [
     {

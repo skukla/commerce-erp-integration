@@ -15,5 +15,9 @@ operations:
   view:
     - type: web
       impl: index.html
+  # These worker processes definitions are auto-generated. Do not remove or manually edit.
+  workerProcess:
+    - type: action
+      impl: erp/order-grid
 
 web: web-src
