@@ -289,3 +289,25 @@ main {
 .erp-lookup-missing {
   color: var(--s2-color-gray-600, #888);
 }
+
+/* The crash screen (components/crash-boundary.jsx): plain elements, as the component library
+   may be what failed. */
+.erp-crash h1 {
+  margin: 0 0 8px;
+  font-size: 20px;
+}
+.erp-crash button {
+  padding: 6px 16px;
+  font: inherit;
+  cursor: pointer;
+  background: #fff;
+  border: 1px solid #6e6e6e;
+  border-radius: 16px;
+}
+.erp-crash pre {
+  padding: 12px;
+  overflow: auto;
+  font-size: 12px;
+  background: #f5f5f5;
+  border-radius: 4px;
+}

@@ -6,6 +6,7 @@ import { Provider } from "@react-spectrum/s2";
 import { useCallback, useState } from "react";
 import { createRoot } from "react-dom/client";
 
+import { CrashBoundary } from "../src/commerce-backend-ui-2/web-src/src/components/crash-boundary.jsx";
 import { PageShell } from "../src/commerce-backend-ui-2/web-src/src/components/page-shell.jsx";
 import { BODEA_SCOPE_TREE } from "../test/web/fixtures/bodea-scope-tree.js";
 import { fakeApi } from "./fake-api.js";
@@ -16,6 +17,11 @@ const asked = new URLSearchParams(window.location.search);
 
 function readScopesAgain() {
   // The preview has one fixed tree, so Refresh websites has nothing to read again.
+}
+
+// `?crash` shows the crash screen the Admin page falls back to.
+function Crash() {
+  throw new Error("A crash asked for by ?crash");
 }
 
 function Preview() {
@@ -54,4 +60,6 @@ function Preview() {
   );
 }
 
-createRoot(document.getElementById("root")).render(<Preview />);
+createRoot(document.getElementById("root")).render(
+  <CrashBoundary>{asked.has("crash") ? <Crash /> : <Preview />}</CrashBoundary>,
+);
