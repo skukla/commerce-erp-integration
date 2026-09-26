@@ -1,5 +1,7 @@
 import { companyLookup, productLookup } from "#lib/lookup";
 
+import { BODEA_SCOPE_TREE } from "../test/web/fixtures/bodea-scope-tree.js";
+
 /*
  * Stand-in answers for the Admin page's actions, in the shapes the actions really return
  * (erp/status, erp/settings, erp/history — see each action). The preview renders the real
@@ -105,12 +107,22 @@ const SETTINGS_FIELDS = [
   },
 ];
 
-const SCOPES = [
-  { code: "global", id: "global", level: "global", name: "Default Config" },
-  { code: "bodea", id: "w1", level: "website", name: "Bodea" },
-  { code: "bodea_store", id: "s1", level: "store", name: "Bodea Store" },
-  { code: "bodea_us", id: "v1", level: "storeView", name: "Bodea US" },
-];
+// The tree lib-config builds, in its own shape (test/web/fixtures/bodea-scope-tree.js).
+const SCOPES = BODEA_SCOPE_TREE;
+
+/** A scope's node, found anywhere in the tree. */
+function scopeNode(id, nodes = SCOPES) {
+  for (const node of nodes) {
+    if (node.id === id) {
+      return node;
+    }
+    const found = scopeNode(id, node.children ?? []);
+    if (found) {
+      return found;
+    }
+  }
+  return null;
+}
 
 const HISTORY = [
   {
@@ -318,7 +330,8 @@ export function fakeApi() {
 }
 
 function settingsPage(scope) {
-  const level = SCOPES.find((s) => s.id === scope)?.level ?? "global";
+  const node = scopeNode(scope);
+  const level = node?.level ?? "global";
   return {
     fields: SETTINGS_FIELDS,
     scope: scope ?? "global",
@@ -326,8 +339,16 @@ function settingsPage(scope) {
     values: SETTINGS_FIELDS.map((field) => {
       const held = values.get(`${scope}:${field.name}`);
       return held === undefined
-        ? { name: field.name, origin: "global", value: field.default }
-        : { name: field.name, origin: level, value: held };
+        ? {
+            name: field.name,
+            origin: { code: "global", level: "global" },
+            value: field.default,
+          }
+        : {
+            name: field.name,
+            origin: { code: node?.code ?? "global", level },
+            value: held,
+          };
     }),
   };
 }

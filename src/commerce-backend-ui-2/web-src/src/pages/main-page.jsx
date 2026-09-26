@@ -18,6 +18,7 @@ export function MainPage() {
   const api = useMemo(() => (ims ? makeApi(ims) : null), [ims]);
   const [status, setStatus] = useState(null);
   const [scopes, setScopes] = useState(null);
+  const [scopesNote, setScopesNote] = useState(null);
   const [scopeId, setScopeId] = useState("");
   const [error, setError] = useState(null);
   const [busy, setBusy] = useState(false);
@@ -39,17 +40,28 @@ export function MainPage() {
     refresh();
   }, [refresh]);
 
-  // The scopes a merchant can switch between are read once: the settings action syncs
-  // Commerce's websites the first time anyone asks for them.
+  // The scopes a merchant can switch between: the settings action reads Commerce's
+  // websites the first time anyone asks, and again when the merchant presses Refresh
+  // websites (Commerce does not keep the list in step on its own).
+  const loadScopes = useCallback(
+    (readAgain = false) => {
+      if (!api) {
+        return;
+      }
+      api
+        .settings(undefined, { refresh: readAgain })
+        .then((page) => {
+          setScopes(page.scopes);
+          setScopesNote(page.scopesNote ?? null);
+        })
+        .catch((e) => setError(`Scopes could not be read: ${e.message}`));
+    },
+    [api],
+  );
   useEffect(() => {
-    if (!api) {
-      return;
-    }
-    api
-      .settings()
-      .then((page) => setScopes(page.scopes))
-      .catch((e) => setError(`Scopes could not be read: ${e.message}`));
-  }, [api]);
+    loadScopes();
+  }, [loadScopes]);
+  const refreshScopes = useCallback(() => loadScopes(true), [loadScopes]);
 
   // While the ERP reports a sync in progress, keep reading it. This also picks up a
   // sync started elsewhere (the ERP's own Settings) or before the page was opened.
@@ -99,10 +111,12 @@ export function MainPage() {
       error={error}
       log={log}
       onError={setError}
+      onRefreshScopes={refreshScopes}
       onScopeChange={setScopeId}
       run={run}
       scopeId={scopeId}
       scopes={scopes}
+      scopesNote={scopesNote}
       status={status}
     />
   );

@@ -32,20 +32,63 @@ export function pendingChanges(values, edits) {
 }
 
 /**
- * The scopes to offer, Default Config first. An unsynced tree — the state before
- * Commerce's websites have been read — still offers the default rather than nothing.
+ * The scopes to offer, Default Config first, then each website and, under it, its store
+ * views. The library keeps scopes as a TREE: `global`, then a `commerce` node whose children
+ * are websites, whose children are stores, whose children are store views, each node with a
+ * `label` (lib-config 1.8.0). Stores are left out: the library marks them not editable. An
+ * unsynced tree (the state before Commerce's websites have been read) still offers the
+ * default rather than nothing.
  *
  * @param {object[]} tree the scope tree the settings action answered
  * @returns {object[]} the choices, each with the id the action takes
  */
 export function scopeChoices(tree) {
-  const rest = (tree ?? [])
-    .filter((node) => node.level !== "global" && node.level !== "commerce")
-    .filter((node) => !HIDDEN_CODES.has(node.code))
-    .map((node) => ({
-      id: node.id,
-      label: node.name ?? node.code,
-      level: node.level,
-    }));
-  return [DEFAULT_CHOICE, ...rest];
+  const choices = [];
+  const visit = (node, website) => {
+    const label = node.label ?? node.name ?? node.code;
+    const offered =
+      (node.level === "website" || node.level === "store_view") &&
+      node.is_editable !== false &&
+      !(node.level === "website" && HIDDEN_CODES.has(node.code));
+    if (offered) {
+      choices.push({
+        id: node.id,
+        label:
+          node.level === "store_view" && website
+            ? `${website} › ${label}`
+            : label,
+        level: node.level,
+      });
+    }
+    if (node.level === "website" && HIDDEN_CODES.has(node.code)) {
+      return;
+    }
+    for (const child of node.children ?? []) {
+      visit(child, node.level === "website" ? label : website);
+    }
+  };
+  for (const node of tree ?? []) {
+    visit(node, null);
+  }
+  return [DEFAULT_CHOICE, ...choices];
+}
+
+/**
+ * Where the page reads its settings: at one scope, and with `refresh`, after reading
+ * Commerce's websites again (the list is not kept in step with Commerce).
+ *
+ * @param {string} [scope] a scope id; Default Config when omitted
+ * @param {{ refresh?: boolean }} [options] read Commerce's websites again first
+ * @returns {string} the settings action's path
+ */
+export function settingsPath(scope, { refresh = false } = {}) {
+  const query = new URLSearchParams();
+  if (scope) {
+    query.set("scope", scope);
+  }
+  if (refresh) {
+    query.set("refresh", "true");
+  }
+  const asked = query.toString();
+  return asked ? `settings?${asked}` : "settings";
 }

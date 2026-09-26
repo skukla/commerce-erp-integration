@@ -59,11 +59,23 @@ const FIELDS = [
   },
 ];
 
+// The shape the settings action answers: lib-config's `origin` is the scope a value comes
+// from, `{ code, level }` (test/lib/settings.test.js reads the same). These were plain
+// strings until 2026-09-26, which is how every website value came to read "Inherited".
+const at = (code, level) => ({ code, level });
 const VALUES = [
-  { name: "orders_send", origin: "global", value: true },
-  { name: "orders_hold_offline", origin: "website", value: false },
-  { name: "pricing_contract_prices", origin: "global", value: true },
-  { name: "structure_sales_org", origin: "website", value: "2000" },
+  { name: "orders_send", origin: at("global", "global"), value: true },
+  { name: "orders_hold_offline", origin: at("bodea", "website"), value: false },
+  {
+    name: "pricing_contract_prices",
+    origin: at("global", "global"),
+    value: true,
+  },
+  {
+    name: "structure_sales_org",
+    origin: at("bodea", "website"),
+    value: "2000",
+  },
 ];
 
 const STATUS = {
@@ -276,8 +288,18 @@ describe("Given the settings a merchant edits", () => {
     ).toBe(true);
   });
 
+  test("Then a value set at the website being shown is its own: not inherited, and clearable", () => {
+    const order = byKey(cards({ scopeLevel: "website" }), "order");
+    const holdOffline = order.settings.find(
+      (f) => f.name === "orders_hold_offline",
+    );
+    const send = order.settings.find((f) => f.name === "orders_send");
+    expect(holdOffline).toMatchObject({ clearable: true, inherited: false });
+    expect(send).toMatchObject({ clearable: false, inherited: true });
+  });
+
   test("Then a value set at a wider scope than the one shown is inherited", () => {
-    const order = byKey(cards({ scopeLevel: "storeView" }), "order");
+    const order = byKey(cards({ scopeLevel: "store_view" }), "order");
     expect(order.settings.map((f) => f.inherited)).toStrictEqual([true, true]);
   });
 });

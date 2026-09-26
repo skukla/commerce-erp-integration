@@ -31,7 +31,16 @@ describe("Given the settings action", () => {
     const res = await main({ __ow_method: "get" });
     expect(res.statusCode).toBe(200);
     expect(res.body).toStrictEqual({ scope: "default" });
-    expect(settingsPage).toHaveBeenCalledWith(expect.any(Object), undefined);
+    expect(settingsPage).toHaveBeenCalledWith(expect.any(Object), undefined, {
+      refresh: false,
+    });
+  });
+
+  test("Then GET with refresh reads Commerce's websites again first", async () => {
+    await main({ __ow_method: "get", refresh: "true", scope: "w1" });
+    expect(settingsPage).toHaveBeenCalledWith(expect.any(Object), "w1", {
+      refresh: true,
+    });
   });
 
   test("Then GET answers the chosen scope's page", async () => {

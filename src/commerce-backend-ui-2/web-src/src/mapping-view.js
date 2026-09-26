@@ -436,7 +436,9 @@ function list(items, label, text) {
  */
 function dressField(field, held, scopeLevel) {
   const atDefault = !scopeLevel || scopeLevel === "global";
-  const inherited = atDefault ? false : !held || held.origin !== scopeLevel;
+  // lib-config's origin is the scope a value comes from, `{ code, level }`. A scope's own
+  // value has the shown scope's level: a value set further up the path has a wider one.
+  const inherited = atDefault ? false : held?.origin?.level !== scopeLevel;
   return {
     clearable: !(atDefault || inherited),
     description: field.description,

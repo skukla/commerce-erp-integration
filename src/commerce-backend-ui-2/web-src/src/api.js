@@ -6,6 +6,8 @@
  */
 /* global fetch, window */
 
+import { settingsPath } from "#web/settings-view.js";
+
 const PACKAGE = "erp";
 
 export function makeApi(ims, origin = window.location.origin) {
@@ -46,8 +48,7 @@ export function makeApi(ims, origin = window.location.origin) {
     // for a value means "use the wider scope's value" (erp/settings).
     saveSettings: (scope, values) =>
       call("settings", { body: { scope, values }, method: "PATCH" }),
-    settings: (scope) =>
-      call(scope ? `settings?scope=${encodeURIComponent(scope)}` : "settings"),
+    settings: (scope, options) => call(settingsPath(scope, options)),
     status: () => call("status"),
     // Background mode: a web request is cut off after a minute, a mirror can take
     // longer. Answers 202; the page watches the ERP's last-import time.

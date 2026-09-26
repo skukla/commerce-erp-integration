@@ -63,6 +63,12 @@ import {
 } from "#lib/settings";
 
 const DEFAULT_KEY = JSON.stringify({ code: "global", level: "global" });
+const WEBSITE = {
+  code: "bodea",
+  id: "website-bodea",
+  label: "Bodea Website",
+  level: "website",
+};
 const storeView = (id) => JSON.stringify({ storeViewId: id });
 
 beforeEach(() => {
@@ -159,6 +165,7 @@ describe("Given the settings page", () => {
       "global",
       "commerce",
     ]);
+    expect(page).not.toHaveProperty("scopesNote");
     expect(page.fields.map((f) => f.name)).toStrictEqual(
       Object.keys(SETTING_DEFAULTS),
     );
@@ -175,7 +182,7 @@ describe("Given the settings page", () => {
   test("Then a later load uses the websites already read, unless asked to refresh", async () => {
     tree.value = [
       { code: "global", level: "global" },
-      { code: "commerce", level: "commerce" },
+      { children: [WEBSITE], code: "commerce", level: "commerce" },
     ];
     await settingScopes({});
     expect(mockSync).not.toHaveBeenCalled();
@@ -183,19 +190,68 @@ describe("Given the settings page", () => {
     expect(mockSync).toHaveBeenCalledTimes(1);
   });
 
-  test("Then websites that cannot be read are an error", async () => {
+  // lib-config adds the commerce node even when it holds nothing; that is not "read".
+  test("Then a commerce node with no websites is read again", async () => {
+    tree.value = [
+      { code: "global", level: "global" },
+      { children: [], code: "commerce", level: "commerce" },
+    ];
+    await settingScopes({});
+    expect(mockSync).toHaveBeenCalledTimes(1);
+  });
+
+  test("Then websites that cannot be read keep the last list, and the page says why", async () => {
+    const kept = [
+      { code: "global", level: "global" },
+      { children: [WEBSITE], code: "commerce", level: "commerce" },
+    ];
+    tree.value = kept;
     mockSync.mockResolvedValueOnce({
       error: "401",
       scopeTree: [],
       synced: false,
     });
-    await expect(settingScopes({})).rejects.toThrow(
-      "Commerce's websites could not be read: 401",
+
+    const result = await settingScopes({}, { refresh: true });
+
+    expect(result).toStrictEqual({
+      note: "Commerce's websites could not be read again (401); the list is the last one read.",
+      tree: kept,
+    });
+  });
+
+  test("Then a first read that fails offers Default Config with the reason, not an error page", async () => {
+    store.set(DEFAULT_KEY, {});
+    mockSync.mockResolvedValueOnce({
+      error: "401",
+      scopeTree: [],
+      synced: false,
+    });
+
+    const page = await settingsPage({});
+
+    expect(page.scopes).toStrictEqual([{ code: "global", level: "global" }]);
+    expect(page.scopesNote).toBe(
+      "Commerce's websites could not be read (401); only Default Config can be set until they are.",
     );
   });
 
+  test("Then the page can ask for the websites to be read again", async () => {
+    tree.value = [
+      { code: "global", level: "global" },
+      { children: [WEBSITE], code: "commerce", level: "commerce" },
+    ];
+    store.set(DEFAULT_KEY, {});
+    await settingsPage({}, undefined, { refresh: true });
+    expect(mockSync).toHaveBeenCalledTimes(1);
+  });
+
   test("Then a scope's values carry where each comes from", async () => {
-    tree.value.push({ code: "commerce", level: "commerce" });
+    tree.value.push({
+      children: [WEBSITE],
+      code: "commerce",
+      level: "commerce",
+    });
     store.set(JSON.stringify({ id: "w1" }), { orders_send: false });
     const page = await settingsPage({}, "w1");
     expect(page.values).toStrictEqual([

@@ -1,4 +1,5 @@
 import {
+  Button,
   Heading,
   InlineAlert,
   Picker,
@@ -27,10 +28,13 @@ export function PageShell({
   error,
   log,
   onError,
+  onRefreshScopes,
   onScopeChange,
   run,
   scopeId,
   scopes,
+  /** Why the website list may be missing or old, when Commerce could not be read. */
+  scopesNote,
   /** Which tab opens first; the page opens on the map, a preview may ask for another. */
   selectedTab = "mapping",
   status,
@@ -60,11 +64,22 @@ export function PageShell({
           selectedKey={scopeId}>
           {(choice) => <PickerItem id={choice.id}>{choice.label}</PickerItem>}
         </Picker>
+        <Button
+          isDisabled={!onRefreshScopes}
+          onPress={onRefreshScopes}
+          variant="secondary">
+          Refresh websites
+        </Button>
         <span className="erp-scope-note">
           The joins and switches below apply to this scope and anything under
           it.
         </span>
       </div>
+      {scopesNote && (
+        <InlineAlert variant="notice">
+          <Text>{scopesNote}</Text>
+        </InlineAlert>
+      )}
       <Tabs aria-label="ERP integration" defaultSelectedKey={selectedTab}>
         <TabList>
           <Tab id="mapping">Mapping</Tab>

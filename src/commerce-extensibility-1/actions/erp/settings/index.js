@@ -10,8 +10,9 @@ import { readPayload } from "#lib/webhook";
 
 /**
  * The Admin page's settings.
- * GET ?scope=<scope id>: the fields, the scopes a merchant can pick, and the values at
- *   that scope with where each comes from (Default Config when no scope is given).
+ * GET ?scope=<scope id>[&refresh=true]: the fields, the scopes a merchant can pick, and the
+ *   values at that scope with where each comes from (Default Config when no scope is given).
+ *   `refresh` reads Commerce's websites again first.
  * PATCH { scope?, values: { <setting>: true | false | null } }: save at that scope;
  *   null removes the override so the wider scope's value applies. Answers the page as
  *   it now reads.
@@ -24,7 +25,9 @@ async function main(params) {
   try {
     if (method === "get") {
       return ok({
-        body: await settingsPage(params, params.scope || undefined),
+        body: await settingsPage(params, params.scope || undefined, {
+          refresh: String(params.refresh) === "true",
+        }),
       });
     }
     if (method === "patch") {

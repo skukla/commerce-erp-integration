@@ -7,11 +7,16 @@ import { useCallback, useState } from "react";
 import { createRoot } from "react-dom/client";
 
 import { PageShell } from "../src/commerce-backend-ui-2/web-src/src/components/page-shell.jsx";
+import { BODEA_SCOPE_TREE } from "../test/web/fixtures/bodea-scope-tree.js";
 import { fakeApi } from "./fake-api.js";
 
 const api = fakeApi();
 
 const asked = new URLSearchParams(window.location.search);
+
+function readScopesAgain() {
+  // The preview has one fixed tree, so Refresh websites has nothing to read again.
+}
 
 function Preview() {
   const [scopeId, setScopeId] = useState("");
@@ -37,34 +42,11 @@ function Preview() {
         error={error}
         log={log}
         onError={setError}
+        onRefreshScopes={readScopesAgain}
         onScopeChange={setScopeId}
         run={run}
         scopeId={scopeId}
-        scopes={
-          status
-            ? [
-                {
-                  code: "global",
-                  id: "global",
-                  level: "global",
-                  name: "Default Config",
-                },
-                { code: "bodea", id: "w1", level: "website", name: "Bodea" },
-                {
-                  code: "bodea_store",
-                  id: "s1",
-                  level: "store",
-                  name: "Bodea Store",
-                },
-                {
-                  code: "bodea_us",
-                  id: "v1",
-                  level: "storeView",
-                  name: "Bodea US",
-                },
-              ]
-            : null
-        }
+        scopes={status ? BODEA_SCOPE_TREE : null}
         selectedTab={asked.get("tab") || "mapping"}
         status={status}
       />

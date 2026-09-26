@@ -193,25 +193,38 @@ async function commerceParams(params) {
   };
 }
 
+/** Websites have been read: lib-config adds the `commerce` node even when it holds none. */
 const hasCommerceScopes = (tree) =>
-  tree.some((node) => node.level !== "global");
+  tree.some(
+    (node) => node.level === "commerce" && (node.children?.length ?? 0) > 0,
+  );
 
 /**
- * The scopes a merchant can pick, read from Commerce the first time (or when asked).
- * @returns {Promise<object[]>} the scope tree: Default Config, then Commerce's websites,
- *   stores and store views
+ * The scopes a merchant can pick, read from Commerce the first time or when asked. Adobe does
+ * not keep the list in step with Commerce (App Management, "configuration schema"), so the
+ * page asks again with `refresh`. A read that fails keeps the last list and says why, rather
+ * than taking the whole page down with it.
+ *
+ * @returns {Promise<{ tree: object[], note?: string }>} the scope tree (Default Config, then
+ *   Commerce's websites, stores and store views) and, when Commerce could not be read, why
  */
 export async function settingScopes(params, { refresh = false } = {}) {
   ready();
   const { scopeTree } = await getScopeTree();
-  if (!refresh && hasCommerceScopes(scopeTree)) {
-    return scopeTree;
+  const read = hasCommerceScopes(scopeTree);
+  if (read && !refresh) {
+    return { tree: scopeTree };
   }
   const synced = await syncCommerceScopes(await commerceParams(params));
-  if (synced.error) {
-    throw new Error(`Commerce's websites could not be read: ${synced.error}`);
+  if (!synced.error) {
+    return { tree: synced.scopeTree };
   }
-  return synced.scopeTree;
+  return {
+    note: read
+      ? `Commerce's websites could not be read again (${synced.error}); the list is the last one read.`
+      : `Commerce's websites could not be read (${synced.error}); only Default Config can be set until they are.`,
+    tree: scopeTree,
+  };
 }
 
 const selectorFor = (scopeId) => (scopeId ? byScopeId(scopeId) : DEFAULT_SCOPE);
@@ -220,9 +233,10 @@ const selectorFor = (scopeId) => (scopeId ? byScopeId(scopeId) : DEFAULT_SCOPE);
  * What the settings page shows for one scope: the fields, and each value with the scope
  * it comes from.
  * @param {string} [scopeId] a scope tree id; Default Config when omitted
+ * @param {{ refresh?: boolean }} [options] read Commerce's websites again first
  */
-export async function settingsPage(params, scopeId) {
-  const scopes = await settingScopes(params);
+export async function settingsPage(params, scopeId, { refresh = false } = {}) {
+  const { tree: scopes, note } = await settingScopes(params, { refresh });
   const { scope, config } = await getConfiguration(selectorFor(scopeId));
   return {
     fields: SCHEMA.map(({ name, label, description, type, options }) => ({
@@ -235,6 +249,7 @@ export async function settingsPage(params, scopeId) {
     })),
     scope,
     scopes,
+    ...(note ? { scopesNote: note } : {}),
     values: config.map(({ name, value, origin }) => ({ name, origin, value })),
   };
 }
