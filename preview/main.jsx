@@ -1,23 +1,24 @@
-/* The Admin page's own shell and components, rendered against stand-in data. */
+/*
+ * The Admin page as it looks, rendered against stand-in data (fake-api.js): `?section=`
+ * opens a section (overview, activity, settings), `?loading` shows what the page shows until
+ * everything has arrived, `?crash` the crash screen.
+ */
 import "@react-spectrum/s2/page.css";
 import "../src/commerce-backend-ui-2/web-src/index.css";
 
 import { Provider } from "@react-spectrum/s2";
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
 
 import { CrashBoundary } from "../src/commerce-backend-ui-2/web-src/src/components/crash-boundary.jsx";
-import { PageShell } from "../src/commerce-backend-ui-2/web-src/src/components/page-shell.jsx";
-import { BODEA_SCOPE_TREE } from "../test/web/fixtures/bodea-scope-tree.js";
+import {
+  IntegrationPage,
+  PageLoading,
+} from "../src/commerce-backend-ui-2/web-src/src/components/integration-page.jsx";
 import { fakeApi } from "./fake-api.js";
 
 const api = fakeApi();
-
 const asked = new URLSearchParams(window.location.search);
-
-function readScopesAgain() {
-  // The preview has one fixed tree, so Refresh websites has nothing to read again.
-}
 
 // `?crash` shows the crash screen the Admin page falls back to.
 function Crash() {
@@ -25,13 +26,19 @@ function Crash() {
 }
 
 function Preview() {
-  const [scopeId, setScopeId] = useState("");
   const [error, setError] = useState(null);
   const [status, setStatus] = useState(null);
+  const [settingsPage, setSettingsPage] = useState(null);
   const [log, setLog] = useState([]);
-  if (!status) {
-    api.status().then(setStatus);
-  }
+  useEffect(() => {
+    if (asked.has("loading")) {
+      return;
+    }
+    Promise.all([api.status(), api.settings(undefined)]).then(([s, page]) => {
+      setStatus(s);
+      setSettingsPage(page);
+    });
+  }, []);
   const run = useCallback(async (label, fn) => {
     const result = await fn();
     setLog((l) => [
@@ -40,22 +47,25 @@ function Preview() {
     ]);
   }, []);
   return (
-    <Provider background="base">
-      <PageShell
-        api={api}
-        busy={false}
-        erpName={status?.erp?.displayName || "the ERP"}
-        error={error}
-        log={log}
-        onError={setError}
-        onRefreshScopes={readScopesAgain}
-        onScopeChange={setScopeId}
-        run={run}
-        scopeId={scopeId}
-        scopes={status ? BODEA_SCOPE_TREE : null}
-        selectedTab={asked.get("tab") || "mapping"}
-        status={status}
-      />
+    // Commerce Admin is always light, whatever the browser prefers.
+    <Provider background="base" colorScheme="light">
+      {status && settingsPage ? (
+        <IntegrationPage
+          api={api}
+          busy={false}
+          error={error}
+          initialSection={asked.get("section") || "overview"}
+          log={log}
+          onError={setError}
+          run={run}
+          scopes={settingsPage.scopes}
+          scopesNote={null}
+          settingsPage={settingsPage}
+          status={status}
+        />
+      ) : (
+        <PageLoading />
+      )}
     </Provider>
   );
 }

@@ -1,4 +1,4 @@
-import { Button, Checkbox, Heading, Text } from "@react-spectrum/s2";
+import { Button, Checkbox, Text } from "@react-spectrum/s2";
 import { useCallback, useEffect, useState } from "react";
 
 import { historyRow } from "#web/history-view.js";
@@ -55,7 +55,8 @@ export function History({ api, erpName, onError }) {
   const rows = entries.map((entry) => historyRow(entry, erpName));
   return (
     <section className="erp-history">
-      <Heading level={2}>What crossed between Commerce and {erpName}</Heading>
+      {/* The Activity section heads it; this line says what the table is. */}
+      <Text>What crossed between Commerce and {erpName}, newest first.</Text>
       <div className="erp-history-controls">
         <Checkbox isSelected={failedOnly} onChange={setFailedOnly}>
           Only what did not get through

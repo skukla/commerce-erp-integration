@@ -1,31 +1,33 @@
-import { Button, Text } from "@react-spectrum/s2";
+/*
+ * How the integration stands: what the ERP holds, one record as both systems hold it, and
+ * the controls that fill or reset the ERP. The connection map from the redesign replaces the
+ * counts in its second slice; filling and reset move to Demo Builder (AB-26y).
+ */
+import { Button, Heading, Text } from "@react-spectrum/s2";
 import { useCallback } from "react";
 
-import { History } from "#web/components/history.jsx";
-import { OrderTrace } from "#web/components/order-trace.jsx";
+import { Lookup } from "#web/components/lookup.jsx";
 import { Stat } from "#web/components/stat.jsx";
 import { isSyncActive, SyncProgress } from "#web/components/sync-progress.jsx";
 
-/** Online or Unreachable, from the status action's answer. */
-function erpState(erp) {
-  return erp.reachable ? "Online" : "Unreachable";
-}
+const PRODUCT = { kind: "sku", label: "SKU" };
+const COMPANY = { kind: "company", label: "Commerce company id" };
 
-/**
- * How the integration is doing and what it has done: both sides' health and counts, the
- * controls that mirror or reset the ERP's records, one order followed end to end, and
- * everything that has crossed with a Retry on what did not get through.
- */
-export function StatusTab({ api, busy, erpName, log, onError, run, status }) {
+export function OverviewSection({
+  api,
+  busy,
+  erpName,
+  log,
+  onError,
+  run,
+  status,
+}) {
   const erp = status?.erp ?? {};
   const sync = erp.sync ?? null;
-
   const onRefreshPartners = useCallback(
     () => run("Refresh partners", api.refreshPartners),
     [api, run],
   );
-  // The mirror runs in the background and reports each step to the ERP; the page's
-  // polling follows it.
   const onSyncRecords = useCallback(
     () => run("Sync records", api.syncRecords),
     [api, run],
@@ -33,9 +35,11 @@ export function StatusTab({ api, busy, erpName, log, onError, run, status }) {
   const onReset = useCallback(() => run("Reset", api.reset), [api, run]);
 
   return (
-    <>
+    <section aria-labelledby="erp-overview-heading" className="erp-section">
+      <Heading id="erp-overview-heading" level={2}>
+        Overview
+      </Heading>
       <div className="erp-grid">
-        <Stat label="ERP" value={erpState(erp)} />
         <Stat label="Products" value={erp.counts?.products ?? "–"} />
         <Stat
           label="Business partners"
@@ -49,35 +53,41 @@ export function StatusTab({ api, busy, erpName, log, onError, run, status }) {
         />
       </div>
       <Text>
-        Last import into the ERP: {erp.lastImportAt || "never"}. Last wipe:{" "}
+        Last import into {erpName}: {erp.lastImportAt || "never"}. Last wipe:{" "}
         {erp.lastWipeAt || "never"}.
       </Text>
+      <Heading level={3}>Look up a record in both systems</Heading>
+      <div className="erp-lookups">
+        <Lookup
+          api={api}
+          erpName={erpName}
+          lookup={PRODUCT}
+          onError={onError}
+        />
+        <Lookup
+          api={api}
+          erpName={erpName}
+          lookup={COMPANY}
+          onError={onError}
+        />
+      </div>
+      <Heading level={3}>Records</Heading>
       <div className="erp-actions">
-        <Button
-          isDisabled={busy || !api}
-          onPress={onRefreshPartners}
-          variant="primary">
+        <Button isDisabled={busy} onPress={onRefreshPartners} variant="primary">
           Refresh partners from Commerce
         </Button>
         <Button
-          isDisabled={busy || !api || isSyncActive(sync)}
+          isDisabled={busy || isSyncActive(sync)}
           onPress={onSyncRecords}
           variant="secondary">
           Sync records to {erpName}
         </Button>
-        <Button isDisabled={busy || !api} onPress={onReset} variant="negative">
+        <Button isDisabled={busy} onPress={onReset} variant="negative">
           Reset ERP records
         </Button>
       </div>
       <SyncProgress erpName={erpName} sync={sync} />
-      <Text>
-        Reset undoes the company blocks and credit limits the ERP set, wipes
-        every ERP record, and mirrors Commerce again as it stands. Commerce
-        orders keep their ERP numbers.
-      </Text>
-      <OrderTrace api={api} erpName={erpName} onError={onError} />
-      <History api={api} erpName={erpName} onError={onError} />
       {log.length > 0 && <div className="erp-log">{log.join("\n")}</div>}
-    </>
+    </section>
   );
 }

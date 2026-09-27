@@ -137,7 +137,7 @@ export function MoveStockPage() {
   }
   return (
     <main>
-      <Heading level={1}>Move stock between {erpName} warehouses</Heading>
+      {/* Commerce's own header already carries the action's title. */}
       <Text>
         {plural(productIds.length, "product", "products")} selected. The move is
         made in Commerce and sent to {erpName} at once.

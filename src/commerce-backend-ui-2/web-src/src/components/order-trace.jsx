@@ -77,7 +77,7 @@ export function OrderTrace({ api, erpName, onError }) {
   const rows = (trace?.steps ?? []).map(traceRow);
   return (
     <section className="erp-trace">
-      <Heading level={2}>Follow an order</Heading>
+      <Heading level={3}>Follow an order</Heading>
       <div className="erp-trace-controls">
         <TextField
           aria-label="Order number"
