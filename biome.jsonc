@@ -4,7 +4,9 @@
 
   "files": {
     "ignoreUnknown": true,
-    "includes": ["!**/.generated"]
+    // The ERP contract is a copy of skukla/demo-erp's, in that repo's formatting;
+    // scripts/contract-check.mjs compares it as parsed JSON.
+    "includes": ["!**/.generated", "!contract/erp-contract.json"]
   },
 
   "json": {

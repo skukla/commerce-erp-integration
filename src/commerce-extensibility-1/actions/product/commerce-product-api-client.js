@@ -26,7 +26,7 @@ async function createProduct(params, data) {
  * @param {object} params - Environment params from the IO Runtime request
  * @param {object} data - Adobe commerce api payload
  */
-async function updateProduct(params, data, onStage = () => {}) {
+async function updateProduct(params, data, onStage = () => undefined) {
   // App Management requires IMS. It's fine to only resolve IMS authentication.
   const imsAuthParams = resolveImsAuthParams(params);
   const client = await getCommerceClient(imsAuthParams, COMMERCE_FETCH_OPTIONS);

@@ -103,9 +103,7 @@ describe("Given the order save event", () => {
     });
 
     const failing = deps({
-      companyIdOf: vi.fn(async () => {
-        throw new Error("Request timed out");
-      }),
+      companyIdOf: vi.fn(() => Promise.reject(new Error("Request timed out"))),
     });
     const result = await sendOrderToErp(
       {},
