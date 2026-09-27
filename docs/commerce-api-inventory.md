@@ -39,14 +39,14 @@ row says otherwise.
 
 | Call | Slice | Purpose | Status |
 |---|---|---|---|
-| `POST orders/{id}/hold`, `POST orders/{id}/unhold` | AB-26f | credit hold ↔ Commerce On Hold; detach unholds | to validate |
-| `GET shipments/{id}` or the shipment event payload's items (`order_item_id`, `qty`, `extension_attributes.source_code`) | AB-26g | Commerce-side shipment → ERP shipment | to validate |
-| `GET invoices/{id}` or the invoice event payload | AB-26g | Commerce-side invoice → ERP invoice | to validate |
-| `GET store/websites`, `GET store/storeGroups`, `GET store/storeViews`, `GET store/storeConfigs` | AB-26j | website list; `store_id` → website; currency per website | to validate (the endpoints are named in the REST quick reference; field shapes not yet read) |
+| `POST orders/{id}/hold`, `POST orders/{id}/unhold` | AB-26f | credit hold ↔ Commerce On Hold; detach unholds | **proven live 2026-09-27**: both answer `true`; the ERP's hold put order 3000000013 On Hold and its release took it off |
+| `GET shipments/{id}` or the shipment event payload's items (`order_item_id`, `qty`, `extension_attributes.source_code`) | AB-26g | Commerce-side shipment → ERP shipment | **proven live 2026-09-27** (a partial shipment and the rest reached the ERP); `shipments-order-11.json` |
+| `GET invoices/{id}` or the invoice event payload | AB-26g | Commerce-side invoice → ERP invoice | **proven live 2026-09-27**; `invoices-order-11.json` |
+| `GET store/websites`, `GET store/storeGroups`, `GET store/storeViews`, `GET store/storeConfigs` | AB-26j | website list; `store_id` → website; currency per website | websites and store configs captured (`websites.json`, `store-configs.json`, read by `listWebsites` and `storeConfigs`) |
 | Store Information and shipping Origin config values (address, VAT) per website | AB-26j | company code identity on the Organisation card | **open**: no REST endpoint is documented for reading `general/store_information/*`; candidates are the store configs payload or a config read through App Management — decide after a live look |
-| `GET company/{id}` fields `legal_name`, `vat_tax_id`, `reseller_id`, `street`, `city`, `region`, `postcode`, `country_id`, `telephone`, `super_user_id` | AB-26j | the buyer's legal identity | documented (company object, read 2026-09-24); fixture pending |
-| `GET customers/{id}` → `website_id` | AB-26j | the company admin's website → sales organisation | documented (customer object); fixture pending |
-| MSI source-item change event, or `GET inventory/source-items` for changed SKUs | AB-26h | per-source stock changes → ERP | **open**: no Commerce event for source items is confirmed; fallback is the minute refresh re-reading source items |
+| `GET company/{id}` fields `legal_name`, `vat_tax_id`, `reseller_id`, `street`, `city`, `region`, `postcode`, `country_id`, `telephone`, `super_user_id` | AB-26j | the buyer's legal identity | captured: `companies-page.json`, `company-21.json` (read by `listCompanies`) |
+| `GET customers/{id}` → `website_id` | AB-26j | the company admin's website → sales organisation | captured: `customer-44.json` (`website_id` and `extension_attributes.company_attributes.company_id`) |
+| MSI source-item change event, or `GET inventory/source-items` for changed SKUs | AB-26h | per-source stock changes → ERP | **settled 2026-09-27**: no event fired for a quantity written through REST, not even the legacy stock one; the minute refresh carried it to the ERP within the minute (`source-items-accessmesh.json`) |
 | `POST order/{id}/refund` or `POST orders/{id}/refund` (credit memo) | AB-26r | credit memo | to validate |
 | `GET transactions` / invoice `state` (paid) | AB-26s | payment captured → ERP incoming payment | to validate |
 | company credit balance operations (increase / decrease / reimburse) | AB-26s | ERP payment → company balance | to validate — exact paths to be read from the live instance's REST schema, never typed from memory |
@@ -59,11 +59,11 @@ row says otherwise.
 | `observer.catalog_product_save_commit_after` | yes | — | used today |
 | `observer.sales_order_save_commit_after` (`_isNew`, `store_id`, items) | yes | — | used today |
 | `observer.cataloginventory_stock_item_save_commit_after` | yes | — | used today; **default source only** (legacy stock item) |
-| `observer.sales_order_shipment_save_commit_after` (or `_save_after`) | no | AB-26g | to validate: exact name and payload fields on the target backend |
-| `observer.sales_order_invoice_save_commit_after` | no | AB-26g | to validate |
-| order hold/unhold: the order save event with `state` = `holded` | no (the handler skips non-new saves) | AB-26g | to validate that the save event fires on hold and carries `state` |
+| `observer.sales_order_shipment_save_after` | yes | AB-26g | **proven live 2026-09-27**; payload not captured (a successful delivery leaves no Runtime record) |
+| `observer.sales_order_invoice_save_after` | yes | AB-26g | **proven live 2026-09-27**; payload not captured |
+| order hold/unhold/cancel: the order save event's non-new saves | yes | AB-26g | **proven live 2026-09-27**: hold, unhold and cancel in Commerce each reached the ERP |
 | `observer.sales_order_creditmemo_save_after` | no | AB-26r | to validate |
-| product delete event | no | AB-26h (G1) | to validate whether one exists |
+| `observer.catalog_product_delete_commit_after` | yes | AB-26h (G1) | **proven live 2026-09-27**: a product deleted in Commerce left the ERP |
 | company save event (B2B) | no | — (the minute refresh covers it) | to validate whether one exists; would replace polling |
 
 Changing a subscription after install needs an uninstall + install of the app in Commerce
@@ -88,17 +88,34 @@ Changing a subscription after install needs an uninstall + install of the app in
 
 ## The ERP side — the mirror contract
 
-`contract/erp-contract.json` (vendored from `skukla/demo-erp`, version 1 today) lists routes,
-import/quote/order KEY lists and event payload keys. AB-26j step 01 takes it to version 2
-with full request/response shapes; SAP's terms ride in descriptions (sold-to, sales
-organisation, delivering plant) without renaming fields that work. `test/contract/
+`contract/erp-contract.json` (vendored from `skukla/demo-erp`) is at `contractVersion` 2
+since 2026-09-24, which added the business-structure fields. It still lists routes,
+import/quote/order KEY lists and event payload keys, not full request/response shapes;
+growing it to full shapes, SAP's terms in descriptions (sold-to, sales organisation,
+delivering plant) without renaming fields that work, is what remains of AB-26b on this side. `test/contract/
 erp-contract.test.js` here and `test/contract.test.js` there pin it; `npm run
 contract:check` reports when the vendored copy is behind.
 
 ## Live validation — status
 
-Not yet run. Blocked 2026-09-24 on importing the deployed workspace's configuration into
-this repo (`aio app use -g` answered `503 Service Unavailable` from Adobe's Console API,
-`ERROR_GET_SERVICES_FOR_ORG … getOffers short-circuited`). Retry; the call is read-only and
-inside the loop's rails. When it succeeds, each "to validate" row gets a read-only call,
-a fixture, and a test.
+Run 2026-09-27 on the Bodea sandbox through Demo Builder's agent tools (every write was a test
+order, a test product or a value put back afterwards). The answers the integration reads are
+captured under `test/fixtures/commerce/`, with contact details, hostnames and the tenant id
+replaced, and `test/contract/commerce-fixtures.test.js` runs the real readers over them.
+
+| Fixture | Request | Read by |
+|---|---|---|
+| `products-page.json` | `GET products` | `listProducts` |
+| `source-items-accessmesh.json` | `GET inventory/source-items` (one SKU) | `listStock`, `sourceCodesOf` |
+| `sources.json` | `GET inventory/sources` | `listSources` |
+| `stocks.json`, `stock-source-links.json` | `GET inventory/stocks`, `GET inventory/stock-source-links` (needs `searchCriteria`) | Demo Builder's second-source setup check |
+| `companies-page.json`, `company-21.json` | `GET company`, `GET company/{id}` | `listCompanies` |
+| `company-credit-21.json` | `GET companyCredits/company/{id}` | `listCompanies` |
+| `customer-44.json` | `GET customers/{id}` | `listCompanies` (admin website), `customerCompanyId` |
+| `orders-by-increment.json`, `order-11.json` | `GET orders?…increment_id`, `GET orders/{id}` | `findOrderByIncrementId`, `unholdIfHeld` |
+| `shipments-order-11.json`, `invoices-order-11.json` | `GET shipments`, `GET invoices` (by order) | the shape of what Commerce-side shipments and invoices carry |
+| `websites.json`, `store-configs.json` | `GET store/websites`, `GET store/storeConfigs` | `listWebsites`, `storeConfigs` |
+
+Not captured: the payloads of Commerce's own events. Runtime keeps no record of a successful
+delivery, so the only place to read one is the event registration's debug tracing in the
+Developer Console. The handlers that read them are proven by what they did, not by a fixture.
