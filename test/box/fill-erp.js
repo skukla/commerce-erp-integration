@@ -112,11 +112,12 @@ export async function fillErp(readers, erp, projectName) {
       throw new Error(`ERP import answered ${res.status}`);
     }
   }
-  // Last, as Demo Builder does: which Commerce company is which ERP customer.
+  // Last, as Demo Builder does: which Commerce company is which ERP customer. The partner
+  // rows carry no Commerce id (contract version 3), so the pairs come from the companies.
   await replaceKeyMap(
-    partners.map((p) => ({
-      commerce: p.commerceCompanyId,
-      erp: p.id,
+    companies.map((company, index) => ({
+      commerce: String(company.id),
+      erp: partners[index].id,
       kind: "customer",
     })),
   );

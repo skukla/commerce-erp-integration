@@ -60,66 +60,55 @@ beforeEach(async () => {
 });
 
 describe("Given the ERP company events", () => {
-  test("Then a credit-limit event writes Commerce and ledgers the value before", async () => {
+  // The ERP names its customer by its own number only (contract version 3); the key map
+  // (Commerce 21 = ERP C000103, set up above) names the Commerce company.
+  test("Then a credit-limit event writes the paired Commerce company and ledgers the value before", async () => {
     const res = await creditUpdated.main({
-      data: { companyId: "7", creditLimit: 250 },
+      data: { creditLimit: 250, partnerId: "C000103" },
     });
     expect(res.statusCode).toBe(200);
-    expect(setCompanyCreditLimit).toHaveBeenCalledWith(
-      expect.anything(),
-      42,
-      "7",
-      250,
-    );
-    expect(recordCompanyWrite).toHaveBeenCalledWith({
-      after: 250,
-      before: 1000,
-      companyId: "7",
-      extra: { creditId: 42 },
-      field: "creditLimit",
-    });
-  });
-  test("Then the key map names the company for the ERP's own customer number, ahead of any Commerce id the event carries", async () => {
-    await creditUpdated.main({
-      data: { companyId: "7", creditLimit: 250, partnerId: "C000103" },
-    });
     expect(setCompanyCreditLimit).toHaveBeenCalledWith(
       expect.anything(),
       42,
       "21",
       250,
     );
+    expect(recordCompanyWrite).toHaveBeenCalledWith({
+      after: 250,
+      before: 1000,
+      companyId: "21",
+      extra: { creditId: 42 },
+      field: "creditLimit",
+    });
+  });
+  test("Then a block event sets the paired company to status 3 and ledgers the previous status", async () => {
     await statusUpdated.main({ data: { blocked: true, partnerId: "C000103" } });
     expect(setCompanyStatus).toHaveBeenCalledWith(expect.anything(), "21", 3);
-  });
-  test("Then a customer missing from the key map falls back to the Commerce id the event carries", async () => {
-    await creditUpdated.main({
-      data: { companyId: "7", creditLimit: 250, partnerId: "C9" },
-    });
-    expect(setCompanyCreditLimit).toHaveBeenCalledWith(
-      expect.anything(),
-      42,
-      "7",
-      250,
-    );
-  });
-  test("Then a block event sets status 3 and ledgers the previous status", async () => {
-    await statusUpdated.main({ data: { blocked: true, companyId: "7" } });
-    expect(setCompanyStatus).toHaveBeenCalledWith(expect.anything(), "7", 3);
     expect(recordCompanyWrite).toHaveBeenCalledWith({
       after: 3,
       before: 1,
-      companyId: "7",
+      companyId: "21",
       field: "status",
     });
   });
-  test("Then a partner without a Commerce company is skipped, and a bad payload is refused", async () => {
+  test("Then a customer the key map does not pair is no Commerce company: skipped, even if the event names a Commerce id", async () => {
+    const res = await creditUpdated.main({
+      data: { companyId: "7", creditLimit: 250, partnerId: "C9" },
+    });
+    expect(res.statusCode).toBe(200);
     expect(
-      (await creditUpdated.main({ data: { creditLimit: 1 } })).statusCode,
+      (await statusUpdated.main({ data: { blocked: true } })).statusCode,
     ).toBe(200);
+    expect(setCompanyCreditLimit).not.toHaveBeenCalled();
+    expect(setCompanyStatus).not.toHaveBeenCalled();
+  });
+  test("Then a bad payload is refused", async () => {
     expect(
-      (await statusUpdated.main({ data: { blocked: "yes", companyId: "7" } }))
-        .error.statusCode,
+      (
+        await statusUpdated.main({
+          data: { blocked: "yes", partnerId: "C000103" },
+        })
+      ).error.statusCode,
     ).toBe(400);
     expect(setCompanyStatus).not.toHaveBeenCalled();
   });

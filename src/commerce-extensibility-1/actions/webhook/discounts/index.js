@@ -9,7 +9,6 @@ import {
   erpBuyer,
   noop,
   operations,
-  partnerHints,
   readPayload,
   round2,
 } from "#lib/webhook";
@@ -94,7 +93,7 @@ async function main(params) {
     }
     if (clawback === 0) {
       logger.info(
-        `no discount over the ceiling for partner ${res.data.partnerId} (hints: ${JSON.stringify(partnerHints(payload.quote))})`,
+        `no discount over the ceiling for partner ${res.data.partnerId} (cart buyer: ${JSON.stringify(cartBuyer(payload.quote))})`,
       );
       return noop();
     }

@@ -1,4 +1,4 @@
-import { cartBuyer, cartLines, partnerHints, readPayload } from "#lib/webhook";
+import { cartBuyer, cartLines, erpBuyer, readPayload } from "#lib/webhook";
 
 describe("Given the webhook helpers", () => {
   test("Then the body is read raw, base64 or from params", () => {
@@ -57,18 +57,21 @@ describe("Given the webhook helpers", () => {
       extensionFields: [],
     });
   });
-  test("Then partner hints come from the group, the email and the customer id", () => {
+  test("Then the ERP is asked for the customer the key map pairs with the cart's company, and nothing of Commerce's", async () => {
+    const lookup = vi.fn(async (id) => (id === "20" ? "C000200" : null));
+    const quote = {
+      customer_email: "x@acme.example",
+      customer_group_id: "1",
+      customer_id: "46",
+      extension_attributes: { company_id: 20 },
+    };
+    expect(await erpBuyer(quote, lookup)).toEqual({ partnerId: "C000200" });
+    expect(lookup).toHaveBeenCalledWith("20");
     expect(
-      partnerHints({
-        customer_email: "x@acme.example",
-        customer_group_id: 4,
-        customer_id: 9,
-      }),
-    ).toEqual({ customerGroupId: "4", customerId: 9, email: "x@acme.example" });
-    expect(partnerHints({})).toEqual({
-      customerGroupId: undefined,
-      customerId: null,
-      email: null,
-    });
+      await erpBuyer({ extension_attributes: { company_id: 21 } }, lookup),
+    ).toEqual({});
+    expect(await erpBuyer({ customer_id: "9" }, lookup)).toEqual({});
+    const failing = vi.fn(() => Promise.reject(new Error("state down")));
+    expect(await erpBuyer(quote, failing)).toEqual({});
   });
 });

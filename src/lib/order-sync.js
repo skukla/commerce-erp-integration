@@ -29,7 +29,6 @@ import {
   salesOrgOf,
   withPrefix,
 } from "#lib/structure";
-import { partnerHints } from "#lib/webhook";
 
 const ERP_TIMEOUT_MS = 20_000;
 const TOO_MANY_REQUESTS = 429;
@@ -56,18 +55,10 @@ export function isNewOrder(order) {
  * The ERP's order request for a Commerce order and its entity id. The website's settings
  * name the sales organisation the order belongs to (business structure).
  */
-export function erpOrderFrom(
-  order,
-  entityId,
-  settings = {},
-  commerceCompanyId = null,
-) {
+export function erpOrderFrom(order, entityId, settings = {}) {
   const rawItems = order.items ?? [];
   const items = Array.isArray(rawItems) ? rawItems : Object.values(rawItems);
   return {
-    // The buyer's company names the ERP partner outright; the group and email in
-    // partnerHints are the ERP's fallbacks (lib/commerce.js customerCompanyId).
-    commerceCompanyId,
     commerceIncrementId: String(order.increment_id),
     commerceOrderId: String(entityId),
     currency: order.base_currency_code || "USD",
@@ -82,7 +73,6 @@ export function erpOrderFrom(
     origin: originOf(COMMERCE_EVENTS.orderSaved),
     ...salesOrgOf(settings),
     total: Number(order.base_grand_total ?? 0),
-    ...partnerHints(order),
   };
 }
 
@@ -238,9 +228,9 @@ export async function sendOrderToErp(params, order, deps) {
     res = await deps.erp.createOrder(
       params,
       {
-        ...erpOrderFrom(order, found.entityId, settings, commerceCompanyId),
-        // The ERP's own number from the key map names the customer outright; the Commerce
-        // id and hints stay as the ERP's fallbacks until it stops holding Commerce ids.
+        ...erpOrderFrom(order, found.entityId, settings),
+        // The ERP's own number from the key map is all that names the customer: the ERP
+        // holds no Commerce id (contract version 3). Unpaired, it is the walk-in customer's.
         ...(partnerId ? { partnerId } : {}),
         origin: originOf(COMMERCE_EVENTS.orderSaved, params),
       },

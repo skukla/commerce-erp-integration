@@ -5,6 +5,13 @@
  */
 import { companyToErp, partnersFrom } from "#lib/company-sync";
 
+const COMMERCE_IDS = [
+  "commerceCompanyId",
+  "customerGroupId",
+  "emailDomain",
+  "website",
+];
+
 const ROW = {
   blocked: false,
   creditId: 21,
@@ -49,13 +56,14 @@ describe("Given a company saved in Commerce", () => {
       { origin: ORIGIN, partners: [partner] },
     );
     expect(partner).toMatchObject({
-      commerceCompanyId: "21",
       creditLimit: 120_000,
-      customerGroupId: "19",
       id: "C21",
       salesOrgs: ["US01"],
-      website: { code: "bodea", id: 3 },
     });
+    // The ERP holds no Commerce id (contract version 3): the key map pairs them.
+    for (const key of COMMERCE_IDS) {
+      expect(partner).not.toHaveProperty(key);
+    }
   });
 
   test("Then a new company is paired in the key map with the customer made for it", async () => {
@@ -90,7 +98,7 @@ describe("Given a company saved in Commerce", () => {
     const partner = await companyToErp({}, 21, ORIGIN, d);
 
     expect(d.websiteSettings).not.toHaveBeenCalled();
-    expect(partner).toMatchObject({ salesOrgs: [], website: null });
+    expect(partner).toMatchObject({ salesOrgs: [] });
   });
 
   test("Then an ERP that refuses is an error, so the event is delivered again", async () => {
@@ -107,7 +115,7 @@ describe("Given a company saved in Commerce", () => {
 });
 
 describe("Given companies turned into business partners", () => {
-  test("Then companies become partners keyed C<id> with their group, credit and email domain", () => {
+  test("Then companies become partners keyed C<id> with their credit, and no Commerce group or email domain", () => {
     const rows = partnersFrom([
       {
         creditLimit: 500,
@@ -120,10 +128,7 @@ describe("Given companies turned into business partners", () => {
     expect(rows).toEqual([
       {
         blocked: false,
-        commerceCompanyId: "7",
         creditLimit: 500,
-        customerGroupId: "4",
-        emailDomain: "acme.example",
         id: "C7",
         legalAddress: null,
         legalName: null,
@@ -131,7 +136,6 @@ describe("Given companies turned into business partners", () => {
         resellerId: null,
         salesOrgs: [],
         vatTaxId: null,
-        website: null,
       },
     ]);
   });
@@ -177,9 +181,8 @@ describe("Given companies turned into business partners", () => {
       resellerId: "R-77",
       salesOrgs: ["2000"],
       vatTaxId: "US12-3456789",
-      website: { code: "eu", id: 2 },
     });
     // A website the read did not list: the company belongs to no sales organisation yet.
-    expect(rows[1]).toMatchObject({ salesOrgs: [], website: null });
+    expect(rows[1]).toMatchObject({ salesOrgs: [] });
   });
 });

@@ -163,8 +163,6 @@ export const erp = {
       path: `/${encodeURIComponent(id)}`,
       timeoutMs,
     }),
-  partners: (params, timeoutMs) =>
-    erpRequest(params, "partners", { timeoutMs }),
   /** One product's document by SKU (with committed and available). */
   product: (params, sku, timeoutMs) =>
     erpRequest(params, "products", {

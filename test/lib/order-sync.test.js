@@ -62,13 +62,9 @@ describe("Given the order save event", () => {
     expect(d.erp.createOrder).toHaveBeenCalledWith(
       { p: 1 },
       {
-        commerceCompanyId: null,
         commerceIncrementId: "3000000004",
         commerceOrderId: "41",
         currency: "USD",
-        customerGroupId: "4",
-        customerId: null,
-        email: "b@acme.example",
         lines: [{ commerceItemId: 1, price: 20, qty: 2, sku: "A" }],
         origin: { event: "observer.sales_order_save_commit_after" },
         salesOrg: "1000",
@@ -97,9 +93,17 @@ describe("Given the order save event", () => {
     await sendOrderToErp({}, { ...NEW_ORDER, customer_id: 44 }, paired);
     expect(paired.erpCustomerOf).toHaveBeenCalledWith("21");
     expect(paired.erp.createOrder.mock.calls[0][1]).toMatchObject({
-      commerceCompanyId: "21",
       partnerId: "C000103",
     });
+    // The ERP holds no Commerce id (contract version 3): nothing of Commerce's names the buyer.
+    for (const key of [
+      "commerceCompanyId",
+      "customerGroupId",
+      "customerId",
+      "email",
+    ]) {
+      expect(paired.erp.createOrder.mock.calls[0][1]).not.toHaveProperty(key);
+    }
 
     const unpaired = deps({
       companyIdOf: vi.fn(async () => "22"),
@@ -115,21 +119,25 @@ describe("Given the order save event", () => {
     expect(guest.erpCustomerOf).not.toHaveBeenCalled();
   });
 
-  test("Then the buyer's company goes with the order, and a company that cannot be read is null, not a guess", async () => {
-    const withCompany = deps({ companyIdOf: vi.fn(async () => "21") });
+  test("Then the buyer's company is read to find its ERP customer, and a company that cannot be read names no customer, not a guess", async () => {
+    const erpCustomerOf = vi.fn(async (id) => (id === "21" ? "C000103" : null));
+    const withCompany = deps({
+      companyIdOf: vi.fn(async () => "21"),
+      erpCustomerOf,
+    });
     await sendOrderToErp(
       { p: 1 },
       { ...NEW_ORDER, customer_id: 44 },
       withCompany,
     );
     expect(withCompany.companyIdOf).toHaveBeenCalledWith({ p: 1 }, 44);
-    expect(withCompany.erp.createOrder.mock.calls[0][1]).toMatchObject({
-      commerceCompanyId: "21",
-      customerId: 44,
-    });
+    expect(withCompany.erp.createOrder.mock.calls[0][1].partnerId).toBe(
+      "C000103",
+    );
 
     const failing = deps({
       companyIdOf: vi.fn(() => Promise.reject(new Error("Request timed out"))),
+      erpCustomerOf: vi.fn(),
     });
     const result = await sendOrderToErp(
       {},
@@ -137,9 +145,10 @@ describe("Given the order save event", () => {
       failing,
     );
     expect(result.outcome).toBe("sent");
-    expect(
-      failing.erp.createOrder.mock.calls[0][1].commerceCompanyId,
-    ).toBeNull();
+    expect(failing.erpCustomerOf).not.toHaveBeenCalled();
+    expect(failing.erp.createOrder.mock.calls[0][1]).not.toHaveProperty(
+      "partnerId",
+    );
     expect(failing.logger.warn).toHaveBeenCalledWith(
       "order 3000000004: company of customer 44 not read: Request timed out",
     );

@@ -9,7 +9,6 @@ import {
   erpBuyer,
   noop,
   operations,
-  partnerHints,
   readPayload,
 } from "#lib/webhook";
 
@@ -69,7 +68,7 @@ async function main(params) {
       .filter((u) => Number.isFinite(u.base_price) && u.base_price >= 0);
     if (priceUpdates.length === 0) {
       logger.info(
-        `no contract price for partner ${res.data.partnerId} on ${lines.map((l) => l.sku).join(", ")} (hints: ${JSON.stringify(partnerHints(payload.quote))})`,
+        `no contract price for partner ${res.data.partnerId} on ${lines.map((l) => l.sku).join(", ")} (cart buyer: ${JSON.stringify(cartBuyer(payload.quote))})`,
       );
       return noop();
     }

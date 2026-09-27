@@ -6,7 +6,6 @@
 vi.mock("#lib/erp", () => ({
   erp: {
     partner: vi.fn(),
-    partners: vi.fn(),
     product: vi.fn(),
   },
 }));
@@ -146,11 +145,11 @@ describe("Given a company to look up", () => {
       "C000200",
       expect.any(Number),
     );
-    expect(erp.partners).not.toHaveBeenCalled();
     expect(res.body.erpHash).toBe("#partners?open=C000200");
   });
 
-  test("Then Commerce is asked for the company and its credit, the ERP for the partner behind that company id", async () => {
+  test("Then Commerce is asked for the company and its credit, the ERP for the customer the key map pairs with it", async () => {
+    await pairCustomer("9", "C000103");
     getCompany.mockResolvedValue({
       company_name: "Fabrikam Retail",
       id: 9,
@@ -161,20 +160,9 @@ describe("Given a company to look up", () => {
       credit_limit: 25_000,
       currency_code: "EUR",
     });
-    erp.partners.mockResolvedValue({
-      data: {
-        items: [
-          { commerceCompanyId: "4", id: "C000101", name: "Northwind Trading" },
-          { commerceCompanyId: "9", id: "C000103", name: "Fabrikam Retail" },
-        ],
-      },
-      ok: true,
-      status: 200,
-    });
     erp.partner.mockResolvedValue({
       data: {
         blocking: "open",
-        commerceCompanyId: "9",
         credit: { available: 25_000, exposure: 0, limit: 25_000 },
         creditLimit: 25_000,
         id: "C000103",
@@ -206,14 +194,9 @@ describe("Given a company to look up", () => {
     expect(res.body.erpHash).toBe("#partners?open=C000103");
   });
 
-  test("Then a company Commerce does not have (404) answers with an empty Commerce side", async () => {
+  test("Then a company Commerce does not have (404), and the key map does not pair, answers with both sides empty and no ERP search", async () => {
     getCompany.mockRejectedValue(notFound());
     getCompanyCredit.mockRejectedValue(notFound());
-    erp.partners.mockResolvedValue({
-      data: { items: [] },
-      ok: true,
-      status: 200,
-    });
     const res = await lookup.main({ ...PARAMS, company: "77" });
     expect(res.statusCode).toBe(200);
     expect(res.body.found).toStrictEqual({ commerce: false, erp: false });

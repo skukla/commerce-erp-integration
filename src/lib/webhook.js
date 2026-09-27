@@ -38,24 +38,6 @@ export function noop() {
 }
 
 /**
- * The partner hints a cart or order carries: the customer group (a company's shared
- * catalog group), the email domain, the customer id. The ERP resolves them in order.
- * A cart's totals payload carries all three too (measured on Bodea, 2026-09-27).
- */
-export function partnerHints(source = {}) {
-  const email = source.customer_email || source.customer?.email || null;
-  return {
-    customerGroupId:
-      source.customer_group_id === undefined ||
-      source.customer_group_id === null
-        ? undefined
-        : String(source.customer_group_id),
-    customerId: source.customer_id ?? null,
-    email,
-  };
-}
-
-/**
  * Who a cart belongs to, in ids only (safe to log): the cart, the customer, their group, and the
  * B2B company Commerce records on the cart (`extension_attributes.company_id` on a stored cart;
  * logged to learn whether the totals payload carries it too), with the extension fields' names.
@@ -72,9 +54,11 @@ export function cartBuyer(quote = {}) {
 }
 
 /**
- * Who the ERP should price a cart for: the partner hints, plus the company Commerce names on the
- * cart and the ERP customer the key map pairs with it. The ERP matches its own number first,
- * then the company, then the hints. A key map that cannot be read sends no number.
+ * Who the ERP should price a cart for: the ERP customer the key map pairs with the company
+ * Commerce names on the cart (its totals payload carries it, measured on Bodea 2026-09-27).
+ * Nothing of Commerce's goes: the ERP holds no Commerce id (contract version 3). A cart with
+ * no company, an unpaired company, or a key map that cannot be read names no customer, and
+ * the ERP prices for its walk-in customer.
  * @param {object} quote the payload's quote
  * @param {(companyId: string) => Promise<string|null>} erpCustomerOf the key map's lookup
  */
@@ -84,11 +68,7 @@ export async function erpBuyer(quote = {}, erpCustomerOf = async () => null) {
   const partnerId = company
     ? await erpCustomerOf(company).catch(() => null)
     : null;
-  return {
-    ...partnerHints(quote),
-    ...(company ? { commerceCompanyId: company } : {}),
-    ...(partnerId ? { partnerId } : {}),
-  };
+  return partnerId ? { partnerId } : {};
 }
 
 /** Cart lines from a totals-collector payload. */

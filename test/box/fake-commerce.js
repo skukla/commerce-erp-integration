@@ -43,7 +43,9 @@ function seed() {
         },
       ],
     ]),
-    customers: new Map(),
+    // The order's buyer: a user of company 7, as a real B2B order has (the ERP now knows
+    // the buyer only through the integration's key map, never by email or group).
+    customers: new Map([[3, { company_id: 7, id: 3 }]]),
     invoices: [],
     nextId: 900,
     orders: new Map([
@@ -55,6 +57,7 @@ function seed() {
           created_at: "2026-09-24 10:00:00",
           customer_email: "buyer@northwind.example",
           customer_group_id: 2,
+          customer_id: 3,
           entity_id: 55,
           ext_order_id: null,
           increment_id: "000000042",

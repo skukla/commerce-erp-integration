@@ -59,7 +59,7 @@ const companyCart = (companyId) => ({
 });
 
 describe("Given a cart whose company Commerce names", () => {
-  test("Then both checks send the ERP customer the key map pairs with it, and the company as a fallback", async () => {
+  test("Then both checks send the ERP customer the key map pairs with it, and nothing of Commerce's", async () => {
     erp.quote.mockResolvedValue({
       data: { lines: [], partnerId: "C000200" },
       ok: true,
@@ -68,20 +68,19 @@ describe("Given a cart whose company Commerce names", () => {
     await itemPrices.main(companyCart(20));
     await discounts.main(companyCart(20));
     for (const call of erp.quote.mock.calls) {
-      expect(call[1]).toMatchObject({
-        commerceCompanyId: "20",
+      expect(call[1]).toEqual({
+        lines: [{ qty: 2, sku: "A" }],
         partnerId: "C000200",
       });
     }
     expect(erp.quote).toHaveBeenCalledTimes(2);
   });
-  test("Then a company missing from the key map sends the company alone, for the ERP to match", async () => {
+  test("Then a company missing from the key map names no customer, so the ERP prices for its walk-in customer", async () => {
     erp.quote.mockResolvedValue({ data: { lines: [] }, ok: true, status: 200 });
     await itemPrices.main(companyCart(21));
-    expect(erp.quote.mock.calls[0][1]).toMatchObject({
-      commerceCompanyId: "21",
+    expect(erp.quote.mock.calls[0][1]).toEqual({
+      lines: [{ qty: 2, sku: "A" }],
     });
-    expect(erp.quote.mock.calls[0][1]).not.toHaveProperty("partnerId");
   });
 });
 
@@ -95,12 +94,7 @@ describe("Given the item-prices webhook", () => {
     const res = await itemPrices.main(cart);
     expect(erp.quote).toHaveBeenCalledWith(
       cart,
-      {
-        customerGroupId: "4",
-        customerId: null,
-        email: null,
-        lines: [{ qty: 2, sku: "A" }],
-      },
+      { lines: [{ qty: 2, sku: "A" }] },
       6000,
     );
     expect(res.body).toEqual([

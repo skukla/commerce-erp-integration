@@ -58,19 +58,18 @@ The list: customer, name, sales organisations, payment terms, credit limit, **Ex
 **Available**, blocking. The walk-in account (P000000) has no credit relationship and
 shows dashes.
 
-The customer document: identity (customer, name, partner type Sold-to, the Commerce
-company id, customer group, email domain, the sales organisations it is Sold-to in,
-payment terms, website), Legal identity (legal name, VAT / tax id, reseller id, legal
+The customer document: identity (customer, name, partner type Sold-to, the sales
+organisations it is Sold-to in, payment terms), Legal identity (legal name, VAT / tax id, reseller id, legal
 address), Credit (limit, exposure, available, credit status, blocking, orders on credit
 hold, and a meter of how much of the limit is used), Open items (the uninvoiced orders the
 exposure is made of, adding up to it; switch to History for every order), Pricing (the
 rules agreed with this customer).
 
-Mirrored: the company's name and id, customer group, legal identity, the website its admin
-belongs to, the credit limit (from company credit), whether it is blocked (Commerce's
+Filled by Demo Builder: the company's name, legal identity, the credit limit (from company credit), whether it is blocked (Commerce's
 boolean arrives as the ERP's "blocked for all business"). The ERP's own: payment terms,
 the four blocking levels, exposure and available (never stored), the sales-organisation
-memberships (widened by every order the customer places).
+memberships (widened by every order the customer places). The ERP holds no Commerce id: which
+Commerce company a customer is lives in the integration's key map.
 
 What to say: a credit limit with nothing beside it says nothing. Exposure is what this
 customer still owes for; the list under it is that figure.

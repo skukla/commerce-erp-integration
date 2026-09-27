@@ -29,15 +29,7 @@ export function partnersFrom(
         : siteById.get(Number(c.websiteId));
     return {
       blocked: Boolean(c.blocked),
-      commerceCompanyId: String(c.id),
       creditLimit: c.creditLimit ?? undefined,
-      customerGroupId:
-        c.customerGroupId === undefined || c.customerGroupId === null
-          ? undefined
-          : String(c.customerGroupId),
-      emailDomain: c.email?.includes("@")
-        ? c.email.split("@")[1].toLowerCase()
-        : undefined,
       id: `C${c.id}`,
       legalAddress: c.legalAddress ?? null,
       legalName: c.legalName ?? null,
@@ -45,7 +37,6 @@ export function partnersFrom(
       resellerId: c.resellerId ?? null,
       salesOrgs: site ? [salesOrgByWebsite.get(site.id) ?? "1000"] : [],
       vatTaxId: c.vatTaxId ?? null,
-      website: site ? { code: site.code, id: site.id } : null,
     };
   });
 }

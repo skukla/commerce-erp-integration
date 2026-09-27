@@ -57,25 +57,19 @@ async function lookupSku(params, sku) {
 }
 
 /**
- * The ERP customer row for a Commerce company: the key map's pair, else (a company the map
- * does not hold yet) the ERP row still carrying that Commerce id.
+ * The ERP customer for a Commerce company: the key map's pair, else none (the ERP holds no
+ * Commerce id to search by, contract version 3).
  */
-async function erpCustomerRow(params, companyId) {
+async function erpCustomerRow(companyId) {
   const paired = await erpCustomerOf(companyId);
-  if (paired) {
-    return { id: paired };
-  }
-  const rows =
-    erpRecord(await erp.partners(params, ERP_TIMEOUT_MS), "partners")?.items ??
-    [];
-  return rows.find((p) => String(p.commerceCompanyId) === companyId) ?? null;
+  return paired ? { id: paired } : null;
 }
 
 async function lookupCompany(params, companyId) {
   const [commerce, credit, match] = await Promise.all([
     getCompany(params, companyId).catch(notFoundAsNull),
     getCompanyCredit(params, companyId).catch(notFoundAsNull),
-    erpCustomerRow(params, companyId),
+    erpCustomerRow(companyId),
   ]);
   // The document carries the credit figures the row does not.
   const document = match

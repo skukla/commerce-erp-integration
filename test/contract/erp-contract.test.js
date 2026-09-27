@@ -30,6 +30,14 @@ function schemaOf(action) {
   }
 }
 
+/** The Commerce ids the ERP stopped holding at contract version 3. */
+const COMMERCE_IDS = [
+  "commerceCompanyId",
+  "customerGroupId",
+  "emailDomain",
+  "website",
+];
+
 describe("Given the ERP contract", () => {
   test("Then every ERP event this app subscribes to is one the ERP raises, and every raised event has a subscriber", () => {
     const subscribed = externalEvents.map((e) => e.name).sort();
@@ -72,17 +80,14 @@ describe("Given the ERP contract", () => {
     // Demo Builder fills the ERP's products (its erpFillRows.ts); this app imports only a
     // company its event names (lib/company-sync.js) and a product's stock at every source.
     const partners = readFileSync("src/lib/company-sync.js", "utf8");
-    for (const key of [
-      "commerceCompanyId",
-      "customerGroupId",
-      "emailDomain",
-      "creditLimit",
-      "blocked",
-      "id",
-      "name",
-    ]) {
+    for (const key of ["creditLimit", "blocked", "id", "name", "salesOrgs"]) {
       expect(contract.import.partners).toContain(key);
       expect(partners).toContain(`${key}:`);
+    }
+    // Contract version 3: the ERP holds no Commerce id; the key map pairs them here.
+    for (const key of COMMERCE_IDS) {
+      expect(contract.import.partners).not.toContain(key);
+      expect(partners).not.toContain(`${key}:`);
     }
     const commerce = readFileSync("src/lib/commerce.js", "utf8");
     for (const key of contract.import.warehouse) {
@@ -105,16 +110,14 @@ describe("Given the ERP contract", () => {
       expect(contract.order.request).toContain(key);
       expect(orderSync).toContain(`${key}:`);
     }
-    // the partner hints are spread in from partnerHints() in lib/webhook.js, which names
-    // them in shorthand
-    const webhook = readFileSync("src/lib/webhook.js", "utf8");
-    expect(orderSync).toContain("...partnerHints(order)");
-    for (const key of ["customerGroupId", "customerId", "email"]) {
-      expect(webhook).toMatch(new RegExp(`\\b${key}[,:]`, "u"));
+    // The customer is named by the ERP's own number from the key map, and nothing else.
+    expect(contract.order.request).toContain("partnerId");
+    expect(contract.quote.request).toContain("partnerId");
+    expect(orderSync).toContain("partnerId");
+    for (const key of [...COMMERCE_IDS, "email"]) {
+      expect(contract.order.request).not.toContain(key);
+      expect(contract.quote.request).not.toContain(key);
     }
-    expect(contract.order.request).toEqual(
-      expect.arrayContaining(["customerGroupId", "email"]),
-    );
     for (const key of contract.order.requestLine) {
       expect(orderSync).toContain(`${key}:`);
     }
