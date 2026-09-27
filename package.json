@@ -2,7 +2,7 @@
   "name": "commerce-erp-integration",
   "version": "0.1.0",
   "private": true,
-  "description": "Adobe Commerce integration to a demo ERP (skukla/demo-erp), built on the Commerce integration starter kit: orders to the ERP with the ERP number written back, contract pricing at cart time, ERP-owned prices, stock, credit limits and order statuses flowing back, and a reset that wipes and re-mirrors the ERP.",
+  "description": "Adobe Commerce integration to a demo ERP (skukla/demo-erp), built on the Commerce integration starter kit: orders to the ERP with the ERP number written back, contract pricing at cart time, ERP-owned prices, stock, credit limits and order statuses flowing back, and a detach that undoes what it wrote into Commerce. Demo Builder fills the ERP from Commerce.",
   "repository": {
     "type": "git",
     "url": "https://github.com/skukla/commerce-erp-integration.git"

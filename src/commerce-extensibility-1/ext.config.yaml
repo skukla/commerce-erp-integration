@@ -63,19 +63,6 @@ runtimeManifest:
       license: Apache-2.0
       actions:
         $include: ./actions/erp/actions.config.yaml
-      # Commerce raises no event for companies, nor for a source item's quantity (its legacy
-      # stock event is the default source only), so every minute both are refreshed from it.
-      # The rule starts the non-web worker: a timer carries no Adobe sign-in, and the web
-      # action refresh-partners requires one.
-      triggers:
-        erp-refresh-timer:
-          feed: /whisk.system/alarms/interval
-          inputs:
-            minutes: 1
-      rules:
-        erp-refresh-on-timer:
-          trigger: erp-refresh-timer
-          action: refresh-job
 
     # This package definition is auto-generated. Do not remove or manually edit.
     app-management:

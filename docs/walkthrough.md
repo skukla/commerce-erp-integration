@@ -11,8 +11,8 @@ look is reproducible with the stand-in records. Against a deployed pair the same
 open the same screens with real records. Written 2026-09-24 from the code and the preview;
 re-check against a deployed pair before a first showing.
 
-Two words used throughout: **mirrored** means the value came from Commerce and every sync
-overwrites it; **the ERP's own** means the ERP decides it and Commerce follows, or never
+Two words used throughout: **mirrored** means the value came from Commerce and every fill or
+Commerce event overwrites it; **the ERP's own** means the ERP decides it and Commerce follows, or never
 hears of it.
 
 ---
@@ -202,8 +202,8 @@ the warehouses the ERP knows.
 
 The credit limit follows the ERP's; Status reads Blocked when the ERP blocks the customer
 at any level (shipping, invoicing or all business: Commerce has one boolean) and Active
-again when the ERP opens it. A change made here reaches the ERP within
-the minute. The company's admin user's website is the website whose sales organisation the
+again when the ERP opens it. A change made here reaches the ERP at once,
+by the company save event. The company's admin user's website is the website whose sales organisation the
 ERP's customer is Sold-to in.
 
 ### System → the ERP's name: the integration's Admin page
@@ -216,11 +216,10 @@ switches, the ERP's live figures, and what has crossed for that card in each dir
 The Buying organization and Sellable item cards look up one company id or SKU as both
 systems hold it.
 
-**Status & sync**: whether the ERP is reachable, its counts, Refresh partners, Sync records,
-Reset (undoes every write the integration made onto Commerce and rebuilds the ERP from
-Commerce), Follow an order (one order's whole life across both systems and the integration
+**Status & sync**: whether the ERP is reachable, its counts, Follow an order (one order's whole life across both systems and the integration
 between them), and What crossed (every order sent and every ERP event applied, with Retry
-on anything that did not get through).
+on anything that did not get through). Filling and resetting the ERP moved to Demo Builder
+(its Load demo data and Reset records); this page no longer has those buttons.
 
 ---
 

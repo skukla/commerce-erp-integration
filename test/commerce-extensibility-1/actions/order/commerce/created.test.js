@@ -11,7 +11,6 @@ vi.mock("#lib/commerce", () => ({
   productAttributes: vi.fn(async () => ({})),
   setExtOrderId: vi.fn(),
   sourceCodesOf: vi.fn(async () => []),
-  storeConfigs: vi.fn(async () => new Map()),
 }));
 
 import {

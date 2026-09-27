@@ -1,39 +1,19 @@
 /*
- * How the integration stands: what the ERP holds, one record as both systems hold it, and
- * the controls that fill or reset the ERP. The connection map from the redesign replaces the
- * counts in its second slice; filling and reset move to Demo Builder (AB-26y).
+ * How the integration stands: what the ERP holds, and one record as both systems hold it.
+ * The connection map from the redesign replaces the counts in its second slice. Filling and
+ * resetting the ERP are Demo Builder's (AB-26y): the integration no longer copies Commerce
+ * into the ERP, so this page has no Sync or Reset buttons.
  */
-import { Button, Heading, Text } from "@react-spectrum/s2";
-import { useCallback } from "react";
+import { Heading, Text } from "@react-spectrum/s2";
 
 import { Lookup } from "#web/components/lookup.jsx";
 import { Stat } from "#web/components/stat.jsx";
-import { isSyncActive, SyncProgress } from "#web/components/sync-progress.jsx";
 
 const PRODUCT = { kind: "sku", label: "SKU" };
 const COMPANY = { kind: "company", label: "Commerce company id" };
 
-export function OverviewSection({
-  api,
-  busy,
-  erpName,
-  log,
-  onError,
-  run,
-  status,
-}) {
+export function OverviewSection({ api, erpName, onError, status }) {
   const erp = status?.erp ?? {};
-  const sync = erp.sync ?? null;
-  const onRefreshPartners = useCallback(
-    () => run("Refresh partners", api.refreshPartners),
-    [api, run],
-  );
-  const onSyncRecords = useCallback(
-    () => run("Sync records", api.syncRecords),
-    [api, run],
-  );
-  const onReset = useCallback(() => run("Reset", api.reset), [api, run]);
-
   return (
     <section aria-labelledby="erp-overview-heading" className="erp-section">
       <Heading id="erp-overview-heading" level={2}>
@@ -71,23 +51,6 @@ export function OverviewSection({
           onError={onError}
         />
       </div>
-      <Heading level={3}>Records</Heading>
-      <div className="erp-actions">
-        <Button isDisabled={busy} onPress={onRefreshPartners} variant="primary">
-          Refresh partners from Commerce
-        </Button>
-        <Button
-          isDisabled={busy || isSyncActive(sync)}
-          onPress={onSyncRecords}
-          variant="secondary">
-          Sync records to {erpName}
-        </Button>
-        <Button isDisabled={busy} onPress={onReset} variant="negative">
-          Reset ERP records
-        </Button>
-      </div>
-      <SyncProgress erpName={erpName} sync={sync} />
-      {log.length > 0 && <div className="erp-log">{log.join("\n")}</div>}
     </section>
   );
 }

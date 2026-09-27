@@ -4,7 +4,6 @@ import {
   ownsSku,
   salesOrgOf,
   splitExtOrderId,
-  structureFrom,
   withPrefix,
 } from "#lib/structure";
 
@@ -144,57 +143,5 @@ describe("Given which products belong to this ERP (rule M3)", () => {
         readers,
       ),
     ).toBe(false);
-  });
-});
-
-describe("Given the structure block the mirror sends", () => {
-  test("Then each website carries its sales organisation from its setting, its currency and country from the store config, and nulls for what REST does not give", () => {
-    const block = structureFrom(
-      [
-        { code: "base", id: 1, name: "Main Website" },
-        { code: "eu", id: 2, name: "Europe" },
-      ],
-      new Map([
-        [1, { currency: "USD", locale: "en_US" }],
-        [2, { currency: "EUR", locale: "de_DE" }],
-      ]),
-      new Map([
-        [
-          2,
-          {
-            structure_sales_org: "2000",
-            structure_sales_org_name: "Online EU",
-          },
-        ],
-      ]),
-    );
-    expect(block).toEqual({
-      websites: [
-        {
-          code: "base",
-          name: "Main Website",
-          salesOrg: "1000",
-          salesOrgName: null,
-          storeInfo: {
-            address: null,
-            countryId: "US",
-            currency: "USD",
-            vatNumber: null,
-          },
-        },
-        {
-          code: "eu",
-          name: "Europe",
-          salesOrg: "2000",
-          salesOrgName: "Online EU",
-          storeInfo: {
-            address: null,
-            countryId: "DE",
-            currency: "EUR",
-            vatNumber: null,
-          },
-        },
-      ],
-    });
   });
 });

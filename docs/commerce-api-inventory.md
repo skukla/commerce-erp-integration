@@ -16,16 +16,16 @@ row says otherwise.
 
 | Call | Where | Why | Status |
 |---|---|---|---|
-| `GET products` (searchCriteria pages; `entity_id` filter for one) | `lib/commerce.js listProducts`, `skuForProductId` | mirror; stock event → SKU | used today |
-| `GET products/attributes` (`attribute_id in`) | `listVariantAttributes` | variant labels | used today |
+| `GET products` (`entity_id` filter) | `lib/commerce.js skuForProductId`, `skusForProductIds` | stock event → SKU; move stock → SKUs | used today |
+| `GET products` (pages), `GET products/attributes`, `GET store/storeConfigs` | removed from this app 2026-09-27 | the ERP fill | Demo Builder makes these reads now (its `erpFillReaders.ts`) |
 | `PUT products/{sku}` (`product.name`, `product.price`) | `setProductName`, `setProductPrice`; kit `updateProduct` | ERP price/name → Commerce; revert | used today |
 | `POST products`, `DELETE products/{sku}` | kit `createProduct`, `deleteProduct` | kit scaffolding; not called by our flows | present, unused |
-| `GET inventory/source-items` | `listStock` | mirror stock per source | used today |
+| `GET inventory/source-items` (`sku` filter) | `warehousesOfSku`, `sourceCodesOf` | a product's stock at every source, sent on the product and stock events and after a move | used today |
 | `POST inventory/source-items` | `setStock`; kit stock client | ERP stock → Commerce; revert | used today |
 | `GET inventory/sources` (404-tolerant) | `listSources` | source names → warehouse names | used today |
-| `GET company` (pages), `GET company/{id}` | `listCompanies`, `getCompany` | mirror partners; block handler | used today |
+| `GET company/{id}` | `readCompanyRow`, `getCompany` | company event → partner; block handler | used today |
 | `PUT company/{id}` (`company.status`) | `setCompanyStatus` | block/unblock; revert | used today |
-| `GET companyCredits/company/{id}` | `listCompanies`, `getCompanyCredit` | credit limit | used today |
+| `GET companyCredits/company/{id}` | `readCompanyRow`, `getCompanyCredit` | credit limit | used today |
 | `PUT companyCredits/{creditId}` | `setCompanyCreditLimit` | ERP limit → Commerce; revert | used today |
 | `GET orders` (`increment_id` filter), `GET orders/{id}` | `getOrderByIncrementId`, kit `getOrder` | order save event → entity id | used today |
 | `POST orders` (sparse: `entity.entity_id` + `ext_order_id`) | `setExtOrderId`, `clearExtOrderId` | ERP number write-back; clear on detach | used today |
@@ -42,11 +42,11 @@ row says otherwise.
 | `POST orders/{id}/hold`, `POST orders/{id}/unhold` | AB-26f | credit hold ↔ Commerce On Hold; detach unholds | **proven live 2026-09-27**: both answer `true`; the ERP's hold put order 3000000013 On Hold and its release took it off |
 | `GET shipments/{id}` or the shipment event payload's items (`order_item_id`, `qty`, `extension_attributes.source_code`) | AB-26g | Commerce-side shipment → ERP shipment | **proven live 2026-09-27** (a partial shipment and the rest reached the ERP); `shipments-order-11.json` |
 | `GET invoices/{id}` or the invoice event payload | AB-26g | Commerce-side invoice → ERP invoice | **proven live 2026-09-27**; `invoices-order-11.json` |
-| `GET store/websites`, `GET store/storeGroups`, `GET store/storeViews`, `GET store/storeConfigs` | AB-26j | website list; `store_id` → website; currency per website | websites and store configs captured (`websites.json`, `store-configs.json`, read by `listWebsites` and `storeConfigs`) |
+| `GET store/websites`, `GET store/storeGroups`, `GET store/storeViews`, `GET store/storeConfigs` | AB-26j | website list; `store_id` → website; currency per website | websites captured (`websites.json`, read by `listWebsites`); store configs are read by Demo Builder's fill now |
 | Store Information and shipping Origin config values (address, VAT) per website | AB-26j | company code identity on the Organisation card | **open**: no REST endpoint is documented for reading `general/store_information/*`; candidates are the store configs payload or a config read through App Management — decide after a live look |
-| `GET company/{id}` fields `legal_name`, `vat_tax_id`, `reseller_id`, `street`, `city`, `region`, `postcode`, `country_id`, `telephone`, `super_user_id` | AB-26j | the buyer's legal identity | captured: `companies-page.json`, `company-21.json` (read by `listCompanies`) |
+| `GET company/{id}` fields `legal_name`, `vat_tax_id`, `reseller_id`, `street`, `city`, `region`, `postcode`, `country_id`, `telephone`, `super_user_id` | AB-26j | the buyer's legal identity | captured: `company-21.json` (read by `readCompanyRow`) |
 | `GET customers/{id}` → `website_id` | AB-26j | the company admin's website → sales organisation | captured: `customer-44.json` (`website_id` and `extension_attributes.company_attributes.company_id`) |
-| MSI source-item change event, or `GET inventory/source-items` for changed SKUs | AB-26h | per-source stock changes → ERP | **settled 2026-09-27**: no event fired for a quantity written through REST, not even the legacy stock one; the minute refresh carried it to the ERP within the minute (`source-items-accessmesh.json`) |
+| MSI source-item change event, or `GET inventory/source-items` for changed SKUs | AB-26h | per-source stock changes → ERP | **settled 2026-09-27**: no event fired for a quantity written through REST, not even the legacy stock one; the minute refresh that carried it was removed 2026-09-27; a move between the ERP's warehouses goes through this app's Move stock mass action, which tells the ERP (`source-items-accessmesh.json`) |
 | `POST order/{id}/refund` or `POST orders/{id}/refund` (credit memo) | AB-26r | credit memo | to validate |
 | `GET transactions` / invoice `state` (paid) | AB-26s | payment captured → ERP incoming payment | to validate |
 | company credit balance operations (increase / decrease / reimburse) | AB-26s | ERP payment → company balance | to validate — exact paths to be read from the live instance's REST schema, never typed from memory |
@@ -64,7 +64,7 @@ row says otherwise.
 | order hold/unhold/cancel: the order save event's non-new saves | yes | AB-26g | **proven live 2026-09-27**: hold, unhold and cancel in Commerce each reached the ERP |
 | `observer.sales_order_creditmemo_save_after` | no | AB-26r | to validate |
 | `observer.catalog_product_delete_commit_after` | yes | AB-26h (G1) | **proven live 2026-09-27**: a product deleted in Commerce left the ERP |
-| company save event (B2B) | no | — (the minute refresh covers it) | to validate whether one exists; would replace polling |
+| `observer.company_save_commit_after` (B2B) | yes | — | in Commerce's supported event list (`GET eventing/supportedList`); replaces the removed minute refresh; not yet proven live |
 
 Changing a subscription after install needs an uninstall + install of the app in Commerce
 (README). Every "to validate" event is therefore proved in the scratch workspace first.
@@ -86,7 +86,7 @@ Changing a subscription after install needs an uninstall + install of the app in
 | `businessConfig` schema → App Management form, per-scope values (`@adobe/aio-commerce-lib-config`) | yes (five booleans) | AB-26j adds `text`/`list` fields | text-type rendering **to validate** (a person looks at the form once) |
 | Order grid columns, order view buttons, mass actions (Admin UI SDK v2 order extension points) | no | AB-26m | to validate on the target backend |
 
-## The ERP side — the mirror contract
+## The ERP side — the contract
 
 `contract/erp-contract.json` (vendored from `skukla/demo-erp`) is at `contractVersion` 2
 since 2026-09-24, which added the business-structure fields. It still lists routes,

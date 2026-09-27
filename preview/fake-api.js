@@ -277,8 +277,6 @@ export function fakeApi() {
           : HISTORY,
       }),
     lookup: (query) => Promise.resolve(fakeLookup(query)),
-    refreshPartners: () => Promise.resolve({ partners: 5 }),
-    reset: () => Promise.resolve({ wiped: { products: 182 } }),
     retry: () => Promise.resolve({ outcome: "sent" }),
     saveSettings: (scope, changes) => {
       for (const [name, value] of Object.entries(changes)) {
@@ -320,11 +318,9 @@ export function fakeApi() {
               { code: "east", commerceName: "East DC", name: "East DC" },
             ],
           },
-          sync: null,
         },
         ledger: { entries: 2 },
       }),
-    syncRecords: () => Promise.resolve({ accepted: true }),
     trace: () => Promise.resolve({ trace: TRACE }),
   };
 }

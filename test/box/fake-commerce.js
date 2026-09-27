@@ -252,6 +252,13 @@ export function createFakeCommerce() {
       record("unhold", { orderId: String(orderId) });
       return true;
     },
+    warehousesOfSku: async (_p, sku) =>
+      [...db.sourceItems]
+        .filter(([key]) => key.startsWith(`${sku}|`))
+        .map(([key, quantity]) => {
+          const [, code] = key.split("|");
+          return { code, name: db.sources.get(code) || code, quantity };
+        }),
   };
 
   const orderClient = {
@@ -400,6 +407,16 @@ export function createFakeCommerce() {
         type: "observer.sales_order_shipment_save_after",
       };
     },
+    /** Commerce's legacy stock item save: the default source's quantity, by product id. */
+    stockItemSaved: (sku) => ({
+      data: {
+        value: {
+          product_id: db.products.get(sku).id,
+          qty: db.sourceItems.get(`${sku}|default`) ?? 0,
+        },
+      },
+      type: "observer.cataloginventory_stock_item_save_commit_after",
+    }),
   };
 
   return {

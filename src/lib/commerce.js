@@ -90,85 +90,6 @@ export async function readAllPages(client, path, extra = {}) {
   return items;
 }
 
-/** Products, minimal fields. */
-export async function listProducts(params) {
-  const client = await commerceClient(params);
-  const items = await readAllPages(client, "products", {
-    "searchCriteria[filter_groups][0][filters][0][field]": "status",
-    "searchCriteria[filter_groups][0][filters][0][value]": "1",
-  });
-  return items.map((p) => ({
-    // A configurable names the attributes its variants differ on, and its variants
-    // by product id (read from the store 2026-09-16; the children endpoint answers
-    // an empty list on this platform, so the links are what the mirror uses).
-    childIds: p.extension_attributes?.configurable_product_links ?? [],
-    customAttributes: Object.fromEntries(
-      (p.custom_attributes ?? []).map((a) => [a.attribute_code, a.value]),
-    ),
-    id: p.id,
-    listPrice: Number(p.price ?? 0),
-    name: p.name,
-    optionAttributeIds: (
-      p.extension_attributes?.configurable_product_options ?? []
-    ).map((o) => String(o.attribute_id)),
-    sku: p.sku,
-    typeId: p.type_id,
-  }));
-}
-
-/**
- * The attributes configurable products vary on, by id: code, label, and option
- * labels by value. Asked only for the ids the catalog uses.
- * @param {string[]} ids attribute ids
- * @returns {Promise<Map<string, {code: string, label: string, options: Map<string, string>}>>}
- */
-export async function listVariantAttributes(params, ids) {
-  if (ids.length === 0) {
-    return new Map();
-  }
-  const client = await commerceClient(params);
-  const items = await readAllPages(client, "products/attributes", {
-    "searchCriteria[filter_groups][0][filters][0][condition_type]": "in",
-    "searchCriteria[filter_groups][0][filters][0][field]": "attribute_id",
-    "searchCriteria[filter_groups][0][filters][0][value]": ids.join(","),
-  });
-  return new Map(
-    items.map((a) => [
-      String(a.attribute_id),
-      {
-        code: a.attribute_code,
-        label: a.default_frontend_label || a.attribute_code,
-        options: new Map(
-          (a.options ?? []).map((o) => [
-            String(o.value),
-            String(o.label).trim(),
-          ]),
-        ),
-      },
-    ]),
-  );
-}
-
-/**
- * Stock per SKU, per inventory source (Commerce multi-source inventory): each SKU maps
- * to `[{ code, quantity }]`, one row per source it is assigned to. The ERP calls a
- * source a warehouse and edits each one on its own.
- */
-export async function listStock(params) {
-  const client = await commerceClient(params);
-  const items = await readAllPages(client, "inventory/source-items");
-  const bySku = new Map();
-  for (const item of items) {
-    const rows = bySku.get(item.sku) ?? [];
-    rows.push({
-      code: item.source_code,
-      quantity: Math.max(0, Math.round(Number(item.quantity ?? 0))),
-    });
-    bySku.set(item.sku, rows);
-  }
-  return bySku;
-}
-
 /**
  * Inventory source names by code. A store without the sources API answers an empty
  * map, and each warehouse is then named by its code.
@@ -214,7 +135,7 @@ async function adminWebsiteOf(client, company) {
   }
 }
 
-/** One company as the mirror sees it: credit, legal identity (read 2026-09-24), admin website. */
+/** One company as the ERP needs it: credit, legal identity (read 2026-09-24), admin website. */
 async function companyRow(client, company) {
   const [credit, websiteId] = await Promise.all([
     creditOf(client, company.id),
@@ -237,31 +158,11 @@ async function companyRow(client, company) {
   };
 }
 
-/** One company as the mirror sees it, read by id (a company event carries only the id to rely on). */
+/** One company as the ERP needs it, read by id (a company event carries only the id to rely on). */
 export async function readCompanyRow(params, companyId) {
   const client = await commerceClient(params);
   const company = await client.get(`company/${Number(companyId)}`).json();
   return companyRow(client, company);
-}
-
-/** B2B companies with their credit records; an instance without B2B answers an empty list. */
-export async function listCompanies(params) {
-  const client = await commerceClient(params);
-  let companies;
-  try {
-    companies = await readAllPages(client, "company");
-  } catch (error) {
-    if (error.response?.status === 404) {
-      return [];
-    }
-    throw error;
-  }
-  const out = [];
-  for (const company of companies) {
-    // biome-ignore lint/performance/noAwaitInLoops: a few companies, each with two reads, in order
-    out.push(await companyRow(client, company));
-  }
-  return out;
 }
 
 /** The company's legal address from the company object's own fields, or null when it has none. */
@@ -301,28 +202,6 @@ export async function listWebsites(params) {
   return (sites ?? [])
     .filter((site) => site.code !== "admin")
     .map((site) => ({ code: site.code, id: Number(site.id), name: site.name }));
-}
-
-/**
- * What the store configuration says per website: its base currency and locale
- * (`GET store/storeConfigs`, one row per store view; the first view of a website speaks
- * for it). Store Information (address, VAT) is NOT here, nor anywhere over REST.
- * @returns {Promise<Map<number, { currency: string|null, locale: string|null }>>}
- */
-export async function storeConfigs(params) {
-  const client = await commerceClient(params);
-  const configs = await client.get("store/storeConfigs").json();
-  const byWebsite = new Map();
-  for (const config of configs ?? []) {
-    const websiteId = Number(config.website_id);
-    if (!byWebsite.has(websiteId)) {
-      byWebsite.set(websiteId, {
-        currency: config.base_currency_code ?? null,
-        locale: config.locale ?? null,
-      });
-    }
-  }
-  return byWebsite;
 }
 
 /** The inventory sources one SKU is assigned to (for the ownership check on an event). */

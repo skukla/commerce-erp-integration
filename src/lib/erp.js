@@ -178,14 +178,5 @@ export const erp = {
       path: "/quote",
       timeoutMs,
     }),
-  // One step of a sync, for the ERP's sync record (contract `sync.status`).
-  reportSync: (params, step) =>
-    erpRequest(params, "admin", { body: step, method: "POST", path: "/sync" }),
   settings: (params) => erpRequest(params, "settings"),
-  wipe: (params) =>
-    erpRequest(params, "admin", {
-      method: "POST",
-      path: "/wipe",
-      timeoutMs: 60_000,
-    }),
 };

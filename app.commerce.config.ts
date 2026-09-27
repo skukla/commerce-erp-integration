@@ -447,7 +447,7 @@ export default defineConfig({
     // version with every change to what this file registers, or the change never reaches
     // Commerce. "auto" runs the plan; the library marks it experimental.
     upgradeMode: "auto",
-    version: "0.8.8",
+    version: "0.8.9",
   },
   webhooks: [
     {

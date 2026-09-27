@@ -20,7 +20,6 @@ const FOLDERS = {
   "stock-backoffice": "stock/external",
 };
 const ERP_ROUTE_CALL = /erpRequest\(params, "([a-z]+)"/gu;
-const SYNC_STEP_VALUE = /(?:state|phase): "([a-z]+)"/gu;
 const externalEvents = manifest.eventing.external.flatMap((p) => p.events);
 
 function schemaOf(action) {
@@ -69,30 +68,10 @@ describe("Given the ERP contract", () => {
     expect(erpClient).not.toContain('"outbox"');
   });
 
-  test("Then the import rows, quote request and order request use the ERP's field names", () => {
-    const mirror = readFileSync("src/lib/mirror.js", "utf8");
-    for (const key of [
-      "sku",
-      "name",
-      "listPrice",
-      "warehouses",
-      "type",
-      "parentSku",
-      "variantAttributes",
-    ]) {
-      expect(contract.import.products).toContain(key);
-      expect(mirror).toContain(`${key}:`);
-    }
-    for (const type of ["simple", "configurable"]) {
-      expect(contract.import.productTypes).toContain(type);
-      expect(mirror).toContain(`"${type}"`);
-    }
-    for (const key of contract.import.variantAttribute) {
-      expect(mirror).toContain(`${key}:`);
-    }
-    for (const key of contract.import.warehouse) {
-      expect(mirror).toContain(`${key}:`);
-    }
+  test("Then the partner and stock imports, and the order request, use the ERP's field names", () => {
+    // Demo Builder fills the ERP's products (its erpFillRows.ts); this app imports only a
+    // company its event names (lib/company-sync.js) and a product's stock at every source.
+    const partners = readFileSync("src/lib/company-sync.js", "utf8");
     for (const key of [
       "commerceCompanyId",
       "customerGroupId",
@@ -103,8 +82,18 @@ describe("Given the ERP contract", () => {
       "name",
     ]) {
       expect(contract.import.partners).toContain(key);
-      expect(mirror).toContain(`${key}:`);
+      expect(partners).toContain(`${key}:`);
     }
+    const commerce = readFileSync("src/lib/commerce.js", "utf8");
+    for (const key of contract.import.warehouse) {
+      expect(commerce).toContain(`${key}:`);
+    }
+    const stockSender = readFileSync(
+      `${ACTIONS}/stock/commerce/updated/sender.js`,
+      "utf8",
+    );
+    expect(contract.import.stock).toEqual(["sku", "warehouses"]);
+    expect(stockSender).toContain("stock: [{ sku, warehouses:");
     const orderSync = readFileSync("src/lib/order-sync.js", "utf8");
     for (const key of [
       "commerceOrderId",
@@ -140,38 +129,5 @@ describe("Given the ERP contract", () => {
       expect(validator).toContain(`data.${key}`);
     }
     expect(readdirSync(`${ACTIONS}/ingestion`)).toContain("webhook");
-  });
-
-  test("Then the ERP's Sync records reaches this app's mirror in background mode", async () => {
-    const { MIRROR_JOB } = await import("#src/erp/mirror/index");
-    expect(contract.sync).toEqual({
-      answers: 202,
-      description: expect.any(String),
-      method: "POST",
-      path: "/api/v1/web/erp/mirror?background=true",
-      status: expect.any(Object),
-    });
-    expect(readdirSync(`${ACTIONS}/erp`)).toEqual(
-      expect.arrayContaining(["mirror", MIRROR_JOB.split("/")[1]]),
-    );
-  });
-
-  test("Then every sync step this app reports is one the ERP records", () => {
-    const { routes, sync } = contract;
-    expect(routes.admin).toContain("POST /sync");
-    const erpClient = readFileSync("src/lib/erp.js", "utf8");
-    expect(erpClient).toContain('path: "/sync"');
-    // The states and phases the mirror sends.
-    const mirrorSource =
-      readFileSync("src/lib/mirror.js", "utf8") +
-      readFileSync("src/lib/mirror-run.js", "utf8") +
-      readFileSync(`${ACTIONS}/erp/mirror/index.js`, "utf8");
-    const sent = new Set(
-      [...mirrorSource.matchAll(SYNC_STEP_VALUE)].map((m) => m[1]),
-    );
-    for (const value of sent) {
-      expect([...sync.status.states, ...sync.status.phases]).toContain(value);
-    }
-    expect(sent.size).toBeGreaterThan(3);
   });
 });

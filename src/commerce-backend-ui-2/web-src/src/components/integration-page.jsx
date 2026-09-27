@@ -51,12 +51,9 @@ function NavItem({ current, onSelect, section }) {
 
 export function IntegrationPage({
   api,
-  busy,
   error,
   initialSection = "overview",
-  log,
   onError,
-  run,
   scopes,
   scopesNote,
   settingsPage,
@@ -99,11 +96,8 @@ export function IntegrationPage({
           {section === "overview" && (
             <OverviewSection
               api={api}
-              busy={busy}
               erpName={erpName}
-              log={log}
               onError={onError}
-              run={run}
               status={status}
             />
           )}

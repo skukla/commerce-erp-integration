@@ -3,7 +3,8 @@
 For the person preparing a demo. Three stories, each building on the one before. Every
 requirement says where in the Commerce Admin it is set, how to prove it over the REST API
 (the same calls the integration makes), and how to undo it. The ERP itself never needs
-preparing: it is rebuilt from Commerce at install and on every Reset.
+preparing: Demo Builder fills it from Commerce when the integration is added and on every
+Reset (Reset records on the ERP's card in Demo Builder; "Reset" below means that).
 
 The API checks below are `GET` calls against `https://<your-instance>/rest/V1/...` with an
 admin bearer token or the integration's own credential. They change nothing. Most are the
@@ -25,7 +26,7 @@ What to have, so there is something to show:
 | Each company that gets its own prices assigned to a shared catalog of its own (one no other company is assigned to; creating a shared catalog creates its customer group) | Catalog → Shared Catalogs → Add Shared Catalog, then Assign Companies | `GET company/{id}` shows a `customer_group_id` no other company has | assign the company back to the default shared catalog |
 | The ERP's own warehouse: an inventory source for it, and a stock for the website that holds it (Commerce's Default Stock takes only the Default Source, so a website sells from another source only through a stock of its own; owner, 2026-09-27; Demo Builder's setup guide checks it) | Stores → Inventory → Sources → Add New Source (for example code `northwind`, Northwind Warehouse, an address); Stores → Inventory → Stocks → Add New Stock: the website as its sales channel, the new source assigned; then Catalog → Products, the website's products, Actions → Move stock between <ERP> warehouses (from Default Source); then save each product once, or the storefront still reads the old stock | `GET inventory/stock-source-links?searchCriteria[pageSize]=200` links the source to a stock whose `GET inventory/stocks` entry names the website; `GET inventory/is-product-salable/<sku>/<stock id>` answers true; the storefront shows the product in stock | move the quantities back to Default Source; delete the stock (the website goes back to Default Stock); Commerce cannot delete a source: disable it |
 | Optional: a status that shows "confirmed in the ERP" on a pending order | Stores → Settings → Order Status → Create New Status (code `erp_confirmed`), then Assign Status to State: state Pending, NOT as default; put the code in the ERP settings' "Order status when the ERP confirms" | the order's Comments History shows the status after the ERP confirms | clear the setting; unassign the status |
-| An order or two placed as a company user | the storefront | `GET orders?searchCriteria[pageSize]=5` | the integration's Reset clears the ERP's number from each order; Commerce cannot delete an order |
+| An order or two placed as a company user | the storefront | `GET orders?searchCriteria[pageSize]=5` | Reset clears the ERP's number from each order; Commerce cannot delete an order |
 
 The customer group matters more than it looks. An order names its buyer's company, so the
 ERP books it to the right account whatever the group. A cart does not: the pricing webhooks
@@ -93,7 +94,7 @@ remain an alternative for a store whose warehouses already map one-to-one onto E
 | On each pair: *Which products belong to this ERP* = Products in the inventory sources named below; *Inventory sources this ERP ships from* = its codes | the pair's Admin screen → Mapping → the Fulfilment source card, scope Default Config | after a Reset, each ERP's Products page holds only its products; `GET health` on each ERP: `counts.products` | set the mode back to All products |
 
 A product stocked in both ERPs' sources belongs to both. A product in neither belongs to
-no ERP and is skipped by both mirrors, with a history entry saying why.
+no ERP and is skipped by both fills, and by both pairs' product and stock events.
 
 ### 3b. Split by a product attribute (the story)
 
@@ -125,9 +126,9 @@ walk: the ERP screen by screen, Commerce from the other side, and how each relat
 
 ## Putting it all back
 
-- **Reset** on either pair's Admin screen undoes every write the integration made onto
-  Commerce (credit limits and blocks it changed, product names, prices and stock the ERP
-  decided, the ERP number on every order) and rebuilds the ERP from Commerce.
+- **Reset records** on the ERP's card in Demo Builder undoes every write the integration made
+  onto Commerce (credit limits and blocks it changed, product names, prices and stock the ERP
+  decided, the ERP number on every order), wipes the ERP and fills it from Commerce again.
 - **Detach**, or removing the integration in Demo Builder, does the first half and leaves
   the ERP alone.
 - The Commerce structure you built (websites, sources, attribute, companies) is yours to

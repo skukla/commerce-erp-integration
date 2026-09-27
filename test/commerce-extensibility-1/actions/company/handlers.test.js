@@ -7,7 +7,6 @@ vi.mock("#lib/commerce", () => ({
   setCompanyCreditLimit: vi.fn(async () => ({})),
   setCompanyStatus: vi.fn(async () => ({})),
   sourceCodesOf: vi.fn(async () => []),
-  storeConfigs: vi.fn(async () => new Map()),
 }));
 vi.mock("#lib/ledger", () => ({ recordCompanyWrite: vi.fn(async () => []) }));
 vi.mock("#src/order/commerce-order-api-client", () => ({

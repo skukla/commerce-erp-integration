@@ -19,14 +19,12 @@ vi.mock("@adobe/aio-commerce-sdk/auth", () => ({
 import {
   customerCompanyId,
   findOrderByIncrementId,
-  listCompanies,
-  listProducts,
   listSources,
-  listStock,
   listWebsites,
+  readCompanyRow,
   sourceCodesOf,
-  storeConfigs,
   unholdIfHeld,
+  warehousesOfSku,
 } from "#lib/commerce";
 
 /** A captured body, as Commerce answered it. */
@@ -62,11 +60,13 @@ afterEach(() => {
 });
 
 describe("Given Commerce's own answers about stock", () => {
-  test("Then stock is read per source from the source-items search", async () => {
-    commerce({ "inventory/source-items": "source-items-accessmesh" });
-    const stock = await listStock({});
-    expect(stock.get("accessmesh")).toEqual([
-      { code: "default", quantity: 994 },
+  test("Then a SKU's stock is read per source from the source-items search, named", async () => {
+    commerce({
+      "inventory/source-items": "source-items-accessmesh",
+      "inventory/sources": "sources",
+    });
+    expect(await warehousesOfSku({}, "accessmesh")).toEqual([
+      { code: "default", name: "Default Source", quantity: 994 },
     ]);
   });
 
@@ -86,13 +86,11 @@ describe("Given Commerce's own answers about stock", () => {
 describe("Given Commerce's own answers about companies", () => {
   test("Then a company's row carries its credit, legal identity and its admin's website", async () => {
     commerce({
-      company: "companies-page",
+      "company/21": "company-21",
       "companyCredits/company/21": "company-credit-21",
       "customers/44": "customer-44",
     });
-    const rows = await listCompanies({});
-    expect(rows.map((row) => row.id)).toEqual([18, 19, 20, 21]);
-    expect(rows.find((row) => row.id === 21)).toEqual({
+    expect(await readCompanyRow({}, 21)).toEqual({
       blocked: false,
       creditId: 21,
       creditLimit: 120_000,
@@ -148,31 +146,5 @@ describe("Given Commerce's own answers about the store", () => {
       { code: "bodea", id: 3, name: "Bodea Website" },
       { code: "evo", id: 4, name: "Evo" },
     ]);
-  });
-
-  test("Then each website's currency and locale come from its store configuration", async () => {
-    commerce({ "store/storeConfigs": "store-configs" });
-    expect((await storeConfigs({})).get(3)).toEqual({
-      currency: "USD",
-      locale: "en_US",
-    });
-  });
-
-  test("Then products map to the fields the mirror sends the ERP", async () => {
-    commerce({ products: "products-page" });
-    const [plan, watch] = await listProducts({});
-    expect(plan).toMatchObject({
-      id: 1,
-      listPrice: 35,
-      sku: "essentials-plan",
-      typeId: "virtual",
-    });
-    expect(watch).toMatchObject({
-      id: 2,
-      listPrice: 743.66,
-      sku: "DigiWristQuantum",
-      typeId: "simple",
-    });
-    expect(watch.name).toEqual(expect.any(String));
   });
 });

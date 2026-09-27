@@ -21,10 +21,10 @@ Commerce order follow.
 | Order → ERP | the order save event (`observer.sales_order_save_commit_after`), as Adobe's integration starter kit does it: a new order is created in the ERP, carrying the sales organisation its website's *Structure* setting names, and the ERP number is written back as `ext_order_id` with the pair's prefix in front (`ACME-0000001042`), with a note on the order. Under an ownership mode other than *All products*, an order with no line this ERP owns is skipped with a history entry saying why. While the ERP cannot take it, the website's *Hold orders while the ERP is offline* setting decides: on, I/O Events delivers again for up to a day; off, the order is not sent | `order-commerce/created` |
 | Contract prices → cart | totals-collector `item_prices` webhook replaces each line's price with the ERP's contract price for the buyer's business partner | `webhook/item-prices` |
 | Discount ceiling → cart | totals-collector `execute` webhook claws back discount below the ERP's maximum-discount ceiling | `webhook/discounts` |
-| Products → ERP | product created/updated and stock events keep the ERP's products in step; companies, and the stock of every inventory source, are refreshed from Commerce every minute | `product-commerce/*`, `stock-commerce/updated`, `erp/refresh-partners` |
+| Products and companies → ERP | product created/updated and stock item events keep the ERP's products in step, each sending the product's stock at every inventory source; a company save sends that company as a business partner. Commerce raises no event for a quantity changed at a source outside the product page (its own Transfer, Import or a REST write), so moving stock between the ERP's warehouses goes through this app's **Move stock** mass action on the product grid, which tells the ERP at once | `product-commerce/*`, `stock-commerce/updated`, `company-commerce/saved`, `erp/move-stock` |
+| Filling the ERP | removed from this app (2026-09-27). Demo Builder fills the ERP from Commerce itself: after the add, inside its Reset records (this app's `erp/detach`, then the ERP's `admin/wipe`, then the fill), and as Load demo data. It asks this app for the resolved settings per website (`erp/settings?websites=`). The mirror, its worker, the reset action and the every-minute partner and stock refresh are gone | Demo Builder |
 | ERP → Commerce | the ERP publishes its events to the ingestion webhook; they are published to Adobe I/O Events and the handlers apply them: price and name → product, stock → source item, credit limit and block → company (ledgered), order status → comment / shipment / invoice / cancel | `ingestion/webhook`, `*-backoffice/*` |
-| Reset | undo what was written onto Commerce (every ledgered write: company credit limits and blocks, and the names, prices and stock the ERP decided; plus the ERP number on every ERP-numbered order) → wipe the ERP → mirror Commerce (products, stock, companies) into it again | `erp/reset` |
-| Detach | the first half of reset alone: undo every ledgered write and clear the ERP numbers, leaving the ERP untouched. Demo Builder runs it before removing the integration | `erp/detach` |
+| Detach | undo what was written onto Commerce (every ledgered write: company credit limits and blocks, and the names, prices and stock the ERP decided; plus the ERP number on every ERP-numbered order), leaving the ERP untouched. Demo Builder runs it first in its Reset records and before removing the integration | `erp/detach` |
 
 **Commerce is the permanent system; the ERP is transient.** In a demo the SC's store is what
 persists and the ERP is rebuilt at will, so everything this integration writes into Commerce
@@ -35,11 +35,10 @@ in order histories, shipments, invoices and cancellations. ORDERS are the stated
 Commerce has no API to delete one, so the ERP's number is cleared from it instead. Any new
 ERP → Commerce write has to answer the same question before it ships: can Commerce undo it,
 and if so, where is it ledgered?
-| Mirror | the import half of reset, run at first install | `erp/mirror` |
 | Settings | per website or store view, kept by App Management's business configuration: send orders, hold orders while offline, a status on confirm, contract prices, discount ceiling; and the **Structure** group below. On the Admin screen each one sits on the card of the entity it joins (the **Mapping** tab, below) | `erp/settings`, `src/lib/settings.js` |
-| Structure | the business-structure mapping, owned by Commerce because the merchant's structure is: per website, the ERP sales organisation that sells through it (`structure_sales_org`, four letters or digits, default `1000`) and its name; per pair at Default Config, the prefix on ERP order numbers (`structure_order_prefix`, blank derives it from the ERP's name) and which products belong to this ERP (`structure_owns`: all · the products stocked in named inventory sources · the products whose attribute names this ERP, with `structure_owns_sources` / `structure_owns_attribute`). Text settings are validated on save (`src/lib/settings.js` `TEXT_RULES`). The mirror, the product and stock events filter by ownership; the order carries the sales organisation | `app.commerce.config.ts`, `src/lib/structure.js` |
+| Structure | the business-structure mapping, owned by Commerce because the merchant's structure is: per website, the ERP sales organisation that sells through it (`structure_sales_org`, four letters or digits, default `1000`) and its name; per pair at Default Config, the prefix on ERP order numbers (`structure_order_prefix`, blank derives it from the ERP's name) and which products belong to this ERP (`structure_owns`: all · the products stocked in named inventory sources · the products whose attribute names this ERP, with `structure_owns_sources` / `structure_owns_attribute`). Text settings are validated on save (`src/lib/settings.js` `TEXT_RULES`). Demo Builder's fill and the product and stock events filter by ownership; the order carries the sales organisation | `app.commerce.config.ts`, `src/lib/structure.js` |
 | History and Retry | what crossed and how it ended, kept 14 days in App Builder State. One record per order sent to the ERP — sent, waiting for the ERP, or not sent (`src/lib/history.js`) — and one per ERP event applied to Commerce — applied, not applied yet, or refused — under the event's own id, recorded by wrapping each ERP event handler (`src/lib/erp-event-history.js`). Each counts its tries. From the Admin screen a person can send an order again (the same send, as new; the website's settings still apply) or hand a saved ERP event to its handler again | `erp/history` |
-| Commerce Admin screen | System → the ERP's name (`ERP_DISPLAY_NAME`, else "ERP integration"; Admin UI SDK). **Mapping**: one card per business concept the two systems share (buying organization, selling organization, sellable item, price, inventory position, credit, order, payment, fulfilment source), Commerce's records on the left, the ERP's on the right, the arrow saying which side owns each piece, the join in a sentence with the setting that makes it editable on the card, the card's other switches, the ERP's live figures and what has crossed each way; the Buying organization and Sellable item cards look up one company id or SKU as both systems hold it (`erp/lookup`). The settings are the mapping (`src/commerce-backend-ui-2/web-src/src/mapping-view.js`). **Status & sync**: health, counts, the controls, one order followed end to end, what crossed each way with a Retry on anything that did not get through | `src/commerce-backend-ui-2` |
+| Commerce Admin screen | System → the ERP's name (`ERP_DISPLAY_NAME`, else "ERP integration"; Admin UI SDK). **Mapping**: one card per business concept the two systems share (buying organization, selling organization, sellable item, price, inventory position, credit, order, payment, fulfilment source), Commerce's records on the left, the ERP's on the right, the arrow saying which side owns each piece, the join in a sentence with the setting that makes it editable on the card, the card's other switches, the ERP's live figures and what has crossed each way; the Buying organization and Sellable item cards look up one company id or SKU as both systems hold it (`erp/lookup`). The settings are the mapping (`src/commerce-backend-ui-2/web-src/src/mapping-view.js`). **Status & sync**: health, counts, one order followed end to end, what crossed each way with a Retry on anything that did not get through | `src/commerce-backend-ui-2` |
 
 Both cart webhooks are `required: false` with short soft timeouts on purpose: an ERP that is
 slow or away never breaks a cart. Orders are never held up at checkout: they reach the ERP
@@ -66,11 +65,11 @@ not start with another's: the library counts a webhook as an app's by that prefi
 
 **Who is the master.** The SC prepares the demo in Commerce, so Commerce is the master and
 the ERP adapts to it: every product, stock and company change in Commerce overwrites the
-ERP's copy (events for products and stock, the partner refresh every minute, the mirror at
-install and reset). On stage the ERP looks like the system of record: an edit on its screen
+ERP's copy (events for products, stock and companies; Demo Builder's fill at install and
+reset). On stage the ERP looks like the system of record: an edit on its screen
 is published as an ERP event, applied to Commerce here, and comes back on the next import as
 the same value.
-Reset returns the ERP to a fresh mirror of Commerce.
+Demo Builder's Reset records returns the ERP to a fresh copy of Commerce.
 
 ## APIs and events, in one place
 
@@ -85,7 +84,7 @@ cron does not run), and where to look when one does not arrive: [`docs/eventing.
 | webhook (totals collector) | `plugin.out_of_process_totals_collector.api.get_total_modifications.execute` | `webhook/discounts` → ERP `POST pricing/quote`, answers `replace result` (negative `base_discount`) |
 | event | `observer.catalog_product_save_commit_after` | `product-commerce/created`, `product-commerce/updated` → ERP `POST admin/import` |
 | event | `observer.catalog_product_delete_commit_after` | `product-commerce/deleted` → ERP `DELETE products/{sku}` (a deleted parent's variants stay as products of their own) |
-| event | `observer.company_save_commit_after` | `company-commerce/saved` → ERP `POST admin/import` (the company read back and sent as the business partner the mirror makes) |
+| event | `observer.company_save_commit_after` | `company-commerce/saved` → ERP `POST admin/import` (the company read back by id and sent as a business partner) |
 | event | `observer.sales_order_save_commit_after` | `order-commerce/created` → Commerce `GET orders` (entity by increment id) → ERP `POST orders` → Commerce `POST orders` (`ext_order_id`) and `POST orders/{id}/comments` |
 | event | `observer.sales_order_save_commit_after` (saves that are not a new order) | `order-commerce/changed` → asks the ERP `GET orders/{number}` first (rule M2) → ERP `POST orders/{number}/cancel`, `/credit/hold` or `/credit/release`, each with an `origin` so the ERP does not echo it |
 | event | `observer.sales_order_shipment_save_after` | `order-commerce/shipped` → Commerce `GET orders/{id}` → ERP `GET orders/{number}` → ERP `POST orders/{number}/commerce-shipment` (origin) |
@@ -106,17 +105,15 @@ cron does not run), and where to look when one does not arrive: [`docs/eventing.
 | `be-observer.company_credit_update` | `company-backoffice/credit-updated` | `GET companyCredits/company/{id}`, `PUT companyCredits/{id}` (ledgered) |
 | `be-observer.company_status_update` | `company-backoffice/status-updated` | `GET company/{id}`, `PUT company/{id}` (ledgered) |
 
-**This app → Commerce, on its own** (mirror, reset, detach, the minute refresh): `GET products`,
-`GET inventory/source-items`, `GET inventory/sources` (source names, 404-tolerant), `GET company`,
-`GET companyCredits/company/{id}`, `GET customers/{id}` (a company admin's website),
-`GET store/websites` and `GET store/storeConfigs` (the structure block: each website, its base currency
-and locale; Store Information is not readable over REST, so the ERP's Organisation card prints what
-the store configuration says and nothing more); for an ownership check on a product or stock event,
-`GET inventory/source-items` for that SKU or `GET products/{sku}`; reset and detach
-also revert ledgered `PUT companyCredits/{id}` and `PUT company/{id}` and clear `ext_order_id`
+**This app → Commerce, on its own** (the events above, move stock, detach): for a product or
+stock event, `GET inventory/source-items` for that SKU and `GET inventory/sources` (source names,
+404-tolerant), and for an ownership check `GET products/{sku}`; for a company event, `GET company/{id}`,
+`GET companyCredits/company/{id}`, `GET customers/{id}` (a company admin's website) and
+`GET store/websites`; move stock uses Commerce's `POST inventory/bulk-product-source-transfer` and
+`POST inventory/bulk-partial-source-transfer`; detach reverts ledgered `PUT companyCredits/{id}` and `PUT company/{id}` and clear `ext_order_id`
 with a sparse `POST orders` (entity id + the one field) on every order the ERP numbered.
 
-**This app → the ERP**: `GET health`, `GET/PATCH settings`, `POST admin/wipe`,
+**This app → the ERP**: `GET health`, `GET/PATCH settings`,
 `POST admin/import`, `POST pricing/quote`, `POST orders`, `GET orders`, `GET orders/{number}`,
 `GET products/{sku}`, `GET partners`, `GET partners/{id}` (the Admin page's look-up), `DELETE products/{sku}`.
 
@@ -179,9 +176,8 @@ aio app deploy     # into the workspace `aio app use` points at
 ```
 
 App Management then installs the app into the Commerce instance (events, webhooks, the
-Admin screen registration). Demo Builder drives that install and then starts the first sync
-(`POST erp/mirror?background=true`); by hand, use the app's generated install API, then Sync
-records on the Admin page or the ERP's Settings page.
+Admin screen registration). Demo Builder drives that install and then fills the ERP from Commerce
+itself; by hand, use the app's generated install API, then Demo Builder's Load demo data.
 
 ### The pair in a box
 
@@ -189,8 +185,8 @@ records on the Admin page or the ERP's Settings page.
 its own in-memory database) behind this app's ERP client, with a fake Commerce in front
 that records every write. `test/box/journeys.test.js` walks the entity matrix both ways
 (order, confirm, shipment from either side, invoice, credit hold and release and reject,
-cancel and hold made in Commerce, prices and stock with the ledger's revert on reset, the
-minute stock refresh, product delete, company block and credit limit) and asks the two
+cancel and hold made in Commerce, prices and stock with the ledger's revert on detach, a stock
+item save sending every source, product delete, company block and credit limit) and asks the two
 questions the sync has to answer: did the change arrive, and did nothing come back twice.
 The fake's shapes are typed from the 2.4.9 REST definitions, not captured live; the API
 inventory (`docs/commerce-api-inventory.md`) replaces them with captures once a credential

@@ -78,11 +78,7 @@ vi.mock("#lib/erp", () => {
         call("products", { params, path: `/${encodeURIComponent(sku)}` }),
       quote: (params, body) =>
         call("pricing", { body, method: "POST", params, path: "/quote" }),
-      reportSync: (params, step) =>
-        call("admin", { body: step, method: "POST", params, path: "/sync" }),
       settings: (params) => call("settings", { params }),
-      wipe: (params) =>
-        call("admin", { method: "POST", params, path: "/wipe" }),
     },
     erpAuthHeaders: async () => ({}),
     erpBaseUrl: () => "in-process",
@@ -107,9 +103,6 @@ import * as commerceLib from "#lib/commerce";
 import { detach } from "#lib/detach";
 import { erp } from "#lib/erp";
 import * as ledger from "#lib/ledger";
-import { mirror } from "#lib/mirror";
-import { refreshStock } from "#lib/stock-refresh";
-import * as snapshot from "#lib/stock-snapshot";
 import { splitExtOrderId } from "#lib/structure";
 import * as creditUpdated from "#src/company/external/credit-updated/index";
 import * as statusUpdated from "#src/company/external/status-updated/index";
@@ -124,7 +117,10 @@ import * as erpShipmentCreated from "#src/order/external/shipment-created/index"
 import * as erpStatus from "#src/order/external/updated/index";
 import * as productDeleted from "#src/product/commerce/deleted/index";
 import * as erpProduct from "#src/product/external/updated/index";
+import * as stockSaved from "#src/stock/commerce/updated/index";
 import * as erpStock from "#src/stock/external/updated/index";
+
+import { fillErp } from "./fill-erp.js";
 
 /** Which handler each ERP event reaches (app.commerce.config.ts, eventing.external). */
 const ERP_HANDLERS = {
@@ -163,9 +159,8 @@ async function deliverErpEvents() {
 }
 
 const writesOf = (kind) => box.commerce.writes.filter((w) => w.kind === kind);
-/* The mirror's readers as a plain object: a mocked module namespace throws on a property
-   it does not export, and the mirror probes for the optional readers. */
-const readers = { ...box.commerce.lib, websiteSettings: async () => ({}) };
+/* The fake Commerce's reads, for the box's stand-in for Demo Builder's fill. */
+const readers = box.commerce.lib;
 const TEN_DIGITS = /^\d{10}$/u;
 const PREFIXED = /^ERP-\d{10}$/u;
 const RECEIVED_FROM_COMMERCE = /received from Commerce/u;
@@ -173,9 +168,9 @@ const ON_CREDIT_HOLD =
   /^On credit hold in the ERP .*Credit limit 1,000\.00 exceeded/u;
 const erpOrder = async (number) => (await erp.order({}, number)).data;
 
-/** The store mirrored into the ERP and the first Commerce order sent, as a demo starts. */
+/** The store filled into the ERP and the first Commerce order sent, as a demo starts. */
 async function seeded() {
-  await mirror({}, readers, erp, "Box");
+  await fillErp(readers, erp, "Box");
   const res = await orderCreated.main(
     box.commerce.events.orderSaved(55, { isNew: true }),
   );
@@ -193,7 +188,6 @@ beforeEach(() => {
   box.erp.reset();
   box.state.reset();
   ledger.resetLedgerClient(box.state);
-  snapshot.resetSnapshotClient(box.state);
 });
 
 describe("Pair in a box: the entity matrix, both directions", () => {
@@ -332,7 +326,7 @@ describe("Pair in a box: the entity matrix, both directions", () => {
   });
 
   test("Credit, ERP → Commerce: an over-limit order is held in the ERP and put On Hold in Commerce; release takes it off; reject takes it off and cancels", async () => {
-    await mirror({}, readers, erp, "Box");
+    await fillErp(readers, erp, "Box");
     box.commerce.db.orders.get(55).base_grand_total = 5000;
     box.commerce.db.orders.get(55).items[0].base_price = 400;
     await orderCreated.main(
@@ -440,27 +434,17 @@ describe("Pair in a box: the entity matrix, both directions", () => {
     expect(number).toBeTruthy();
   });
 
-  test("Inventory, Commerce → ERP: a source quantity edited in Commerce reaches the ERP within the minute, and the ERP's own write is not echoed", async () => {
+  test("Inventory, Commerce → ERP: a stock item save reaches the ERP with the quantity at every source, not only the default", async () => {
     await seeded();
-    expect((await refreshStock({}, readers, erp, snapshot)).seeded).toBe(true);
     box.commerce.adminSetSourceItem("A1", "east", 3);
-    const moved = await refreshStock({}, readers, erp, snapshot);
-    expect(moved).toEqual({ changed: ["A1"], seeded: false, sent: 1 });
+    box.commerce.adminSetSourceItem("A1", "default", 9);
+    const res = await stockSaved.main(box.commerce.events.stockItemSaved("A1"));
+    expect(res.statusCode).toBe(200);
     const product = (await box.erp.call("products", { path: "/A1" })).data;
-    expect(product.warehouses.find((w) => w.code === "east").quantity).toBe(3);
-    // The ERP writes stock into Commerce; the refresh must not read it back as a Commerce change.
-    await box.erp.call("products", {
-      body: { warehouses: [{ code: "default", quantity: 41 }] },
-      method: "PATCH",
-      path: "/A1",
-    });
-    await deliverErpEvents();
-    expect(box.commerce.db.sourceItems.get("A1|default")).toBe(41);
-    expect(await refreshStock({}, readers, erp, snapshot)).toEqual({
-      changed: [],
-      seeded: false,
-      sent: 0,
-    });
+    const quantities = Object.fromEntries(
+      product.warehouses.map((w) => [w.code, w.quantity]),
+    );
+    expect(quantities).toMatchObject({ default: 9, east: 3 });
   });
 
   test("Sellable item, Commerce → ERP: a product deleted in Commerce leaves the ERP", async () => {

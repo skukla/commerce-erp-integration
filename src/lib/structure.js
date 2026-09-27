@@ -99,7 +99,7 @@ function attributeOf(text) {
 
 /**
  * Which products belong to this ERP, from the pair's settings (rule M3). `owns` takes a
- * product as the mirror sees it: `sourceCodes` (the inventory sources it is stocked in)
+ * product as Commerce describes it: `sourceCodes` (the inventory sources it is stocked in)
  * and `customAttributes` (code → value). Under `all` every product is owned, which is
  * today's single-pair behaviour; a mode whose setting is blank owns nothing, loudly.
  * @returns {{ mode: string, owns: (product: object) => boolean, describe: string }}
@@ -149,37 +149,4 @@ export async function ownsSku(params, sku, settings, readers) {
   return filter.owns({
     customAttributes: await readers.productAttributes(params, sku),
   });
-}
-
-/**
- * The structure block the full mirror sends the ERP (contract `import.structure`):
- * Commerce's websites, each with the sales organisation its setting names and what the
- * store configuration says about it. Store Information (address, VAT) is not readable
- * over REST (composite-entity research, 2026-09-24), so those stay null here and the
- * ERP's Organisation card says so.
- * @param {Array<{id:number, code:string, name:string}>} websites
- * @param {Map<number, {currency:string|null, locale:string|null}>} configs by website id
- * @param {Map<number, object>} settingsByWebsite the website-scoped settings, by website id
- */
-export function structureFrom(websites, configs, settingsByWebsite) {
-  return {
-    websites: websites.map((site) => {
-      const settings = settingsByWebsite.get(site.id) ?? {};
-      const config = configs.get(site.id) ?? {};
-      const locale = typeof config.locale === "string" ? config.locale : "";
-      const { salesOrg, salesOrgName } = salesOrgOf(settings);
-      return {
-        code: site.code,
-        name: site.name,
-        salesOrg,
-        salesOrgName: salesOrgName ?? null,
-        storeInfo: {
-          address: null,
-          countryId: locale.includes("_") ? locale.split("_")[1] : null,
-          currency: config.currency ?? null,
-          vatNumber: null,
-        },
-      };
-    }),
-  };
 }

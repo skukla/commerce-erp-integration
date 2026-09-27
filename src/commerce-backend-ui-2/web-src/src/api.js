@@ -43,8 +43,6 @@ export function makeApi(ims, origin = window.location.origin) {
     // The product grid's stock move (erp/move-stock): the sources, then the move.
     moveStock: (body) => call("move-stock", { body, method: "POST" }),
     moveStockSources: () => call("move-stock"),
-    refreshPartners: () => call("refresh-partners", { method: "POST" }),
-    reset: () => call("reset", { method: "POST" }),
     // `{ incrementId }` for an order, `{ eventId }` for an ERP event (history-view.js).
     retry: (target) => call("history", { body: target, method: "POST" }),
     // The merchant's settings at one scope, and a save of only what changed. `null`
@@ -53,9 +51,6 @@ export function makeApi(ims, origin = window.location.origin) {
       call("settings", { body: { scope, values }, method: "PATCH" }),
     settings: (scope, options) => call(settingsPath(scope, options)),
     status: () => call("status"),
-    // Background mode: a web request is cut off after a minute, a mirror can take
-    // longer. Answers 202; the page watches the ERP's last-import time.
-    syncRecords: () => call("mirror?background=true", { method: "POST" }),
     // One order's whole life, gathered from Commerce, this history and the ERP.
     trace: (incrementId) =>
       call(`history?trace=${encodeURIComponent(incrementId)}`),

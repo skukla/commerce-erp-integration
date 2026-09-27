@@ -1,9 +1,9 @@
 /*
  * A company saved in Commerce reaches the ERP by its own event (lib/company-sync.js), as the
- * same business partner the mirror makes. The company row is the mirror's shape (companyRow in
+ * same business partner Demo Builder's fill makes. The company row is companyRow's shape (in
  * lib/commerce.js, read from Bodea's company 21, test/fixtures/commerce).
  */
-import { companyToErp } from "#lib/company-sync";
+import { companyToErp, partnersFrom } from "#lib/company-sync";
 
 const ROW = {
   blocked: false,
@@ -36,7 +36,7 @@ function deps() {
 }
 
 describe("Given a company saved in Commerce", () => {
-  test("Then it is read by id and sent as the business partner the mirror would make", async () => {
+  test("Then it is read by id and sent as the business partner the fill would make", async () => {
     const d = deps();
     const partner = await companyToErp({}, 21, ORIGIN, d);
 
@@ -75,5 +75,83 @@ describe("Given a company saved in Commerce", () => {
     await expect(companyToErp({}, 21, ORIGIN, d)).rejects.toThrow(
       "ERP import answered 503: offline",
     );
+  });
+});
+
+describe("Given companies turned into business partners", () => {
+  test("Then companies become partners keyed C<id> with their group, credit and email domain", () => {
+    const rows = partnersFrom([
+      {
+        creditLimit: 500,
+        customerGroupId: 4,
+        email: "buyer@acme.example",
+        id: 7,
+        name: "Acme",
+      },
+    ]);
+    expect(rows).toEqual([
+      {
+        blocked: false,
+        commerceCompanyId: "7",
+        creditLimit: 500,
+        customerGroupId: "4",
+        emailDomain: "acme.example",
+        id: "C7",
+        legalAddress: null,
+        legalName: null,
+        name: "Acme",
+        resellerId: null,
+        salesOrgs: [],
+        vatTaxId: null,
+        website: null,
+      },
+    ]);
+  });
+  // Business structure: the company admin's website names the sales organisation the
+  // company buys through; the legal identity rides along for the customer document.
+  test("Then a company's admin website gives its sales organisation, and its legal identity comes with it", () => {
+    const rows = partnersFrom(
+      [
+        {
+          id: 7,
+          legalAddress: {
+            city: "Austin",
+            countryId: "US",
+            postcode: "78701",
+            region: "TX",
+            street: ["1 Main St"],
+            telephone: null,
+          },
+          legalName: "Acme Trading LLC",
+          name: "Acme",
+          resellerId: "R-77",
+          vatTaxId: "US12-3456789",
+          websiteId: 2,
+        },
+        { id: 8, name: "Nowhere Ltd", websiteId: 9 },
+      ],
+      [
+        { code: "base", id: 1 },
+        { code: "eu", id: 2 },
+      ],
+      new Map([[2, "2000"]]),
+    );
+    expect(rows[0]).toMatchObject({
+      legalAddress: {
+        city: "Austin",
+        countryId: "US",
+        postcode: "78701",
+        region: "TX",
+        street: ["1 Main St"],
+        telephone: null,
+      },
+      legalName: "Acme Trading LLC",
+      resellerId: "R-77",
+      salesOrgs: ["2000"],
+      vatTaxId: "US12-3456789",
+      website: { code: "eu", id: 2 },
+    });
+    // A website the read did not list: the company belongs to no sales organisation yet.
+    expect(rows[1]).toMatchObject({ salesOrgs: [], website: null });
   });
 });

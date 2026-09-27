@@ -1,15 +1,12 @@
 import { useIms } from "@adobe/aio-commerce-lib-admin-ui/web";
 import { Heading, InlineAlert, Text } from "@react-spectrum/s2";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { makeApi } from "#web/api.js";
 import {
   IntegrationPage,
   PageLoading,
 } from "#web/components/integration-page.jsx";
-import { isSyncActive } from "#web/components/sync-progress.jsx";
-
-const SYNC_POLL_MS = 2000;
 
 /**
  * The integration's page in the Commerce Admin: the sign-in, the status and the settings,
@@ -24,20 +21,6 @@ export function MainPage() {
   const [status, setStatus] = useState(null);
   const [settingsPage, setSettingsPage] = useState(null);
   const [error, setError] = useState(null);
-  const [busy, setBusy] = useState(false);
-  const [log, setLog] = useState([]);
-
-  const refresh = useCallback(async () => {
-    if (!api) {
-      return;
-    }
-    try {
-      setStatus(await api.status());
-      setError(null);
-    } catch (e) {
-      setError(e.message);
-    }
-  }, [api]);
 
   useEffect(() => {
     if (!api) {
@@ -50,37 +33,6 @@ export function MainPage() {
       })
       .catch((e) => setError(e.message));
   }, [api]);
-
-  // While the ERP reports a sync in progress, keep reading it.
-  const sync = status?.erp?.sync ?? null;
-  useEffect(() => {
-    if (!isSyncActive(sync)) {
-      return;
-    }
-    const timer = setTimeout(refresh, SYNC_POLL_MS);
-    return () => clearTimeout(timer);
-  }, [sync, refresh]);
-
-  const run = useCallback(
-    async (label, fn) => {
-      setBusy(true);
-      try {
-        const result = await fn();
-        setLog((l) =>
-          [
-            `${new Date().toLocaleTimeString()} ${label}: ${JSON.stringify(result)}`,
-            ...l,
-          ].slice(0, 20),
-        );
-        setError(null);
-        await refresh();
-      } catch (e) {
-        setError(`${label} failed: ${e.message}`);
-      }
-      setBusy(false);
-    },
-    [refresh],
-  );
 
   const failed = imsError?.message ?? (status && settingsPage ? null : error);
   if (failed) {
@@ -97,11 +49,8 @@ export function MainPage() {
   return (
     <IntegrationPage
       api={api}
-      busy={busy}
       error={error}
-      log={log}
       onError={setError}
-      run={run}
       scopes={settingsPage.scopes}
       scopesNote={settingsPage.scopesNote ?? null}
       settingsPage={settingsPage}
