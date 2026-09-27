@@ -9,6 +9,7 @@ import { listWebsites, readCompanyRow } from "#lib/commerce";
 import { COMMERCE_EVENTS, originOf } from "#lib/commerce-events";
 import { companyToErp } from "#lib/company-sync";
 import { erp } from "#lib/erp";
+import { erpCustomerOf, pairCustomer } from "#lib/key-map";
 import { websiteSettings } from "#lib/settings";
 
 /**
@@ -31,8 +32,10 @@ async function main(params) {
       companyId,
       originOf(COMMERCE_EVENTS.companySaved, params),
       {
+        erpCustomerOf,
         importRecords: erp.importRecords,
         listWebsites,
+        pairCustomer,
         readCompanyRow,
         websiteSettings: (code) => websiteSettings(code, logger),
       },

@@ -28,8 +28,10 @@ const ORIGIN = { event: "observer.company_save_commit_after" };
 
 function deps() {
   return {
+    erpCustomerOf: vi.fn(async () => null),
     importRecords: vi.fn(async () => ({ data: {}, ok: true, status: 200 })),
     listWebsites: vi.fn(async () => WEBSITES),
+    pairCustomer: vi.fn(async () => undefined),
     readCompanyRow: vi.fn(async () => ROW),
     websiteSettings: vi.fn(async () => ({ structure_sales_org: "US01" })),
   };
@@ -54,6 +56,32 @@ describe("Given a company saved in Commerce", () => {
       salesOrgs: ["US01"],
       website: { code: "bodea", id: 3 },
     });
+  });
+
+  test("Then a new company is paired in the key map with the customer made for it", async () => {
+    const d = deps();
+    const partner = await companyToErp({}, 21, ORIGIN, d);
+    expect(partner.id).toBe("C21");
+    expect(d.pairCustomer).toHaveBeenCalledWith("21", "C21");
+    expect(d.pairCustomer.mock.invocationCallOrder[0]).toBeGreaterThan(
+      d.importRecords.mock.invocationCallOrder[0],
+    );
+  });
+
+  test("Then a company the key map already pairs updates that ERP customer, not a new one", async () => {
+    const d = deps();
+    d.erpCustomerOf.mockResolvedValue("C000103");
+    const partner = await companyToErp({}, 21, ORIGIN, d);
+    expect(d.erpCustomerOf).toHaveBeenCalledWith(21);
+    expect(partner.id).toBe("C000103");
+    expect(d.importRecords.mock.calls[0][1].partners[0].id).toBe("C000103");
+  });
+
+  test("Then an ERP that refuses leaves the key map alone", async () => {
+    const d = deps();
+    d.importRecords.mockResolvedValue({ data: {}, ok: false, status: 503 });
+    await expect(companyToErp({}, 21, ORIGIN, d)).rejects.toThrow();
+    expect(d.pairCustomer).not.toHaveBeenCalled();
   });
 
   test("Then a company with no admin website belongs to no sales organisation, and no website is read", async () => {

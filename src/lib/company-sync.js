@@ -51,13 +51,16 @@ export function partnersFrom(
 }
 
 /**
- * @param {object} deps `{ readCompanyRow, listWebsites, websiteSettings, importRecords }`
+ * The customer is the one the key map pairs with the company, else a new `C<id>`, paired
+ * once the ERP has taken it.
+ * @param {object} deps `{ readCompanyRow, listWebsites, websiteSettings, importRecords, erpCustomerOf, pairCustomer }`
  * @returns {Promise<object>} the business partner sent
  */
 export async function companyToErp(params, companyId, origin, deps) {
-  const [row, websites] = await Promise.all([
+  const [row, websites, paired] = await Promise.all([
     deps.readCompanyRow(params, companyId),
     deps.listWebsites(params),
+    deps.erpCustomerOf(companyId),
   ]);
   const site = websites.find((website) => website.id === row.websiteId);
   const salesOrgByWebsite = new Map();
@@ -65,7 +68,8 @@ export async function companyToErp(params, companyId, origin, deps) {
     const settings = await deps.websiteSettings(site.code);
     salesOrgByWebsite.set(site.id, salesOrgOf(settings).salesOrg);
   }
-  const [partner] = partnersFrom([row], websites, salesOrgByWebsite);
+  const [made] = partnersFrom([row], websites, salesOrgByWebsite);
+  const partner = paired ? { ...made, id: paired } : made;
   const answer = await deps.importRecords(params, {
     origin,
     partners: [partner],
@@ -75,5 +79,6 @@ export async function companyToErp(params, companyId, origin, deps) {
       `ERP import answered ${answer.status}: ${answer.data?.errorMessage || "no reason given"}`,
     );
   }
+  await deps.pairCustomer(String(row.id ?? companyId), partner.id);
   return partner;
 }
