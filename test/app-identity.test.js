@@ -81,18 +81,18 @@ describe("Given the app's identity in Commerce", () => {
     ).rejects.toThrow("DEMO_BUILDER_COPY_NUMBER");
   });
 
-  test("Then the menu is named after the ERP, so two ERPs can be told apart", async () => {
+  test("Then the app and its page are named after the ERP, so two ERPs can be told apart", async () => {
     const config = await loadConfig({ ERP_DISPLAY_NAME: "Northwind ERP" });
 
-    expect(config.adminUi.menu.label).toBe("Northwind ERP");
+    expect(config.adminUi.menu.label).toBe("Integration");
     expect(config.adminUi.menu.pageTitle).toBe("Northwind ERP");
     expect(config.metadata.displayName).toBe("Northwind ERP");
   });
 
-  test("Then with no ERP name the menu reads as before", async () => {
+  test("Then with no ERP name the app reads as before", async () => {
     const config = await loadConfig({ ERP_DISPLAY_NAME: "" });
 
-    expect(config.adminUi.menu.label).toBe("ERP integration");
+    expect(config.adminUi.menu.label).toBe("Integration");
     expect(config.metadata.displayName).toBe("ERP integration");
   });
 });

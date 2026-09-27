@@ -3,7 +3,7 @@
     "menu": {
       "description": "Health of the ERP integration, sync log, reset and controls",
       "id": "erp_integration",
-      "label": "ERP integration",
+      "label": "Integration",
       "pageTitle": "ERP integration"
     },
     "order": {
@@ -422,7 +422,7 @@
     "displayName": "ERP integration",
     "id": "commerce-erp-integration",
     "upgradeMode": "auto",
-    "version": "0.8.2"
+    "version": "0.8.3"
   },
   "webhooks": [
     {

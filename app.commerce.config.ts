@@ -77,7 +77,9 @@ export default defineConfig({
       description:
         "Health of the ERP integration, sync log, reset and controls",
       id: menuId,
-      label: erpName,
+      // Commerce heads each app's entry with the app's name (the ERP's), so the entry
+      // itself names what it opens rather than repeating the ERP.
+      label: "Integration",
       pageTitle: erpName,
     },
     // This ERP's column on Sales > Orders: its order number and where the send stands
@@ -422,7 +424,7 @@ export default defineConfig({
     // version with every change to what this file registers, or the change never reaches
     // Commerce. "auto" runs the plan; the library marks it experimental.
     upgradeMode: "auto",
-    version: "0.8.2",
+    version: "0.8.3",
   },
   webhooks: [
     {
