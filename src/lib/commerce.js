@@ -328,6 +328,30 @@ export async function sourceCodesOf(params, sku) {
   return items.map((item) => item.source_code);
 }
 
+/**
+ * One SKU's stock at every inventory source it is assigned to, each named from the store's
+ * sources: what the ERP is told when a product or its stock item is saved. Commerce raises
+ * no event for a quantity at a source (read in its events reference, 2026-09-27), and the
+ * stock item it does raise one for is the default source only, so an event about a product
+ * is the cue to read all of them.
+ * @returns {Promise<Array<{ code: string, name: string, quantity: number }>>}
+ */
+export async function warehousesOfSku(params, sku) {
+  const client = await commerceClient(params);
+  const [items, names] = await Promise.all([
+    readAllPages(client, "inventory/source-items", {
+      "searchCriteria[filter_groups][0][filters][0][field]": "sku",
+      "searchCriteria[filter_groups][0][filters][0][value]": String(sku),
+    }),
+    listSources(params),
+  ]);
+  return items.map((item) => ({
+    code: item.source_code,
+    name: names.get(item.source_code) || item.source_code,
+    quantity: Math.max(0, Math.round(Number(item.quantity ?? 0))),
+  }));
+}
+
 /** One product's custom attributes, code → value (for the ownership check on an event). */
 export async function productAttributes(params, sku) {
   const client = await commerceClient(params);

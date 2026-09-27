@@ -9,6 +9,9 @@ vi.mock("#lib/commerce", () => ({
   productAttributes: vi.fn(async () => ({})),
   skuForProductId: vi.fn(async () => "smartcable"),
   sourceCodesOf: vi.fn(async () => []),
+  warehousesOfSku: vi.fn(async () => [
+    { code: "default", name: "Default Source", quantity: 1000 },
+  ]),
 }));
 vi.mock("#lib/settings", () => ({ settingsFor: vi.fn(async () => ({})) }));
 vi.mock("#lib/structure", () => ({ ownsSku: vi.fn(async () => true) }));
@@ -36,7 +39,14 @@ describe("Given a stock event as Runtime delivers it", () => {
     expect(erp.importRecords).toHaveBeenCalledWith(
       EVENT,
       expect.objectContaining({
-        products: [{ sku: "smartcable", stock: 1000 }],
+        stock: [
+          {
+            sku: "smartcable",
+            warehouses: [
+              { code: "default", name: "Default Source", quantity: 1000 },
+            ],
+          },
+        ],
       }),
     );
   });

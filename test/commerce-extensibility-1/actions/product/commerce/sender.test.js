@@ -1,4 +1,12 @@
 vi.mock("#lib/erp", () => ({ erp: { importRecords: vi.fn() } }));
+vi.mock("#lib/commerce", () => ({
+  productAttributes: vi.fn(async () => ({})),
+  sourceCodesOf: vi.fn(async () => []),
+  warehousesOfSku: vi.fn(async () => [
+    { code: "northwind", name: "Northwind Warehouse", quantity: 994 },
+    { code: "east", name: "East Warehouse", quantity: 25 },
+  ]),
+}));
 
 import { erp } from "#lib/erp";
 import { sendData } from "#src/product/commerce/updated/sender";
@@ -17,6 +25,24 @@ describe("Given the product event chain", () => {
     });
     erp.importRecords.mockResolvedValue({ data: {}, ok: true, status: 200 });
     expect(await sendData({}, rows)).toEqual({ success: true });
+    // A save on the product page is how a person changes stock at any location, and
+    // Commerce raises no event of its own for a location (2026-09-27): so the product's
+    // stock at every location goes with it.
+    expect(erp.importRecords).toHaveBeenLastCalledWith(
+      {},
+      expect.objectContaining({
+        products: [{ listPrice: 12.5, name: "Widget", sku: "W1" }],
+        stock: [
+          {
+            sku: "W1",
+            warehouses: [
+              { code: "northwind", name: "Northwind Warehouse", quantity: 994 },
+              { code: "east", name: "East Warehouse", quantity: 25 },
+            ],
+          },
+        ],
+      }),
+    );
     erp.importRecords.mockResolvedValue({
       data: { errorMessage: "offline" },
       ok: false,

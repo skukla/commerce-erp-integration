@@ -1,6 +1,10 @@
 import { HTTP_INTERNAL_SERVER_ERROR } from "@adobe/aio-commerce-sdk/core/responses";
 
-import { productAttributes, sourceCodesOf } from "#lib/commerce";
+import {
+  productAttributes,
+  sourceCodesOf,
+  warehousesOfSku,
+} from "#lib/commerce";
 import { originOf } from "#lib/commerce-events";
 import { erp } from "#lib/erp";
 import { settingsFor } from "#lib/settings";
@@ -29,10 +33,16 @@ async function sendData(params, data) {
         success: true,
       };
     }
+    // A save on the product page is how a person changes stock at any source, and Commerce
+    // raises no event for a source's quantity: the product's stock goes with it.
+    const stock = sku
+      ? [{ sku, warehouses: await warehousesOfSku(params, sku) }]
+      : [];
     // The transformer names the event; only the action's params carry its id.
     const res = await erp.importRecords(params, {
       ...data,
       origin: originOf(data.origin?.event, params),
+      ...(stock.length ? { stock } : {}),
     });
     if (!res.ok) {
       return {

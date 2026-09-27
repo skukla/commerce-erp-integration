@@ -4,6 +4,7 @@ import {
   productAttributes,
   skuForProductId,
   sourceCodesOf,
+  warehousesOfSku,
 } from "#lib/commerce";
 import { COMMERCE_EVENTS, originOf } from "#lib/commerce-events";
 import { erp } from "#lib/erp";
@@ -40,11 +41,11 @@ async function sendData(params, transformed) {
         success: true,
       };
     }
-    // The ERP puts `stock` on the product's default warehouse: the stock item tracks
-    // Commerce's default source.
+    // The stock item is Commerce's default source only, so its quantity is not the
+    // product's stock once other sources exist: the event is the cue to read them all.
     const res = await erp.importRecords(params, {
       origin: originOf(COMMERCE_EVENTS.stockItemSaved, params),
-      products: [{ sku, stock: transformed.stock }],
+      stock: [{ sku, warehouses: await warehousesOfSku(params, sku) }],
     });
     if (!res.ok) {
       return {

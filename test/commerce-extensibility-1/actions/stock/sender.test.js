@@ -3,6 +3,10 @@ vi.mock("#lib/commerce", () => ({
   productAttributes: vi.fn(async () => ({})),
   skuForProductId: vi.fn(),
   sourceCodesOf: vi.fn(async () => []),
+  warehousesOfSku: vi.fn(async () => [
+    { code: "northwind", name: "Northwind Warehouse", quantity: 994 },
+    { code: "east", name: "East Warehouse", quantity: 25 },
+  ]),
 }));
 
 import { skuForProductId } from "#lib/commerce";
@@ -12,7 +16,9 @@ import { transformData } from "#src/stock/commerce/updated/transformer";
 import { validateData } from "#src/stock/commerce/updated/validator";
 
 describe("Given the stock event chain", () => {
-  test("Then the quantity reaches the ERP under the product's SKU", async () => {
+  test("Then the product's stock at every location reaches the ERP, not the event's one quantity", async () => {
+    // The stock item is Commerce's default location only; with other locations its qty is
+    // not the product's stock, so the event only says "look again" (2026-09-27).
     const transformed = transformData({
       value: { product_id: 12, qty: "7.0" },
     });
@@ -26,7 +32,15 @@ describe("Given the stock event chain", () => {
         origin: {
           event: "observer.cataloginventory_stock_item_save_commit_after",
         },
-        products: [{ sku: "W1", stock: 7 }],
+        stock: [
+          {
+            sku: "W1",
+            warehouses: [
+              { code: "northwind", name: "Northwind Warehouse", quantity: 994 },
+              { code: "east", name: "East Warehouse", quantity: 25 },
+            ],
+          },
+        ],
       },
     );
   });
