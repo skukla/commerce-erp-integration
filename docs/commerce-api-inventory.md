@@ -91,8 +91,9 @@ Changing a subscription after install needs an uninstall + install of the app in
 `contract/erp-contract.json` (vendored from `skukla/demo-erp`) is at `contractVersion` 2
 since 2026-09-24, which added the business-structure fields. It still lists routes,
 import/quote/order KEY lists and event payload keys, not full request/response shapes;
-growing it to full shapes, SAP's terms in descriptions (sold-to, sales organisation,
-delivering plant) without renaming fields that work, is what remains of AB-26b on this side. `test/contract/
+full shapes were dropped (owner, 2026-09-27): the pair-in-a-box journeys run the real ERP
+code against this app, and they now refuse an ERP checkout whose contract differs from
+this repo's copy, so the two cannot drift without a failing test. `test/contract/
 erp-contract.test.js` here and `test/contract.test.js` there pin it; `npm run
 contract:check` reports when the vendored copy is behind.
 
