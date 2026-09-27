@@ -32,7 +32,17 @@ claim; a test with no row is a rule nobody can find.
 2. ERP → Commerce: credit limit and block on the company, order confirmation (a note), credit
    rejection (cancels the Commerce order), shipment, invoice.
 3. The agent tools read both sides and the crossing between them (`get_erp_order_trace`).
+4. Commerce → ERP, made in Commerce (2026-09-27, orders 3000000011–13): a partial shipment and
+   the rest (two ERP shipments, one Commerce shipment each, nothing shipped twice), the
+   invoice over both, a hold and its release, a cancellation ("Cancelled in Commerce"), each
+   on the ERP within seconds; a default-source quantity by the minute refresh (the journal
+   names it; Commerce raised no stock event for a quantity written through REST); a product
+   deleted in Commerce, removed from the ERP by its delete event.
+5. The credit-hold round trip on an order over its limit (2026-09-27): the ERP held it
+   ("Credit limit 100.00 exceeded by 60.00"), Commerce put it On Hold with that reason within
+   two seconds, and the ERP's release took it off hold with a note.
 
-Not yet proven live: a storefront order (the cart pricing webhooks), the credit-hold round trip
-on an order that is actually over its limit, `remove_integration` reverting the ledgered writes,
-and a fresh add's install-time first sync.
+Not yet proven live: a storefront order placed through the storefront itself (the cart
+webhooks are proven through the REST cart), a quantity edited on a source other than the
+default (Bodea has one source, and Commerce cannot delete a source once made), and a fresh
+add's install-time first sync (Demo Builder skipped it until its 2026-09-27 fix).
