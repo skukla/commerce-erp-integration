@@ -7,6 +7,7 @@ import AioLogger from "@adobe/aio-lib-core-logging";
 
 import { COMPANY_STATUS, getCompany, setCompanyStatus } from "#lib/commerce";
 import { recordingErpEvent } from "#lib/erp-event-history";
+import { companyOfErpEvent } from "#lib/key-map";
 import { recordCompanyWrite } from "#lib/ledger";
 import { stringParameters } from "#lib/utils";
 
@@ -17,7 +18,8 @@ async function handle(params) {
   });
   logger.info("Start processing request");
   logger.debug(`Received params: ${stringParameters(params)}`);
-  const { companyId, blocked } = params.data ?? {};
+  const { blocked } = params.data ?? {};
+  const companyId = await companyOfErpEvent(params.data);
   if (!companyId) {
     return ok("Skipped: the partner has no Commerce company");
   }

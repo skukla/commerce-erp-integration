@@ -134,3 +134,19 @@ export async function commerceCompanyOf(erpNumber) {
   );
   return row?.commerce ?? null;
 }
+
+/**
+ * The Commerce company an ERP customer event is about: the key map's pair for the ERP's own
+ * number first, else the Commerce id the event carries (the ERP still sends one until it
+ * stops holding Commerce ids), else null.
+ * @param {{ partnerId?: string, companyId?: string|number }} data the event's data
+ */
+export async function companyOfErpEvent(data = {}) {
+  const mapped = data.partnerId
+    ? await commerceCompanyOf(data.partnerId)
+    : null;
+  if (mapped) {
+    return mapped;
+  }
+  return data.companyId ? String(data.companyId) : null;
+}

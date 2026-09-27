@@ -29,6 +29,7 @@ vi.mock("#lib/erp", () => ({
 
 import { setCompanyCreditLimit, setCompanyStatus } from "#lib/commerce";
 import { erp } from "#lib/erp";
+import { pairCustomer, resetKeyMapClient } from "#lib/key-map";
 import { recordCompanyWrite } from "#lib/ledger";
 import * as creditUpdated from "#src/company/external/credit-updated/index";
 import * as statusUpdated from "#src/company/external/status-updated/index";
@@ -46,6 +47,16 @@ import * as invoiceCreated from "#src/order/external/invoice-created/index";
 
 afterEach(() => {
   vi.clearAllMocks();
+});
+
+/* The real key map over an in-memory store, holding one pair: Commerce 21 = ERP C000103. */
+beforeEach(async () => {
+  const store = new Map();
+  resetKeyMapClient({
+    get: async (k) => (store.has(k) ? { value: store.get(k) } : undefined),
+    put: async (k, v) => store.set(k, v),
+  });
+  await pairCustomer("21", "C000103");
 });
 
 describe("Given the ERP company events", () => {
@@ -67,6 +78,30 @@ describe("Given the ERP company events", () => {
       extra: { creditId: 42 },
       field: "creditLimit",
     });
+  });
+  test("Then the key map names the company for the ERP's own customer number, ahead of any Commerce id the event carries", async () => {
+    await creditUpdated.main({
+      data: { companyId: "7", creditLimit: 250, partnerId: "C000103" },
+    });
+    expect(setCompanyCreditLimit).toHaveBeenCalledWith(
+      expect.anything(),
+      42,
+      "21",
+      250,
+    );
+    await statusUpdated.main({ data: { blocked: true, partnerId: "C000103" } });
+    expect(setCompanyStatus).toHaveBeenCalledWith(expect.anything(), "21", 3);
+  });
+  test("Then a customer missing from the key map falls back to the Commerce id the event carries", async () => {
+    await creditUpdated.main({
+      data: { companyId: "7", creditLimit: 250, partnerId: "C9" },
+    });
+    expect(setCompanyCreditLimit).toHaveBeenCalledWith(
+      expect.anything(),
+      42,
+      "7",
+      250,
+    );
   });
   test("Then a block event sets status 3 and ledgers the previous status", async () => {
     await statusUpdated.main({ data: { blocked: true, companyId: "7" } });
