@@ -266,6 +266,15 @@ export default defineConfig({
           },
           {
             description:
+              "Fires after a B2B company is created or changed in Commerce, so the business partner in the ERP follows at once (it replaces the minute refresh that polled every company)",
+            fields: [field("id")],
+            label: "Company Saved",
+            name: "observer.company_save_commit_after",
+            priority: true,
+            runtimeActions: ["company-commerce/saved"],
+          },
+          {
+            description:
               "Fires after an order is saved in Commerce, used to create each new order in the ERP and write back the ERP order number",
             fields: [
               field("increment_id"),
@@ -438,7 +447,7 @@ export default defineConfig({
     // version with every change to what this file registers, or the change never reaches
     // Commerce. "auto" runs the plan; the library marks it experimental.
     upgradeMode: "auto",
-    version: "0.8.7",
+    version: "0.8.8",
   },
   webhooks: [
     {

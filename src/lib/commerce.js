@@ -237,6 +237,13 @@ async function companyRow(client, company) {
   };
 }
 
+/** One company as the mirror sees it, read by id (a company event carries only the id to rely on). */
+export async function readCompanyRow(params, companyId) {
+  const client = await commerceClient(params);
+  const company = await client.get(`company/${Number(companyId)}`).json();
+  return companyRow(client, company);
+}
+
 /** B2B companies with their credit records; an instance without B2B answers an empty list. */
 export async function listCompanies(params) {
   const client = await commerceClient(params);

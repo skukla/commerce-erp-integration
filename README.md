@@ -85,6 +85,7 @@ cron does not run), and where to look when one does not arrive: [`docs/eventing.
 | webhook (totals collector) | `plugin.out_of_process_totals_collector.api.get_total_modifications.execute` | `webhook/discounts` → ERP `POST pricing/quote`, answers `replace result` (negative `base_discount`) |
 | event | `observer.catalog_product_save_commit_after` | `product-commerce/created`, `product-commerce/updated` → ERP `POST admin/import` |
 | event | `observer.catalog_product_delete_commit_after` | `product-commerce/deleted` → ERP `DELETE products/{sku}` (a deleted parent's variants stay as products of their own) |
+| event | `observer.company_save_commit_after` | `company-commerce/saved` → ERP `POST admin/import` (the company read back and sent as the business partner the mirror makes) |
 | event | `observer.sales_order_save_commit_after` | `order-commerce/created` → Commerce `GET orders` (entity by increment id) → ERP `POST orders` → Commerce `POST orders` (`ext_order_id`) and `POST orders/{id}/comments` |
 | event | `observer.sales_order_save_commit_after` (saves that are not a new order) | `order-commerce/changed` → asks the ERP `GET orders/{number}` first (rule M2) → ERP `POST orders/{number}/cancel`, `/credit/hold` or `/credit/release`, each with an `origin` so the ERP does not echo it |
 | event | `observer.sales_order_shipment_save_after` | `order-commerce/shipped` → Commerce `GET orders/{id}` → ERP `GET orders/{number}` → ERP `POST orders/{number}/commerce-shipment` (origin) |

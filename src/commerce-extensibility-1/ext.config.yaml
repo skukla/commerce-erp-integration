@@ -51,6 +51,10 @@ runtimeManifest:
       license: Apache-2.0
       actions:
         $include: ./actions/order/external/actions.config.yaml
+    company-commerce:
+      license: Apache-2.0
+      actions:
+        $include: ./actions/company/commerce/actions.config.yaml
     company-backoffice:
       license: Apache-2.0
       actions:

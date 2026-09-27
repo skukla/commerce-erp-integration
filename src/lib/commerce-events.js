@@ -10,6 +10,7 @@ export const COMMERCE_EVENTS = {
   // Fires before the commit (no "_commit_after" variant exists for these two, read in the
   // events reference 2026-09-24), so the record may not be readable yet when it arrives;
   // the handlers answer 503 to be delivered again when a read finds nothing.
+  companySaved: "observer.company_save_commit_after",
   invoiceSaved: "observer.sales_order_invoice_save_after",
   orderSaved: "observer.sales_order_save_commit_after",
   productDeleted: "observer.catalog_product_delete_commit_after",
