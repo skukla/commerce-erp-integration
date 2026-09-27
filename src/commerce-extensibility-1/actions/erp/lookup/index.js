@@ -12,6 +12,7 @@ import {
   sourceCodesOf,
 } from "#lib/commerce";
 import { erp } from "#lib/erp";
+import { erpCustomerOf } from "#lib/key-map";
 import { companyLookup, productLookup } from "#lib/lookup";
 
 /** A SKU as Commerce allows it; anything else never reaches either system. */
@@ -55,14 +56,27 @@ async function lookupSku(params, sku) {
   });
 }
 
+/**
+ * The ERP customer row for a Commerce company: the key map's pair, else (a company the map
+ * does not hold yet) the ERP row still carrying that Commerce id.
+ */
+async function erpCustomerRow(params, companyId) {
+  const paired = await erpCustomerOf(companyId);
+  if (paired) {
+    return { id: paired };
+  }
+  const rows =
+    erpRecord(await erp.partners(params, ERP_TIMEOUT_MS), "partners")?.items ??
+    [];
+  return rows.find((p) => String(p.commerceCompanyId) === companyId) ?? null;
+}
+
 async function lookupCompany(params, companyId) {
-  const [commerce, credit, partners] = await Promise.all([
+  const [commerce, credit, match] = await Promise.all([
     getCompany(params, companyId).catch(notFoundAsNull),
     getCompanyCredit(params, companyId).catch(notFoundAsNull),
-    erp.partners(params, ERP_TIMEOUT_MS),
+    erpCustomerRow(params, companyId),
   ]);
-  const rows = erpRecord(partners, "partners")?.items ?? [];
-  const match = rows.find((p) => String(p.commerceCompanyId) === companyId);
   // The document carries the credit figures the row does not.
   const document = match
     ? erpRecord(

@@ -26,6 +26,7 @@ import {
   sourceCodesOf,
 } from "#lib/commerce";
 import { erp } from "#lib/erp";
+import { pairCustomer, resetKeyMapClient } from "#lib/key-map";
 import * as lookup from "#src/erp/lookup/index";
 
 const PARAMS = { ERP_BASE_URL: "https://erp.example/api" };
@@ -115,7 +116,40 @@ describe("Given a SKU to look up", () => {
   });
 });
 
+/* The real key map over an in-memory store, empty unless a test pairs a customer. */
+beforeEach(() => {
+  const store = new Map();
+  resetKeyMapClient({
+    get: async (k) => (store.has(k) ? { value: store.get(k) } : undefined),
+    put: async (k, v) => store.set(k, v),
+  });
+});
+
 describe("Given a company to look up", () => {
+  test("Then a company the key map pairs is read from the ERP by its own number, with no search", async () => {
+    await pairCustomer("9", "C000200");
+    getCompany.mockResolvedValue({
+      company_name: "Fabrikam Retail",
+      id: 9,
+      status: 1,
+    });
+    getCompanyCredit.mockResolvedValue({ credit_limit: 25_000 });
+    erp.partner.mockResolvedValue({
+      data: { id: "C000200", name: "Fabrikam Retail" },
+      ok: true,
+      status: 200,
+    });
+    const res = await lookup.main({ ...PARAMS, company: "9" });
+    expect(res.statusCode).toBe(200);
+    expect(erp.partner).toHaveBeenCalledWith(
+      expect.anything(),
+      "C000200",
+      expect.any(Number),
+    );
+    expect(erp.partners).not.toHaveBeenCalled();
+    expect(res.body.erpHash).toBe("#partners?open=C000200");
+  });
+
   test("Then Commerce is asked for the company and its credit, the ERP for the partner behind that company id", async () => {
     getCompany.mockResolvedValue({
       company_name: "Fabrikam Retail",
