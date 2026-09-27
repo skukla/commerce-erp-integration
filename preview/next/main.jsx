@@ -8,7 +8,8 @@ import { createRoot } from "react-dom/client";
 import { Shell } from "./shell.jsx";
 
 createRoot(document.getElementById("root")).render(
-  <Provider background="base">
+  // Commerce Admin is light only, so the preview shows the page as an SC sees it there.
+  <Provider background="base" colorScheme="light">
     <Shell />
   </Provider>,
 );

@@ -1,3 +1,8 @@
+/* Commerce Admin is light only; pin the page so a dark-mode browser shows it as an SC sees it. */
+:root {
+  color-scheme: light;
+}
+
 /* The redesigned Admin page (preview). One column of content beside a short side list. */
 .nx-page {
   max-width: 1180px;
