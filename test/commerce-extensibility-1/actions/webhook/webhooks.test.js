@@ -12,6 +12,7 @@ vi.mock("#lib/settings", () => ({
 }));
 
 import { erp } from "#lib/erp";
+import { pairCustomer, resetKeyMapClient } from "#lib/key-map";
 import { settingsFor } from "#lib/settings";
 import * as discounts from "#src/webhook/discounts/index";
 import * as itemPrices from "#src/webhook/item-prices/index";
@@ -35,6 +36,53 @@ const cart = {
 
 afterEach(() => {
   vi.clearAllMocks();
+});
+
+/* The real key map over an in-memory store: Commerce company 20 = ERP customer C000200. */
+beforeEach(async () => {
+  const store = new Map();
+  resetKeyMapClient({
+    get: async (k) => (store.has(k) ? { value: store.get(k) } : undefined),
+    put: async (k, v) => store.set(k, v),
+  });
+  await pairCustomer("20", "C000200");
+});
+
+/* The cart's company as Commerce sends it (measured on Bodea, 2026-09-27). */
+const companyCart = (companyId) => ({
+  ...cart,
+  quote: {
+    customer_group_id: 1,
+    customer_id: "46",
+    extension_attributes: { company_id: companyId },
+  },
+});
+
+describe("Given a cart whose company Commerce names", () => {
+  test("Then both checks send the ERP customer the key map pairs with it, and the company as a fallback", async () => {
+    erp.quote.mockResolvedValue({
+      data: { lines: [], partnerId: "C000200" },
+      ok: true,
+      status: 200,
+    });
+    await itemPrices.main(companyCart(20));
+    await discounts.main(companyCart(20));
+    for (const call of erp.quote.mock.calls) {
+      expect(call[1]).toMatchObject({
+        commerceCompanyId: "20",
+        partnerId: "C000200",
+      });
+    }
+    expect(erp.quote).toHaveBeenCalledTimes(2);
+  });
+  test("Then a company missing from the key map sends the company alone, for the ERP to match", async () => {
+    erp.quote.mockResolvedValue({ data: { lines: [] }, ok: true, status: 200 });
+    await itemPrices.main(companyCart(21));
+    expect(erp.quote.mock.calls[0][1]).toMatchObject({
+      commerceCompanyId: "21",
+    });
+    expect(erp.quote.mock.calls[0][1]).not.toHaveProperty("partnerId");
+  });
 });
 
 describe("Given the item-prices webhook", () => {

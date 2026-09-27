@@ -71,6 +71,26 @@ export function cartBuyer(quote = {}) {
   };
 }
 
+/**
+ * Who the ERP should price a cart for: the partner hints, plus the company Commerce names on the
+ * cart and the ERP customer the key map pairs with it. The ERP matches its own number first,
+ * then the company, then the hints. A key map that cannot be read sends no number.
+ * @param {object} quote the payload's quote
+ * @param {(companyId: string) => Promise<string|null>} erpCustomerOf the key map's lookup
+ */
+export async function erpBuyer(quote = {}, erpCustomerOf = async () => null) {
+  const { companyId } = cartBuyer(quote);
+  const company = companyId ? String(companyId) : null;
+  const partnerId = company
+    ? await erpCustomerOf(company).catch(() => null)
+    : null;
+  return {
+    ...partnerHints(quote),
+    ...(company ? { commerceCompanyId: company } : {}),
+    ...(partnerId ? { partnerId } : {}),
+  };
+}
+
 /** Cart lines from a totals-collector payload. */
 export function cartLines(payload) {
   const items = payload?.shippingAssignment?.items ?? [];

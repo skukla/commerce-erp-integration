@@ -1,10 +1,12 @@
 import AioLogger from "@adobe/aio-lib-core-logging";
 
 import { erp } from "#lib/erp";
+import { erpCustomerOf } from "#lib/key-map";
 import { settingsFor } from "#lib/settings";
 import {
   cartBuyer,
   cartLines,
+  erpBuyer,
   noop,
   operations,
   partnerHints,
@@ -63,7 +65,7 @@ async function main(params) {
     const res = await erp.quote(
       params,
       {
-        ...partnerHints(payload.quote),
+        ...(await erpBuyer(payload.quote, erpCustomerOf)),
         lines: lines.map((l) => ({ qty: l.qty, sku: l.sku })),
       },
       ERP_TIMEOUT_MS,
