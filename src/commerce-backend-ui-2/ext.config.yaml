@@ -18,6 +18,26 @@ operations:
   # These worker processes definitions are auto-generated. Do not remove or manually edit.
   workerProcess:
     - type: action
-      impl: erp/order-grid
+      impl: admin-ui/order-grid
 
 web: web-src
+
+# The actions Commerce calls for this extension's Admin UI parts. Adobe's Admin UI reference
+# (aio-commerce-sdk, commerce-app-admin-ui skill, step 4) declares each worker `runtimeAction`
+# here; the order column's action lived with the integration's other actions, and Commerce
+# never called it (no activation, 2026-09-27).
+runtimeManifest:
+  packages:
+    admin-ui:
+      license: Apache-2.0
+      actions:
+        order-grid:
+          function: actions/order-grid/index.js
+          web: "yes"
+          runtime: nodejs:24
+          inputs:
+            LOG_LEVEL: debug
+          annotations:
+            # Commerce calls it with an Adobe IMS token.
+            require-adobe-auth: true
+            final: true

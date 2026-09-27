@@ -18,7 +18,7 @@
         ],
         "description": "ERP integration's order number and whether the order reached it",
         "label": "ERP integration order",
-        "runtimeAction": "erp/order-grid"
+        "runtimeAction": "admin-ui/order-grid"
       }
     }
   },
@@ -422,7 +422,7 @@
     "displayName": "ERP integration",
     "id": "commerce-erp-integration",
     "upgradeMode": "auto",
-    "version": "0.8.3"
+    "version": "0.8.4"
   },
   "webhooks": [
     {

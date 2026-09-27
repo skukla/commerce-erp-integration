@@ -1,18 +1,18 @@
 /*
- * erp/order-grid: Commerce POSTs the visible orders' numbers ({ requestId, gridType, ids })
+ * admin-ui/order-grid: Commerce POSTs the visible orders' numbers ({ requestId, gridType, ids })
  * and renders what comes back in the ERP's column (Admin UI SDK V2, order grid columns;
  * shape from Adobe's v2 sample and @adobe/aio-commerce-lib-admin-ui's grid-columns types).
  */
 vi.mock("#lib/history", () => ({
   readRecord: vi.fn(async (key) =>
     key === "order.000000012"
-      ? { erpNumber: "NORT-0000001042", outcome: "sent" }
+      ? { erpNumber: "0000001042", outcome: "sent" }
       : undefined,
   ),
 }));
 
 import { readRecord } from "#lib/history";
-import { main } from "#src/erp/order-grid/index";
+import { main } from "#web-actions/order-grid/index.js";
 
 afterEach(() => vi.clearAllMocks());
 
@@ -26,7 +26,7 @@ describe("Given the orders grid asking for the ERP column", () => {
 
     expect(res.statusCode).toBe(200);
     expect(res.body.data).toStrictEqual({
-      "000000012": { erp_integration_order: "NORT-0000001042 · Sent" },
+      "000000012": { erp_integration_order: "0000001042 · Sent" },
     });
     expect(readRecord).toHaveBeenCalledWith("order.000000012");
     expect(readRecord).toHaveBeenCalledWith("order.000000013");
