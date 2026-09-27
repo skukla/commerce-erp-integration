@@ -89,6 +89,32 @@ describe("Given the order save event", () => {
     );
   });
 
+  test("Then a company in the key map sends the ERP's own customer number, and one missing from it sends none", async () => {
+    const paired = deps({
+      companyIdOf: vi.fn(async () => "21"),
+      erpCustomerOf: vi.fn(async () => "C000103"),
+    });
+    await sendOrderToErp({}, { ...NEW_ORDER, customer_id: 44 }, paired);
+    expect(paired.erpCustomerOf).toHaveBeenCalledWith("21");
+    expect(paired.erp.createOrder.mock.calls[0][1]).toMatchObject({
+      commerceCompanyId: "21",
+      partnerId: "C000103",
+    });
+
+    const unpaired = deps({
+      companyIdOf: vi.fn(async () => "22"),
+      erpCustomerOf: vi.fn(async () => null),
+    });
+    await sendOrderToErp({}, { ...NEW_ORDER, customer_id: 44 }, unpaired);
+    expect(unpaired.erp.createOrder.mock.calls[0][1]).not.toHaveProperty(
+      "partnerId",
+    );
+
+    const guest = deps({ erpCustomerOf: vi.fn() });
+    await sendOrderToErp({}, NEW_ORDER, guest);
+    expect(guest.erpCustomerOf).not.toHaveBeenCalled();
+  });
+
   test("Then the buyer's company goes with the order, and a company that cannot be read is null, not a guess", async () => {
     const withCompany = deps({ companyIdOf: vi.fn(async () => "21") });
     await sendOrderToErp(

@@ -14,6 +14,7 @@ import {
 } from "#lib/commerce";
 import { erp } from "#lib/erp";
 import { recordOrderOutcome } from "#lib/history";
+import { erpCustomerOf } from "#lib/key-map";
 import { settingsFor } from "#lib/settings";
 import { ownsSku } from "#lib/structure";
 
@@ -26,6 +27,7 @@ export function orderSyncDeps(logger) {
     addNote: (p, orderId, comment) => orders.comment(p, orderId, comment),
     companyIdOf: customerCompanyId,
     erp,
+    erpCustomerOf,
     findOrder: findOrderByIncrementId,
     getOrder: getOrderByIncrementId,
     logger,

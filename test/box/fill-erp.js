@@ -9,6 +9,7 @@
  * partnersFrom, which the company event uses. Test-only: nothing in src/ calls this.
  */
 import { partnersFrom } from "#lib/company-sync";
+import { replaceKeyMap } from "#lib/key-map";
 
 function warehousesFor(sku, stockBySku, sourceNames) {
   return (stockBySku?.get?.(sku) ?? []).map((row) => ({
@@ -111,4 +112,12 @@ export async function fillErp(readers, erp, projectName) {
       throw new Error(`ERP import answered ${res.status}`);
     }
   }
+  // Last, as Demo Builder does: which Commerce company is which ERP customer.
+  await replaceKeyMap(
+    partners.map((p) => ({
+      commerce: p.commerceCompanyId,
+      erp: p.id,
+      kind: "customer",
+    })),
+  );
 }

@@ -113,6 +113,21 @@ async function hasOwnedLine(params, order, settings, deps) {
  * for a guest, for a customer in no company, or when the read fails: the ERP then falls
  * back to its other hints, and a wrong company is worse than the walk-in partner.
  */
+/** The ERP customer the key map pairs with the buyer's company, or null (not paired, or unreadable). */
+async function erpCustomerFor(commerceCompanyId, order, deps) {
+  if (!deps.erpCustomerOf || commerceCompanyId === null) {
+    return null;
+  }
+  try {
+    return await deps.erpCustomerOf(commerceCompanyId);
+  } catch (error) {
+    deps.logger?.warn(
+      `order ${order.increment_id}: key map not read: ${error.message}`,
+    );
+    return null;
+  }
+}
+
 async function companyOf(params, order, deps) {
   const customerId = order.customer_id;
   if (!deps.companyIdOf || customerId === undefined || customerId === null) {
@@ -200,6 +215,7 @@ export async function sendOrderToErp(params, order, deps) {
   }
 
   const commerceCompanyId = await companyOf(params, order, deps);
+  const partnerId = await erpCustomerFor(commerceCompanyId, order, deps);
   const erpName = params?.ERP_DISPLAY_NAME || "the ERP";
   // Say the handover has started BEFORE the ERP is called (D8, 2026-09-25): a run that dies
   // after the ERP took the order used to leave no record at all, so the Admin screen said
@@ -223,6 +239,9 @@ export async function sendOrderToErp(params, order, deps) {
       params,
       {
         ...erpOrderFrom(order, found.entityId, settings, commerceCompanyId),
+        // The ERP's own number from the key map names the customer outright; the Commerce
+        // id and hints stay as the ERP's fallbacks until it stops holding Commerce ids.
+        ...(partnerId ? { partnerId } : {}),
         origin: originOf(COMMERCE_EVENTS.orderSaved, params),
       },
       ERP_TIMEOUT_MS,

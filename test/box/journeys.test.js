@@ -102,6 +102,7 @@ vi.mock(
 import * as commerceLib from "#lib/commerce";
 import { detach } from "#lib/detach";
 import { erp } from "#lib/erp";
+import * as keyMap from "#lib/key-map";
 import * as ledger from "#lib/ledger";
 import { splitExtOrderId } from "#lib/structure";
 import * as creditUpdated from "#src/company/external/credit-updated/index";
@@ -188,6 +189,7 @@ beforeEach(() => {
   box.erp.reset();
   box.state.reset();
   ledger.resetLedgerClient(box.state);
+  keyMap.resetKeyMapClient(box.state);
 });
 
 describe("Pair in a box: the entity matrix, both directions", () => {
@@ -323,6 +325,25 @@ describe("Pair in a box: the entity matrix, both directions", () => {
     const order = await erpOrder(number);
     expect(order.invoice.number).toMatch(TEN_DIGITS);
     expect(writesOf("invoice")).toHaveLength(1);
+  });
+
+  test("Customer, the key map: a buyer's company goes to the ERP customer the map pairs it with, not one the ERP matches itself", async () => {
+    await fillErp(readers, erp, "Box");
+    await erp.importRecords(
+      {},
+      { partners: [{ id: "C999", name: "Northwind (new account)" }] },
+    );
+    await keyMap.pairCustomer("7", "C999");
+    box.commerce.db.customers.set(3, { company_id: 7, id: 3 });
+    box.commerce.db.orders.get(55).customer_id = 3;
+    await orderCreated.main(
+      box.commerce.events.orderSaved(55, { isNew: true }),
+    );
+    const { number } = splitExtOrderId(
+      box.commerce.db.orders.get(55).ext_order_id,
+    );
+    // The ERP still holds company 7's id on C7, so without the map it would pick C7.
+    expect((await erpOrder(number)).partnerId).toBe("C999");
   });
 
   test("Credit, ERP → Commerce: an over-limit order is held in the ERP and put On Hold in Commerce; release takes it off; reject takes it off and cancels", async () => {
