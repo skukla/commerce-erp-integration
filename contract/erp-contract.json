@@ -5,7 +5,7 @@
   "routes": {
     "health": ["GET"],
     "settings": ["GET", "PATCH"],
-    "admin": ["POST /wipe", "POST /import", "POST /sync"],
+    "admin": ["POST /wipe", "POST /import"],
     "products": ["GET", "GET /:sku", "PATCH /:sku", "DELETE /:sku"],
     "partners": ["GET", "GET /:id", "PATCH /:id"],
     "pricing": ["GET", "POST", "DELETE /:id", "POST /quote"],
@@ -28,7 +28,7 @@
     "structureWebsite": ["code", "name", "salesOrg", "salesOrgName", "storeInfo"],
     "storeInfo": ["currency", "countryId", "vatNumber", "address"],
     "stock": ["sku", "warehouses"],
-    "stockNote": "quantities per warehouse for products the ERP already has (the integration's minute refresh of Commerce's source items); a SKU the ERP does not have is reported under stock.unknown and not created; a stock-only import does not move lastImportAt",
+    "stockNote": "quantities per warehouse for products the ERP already has (the integration sends a product's quantity at every source on Commerce's product and stock item events); a SKU the ERP does not have is reported under stock.unknown and not created; a stock-only import does not move lastImportAt",
     "projectName": "optional"
   },
   "quote": {
@@ -68,17 +68,5 @@
     "webhookPath": "/api/v1/web/ingestion/webhook",
     "body": { "data": ["uid", "event", "value"] },
     "maxAttempts": 10
-  },
-  "sync": {
-    "description": "What the ERP asks of its subscriber when someone chooses Sync records on its Settings page: start re-sending the records it mirrors, in the background, and answer at once. The ERP then watches its own last-import time.",
-    "method": "POST",
-    "path": "/api/v1/web/erp/mirror?background=true",
-    "answers": 202,
-    "status": {
-      "description": "How the subscriber reports a sync it runs: POST admin/sync with one step at a time. A run starts with state running, phase reading; then phase partners and phase products with { done, total } counts; and ends with state done, or failed with an error a person can act on. health answers the latest record as sync.",
-      "states": ["requested", "running", "done", "failed"],
-      "phases": ["reading", "partners", "products"],
-      "progress": ["done", "total"]
-    }
   }
 }
