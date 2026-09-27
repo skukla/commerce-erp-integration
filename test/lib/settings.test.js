@@ -54,6 +54,7 @@ vi.mock("@adobe/aio-commerce-sdk/auth", () => ({
 
 import {
   clearSettingsCache,
+  resolvedSettings,
   SETTING_DEFAULTS,
   saveProblem,
   saveSettings,
@@ -358,5 +359,29 @@ describe("Given the Structure settings (business-structure plan, step 02)", () =
     ]) {
       expect(lib.SETTING_DEFAULTS[name]).toBe("");
     }
+  });
+});
+
+describe("Given Demo Builder asking for the settings in force before it fills the ERP", () => {
+  test("Then it answers Default Config and each named website's values, each over the defaults", async () => {
+    store.set(DEFAULT_KEY, {
+      structure_owns: "sources",
+      structure_owns_sources: "default",
+    });
+    store.set(JSON.stringify({ code: "bodea", level: "website" }), {
+      structure_sales_org: "EU01",
+    });
+    const answer = await resolvedSettings(["base", "bodea"]);
+    expect(answer.default).toStrictEqual({
+      ...SETTING_DEFAULTS,
+      structure_owns: "sources",
+      structure_owns_sources: "default",
+    });
+    // base has no values of its own, so it reads Default Config beneath it.
+    expect(answer.websites.base.structure_owns).toBe("sources");
+    expect(answer.websites.base.structure_sales_org).toBe(
+      SETTING_DEFAULTS.structure_sales_org,
+    );
+    expect(answer.websites.bodea.structure_sales_org).toBe("EU01");
   });
 });

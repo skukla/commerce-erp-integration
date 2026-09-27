@@ -5,11 +5,21 @@ import {
 } from "@adobe/aio-commerce-sdk/core/responses";
 import AioLogger from "@adobe/aio-lib-core-logging";
 
-import { saveProblem, saveSettings, settingsPage } from "#lib/settings";
+import {
+  resolvedSettings,
+  saveProblem,
+  saveSettings,
+  settingsPage,
+} from "#lib/settings";
 import { readPayload } from "#lib/webhook";
+
+/** A Commerce website code: letters, digits and underscores, starting with a letter. */
+const WEBSITE_CODE = /^[a-z][a-z0-9_]*$/u;
 
 /**
  * The Admin page's settings.
+ * GET ?websites=<code>,<code>: the settings in force, Default Config and each named website's
+ *   (Demo Builder reads them before it fills the ERP).
  * GET ?scope=<scope id>[&refresh=true]: the fields, the scopes a merchant can pick, and the
  *   values at that scope with where each comes from (Default Config when no scope is given).
  *   `refresh` reads Commerce's websites again first.
@@ -23,6 +33,18 @@ async function main(params) {
   });
   const method = String(params.__ow_method || "get").toLowerCase();
   try {
+    if (method === "get" && params.websites !== undefined) {
+      const codes = String(params.websites)
+        .split(",")
+        .map((code) => code.trim())
+        .filter(Boolean);
+      if (codes.some((code) => !WEBSITE_CODE.test(code))) {
+        return badRequest(
+          "websites is a comma-separated list of website codes",
+        );
+      }
+      return ok({ body: await resolvedSettings(codes, logger) });
+    }
     if (method === "get") {
       return ok({
         body: await settingsPage(params, params.scope || undefined, {

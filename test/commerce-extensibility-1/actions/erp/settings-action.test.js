@@ -3,6 +3,12 @@ vi.mock("#lib/settings", async (importOriginal) => {
   const actual = await importOriginal();
   return {
     ...actual,
+    resolvedSettings: vi.fn(async (codes) => ({
+      default: { structure_owns: "all" },
+      websites: Object.fromEntries(
+        codes.map((code) => [code, { structure_sales_org: "1000" }]),
+      ),
+    })),
     saveSettings: vi.fn(async () => undefined),
     settingsPage: vi.fn(async (_params, scope) => ({
       scope: scope ?? "default",
@@ -14,7 +20,7 @@ vi.mock("@adobe/aio-commerce-lib-config", () => ({
   initialize: vi.fn(),
 }));
 
-import { saveSettings, settingsPage } from "#lib/settings";
+import { resolvedSettings, saveSettings, settingsPage } from "#lib/settings";
 import { main } from "#src/erp/settings/index";
 
 const patch = (body) => ({
@@ -64,6 +70,29 @@ describe("Given the settings action", () => {
     expect(res.error.statusCode).toBe(400);
     expect(JSON.stringify(res.error.body)).toContain("colour is not a setting");
     expect(saveSettings).not.toHaveBeenCalled();
+  });
+
+  test("Then GET naming websites answers the settings in force, Default Config and each website's", async () => {
+    // What Demo Builder asks before it fills the ERP: the values, not the page.
+    const res = await main({ __ow_method: "get", websites: "base, bodea" });
+    expect(resolvedSettings).toHaveBeenCalledExactlyOnceWith(
+      ["base", "bodea"],
+      expect.any(Object),
+    );
+    expect(settingsPage).not.toHaveBeenCalled();
+    expect(res.body).toStrictEqual({
+      default: { structure_owns: "all" },
+      websites: {
+        base: { structure_sales_org: "1000" },
+        bodea: { structure_sales_org: "1000" },
+      },
+    });
+  });
+
+  test("Then GET refuses a website code that is not one", async () => {
+    const res = await main({ __ow_method: "get", websites: "base,../x" });
+    expect(res.error.statusCode).toBe(400);
+    expect(resolvedSettings).not.toHaveBeenCalled();
   });
 
   test("Then another method is refused", async () => {

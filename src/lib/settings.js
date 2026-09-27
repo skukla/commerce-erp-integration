@@ -173,6 +173,25 @@ export async function websiteSettings(websiteCode, logger) {
   return values;
 }
 
+/**
+ * The settings in force, for a caller outside the Admin page (Demo Builder, before it fills
+ * the ERP): Default Config, and each named website's values over it. Never throws; what
+ * cannot be read answers the declared defaults.
+ * @param {string[]} websiteCodes Commerce website codes
+ * @returns {Promise<{ default: object, websites: Record<string, object> }>}
+ */
+export async function resolvedSettings(websiteCodes, logger) {
+  const entries = [];
+  for (const code of websiteCodes) {
+    // biome-ignore lint/performance/noAwaitInLoops: a handful of websites, read in order
+    entries.push([code, await websiteSettings(code, logger)]);
+  }
+  return {
+    default: await settingsFor(null, logger),
+    websites: Object.fromEntries(entries),
+  };
+}
+
 async function readFirst([selector, ...rest]) {
   try {
     return await readScope(selector);
