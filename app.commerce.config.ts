@@ -99,6 +99,20 @@ export default defineConfig({
         runtimeAction: "admin-ui/order-grid",
       },
     },
+    // Commerce's own stock transfers raise no event, so the integration offers its own on
+    // the product grid: the move is made in Commerce and sent to the ERP at once
+    // (lib/move-stock.js, owner 2026-09-27).
+    product: {
+      massActions: [
+        {
+          id: `${menuId}_move_stock`,
+          label: `Move stock between ${erpName} warehouses`,
+          path: "#/move-stock",
+          title: `Move stock between ${erpName} warehouses`,
+          type: "view",
+        },
+      ],
+    },
   },
   // The merchant's settings, kept per scope (default, website, store, store view) by
   // @adobe/aio-commerce-lib-config and edited on the integration's Admin page. Read
@@ -424,7 +438,7 @@ export default defineConfig({
     // version with every change to what this file registers, or the change never reaches
     // Commerce. "auto" runs the plan; the library marks it experimental.
     upgradeMode: "auto",
-    version: "0.8.6",
+    version: "0.8.7",
   },
   webhooks: [
     {

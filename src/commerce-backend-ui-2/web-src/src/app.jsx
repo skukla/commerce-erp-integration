@@ -4,6 +4,7 @@ import "@react-spectrum/s2/page.css";
 import config from "#app.commerce.config";
 import { CrashBoundary } from "#web/components/crash-boundary.jsx";
 import { MainPage } from "#web/pages/main-page.jsx";
+import { MoveStockPage } from "#web/pages/move-stock-page.jsx";
 
 createExtensionApp({
   menu: (
@@ -14,4 +15,15 @@ createExtensionApp({
   metadata: {
     extensionId: config.metadata.id,
   },
+  // The product grid's "Move stock between <ERP> warehouses" opens here (adminUi.product).
+  routes: [
+    {
+      element: (
+        <CrashBoundary>
+          <MoveStockPage />
+        </CrashBoundary>
+      ),
+      path: "move-stock",
+    },
+  ],
 });

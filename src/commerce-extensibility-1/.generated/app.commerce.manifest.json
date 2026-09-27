@@ -20,6 +20,17 @@
         "label": "ERP integration order",
         "runtimeAction": "admin-ui/order-grid"
       }
+    },
+    "product": {
+      "massActions": [
+        {
+          "id": "erp_integration_move_stock",
+          "label": "Move stock between ERP integration warehouses",
+          "path": "#/move-stock",
+          "title": "Move stock between ERP integration warehouses",
+          "type": "view"
+        }
+      ]
     }
   },
   "businessConfig": {
@@ -422,7 +433,7 @@
     "displayName": "ERP integration",
     "id": "commerce-erp-integration",
     "upgradeMode": "auto",
-    "version": "0.8.6"
+    "version": "0.8.7"
   },
   "webhooks": [
     {

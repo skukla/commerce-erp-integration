@@ -311,3 +311,16 @@ main {
   background: #f5f5f5;
   border-radius: 4px;
 }
+
+/* The product grid's stock move: the form's fields one under another, and a centred wait. */
+.erp-move-form {
+  display: grid;
+  gap: 16px;
+  max-width: 420px;
+  margin-block: 16px;
+}
+.erp-loading {
+  display: grid;
+  place-items: center;
+  min-height: 240px;
+}

@@ -40,6 +40,9 @@ export function makeApi(ims, origin = window.location.origin) {
       call(failedOnly ? "history?failedOnly=true" : "history"),
     // `{ sku }` or `{ company }`: one entity as both systems hold it (erp/lookup).
     lookup: (query) => call(`lookup?${new URLSearchParams(query).toString()}`),
+    // The product grid's stock move (erp/move-stock): the sources, then the move.
+    moveStock: (body) => call("move-stock", { body, method: "POST" }),
+    moveStockSources: () => call("move-stock"),
     refreshPartners: () => call("refresh-partners", { method: "POST" }),
     reset: () => call("reset", { method: "POST" }),
     // `{ incrementId }` for an order, `{ eventId }` for an ERP event (history-view.js).

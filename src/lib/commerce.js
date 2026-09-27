@@ -352,6 +352,49 @@ export async function warehousesOfSku(params, sku) {
   }));
 }
 
+/** The SKUs of these product ids (a mass action hands the grid's entity ids). */
+export async function skusForProductIds(params, productIds) {
+  const client = await commerceClient(params);
+  const items = await readAllPages(client, "products", {
+    "searchCriteria[filter_groups][0][filters][0][condition_type]": "in",
+    "searchCriteria[filter_groups][0][filters][0][field]": "entity_id",
+    "searchCriteria[filter_groups][0][filters][0][value]": productIds.join(","),
+  });
+  return items.map((product) => product.sku);
+}
+
+/**
+ * Move all of each SKU's stock from one source to another, taking the origin off the
+ * product (Commerce's Transfer Inventory To Source with "unassign the origin").
+ */
+export async function transferAllStock(params, skus, from, to) {
+  const client = await commerceClient(params);
+  return client
+    .post("inventory/bulk-product-source-transfer", {
+      json: {
+        destinationSource: to,
+        originSource: from,
+        skus,
+        unassignFromOrigin: true,
+      },
+    })
+    .json();
+}
+
+/** Move a quantity of each SKU from one source to another; the origin stays assigned. */
+export async function transferSomeStock(params, items, from, to) {
+  const client = await commerceClient(params);
+  return client
+    .post("inventory/bulk-partial-source-transfer", {
+      json: {
+        destinationSourceCode: to,
+        items,
+        originSourceCode: from,
+      },
+    })
+    .json();
+}
+
 /** One product's custom attributes, code → value (for the ownership check on an event). */
 export async function productAttributes(params, sku) {
   const client = await commerceClient(params);
