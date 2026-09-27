@@ -40,7 +40,7 @@ export function noop() {
 /**
  * The partner hints a cart or order carries: the customer group (a company's shared
  * catalog group), the email domain, the customer id. The ERP resolves them in order.
- * A cart's totals payload carries only the group; an order carries all three.
+ * A cart's totals payload carries all three too (measured on Bodea, 2026-09-27).
  */
 export function partnerHints(source = {}) {
   const email = source.customer_email || source.customer?.email || null;
@@ -52,6 +52,22 @@ export function partnerHints(source = {}) {
         : String(source.customer_group_id),
     customerId: source.customer_id ?? null,
     email,
+  };
+}
+
+/**
+ * Who a cart belongs to, in ids only (safe to log): the cart, the customer, their group, and the
+ * B2B company Commerce records on the cart (`extension_attributes.company_id` on a stored cart;
+ * logged to learn whether the totals payload carries it too), with the extension fields' names.
+ */
+export function cartBuyer(quote = {}) {
+  const extension = quote.extension_attributes ?? {};
+  return {
+    cartId: quote.entity_id ?? null,
+    companyId: extension.company_id ?? null,
+    customerGroupId: quote.customer_group_id ?? null,
+    customerId: quote.customer_id ?? null,
+    extensionFields: Object.keys(extension),
   };
 }
 

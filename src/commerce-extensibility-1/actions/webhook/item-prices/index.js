@@ -3,6 +3,7 @@ import AioLogger from "@adobe/aio-lib-core-logging";
 import { erp } from "#lib/erp";
 import { settingsFor } from "#lib/settings";
 import {
+  cartBuyer,
   cartLines,
   noop,
   operations,
@@ -25,6 +26,7 @@ async function main(params) {
   });
   try {
     const payload = readPayload(params);
+    logger.info(`cart buyer: ${JSON.stringify(cartBuyer(payload.quote))}`);
     const lines = cartLines(payload);
     if (lines.length === 0) {
       logger.info(
