@@ -1,48 +1,10 @@
 /* ───────────────────────── Data Map ───────────────────────── */
 
-/* Which of the four views, and one line saying how to read it. */
-.dm-views {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px 20px;
-  align-items: center;
-  margin: 4px 0 22px;
-}
+/* One line above the grid saying how to read it. */
 .dm-caption {
-  margin: 0;
+  margin: 4px 0 22px;
   font-size: 15px;
   color: var(--text-muted);
-}
-
-/* Which view: a segmented control of plain buttons. */
-fieldset.segmented {
-  min-width: 0;
-  padding: 0;
-  margin: 0;
-}
-.segmented {
-  display: inline-flex;
-  border: 1px solid var(--line-strong);
-}
-.segmented button {
-  display: inline-flex;
-  align-items: center;
-  height: 36px;
-  padding: 0 16px;
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--text);
-  cursor: pointer;
-  background: #fff;
-  border: 0;
-  border-left: 1px solid var(--line-strong);
-}
-.segmented button:first-child {
-  border-left: 0;
-}
-.segmented button[aria-pressed="true"] {
-  color: #fff;
-  background: var(--text-strong);
 }
 
 .map-icon {
@@ -79,7 +41,7 @@ fieldset.segmented {
   stroke-dasharray: 3 7;
 }
 
-/* ── Side by side and Examples: one row per pair, Commerce · arrow · ERP · ERP ── */
+/* One row per pair: Commerce · arrow · ERP · ERP, a real record in every cell. */
 .mg-head,
 .mg-line {
   display: grid;
@@ -116,19 +78,6 @@ fieldset.segmented {
   min-height: 66px;
   padding: 9px 18px;
 }
-button.mg-line {
-  width: 100%;
-  font-family: inherit;
-  text-align: left;
-  cursor: pointer;
-  background: none;
-  border: 0;
-}
-button.mg-line:hover,
-.mg-row.is-open .mg-line {
-  background: var(--band-bg);
-}
-.map-ent,
 .ex-lead {
   display: flex;
   gap: 14px;
@@ -137,13 +86,6 @@ button.mg-line:hover,
   font-weight: 600;
   color: var(--text-strong);
 }
-.erp-cell strong {
-  display: block;
-  font-size: 17px;
-  font-weight: 600;
-  color: var(--text-strong);
-}
-.erp-cell small,
 .ex-cell small {
   display: block;
   font-size: 13px;
@@ -159,7 +101,7 @@ button.mg-line:hover,
   text-align: center;
 }
 
-/* Examples: every cell is a record; a click opens its side panel. */
+/* Every cell is a record; a click opens it in the side panel. */
 .ex-cell {
   display: block;
   min-width: 0;
@@ -190,280 +132,20 @@ button.ex-cell:hover {
   font-weight: 400;
 }
 
-/* The quiet detail: the Side by side view's expanded row. */
-.map-more {
-  padding: 2px 18px 18px 66px;
-  font-size: 15px;
-  color: var(--text);
-  background: var(--band-bg);
-}
-.map-more p {
-  max-width: 720px;
-  margin: 0;
-}
-.map-erps {
-  display: grid;
-  gap: 6px;
-  padding: 0;
-  margin: 12px 0 0;
-  list-style: none;
-}
-.map-erps li {
-  display: flex;
-  gap: 10px;
-  align-items: center;
-}
-.map-erps .chip {
-  min-width: 96px;
-}
-
-/* ── Process ── */
-.proc-master {
-  padding: 16px 20px 6px;
-  margin-bottom: 18px;
-  background: var(--band-bg);
-  border-radius: var(--radius);
-}
-.proc-master h2,
-.proc-feeds {
-  margin: 0 0 10px;
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--text-muted);
-}
-.proc-feeds {
-  margin: 10px 0 6px;
-  text-align: center;
-}
-.proc-tiles {
-  display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: 12px;
-}
-.proc-tile {
-  padding: 10px 14px;
-  font-family: inherit;
-  text-align: left;
-  cursor: pointer;
-  background: #fff;
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-}
-.proc-tile:hover,
-.proc-step:hover {
-  border-color: var(--text-muted);
-}
-.proc-tile strong {
-  display: block;
-  font-size: 15px;
-  color: var(--text-strong);
-}
-.proc-tile span {
-  font-size: 13px;
-  color: var(--text-muted);
-}
-.proc-flow {
-  display: grid;
-  grid-template-columns:
-    minmax(0, 1fr) 96px minmax(0, 1fr) 96px minmax(0, 1fr) 96px
-    minmax(0, 1fr) 96px minmax(0, 1fr);
-  align-items: stretch;
-}
-.proc-step {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  align-items: flex-start;
-  padding: 16px 14px 14px;
-  font-family: inherit;
-  text-align: left;
-  cursor: pointer;
-  background: #fff;
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-}
-.proc-step strong {
-  font-size: 17px;
-  color: var(--text-strong);
-}
-.proc-n {
-  display: grid;
-  place-items: center;
-  width: 24px;
-  height: 24px;
-  font-size: 13px;
-  font-weight: 700;
-  color: #fff;
-  background: var(--text-strong);
-  border-radius: 50%;
-}
-.proc-who {
-  font-size: 13px;
-  color: var(--text-muted);
-}
-.proc-who.c {
-  font-weight: 600;
-  color: var(--primary-hover);
-}
-.proc-eg,
-.proc-back {
-  font-size: 13px;
-  color: var(--text-muted);
-}
-.proc-lane {
-  box-sizing: border-box;
-  width: 100%;
-  padding: 5px 8px;
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--text-strong);
-  background: var(--band-bg);
-  border-left: 3px solid var(--line-strong);
-}
-.proc-link {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  align-items: center;
-  justify-content: center;
-  padding: 0 6px;
-  font-size: 12px;
-  color: var(--text-muted);
-  text-align: center;
-}
-.proc-link svg {
-  width: 60px;
-  height: 20px;
-  fill: none;
-  stroke: var(--text-strong);
-  stroke-width: 2;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
-.proc-note {
-  margin: 16px 0 0;
-  font-size: 13px;
-  color: var(--text-muted);
-}
-
-/* ── Hub: Commerce in the middle ── */
-.hub {
-  max-width: 1120px;
-  margin: 0 auto;
-}
-.hub-head,
-.hub-row {
-  display: grid;
-  grid-template-columns:
-    minmax(0, 1fr) 170px minmax(0, 1.1fr) 170px
-    minmax(0, 1fr);
-  align-items: stretch;
-}
-.hub-sys {
-  padding: 14px 16px 12px;
-  text-align: center;
-  background: var(--erp-tint, var(--band-bg));
-  border-top: 4px solid var(--erp, var(--line-strong));
-  border-radius: var(--radius) var(--radius) 0 0;
-}
-.hub-sys strong {
-  display: block;
-  font-size: 18px;
-  color: var(--text-strong);
-}
-.hub-sys-c {
-  --erp: var(--primary);
-  --erp-tint: #fdf1ea;
-}
-.hub-cell {
-  display: flex;
-  gap: 10px;
-  align-items: center;
-  justify-content: center;
-  min-height: 52px;
-  padding: 6px 12px;
-  font-size: 15px;
-  font-weight: 600;
-  color: var(--text-strong);
-  background: var(--erp-tint, var(--band-bg));
-}
-.hub-c {
-  --erp-tint: #fdf1ea;
-  justify-content: flex-start;
-  padding-left: 22px;
-  font-size: 16px;
-}
-.hub-c .map-icon {
-  width: 28px;
-  height: 28px;
-  background: #fff;
-}
-.hub-c .map-icon svg {
-  width: 16px;
-  height: 16px;
-}
-.hub-row:last-child .hub-cell {
-  border-radius: 0 0 var(--radius) var(--radius);
-}
-.hub-line {
-  display: flex;
-  flex-direction: column;
-  gap: 1px;
-  align-items: center;
-  justify-content: center;
-  padding: 0 10px;
-  font-family: inherit;
-  font-size: 12px;
-  color: var(--text-muted);
-  cursor: pointer;
-  background: none;
-  border: 0;
-}
-.hub-line:hover {
-  color: var(--link);
-  background: var(--row-hover);
-}
-
-/* A clickable example cell's value reads as a link, over any plain "strong" elsewhere. */
+/* A clickable cell's value reads as a link, over any plain "strong" above it. */
 button.ex-cell strong {
   color: var(--link);
 }
-/* A gap (Payment): quieter everywhere it appears, always last so it always wins. */
-.ex-cell.is-empty strong {
-  font-weight: 400;
-  color: #b0b0b0;
-}
+/* A gap (Payment): a quieter icon and a dashed value, always last so it wins. */
 .is-gap .map-icon {
   background: #f0f0f0;
 }
 .is-gap .map-icon svg {
   fill: #9a9a9a;
 }
-.is-gap .map-ent,
-.is-gap .erp-cell strong {
+.ex-cell.is-empty strong {
   font-weight: 400;
-  color: var(--text-muted);
-}
-.is-gap .proc-n {
-  background: #b5b5b5;
-}
-.proc-step.is-gap {
-  background: #fafafa;
-  border-color: var(--line-strong);
-  border-style: dashed;
-}
-.proc-step.is-gap strong {
-  font-weight: 400;
-  color: var(--text-muted);
-}
-.proc-link.is-gap svg {
-  stroke: #a0a0a0;
-  stroke-dasharray: 3 6;
-}
-.hub-row.is-gap .hub-cell {
-  font-weight: 400;
-  color: var(--text-muted);
+  color: #b0b0b0;
 }
 
 @media (max-width: 1360px) {
@@ -471,16 +153,5 @@ button.ex-cell strong {
   .mg-line {
     grid-template-columns: minmax(0, 1.15fr) 180px minmax(0, 1fr) minmax(0, 1fr);
     gap: 0 20px;
-  }
-  .proc-flow {
-    grid-template-columns:
-      minmax(0, 1fr) 76px minmax(0, 1fr) 76px minmax(0, 1fr) 76px
-      minmax(0, 1fr) 76px minmax(0, 1fr);
-  }
-  .hub-head,
-  .hub-row {
-    grid-template-columns:
-      minmax(0, 1fr) 140px minmax(0, 1.1fr) 140px
-      minmax(0, 1fr);
   }
 }

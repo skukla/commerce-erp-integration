@@ -1,47 +1,18 @@
 /*
- * The Data Map: Commerce's own word for a business object beside what each ERP calls it, in four
- * ways to look at the same correspondence (the owner-approved mockup, preview/mockups/data-map.html).
- * It explains how a pair is joined; Overview and Activity already report today's status, so this
- * view carries no health or problem state of its own.
+ * The Data Map: Commerce's own word for a business object beside what each ERP calls it, with a
+ * real record in every cell (the owner-approved mockup, preview/mockups/data-map.html). It shows
+ * how a pair lines up; Overview and Activity already report today's status, so this view carries
+ * no health or problem state of its own. Click a cell to open that record.
  */
-import { Fragment, useCallback, useState } from "react";
+import { useCallback } from "react";
 
-import { ErpChip, erpStyle } from "#web/components/controls.jsx";
-import { MapEntryDetails } from "#web/components/panel-map.jsx";
+import { ErpChip } from "#web/components/controls.jsx";
 import {
   arrowPathKey,
   MAP_ARROW_PATHS,
   MAP_ENTRIES,
   MAP_ICON_PATHS,
-  MAP_MASTER_DATA,
-  MAP_PROCESS_STEPS,
-  splitErpsForHub,
 } from "#web/data-map-view.js";
-
-const VIEWS = [
-  {
-    caption:
-      "What each system calls the same thing. Click a row for how they are joined.",
-    id: "side",
-    label: "Side by side",
-  },
-  {
-    caption:
-      "The same map, with a real record in every cell. Click one to open it.",
-    id: "examples",
-    label: "Examples",
-  },
-  {
-    caption: "An order’s journey from Commerce through the ERPs. Click a step.",
-    id: "process",
-    label: "Process",
-  },
-  {
-    caption: "Commerce in the middle, each ERP beside it. Click a line.",
-    id: "hub",
-    label: "Hub",
-  },
-];
 
 /** A company example opens by name (Commerce holds no fixed id for it); the rest open directly. */
 async function openExample(api, onError, onOpen, target) {
@@ -76,8 +47,8 @@ function MapIcon({ entryId }) {
   );
 }
 
-function MapArrow({ commerceSide = "left", dir, moves }) {
-  const path = arrowPathKey(dir, commerceSide);
+/** The arrow for a pair, always drawn from Commerce (on the left) toward the ERPs. */
+function MapArrow({ dir, moves }) {
   return (
     <span className="map-arrow">
       <svg
@@ -85,97 +56,10 @@ function MapArrow({ commerceSide = "left", dir, moves }) {
         className="dm-svg"
         data-dir={dir}
         viewBox="0 0 160 20">
-        <path d={MAP_ARROW_PATHS[path]} />
+        <path d={MAP_ARROW_PATHS[arrowPathKey(dir)]} />
       </svg>
       <span>{moves}</span>
     </span>
-  );
-}
-
-function ViewButton({ item, onChange, view }) {
-  const select = useCallback(() => onChange(item.id), [item.id, onChange]);
-  return (
-    <button aria-pressed={item.id === view} onClick={select} type="button">
-      {item.label}
-    </button>
-  );
-}
-
-function ViewSwitch({ onChange, view }) {
-  return (
-    <div className="dm-views">
-      <fieldset aria-label="How to show the map" className="segmented">
-        {VIEWS.map((item) => (
-          <ViewButton
-            item={item}
-            key={item.id}
-            onChange={onChange}
-            view={view}
-          />
-        ))}
-      </fieldset>
-      <p className="dm-caption">
-        {VIEWS.find((item) => item.id === view).caption}
-      </p>
-    </div>
-  );
-}
-
-/** One row of the Side by side view: click it to expand the Data Map copy inline. */
-function SideRow({ entry, erpInfo, onToggle, open }) {
-  const toggle = useCallback(() => onToggle(entry.id), [entry.id, onToggle]);
-  const rowClass = ["mg-row", entry.gap && "is-gap", open && "is-open"]
-    .filter(Boolean)
-    .join(" ");
-  return (
-    <div className={rowClass}>
-      <button
-        aria-expanded={open}
-        className="mg-line"
-        onClick={toggle}
-        type="button">
-        <span className="map-ent">
-          <MapIcon entryId={entry.id} />
-          {entry.commerce}
-        </span>
-        <MapArrow dir={entry.dir} moves={entry.moves} />
-        <span className="erp-cell">
-          <strong>{entry.primary[0]}</strong>
-          <small>{entry.primary[1]}</small>
-        </span>
-        <span className="erp-cell">
-          <strong>{entry.secondary[0]}</strong>
-          <small>{entry.secondary[1]}</small>
-        </span>
-      </button>
-      {open && (
-        <div className="map-more">
-          <MapEntryDetails entryId={entry.id} erpInfo={erpInfo} />
-        </div>
-      )}
-    </div>
-  );
-}
-
-function SideView({ erpInfo }) {
-  const [openId, setOpenId] = useState(null);
-  const toggle = useCallback(
-    (id) => setOpenId((current) => (current === id ? null : id)),
-    [],
-  );
-  return (
-    <section className="map-grid">
-      <MapGridHead erpInfo={erpInfo} />
-      {MAP_ENTRIES.map((entry) => (
-        <SideRow
-          entry={entry}
-          erpInfo={erpInfo}
-          key={entry.id}
-          onToggle={toggle}
-          open={openId === entry.id}
-        />
-      ))}
-    </section>
   );
 }
 
@@ -249,187 +133,25 @@ function ExampleRow({ api, entry, onError, onOpen }) {
   );
 }
 
-function ExamplesView({ api, erpInfo, onError, onOpen }) {
-  return (
-    <section className="map-grid is-examples">
-      <MapGridHead erpInfo={erpInfo} />
-      {MAP_ENTRIES.map((entry) => (
-        <ExampleRow
-          api={api}
-          entry={entry}
-          key={entry.id}
-          onError={onError}
-          onOpen={onOpen}
-        />
-      ))}
-    </section>
-  );
-}
-
-function MasterTile({ onOpen, tile }) {
-  const open = useCallback(
-    () => onOpen({ entryId: tile.entryId, kind: "map" }),
-    [onOpen, tile.entryId],
-  );
-  return (
-    <button className="proc-tile" onClick={open} type="button">
-      <strong>{tile.label}</strong>
-      <span>{tile.note}</span>
-    </button>
-  );
-}
-
-function ProcessStep({ onOpen, step }) {
-  const open = useCallback(
-    () => onOpen({ entryId: step.entryId, kind: "map" }),
-    [onOpen, step.entryId],
-  );
-  return (
-    <button
-      className={step.gap ? "proc-step is-gap" : "proc-step"}
-      onClick={open}
-      type="button">
-      <span className="proc-n">{step.n}</span>
-      <strong>{step.label}</strong>
-      {step.who && (
-        <span className={step.gap ? "proc-who" : "proc-who c"}>{step.who}</span>
-      )}
-      {step.eg && <span className="proc-eg">{step.eg}</span>}
-      {step.lanes?.map(([slot, text]) => (
-        <span className="proc-lane" key={slot}>
-          {text}
-        </span>
-      ))}
-      {step.back && <span className="proc-back">{step.back}</span>}
-    </button>
-  );
-}
-
-function ProcessLink({ step }) {
-  return (
-    <span className={step.gap ? "proc-link is-gap" : "proc-link"}>
-      <svg aria-hidden="true" viewBox="0 0 60 20">
-        <path d={step.gap ? "M4 10h50" : "M4 10h50M46 3l8 7-8 7"} />
-      </svg>
-      <span>{step.linkTo}</span>
-    </span>
-  );
-}
-
-function ProcessView({ onOpen }) {
-  return (
-    <section className="proc">
-      <div className="proc-master">
-        <h2>Kept in step all the time</h2>
-        <div className="proc-tiles">
-          {MAP_MASTER_DATA.map((tile) => (
-            <MasterTile key={tile.entryId} onOpen={onOpen} tile={tile} />
-          ))}
-        </div>
-        <p className="proc-feeds">↓ used by every order</p>
-      </div>
-      <div className="proc-flow">
-        {MAP_PROCESS_STEPS.map((step, index) => (
-          <Fragment key={step.n}>
-            {index > 0 && <ProcessLink step={step} />}
-            <ProcessStep onOpen={onOpen} step={step} />
-          </Fragment>
-        ))}
-      </div>
-      <p className="proc-note">
-        Holds and cancels go both ways at any step. Shown: order 3000000023,
-        which has products from both ERPs.
-      </p>
-    </section>
-  );
-}
-
-function HubLine({ commerceSide, entry, onOpen }) {
-  const open = useCallback(
-    () => onOpen({ entryId: entry.id, kind: "map" }),
-    [entry.id, onOpen],
-  );
-  return (
-    <button className="hub-line" onClick={open} type="button">
-      <MapArrow commerceSide={commerceSide} dir={entry.dir} moves="" />
-    </button>
-  );
-}
-
-function HubRow({ entry, erpInfo, left, onOpen, right }) {
-  return (
-    <div className={entry.gap ? "hub-row is-gap" : "hub-row"}>
-      <span
-        className="hub-cell"
-        style={left && erpStyle(erpInfo.colors, left.id)}>
-        {entry.primary[0]}
-      </span>
-      <HubLine commerceSide="right" entry={entry} onOpen={onOpen} />
-      <span className="hub-cell hub-c">
-        <MapIcon entryId={entry.id} />
-        {entry.commerce}
-      </span>
-      <HubLine commerceSide="left" entry={entry} onOpen={onOpen} />
-      <span
-        className="hub-cell"
-        style={right && erpStyle(erpInfo.colors, right.id)}>
-        {entry.secondary[0]}
-      </span>
-    </div>
-  );
-}
-
-function HubView({ erpInfo, onOpen }) {
-  const { left, right } = splitErpsForHub(erpInfo.erps);
-  return (
-    <section className="hub">
-      <div className="hub-head">
-        <div
-          className="hub-sys"
-          style={left && erpStyle(erpInfo.colors, left.id)}>
-          {left && <strong>{left.name}</strong>}
-        </div>
-        <span />
-        <div className="hub-sys hub-sys-c">
-          <strong>Commerce</strong>
-        </div>
-        <span />
-        <div
-          className="hub-sys"
-          style={right && erpStyle(erpInfo.colors, right.id)}>
-          {right && <strong>{right.name}</strong>}
-        </div>
-      </div>
-      {MAP_ENTRIES.map((entry) => (
-        <HubRow
-          entry={entry}
-          erpInfo={erpInfo}
-          key={entry.id}
-          left={left}
-          onOpen={onOpen}
-          right={right}
-        />
-      ))}
-    </section>
-  );
-}
-
 export function DataMapTab({ api, erpInfo, onError, onOpen }) {
-  const [view, setView] = useState("examples");
   return (
     <>
-      <ViewSwitch onChange={setView} view={view} />
-      {view === "side" && <SideView erpInfo={erpInfo} />}
-      {view === "examples" && (
-        <ExamplesView
-          api={api}
-          erpInfo={erpInfo}
-          onError={onError}
-          onOpen={onOpen}
-        />
-      )}
-      {view === "process" && <ProcessView onOpen={onOpen} />}
-      {view === "hub" && <HubView erpInfo={erpInfo} onOpen={onOpen} />}
+      <p className="dm-caption">
+        What each system calls the same thing, with a real record in every cell.
+        Click one to open it.
+      </p>
+      <section className="map-grid is-examples">
+        <MapGridHead erpInfo={erpInfo} />
+        {MAP_ENTRIES.map((entry) => (
+          <ExampleRow
+            api={api}
+            entry={entry}
+            key={entry.id}
+            onError={onError}
+            onOpen={onOpen}
+          />
+        ))}
+      </section>
     </>
   );
 }
