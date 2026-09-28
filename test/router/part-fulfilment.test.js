@@ -8,6 +8,7 @@ import {
   resetOrderPartsClient,
   writeOrderParts,
 } from "#lib/order-parts";
+import { applyCombinedStatus } from "#router/combined-status";
 import {
   fulfilmentFromCommerce,
   invoicePart,
@@ -317,5 +318,50 @@ describe("Given Commerce ships or invoices lines of two ERPs' parts", () => {
         },
       ),
     ).toBeNull();
+  });
+});
+
+describe("Given one ERP's part is held while another ERP ships and invoices", () => {
+  test("Then the other ERP's partial invoice and shipment go through and the order is never put On Hold", async () => {
+    const record = await readOrderParts(ORDER);
+    record.parts["brand-a"] = { ...record.parts["brand-a"], status: "held" };
+    await writeOrderParts(ORDER, record);
+    const invoiceItems = vi.fn(async () => 902);
+    const order = { state: "processing", status: "processing" };
+    const commerce = {
+      addComment: vi.fn(async () => ({})),
+      getOrder: vi.fn(async () => ({ ...order })),
+      holdOrder: vi.fn(async () => true),
+      unholdOrder: vi.fn(async () => true),
+    };
+    const msg = message("brand-b", "B-200", [
+      { orderItemId: 2, qty: 5, sku: "SIGN1" },
+    ]);
+
+    const shipment = await prepareShipment(
+      {},
+      ORDER_ID,
+      msg,
+      { items: [{ order_item_id: 2, qty: 5 }] },
+      { erps: ERPS, invoiceItems },
+    );
+    await recordShipped(ORDER, "brand-b", [{ order_item_id: 2, qty: 5 }]);
+    const decision = await applyCombinedStatus(
+      {},
+      ORDER_ID,
+      await readOrderParts(ORDER),
+      commerce,
+    );
+
+    expect(invoiceItems).toHaveBeenCalledExactlyOnceWith({}, ORDER_ID, [
+      { order_item_id: 2, qty: 5 },
+    ]);
+    expect(shipment).toMatchObject({
+      erpId: "brand-b",
+      items: [{ order_item_id: 2, qty: 5 }],
+      matched: true,
+    });
+    expect(decision).toMatchObject({ action: "partly", status: "partly-held" });
+    expect(commerce.holdOrder).not.toHaveBeenCalled();
   });
 });
