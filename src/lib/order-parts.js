@@ -40,9 +40,69 @@ export function resetOrderPartsClient(client) {
   statePromise = client ? Promise.resolve(client) : undefined;
 }
 
+const PARTS_PREFIX = "order-parts-";
+const CLOSED_PREFIX = "order-reset-closed-";
+
+const keySafe = (incrementId) =>
+  String(incrementId).replace(/[^A-Za-z0-9_-]/gu, "_");
+
 /** The State key of an order's parts, by the order number a shopper sees. */
 export function orderPartsKey(incrementId) {
-  return `order-parts-${String(incrementId).replace(/[^A-Za-z0-9_-]/gu, "_")}`;
+  return `${PARTS_PREFIX}${keySafe(incrementId)}`;
+}
+
+/**
+ * The order number of every order with a parts record, read from the keys (a record does not
+ * hold its own number). Commerce's order numbers are digits, which the key keeps as they are.
+ * @returns {Promise<string[]>}
+ */
+export async function listOrderPartsIds() {
+  const ids = [];
+  for await (const page of (await state()).list({
+    match: `${PARTS_PREFIX}*`,
+  })) {
+    ids.push(...page.keys.map((key) => key.slice(PARTS_PREFIX.length)));
+  }
+  return ids;
+}
+
+/** Delete an order's parts record; answers whether there was one. */
+export async function deleteOrderParts(incrementId) {
+  const client = await state();
+  const key = orderPartsKey(incrementId);
+  if (!(await client.get(key))?.value) {
+    return false;
+  }
+  await client.delete(key);
+  return true;
+}
+
+/**
+ * Mark an order as closed by a demo reset (lib/close-orders.js), before the reset's first write
+ * to it: the order events those writes raise must send nothing to an ERP. Kept as long as a
+ * parts record: a cancelled order is never sent again.
+ */
+export async function markClosedByReset(incrementId, day) {
+  await (await state()).put(
+    `${CLOSED_PREFIX}${keySafe(incrementId)}`,
+    JSON.stringify({ day }),
+    { ttl: TTL_SECONDS },
+  );
+}
+
+/** @returns {Promise<{ day: string }|null>} the reset's mark on an order, or null */
+export async function closedByReset(incrementId) {
+  const res = await (await state()).get(
+    `${CLOSED_PREFIX}${keySafe(incrementId)}`,
+  );
+  if (!res?.value) {
+    return null;
+  }
+  try {
+    return JSON.parse(res.value);
+  } catch {
+    return { day: "unknown" };
+  }
 }
 
 /**

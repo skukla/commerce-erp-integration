@@ -16,6 +16,7 @@ vi.mock("@adobe/aio-commerce-sdk/auth", () => ({
   resolveImsAuthParams: vi.fn(() => ({})),
 }));
 
+import { cancellableByReset, hasResetNote } from "#lib/close-orders";
 import {
   customerCompanyId,
   findOrderByIncrementId,
@@ -134,6 +135,39 @@ describe("Given Commerce's own answers about orders", () => {
     commerce({ "orders/11": "order-11" });
     expect(await unholdIfHeld({}, 11)).toBe(false);
     expect(mockPost).not.toHaveBeenCalled();
+  });
+
+  // AB-16n: the reset's close reads the state, each line's invoiced and shipped quantities, and
+  // the history's comments under the names Commerce answers them with.
+  test("Then an invoiced and shipped order is not one the reset cancels, and the same order untouched is", () => {
+    const order = captured("order-11");
+    expect(cancellableByReset(order)).toBe(false);
+    const untouched = {
+      ...order,
+      items: order.items.map((item) => ({
+        ...item,
+        qty_invoiced: 0,
+        qty_shipped: 0,
+      })),
+      state: "new",
+    };
+    expect(cancellableByReset(untouched)).toBe(true);
+  });
+
+  test("Then an order's history is read for the reset's note", () => {
+    const order = captured("order-11");
+    expect(hasResetNote(order)).toBe(false);
+    const noted = {
+      ...order,
+      status_histories: [
+        {
+          ...order.status_histories[0],
+          comment: "Cancelled by the demo reset on 2026-09-28.",
+        },
+        ...order.status_histories,
+      ],
+    };
+    expect(hasResetNote(noted)).toBe(true);
   });
 });
 

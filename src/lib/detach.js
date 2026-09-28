@@ -16,6 +16,7 @@
  * reset while the others keep theirs.
  */
 import { paramsForErp } from "#adapters/contract";
+import { closeOrders, prepareClose } from "#lib/close-orders";
 import { revertErp } from "#lib/detach-erp";
 
 /**
@@ -47,13 +48,18 @@ function ledgerWriters(params, { commerce, tierPrices }) {
  * one ERP only (AB-16c: its ledger entries, its share of each company's credit, and its own
  * orders), leaving the other ERPs' writes. The caller checks the id is listed (erp/detach).
  *
- * @param {object} params action params; `erp` the one ERP to undo
- * @param {object} deps `{ erps?, commerce: { clearExtOrderId, unholdIfHeld, getCompany, setCompanyCreditLimit, setCompanyCustomAttributes, setCompanyStatus, setProductName, setProductPrice, setStock }, erp: { listOrders }, ledger, tierPrices: { revertTierPrice } }`
- * @returns {Promise<{ erp?: string, reverted: object, orders: { cleared: number, failed: object[] }, holds: { released: number, failed: object[] } }>}
+ * With `params.closeOrders` (a whole detach only; the caller refuses it with `erp`), every order
+ * the ERPs hold is closed off too, before a reset wipes them (lib/close-orders.js, AB-16n): each
+ * is marked closed before the first Commerce write, and the answer carries `closed`.
+ *
+ * @param {object} params action params; `erp` the one ERP to undo; `closeOrders` true to close
+ * @param {object} deps `{ erps?, commerce: { clearExtOrderId, unholdIfHeld, getCompany, setCompanyCreditLimit, setCompanyCustomAttributes, setCompanyStatus, setProductName, setProductPrice, setStock, findOrderByIncrementId, orders: { get, cancel, comment } }, erp: { listOrders }, ledger, tierPrices: { revertTierPrice }, orderParts?, today? }`
+ * @returns {Promise<{ erp?: string, reverted: object, orders: { cleared: number, failed: object[] }, holds: { released: number, failed: object[] }, closed?: object }>}
  */
 export async function detach(params, deps) {
-  const { commerce, erp, ledger } = deps;
+  const { commerce, ledger } = deps;
   const erpId = params.erp ? String(params.erp) : undefined;
+  const closing = params.closeOrders === true && erpId === undefined;
   const writers = ledgerWriters(params, deps);
   const reverted = erpId
     ? await revertErp(params, erpId, writers, deps)
@@ -61,23 +67,55 @@ export async function detach(params, deps) {
   const orders = { cleared: 0, failed: [] };
   const holds = { failed: [], released: 0 };
   const cleared = new Set();
+  const listed = await listedOrders(params, deps, erpId, orders);
+  const prepared = closing
+    ? await prepareClose(
+        params,
+        listed.map((order) => order.commerceOrderId).filter(Boolean),
+        closeDeps(deps),
+      )
+    : undefined;
+  await undoOrders(params, listed, commerce, { cleared, holds, orders });
+  const closed = prepared
+    ? await closeOrders(params, prepared, closeDeps(deps), {
+        cleared,
+        holds,
+        orders,
+      })
+    : undefined;
+  return {
+    ...(erpId ? { erp: erpId } : {}),
+    ...(closed ? { closed } : {}),
+    holds,
+    orders,
+    reverted,
+  };
+}
+
+/** What the close needs beyond detach's own collaborators: the day, UTC, as YYYY-MM-DD. */
+function closeDeps(deps) {
+  return {
+    ...deps,
+    today: deps.today ?? (() => new Date().toISOString().slice(0, 10)),
+  };
+}
+
+/** Every order each ERP lists; a list that cannot be read is reported and the rest go on. */
+async function listedOrders(params, deps, erpId, orders) {
+  const items = [];
   for (const target of erpTargets(params, deps.erps, erpId)) {
     // biome-ignore lint/performance/noAwaitInLoops: one ERP at a time, few ERPs
-    const listed = await erp.listOrders(target.params);
-    if (!listed.ok) {
+    const listed = await deps.erp.listOrders(target.params);
+    if (listed.ok) {
+      items.push(...(listed.data.items ?? []));
+    } else {
       orders.failed.push({
         error: `${target.label} orders answered ${listed.status}`,
         orderId: "*",
       });
-      continue;
     }
-    await undoOrders(params, listed.data.items ?? [], commerce, {
-      cleared,
-      holds,
-      orders,
-    });
   }
-  return { ...(erpId ? { erp: erpId } : {}), holds, orders, reverted };
+  return items;
 }
 
 /**

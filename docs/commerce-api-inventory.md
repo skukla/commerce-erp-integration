@@ -32,7 +32,7 @@ row says otherwise.
 | `POST products/tier-prices`, `POST products/tier-prices-delete`, `POST products/tier-prices-information` | `writeTierPrices`, `deleteTierPrices`, `tierPricesOf`, `revertTierPrice` | ERP contract prices → the company's shared catalog; revert | bodies from Adobe's "Manage prices for multiple products"; the information read was measured 2026-09-26; the writes are not yet run live (AB-26z Z5) |
 | `POST orders` (sparse: `entity.entity_id` + `ext_order_id`) | `setExtOrderId`, `clearExtOrderId` | ERP number write-back; clear on detach | used today |
 | `POST orders/{id}/comments` (`statusHistory` ± `status`) | `orders.comment`, kit `addComment` | notes; a custom status on confirm (a comment sets only a status of the order's current state) | used today |
-| `POST orders/{id}/cancel` | `orders.cancel`, kit `cancelOrder` | ERP cancel | used today |
+| `POST orders/{id}/cancel` | `orders.cancel`, kit `cancelOrder` | ERP cancel; a reset's close (AB-16n), which reads the `false` Commerce answers when it cannot cancel | used today |
 | `POST order/{id}/ship` (`items[]`, `comment`, `notify`, `arguments.extension_attributes.source_code`) | kit shipment client | ERP shipment, per-item, per source | used today (`source_code` path: kit transformer — confirm the live response records the source) |
 | `POST order/{id}/invoice` (`capture: true`, `notify: false`) | `orders.invoice`, kit `invoiceOrder` | ERP invoice, whole order | used today |
 | `POST shipment` | kit `updateShipment` | kit scaffolding | present, unused |
@@ -114,7 +114,7 @@ replaced, and `test/contract/commerce-fixtures.test.js` runs the real readers ov
 | `companies-page.json`, `company-21.json` | `GET company`, `GET company/{id}` | `listCompanies` |
 | `company-credit-21.json` | `GET companyCredits/company/{id}` | `listCompanies` |
 | `customer-44.json` | `GET customers/{id}` | `listCompanies` (admin website), `customerCompanyId` |
-| `orders-by-increment.json`, `order-11.json` | `GET orders?…increment_id`, `GET orders/{id}` | `findOrderByIncrementId`, `unholdIfHeld` |
+| `orders-by-increment.json`, `order-11.json` | `GET orders?…increment_id`, `GET orders/{id}` | `findOrderByIncrementId`, `unholdIfHeld`, `cancellableByReset`, `hasResetNote` |
 | `shipments-order-11.json`, `invoices-order-11.json` | `GET shipments`, `GET invoices` (by order) | the shape of what Commerce-side shipments and invoices carry |
 | `websites.json`, `store-configs.json` | `GET store/websites`, `GET store/storeConfigs` | `listWebsites`, `storeConfigs` |
 
