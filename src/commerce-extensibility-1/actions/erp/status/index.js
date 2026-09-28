@@ -69,6 +69,8 @@ async function healthOf(params) {
  * this app declares. The flyout's status tool and the Admin screen read this. With `erp`, the
  * health is that listed ERP's, asked at its address; else the ERP the app deployed with. With
  * several ERPs, `erps` lists each by name with whether the integration can use it (slice B7).
+ * `detachesPerErp` says erp/detach honours `erp` (AB-16c): a deployment from before it ignores
+ * `erp` and undoes every ERP, so a caller checks this before asking for one ERP.
  */
 async function main(params) {
   const logger = AioLogger("erp-status", { level: params.LOG_LEVEL || "info" });
@@ -86,6 +88,7 @@ async function main(params) {
     return ok({
       body: {
         app: { id: appConfig.metadata.id, version: appConfig.metadata.version },
+        detachesPerErp: true,
         erp: health,
         erpBaseUrl: target.ERP_BASE_URL || null,
         ...(erps ? { erps } : {}),

@@ -27,6 +27,13 @@ describe("Given the status action", () => {
     });
     expect(res.body.ledger).toEqual({ entries: 1 });
   });
+  // A deployment from before AB-16c ignores detach's `erp` and undoes EVERY ERP, so Demo
+  // Builder asks this first and never sends a one-ERP reset to a deployment that lacks it.
+  test("Then it says detach can undo one ERP", async () => {
+    erp.health.mockResolvedValue({ data: {}, ok: true, status: 200 });
+    const res = await status.main({});
+    expect(res.body.detachesPerErp).toBe(true);
+  });
   test("Then an unreachable ERP is reported, not thrown", async () => {
     erp.health.mockRejectedValue(new Error("ERP_BASE_URL is not set"));
     const res = await status.main({});
