@@ -204,6 +204,32 @@ export async function listWebsites(params) {
     .map((site) => ({ code: site.code, id: Number(site.id), name: site.name }));
 }
 
+const websiteOfStore = new Map();
+
+/**
+ * The code of the website a store view belongs to: an order carries its store view, and an
+ * ERP's sales organisation can be set per website (lib/erp-settings.js). Read once per
+ * activation for all store views.
+ * @returns {Promise<string|undefined>}
+ */
+export async function websiteCodeOfStore(params, storeId) {
+  if (websiteOfStore.size === 0) {
+    const client = await commerceClient(params);
+    const [views, websites] = await Promise.all([
+      client.get("store/storeViews").json(),
+      listWebsites(params),
+    ]);
+    const codeById = new Map(websites.map((site) => [site.id, site.code]));
+    for (const view of views ?? []) {
+      websiteOfStore.set(
+        Number(view.id),
+        codeById.get(Number(view.website_id)),
+      );
+    }
+  }
+  return websiteOfStore.get(Number(storeId));
+}
+
 /** The inventory sources one SKU is assigned to (for the ownership check on an event). */
 export async function sourceCodesOf(params, sku) {
   const client = await commerceClient(params);

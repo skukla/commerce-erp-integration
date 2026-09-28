@@ -5,9 +5,12 @@
  *
  * A part of an order shared between several ERPs (`part.shared`) is sent to this ERP's own
  * address under its own name, with only its lines, and without the single-ERP bookkeeping on
- * the Commerce order (its one ERP number field): the router owns that view.
+ * the Commerce order (its one ERP number field): the router owns that view. It is sent with
+ * this ERP's own settings (lib/erp-settings.js) over the integration's: its sales organisation
+ * for the order's website, its prefix and its ownership.
  */
 import { paramsForErp } from "#adapters/contract";
+import { withErpSettings } from "#lib/erp-settings";
 import { sendOrderToErp } from "#lib/order-sync";
 
 /** @type {import("../contract.js").SendPart} */
@@ -16,10 +19,21 @@ export function sendPart(params, part, deps) {
     // One ERP: the whole order, sent as it came.
     return sendOrderToErp(params, part.order, deps);
   }
+  const ownDeps = {
+    ...deps,
+    settingsFor: async (storeId, logger) =>
+      withErpSettings(
+        await deps.settingsFor(storeId, logger),
+        part.erp,
+        deps.websiteCodeOf
+          ? await deps.websiteCodeOf(params, storeId).catch(() => undefined)
+          : undefined,
+      ),
+  };
   return sendOrderToErp(
     paramsForErp(params, part.erp),
     { ...part.order, items: part.lines },
-    deps,
+    ownDeps,
     {
       erpId: part.erp.id,
       shared: true,

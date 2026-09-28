@@ -11,6 +11,7 @@ import {
   productAttributes,
   setExtOrderId,
   sourceCodesOf,
+  websiteCodeOfStore,
 } from "#lib/commerce";
 import { erp } from "#lib/erp";
 import { loadErps } from "#lib/erps";
@@ -42,5 +43,7 @@ export function orderSyncDeps(logger) {
     send: routeOrder,
     setExtOrderId,
     settingsFor,
+    // Read only when a part of a split order is sent (lib/erp-settings.js).
+    websiteCodeOf: async (p, storeId) => websiteCodeOfStore(p, storeId),
   };
 }

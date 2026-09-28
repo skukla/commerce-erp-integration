@@ -7,17 +7,38 @@
  */
 import { OWNS } from "#lib/structure";
 
+const OWNERSHIP_KEYS = [
+  "structure_owns",
+  "structure_owns_sources",
+  "structure_owns_attribute",
+];
+
 /** The product attribute that names a product's owning ERP by the ERP's id. */
 export const OWNER_ATTRIBUTE = "erp_owner";
 
-/** An ERP's ownership setting: its own, else the owner attribute naming its id. */
+/**
+ * An ERP's ownership setting: its own (on its ERP list entry, lib/erp-settings.js), else the
+ * owner attribute naming its id.
+ */
 export function ownershipOf(entry) {
-  return (
-    entry.ownership ?? {
-      structure_owns: OWNS.ATTRIBUTE,
-      structure_owns_attribute: `${OWNER_ATTRIBUTE}=${entry.id}`,
-    }
-  );
+  // `ownership` is B1's in-memory form (never stored: erp/erps keeps `settings`); kept so the
+  // router's own tests still read. Stored entries use `settings`.
+  if (entry.ownership) {
+    return entry.ownership;
+  }
+  const own = entry.settings ?? {};
+  if (own.structure_owns) {
+    return Object.fromEntries(
+      OWNERSHIP_KEYS.filter((key) => own[key] !== undefined).map((key) => [
+        key,
+        own[key],
+      ]),
+    );
+  }
+  return {
+    structure_owns: OWNS.ATTRIBUTE,
+    structure_owns_attribute: `${OWNER_ATTRIBUTE}=${entry.id}`,
+  };
 }
 
 /**

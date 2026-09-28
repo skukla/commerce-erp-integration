@@ -5,6 +5,8 @@ import {
 } from "@adobe/aio-commerce-sdk/core/responses";
 import AioLogger from "@adobe/aio-lib-core-logging";
 
+import { withErpSettings } from "#lib/erp-settings";
+import { erpById, loadErps } from "#lib/erps";
 import {
   resolvedSettings,
   saveProblem,
@@ -18,8 +20,9 @@ const WEBSITE_CODE = /^[a-z][a-z0-9_]*$/u;
 
 /**
  * The Admin page's settings.
- * GET ?websites=<code>,<code>: the settings in force, Default Config and each named website's
- *   (Demo Builder reads them before it fills the ERP).
+ * GET ?websites=<code>,<code>[&erp=<id>]: the settings in force, Default Config and each named
+ *   website's (Demo Builder reads them before it fills the ERP). With `erp`, that ERP's own
+ *   settings (lib/erp-settings.js) sit on top, per website.
  * GET ?scope=<scope id>[&refresh=true]: the fields, the scopes a merchant can pick, and the
  *   values at that scope with where each comes from (Default Config when no scope is given).
  *   `refresh` reads Commerce's websites again first.
@@ -43,7 +46,25 @@ async function main(params) {
           "websites is a comma-separated list of website codes",
         );
       }
-      return ok({ body: await resolvedSettings(codes, logger) });
+      const resolved = await resolvedSettings(codes, logger);
+      if (params.erp === undefined) {
+        return ok({ body: resolved });
+      }
+      const entry = erpById(await loadErps(params), String(params.erp));
+      if (!entry) {
+        return badRequest(`no ERP ${params.erp} in the list`);
+      }
+      return ok({
+        body: {
+          default: withErpSettings(resolved.default, entry),
+          websites: Object.fromEntries(
+            Object.entries(resolved.websites).map(([code, values]) => [
+              code,
+              withErpSettings(values, entry, code),
+            ]),
+          ),
+        },
+      });
     }
     if (method === "get") {
       return ok({

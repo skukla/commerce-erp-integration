@@ -15,6 +15,7 @@ import stateLib from "@adobe/aio-lib-state";
 
 import { assertAdapter } from "#adapters/contract";
 import * as demoErp from "#adapters/demo-erp/index";
+import { applyErpSettingChanges, erpSettingsProblem } from "#lib/erp-settings";
 
 /** The adapter for each kind of ERP. A new kind is one line here. */
 const ADAPTERS = Object.freeze({
@@ -122,7 +123,8 @@ function entryProblem(entry, index) {
   if (!HTTPS.test(String(entry.connection?.baseUrl ?? ""))) {
     return `entry ${index}: connection.baseUrl must be the ERP's https address`;
   }
-  return null;
+  const settings = erpSettingsProblem(entry.settings);
+  return settings ? `entry ${index}: ${settings}` : null;
 }
 
 function duplicateProblem(entries) {
@@ -172,6 +174,46 @@ export async function replaceErps(entries) {
     connection: { baseUrl: e.connection.baseUrl },
     id: e.id,
     name: e.name.trim(),
+    ...(e.settings && Object.keys(e.settings).length > 0
+      ? { settings: e.settings }
+      : {}),
   }));
   await (await state()).put(KEY, JSON.stringify(clean), { ttl: TTL_SECONDS });
+}
+
+/**
+ * Save one ERP's own settings (the Admin page), at its defaults or at one website. Only a
+ * stored list has entries to save on: the single ERP of an unstored install takes its
+ * settings from the integration's configuration.
+ * @param {string} id the ERP
+ * @param {string|undefined} websiteCode the website, or the ERP's defaults
+ * @param {object} changes `{ <per-ERP key>: value | null }`
+ * @returns {Promise<{ entry?: object, problem?: string }>}
+ */
+export async function updateErpSettings(id, websiteCode, changes) {
+  const stored = await readStoredErps();
+  if (stored.length === 0) {
+    return {
+      problem:
+        "no ERP list is stored; one ERP takes its settings from the integration's configuration",
+    };
+  }
+  const index = stored.findIndex((e) => e.id === id);
+  if (index < 0) {
+    return { problem: `no ERP ${id} in the list` };
+  }
+  const settings = applyErpSettingChanges(
+    stored[index].settings,
+    websiteCode,
+    changes,
+  );
+  const problem = erpSettingsProblem(settings);
+  if (problem) {
+    return { problem };
+  }
+  const { settings: _old, ...rest } = stored[index];
+  const entry = Object.keys(settings).length > 0 ? { ...rest, settings } : rest;
+  const next = stored.map((e, i) => (i === index ? entry : e));
+  await replaceErps(next);
+  return { entry };
 }
