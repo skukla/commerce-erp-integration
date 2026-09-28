@@ -55,16 +55,50 @@ function triesText(entry) {
 }
 
 /**
+ * Who a row names: with one ERP, that ERP; with several, the ERPs its record concerns
+ * (erp/history `erpIds`), else "an ERP" for an event and "the ERPs" for a change sent to them.
+ */
+function counterpart(entry, erpName, erps) {
+  if (!erps) {
+    return erpName;
+  }
+  const names = (entry.erpIds ?? [])
+    .map((id) => erps.find((e) => e.id === id)?.name ?? id)
+    .join(" and ");
+  if (names) {
+    return names;
+  }
+  return entry.direction === "from-erp" ? "an ERP" : "the ERPs";
+}
+
+/**
+ * The ERP filter's choices with several ERPs: every ERP, then each by name; none with one.
+ * @param {object[]|null} erps the listed ERPs
+ * @returns {{ id: string, label: string }[]}
+ */
+export function erpFilterChoices(erps) {
+  if (!erps || erps.length < 2) {
+    return [];
+  }
+  return [
+    { id: "", label: "All ERPs" },
+    ...erps.map((entry) => ({ id: entry.id, label: entry.name })),
+  ];
+}
+
+/**
  * One row of the section.
  * @param {object} entry a history record
  * @param {string} [erpName] what the ERP is called
+ * @param {object[]|null} [erps] with several ERPs, the list, for the names of `entry.erpIds`
  * @returns {object} the row: key, when, direction, what, result, tries, message, and the
  *   Retry it offers (`retry` is the history action's POST body)
  */
-export function historyRow(entry, erpName = "the ERP") {
+export function historyRow(entry, erpName = "the ERP", erps = null) {
   const fromErp = entry.direction === "from-erp";
+  const who = counterpart(entry, erpName, erps);
   return {
-    direction: fromErp ? `From ${erpName}` : `To ${erpName}`,
+    direction: fromErp ? `From ${who}` : `To ${who}`,
     key: fromErp ? `erp.${entry.eventId}` : `${entry.kind}.${entry.ref}`,
     message: entry.message,
     result: RESULT[entry.outcome] ?? entry.outcome,

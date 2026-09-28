@@ -1,7 +1,8 @@
 import { Button, Checkbox, Text } from "@react-spectrum/s2";
 import { useCallback, useEffect, useState } from "react";
 
-import { historyRow } from "#web/history-view.js";
+import { ScopeSwitcher } from "#web/components/scope-switcher.jsx";
+import { erpFilterChoices, historyRow } from "#web/history-view.js";
 
 /** Retry for one row: disabled while any retry runs, and says which one is running. */
 function RetryButton({ onRetry, row, retrying }) {
@@ -18,21 +19,23 @@ function RetryButton({ onRetry, row, retrying }) {
  * ERP events applied to Commerce — with a Retry on anything that did not get through
  * (erp/history).
  */
-export function History({ api, erpName, onError }) {
+export function History({ api, erpName, erps, onError }) {
   const [entries, setEntries] = useState([]);
   const [failedOnly, setFailedOnly] = useState(false);
+  const [erp, setErp] = useState("");
   const [retrying, setRetrying] = useState(null);
+  const choices = erpFilterChoices(erps);
 
   const load = useCallback(async () => {
     if (!api) {
       return;
     }
     try {
-      setEntries((await api.history(failedOnly)).entries ?? []);
+      setEntries((await api.history(failedOnly, erp)).entries ?? []);
     } catch (e) {
       onError(`History failed: ${e.message}`);
     }
-  }, [api, failedOnly, onError]);
+  }, [api, erp, failedOnly, onError]);
 
   useEffect(() => {
     load();
@@ -52,12 +55,23 @@ export function History({ api, erpName, onError }) {
     [api, load, onError],
   );
 
-  const rows = entries.map((entry) => historyRow(entry, erpName));
+  const rows = entries.map((entry) => historyRow(entry, erpName, erps));
   return (
     <section className="erp-history">
       {/* The Activity section heads it; this line says what the table is. */}
-      <Text>What crossed between Commerce and {erpName}, newest first.</Text>
+      <Text>
+        What crossed between Commerce and {erps ? "the ERPs" : erpName}, newest
+        first.
+      </Text>
       <div className="erp-history-controls">
+        {choices.length > 0 && (
+          <ScopeSwitcher
+            choices={choices}
+            label="ERP"
+            onChange={setErp}
+            scopeId={erp}
+          />
+        )}
         <Checkbox isSelected={failedOnly} onChange={setFailedOnly}>
           Only what did not get through
         </Checkbox>

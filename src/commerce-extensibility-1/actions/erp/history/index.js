@@ -31,7 +31,8 @@ const TRACE_TIMEOUT_MS = 5000;
 
 /**
  * The Commerce Admin screen's history (lib/history.js).
- * GET ?failedOnly=true&ref=<order>: the records, newest first.
+ * GET ?failedOnly=true&ref=<order>&erp=<id>: the records, newest first; with several ERPs
+ *   each names the ERPs it concerns (`erpIds`), and `erp` keeps one ERP's (historyOfErps).
  * POST { incrementId }: send that order to the ERP again, record it as an admin's retry,
  *   and answer how it ended with the order's record. An order that still did not get
  *   through is an answer, not an error: the record says why.
@@ -76,15 +77,61 @@ async function main(params) {
         body: { trace: await traceOrder(params, incrementId, logger) },
       });
     }
-    const entries = await readHistory({
+    const filter = {
       failedOnly: params.failedOnly === "true",
       ...(params.ref ? { ref: String(params.ref) } : {}),
+    };
+    const erps = await loadErps(params);
+    if (erps.length <= 1) {
+      return ok({ body: { entries: await readHistory(filter) } });
+    }
+    return ok({
+      body: { entries: await historyOfErps(filter, erps, params.erp) },
     });
-    return ok({ body: { entries } });
   } catch (error) {
     logger.error(`history failed: ${error.message}`);
     return internalServerError(error.message);
   }
+}
+
+/** How many records the page lists (lib/history.js keeps the same default). */
+const PAGE = 100;
+
+/**
+ * The history with several ERPs: each record with the ERPs it concerns (`erpIds`, in list
+ * order), and when `asked` names one ERP, only its records. An ERP event names its ERP (`erpId`,
+ * contract version 4); an order's one record speaks for all its parts, so its ERPs are the
+ * parts'. Derived when read, so records from before several ERPs are named too. A record that
+ * names no ERP (a stock event's list of lines, a change Commerce made) has none, and is listed
+ * only with every ERP's records. One ERP's records are chosen from the whole history, then cut.
+ */
+async function historyOfErps(filter, erps, asked) {
+  const wanted = asked ? String(asked) : "";
+  const entries = await readHistory(
+    wanted ? { ...filter, limit: Number.POSITIVE_INFINITY } : filter,
+  );
+  const named = await Promise.all(
+    entries.map(async (entry) => ({
+      ...entry,
+      erpIds: await erpIdsOf(entry, erps),
+    })),
+  );
+  return wanted
+    ? named.filter((entry) => entry.erpIds.includes(wanted)).slice(0, PAGE)
+    : named;
+}
+
+/** The listed ERPs one record concerns, in list order. */
+async function erpIdsOf(entry, erps) {
+  if (entry.direction === "from-erp") {
+    const id = entry.event?.data?.erpId;
+    return erps.some((e) => e.id === id) ? [id] : [];
+  }
+  if (entry.kind !== "order") {
+    return [];
+  }
+  const { parts } = await readOrderParts(entry.ref);
+  return erps.filter((e) => parts[e.id]).map((e) => e.id);
 }
 
 /** Hand one saved ERP event to its handler again; the handler records how it ended. */

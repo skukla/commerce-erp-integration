@@ -1,5 +1,10 @@
 /* What the Admin screen's History section says about each record, and when it offers Retry. */
-import { canRetry, historyRow, RESULT } from "#web/history-view.js";
+import {
+  canRetry,
+  erpFilterChoices,
+  historyRow,
+  RESULT,
+} from "#web/history-view.js";
 
 const entry = (outcome, extra = {}) => ({
   attempts: 1,
@@ -99,5 +104,39 @@ describe("Given the History section", () => {
     });
     expect(canRetry(erpEvent("credit", "7", "refused"))).toBe(true);
     expect(canRetry(erpEvent("credit", "7", "applied"))).toBe(false);
+  });
+
+  // Several ERPs: each row names the ERPs its record concerns (erp/history `erpIds`).
+  const ERPS = [
+    { id: "erp", name: "Northwind ERP" },
+    { id: "contoso", name: "Contoso ERP" },
+  ];
+
+  test.each([
+    [
+      entry("held", { erpIds: ["erp", "contoso"] }),
+      "To Northwind ERP and Contoso ERP",
+    ],
+    [entry("sent", { erpIds: ["erp"] }), "To Northwind ERP"],
+    [erpEvent("price", "ABC"), "From an ERP"],
+    [{ ...erpEvent("price", "ABC"), erpIds: ["contoso"] }, "From Contoso ERP"],
+    [entry("sent", { erpIds: [], kind: "shipped" }), "To the ERPs"],
+  ])(
+    "Then with several ERPs a row names the ERPs it concerns",
+    (record, direction) => {
+      expect(historyRow(record, "Northwind ERP", ERPS).direction).toBe(
+        direction,
+      );
+    },
+  );
+
+  test("Then the ERP filter offers every ERP, then each by name, and nothing with one ERP", () => {
+    expect(erpFilterChoices(ERPS)).toStrictEqual([
+      { id: "", label: "All ERPs" },
+      { id: "erp", label: "Northwind ERP" },
+      { id: "contoso", label: "Contoso ERP" },
+    ]);
+    expect(erpFilterChoices(null)).toStrictEqual([]);
+    expect(erpFilterChoices([ERPS[0]])).toStrictEqual([]);
   });
 });

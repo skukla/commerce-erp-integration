@@ -39,8 +39,14 @@ export function makeApi(ims, origin = window.location.origin) {
     // The ERP list (erp/erps), and a save of one ERP's own settings at its defaults or at
     // one website; `null` for a value means "use the integration's".
     erps: () => call("erps"),
-    history: (failedOnly) =>
-      call(failedOnly ? "history?failedOnly=true" : "history"),
+    // `erp`: with several ERPs, only that ERP's records (erp/history).
+    history: (failedOnly, erp) => {
+      const query = new URLSearchParams({
+        ...(failedOnly ? { failedOnly: "true" } : {}),
+        ...(erp ? { erp } : {}),
+      }).toString();
+      return call(query ? `history?${query}` : "history");
+    },
     // `{ sku }` or `{ company }`: one entity as both systems hold it (erp/lookup).
     lookup: (query) => call(`lookup?${new URLSearchParams(query).toString()}`),
     // The product grid's stock move (erp/move-stock): the sources, then the move.
