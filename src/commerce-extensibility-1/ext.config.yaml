@@ -59,6 +59,19 @@ runtimeManifest:
       license: Apache-2.0
       actions:
         $include: ./actions/erp/actions.config.yaml
+      # The ERP raises no event when a price line's start or end date arrives, so every ERP's
+      # prices in force are published again each day, at 00:10 UTC (erp/prices-daily). The
+      # alarm feed with a cron schedule: /whisk.system/alarms/alarm. No maxTriggers: it
+      # would stop the schedule after that many runs.
+      triggers:
+        erp-prices-daily-timer:
+          feed: /whisk.system/alarms/alarm
+          inputs:
+            cron: "10 0 * * *"
+      rules:
+        erp-prices-daily-on-timer:
+          trigger: erp-prices-daily-timer
+          action: prices-daily
 
     # This package definition is auto-generated. Do not remove or manually edit.
     app-management:
