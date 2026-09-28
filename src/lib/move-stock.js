@@ -51,7 +51,7 @@ export function moveProblem(request) {
  * ERP owns is told to none.
  * @returns {Promise<Array<{ name: string|null, params: object, stock: object[] }>>}
  */
-async function stockByErp(params, stock, ownerOf) {
+async function stockByErp(params, stock, ownerOf, untold) {
   if (!ownerOf) {
     return [{ name: null, params, stock }];
   }
@@ -60,6 +60,7 @@ async function stockByErp(params, stock, ownerOf) {
     // biome-ignore lint/performance/noAwaitInLoops: one ownership read per product, in order
     const owner = await ownerOf(params, entry.sku);
     if (!owner) {
+      untold.push(entry.sku);
       continue;
     }
     const group = groups.get(owner.id) ?? { ...owner, stock: [] };
@@ -75,7 +76,8 @@ async function stockByErp(params, stock, ownerOf) {
  * @param {object} request `{ productIds, from, to, quantity? }`: no quantity moves all of it
  * @param {object} deps `{ skusForProductIds, transferAll, transferSome, warehousesOfSku,
  *   importStock, ownerOf? }`: `ownerOf(params, sku)` answers `{ id, name, params }` or null
- * @returns {Promise<{ moved: string[], erp: "updated" }>}
+ * @returns {Promise<{ moved: string[], erp: "updated", told?: Array<{ name: string,
+ *   skus: string[] }>, untold?: string[] }>} `told` and `untold` with several ERPs only
  */
 export async function moveStock(params, request, deps) {
   const skus = await deps.skusForProductIds(params, request.productIds);
@@ -98,7 +100,9 @@ export async function moveStock(params, request, deps) {
     stock.push({ sku, warehouses: await deps.warehousesOfSku(params, sku) });
   }
   const refused = [];
-  for (const group of await stockByErp(params, stock, deps.ownerOf)) {
+  const untold = [];
+  const groups = await stockByErp(params, stock, deps.ownerOf, untold);
+  for (const group of groups) {
     // biome-ignore lint/performance/noAwaitInLoops: one ERP at a time, few ERPs
     const answer = await deps.importStock(group.params, {
       origin: { event: MOVE_ORIGIN },
@@ -113,5 +117,17 @@ export async function moveStock(params, request, deps) {
   if (refused.length > 0) {
     throw new Error(`Moved in Commerce, but ${refused.join("; ")}`);
   }
-  return { erp: "updated", moved: skus };
+  if (!deps.ownerOf) {
+    return { erp: "updated", moved: skus };
+  }
+  // Several ERPs: which ERP was told which products, and the products no one ERP owns.
+  return {
+    erp: "updated",
+    moved: skus,
+    told: groups.map((g) => ({
+      name: g.name,
+      skus: g.stock.map((e) => e.sku),
+    })),
+    untold,
+  };
 }

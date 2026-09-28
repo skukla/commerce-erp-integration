@@ -23,9 +23,11 @@ import { ownerWithParams } from "#router/erp-params";
 
 /**
  * The product grid's "Move stock between <ERP> warehouses" (lib/move-stock.js).
- * GET: the inventory sources to choose from and the ERP's name, `{ erpName, sources: [{ code, name }] }`.
+ * GET: the inventory sources to choose from and the ERP's name, `{ erpName, sources: [{ code, name }] }`,
+ *   with several ERPs also `erpNames`, every ERP a move may go to.
  * POST { productIds, from, to, quantity? }: move the stock in Commerce, then tell the ERP (with
- * several ERPs, each product's owner).
+ * several ERPs, each product's owner; the answer's `told` says which ERP got which products and
+ * `untold` the products no one ERP owns, which no ERP was told).
  */
 async function main(params) {
   const logger = AioLogger("erp-move-stock", {
@@ -34,10 +36,18 @@ async function main(params) {
   const method = String(params.__ow_method || "get").toLowerCase();
   try {
     if (method === "get") {
-      const names = await listSources(params);
+      const [names, erps] = await Promise.all([
+        listSources(params),
+        loadErps(params),
+      ]);
       const sources = [...names].map(([code, name]) => ({ code, name }));
       return ok({
-        body: { erpName: params.ERP_DISPLAY_NAME || "the ERP", sources },
+        body: {
+          erpName: params.ERP_DISPLAY_NAME || "the ERP",
+          // Several ERPs: a move goes to each product's owner, so the page names them all.
+          ...(erps.length > 1 ? { erpNames: erps.map((e) => e.name) } : {}),
+          sources,
+        },
       });
     }
     if (method !== "post") {

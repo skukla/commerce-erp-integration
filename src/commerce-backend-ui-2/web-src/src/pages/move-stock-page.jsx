@@ -1,7 +1,8 @@
 /*
  * The page the product grid's "Move stock between <ERP> warehouses" opens (lib/move-stock.js):
  * the selected products, where from and where to, all of it or a quantity, and the move.
- * Commerce's own transfer raises no event, so this one tells the ERP as it moves.
+ * Commerce's own transfer raises no event, so this one tells the ERP as it moves (with several
+ * ERPs, each product's owning ERP; the page then says which ERP was told which products).
  */
 import {
   useHostConnection,
@@ -24,10 +25,7 @@ import {
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { makeApi } from "#web/api.js";
-
-function plural(count, one, many) {
-  return `${count} ${count === 1 ? one : many}`;
-}
+import { movedSummary, moveIntro, plural } from "#web/move-stock-view.js";
 
 /** The form, once the sources are read. */
 function MoveForm({ busy, onMove, productCount, sources }) {
@@ -92,6 +90,7 @@ export function MoveStockPage() {
   const api = useMemo(() => (ims ? makeApi(ims) : null), [ims]);
   const [sources, setSources] = useState(null);
   const [erpName, setErpName] = useState("");
+  const [erpNames, setErpNames] = useState(undefined);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
   const [done, setDone] = useState(null);
@@ -102,8 +101,7 @@ export function MoveStockPage() {
       setBusy(true);
       setError(null);
       try {
-        const answer = await api.moveStock({ from, productIds, quantity, to });
-        setDone(answer.moved.length);
+        setDone(await api.moveStock({ from, productIds, quantity, to }));
       } catch (e) {
         setError(e.message);
       } finally {
@@ -122,6 +120,7 @@ export function MoveStockPage() {
       .moveStockSources()
       .then((answer) => {
         setErpName(answer.erpName);
+        setErpNames(answer.erpNames);
         setSources(answer.sources);
       })
       .catch((e) => setError(e.message));
@@ -138,10 +137,7 @@ export function MoveStockPage() {
   return (
     <main>
       {/* Commerce's own header already carries the action's title. */}
-      <Text>
-        {plural(productIds.length, "product", "products")} selected. The move is
-        made in Commerce and sent to {erpName} at once.
-      </Text>
+      <Text>{moveIntro(productIds.length, erpName, erpNames)}</Text>
       {trouble && (
         <InlineAlert variant="negative">
           <Heading>The stock was not moved</Heading>
@@ -151,10 +147,7 @@ export function MoveStockPage() {
       {done !== null && (
         <InlineAlert variant="positive">
           <Heading>Moved</Heading>
-          <Text>
-            {plural(done, "product", "products")} moved, and {erpName} has the
-            new quantities.
-          </Text>
+          <Text>{movedSummary(done, erpName)}</Text>
         </InlineAlert>
       )}
       {sources && done === null && (

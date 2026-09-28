@@ -67,6 +67,28 @@ describe("Given two ERPs", () => {
     ]);
   });
 
+  // The page says what the move did: which ERP was told which products, and which product
+  // no one ERP owns, so no ERP was told (before, it said the first ERP had them all).
+  test("Then the answer says which ERP was told which products, and which went to none", async () => {
+    resetErpsClient({ get: async () => ({ value: JSON.stringify(BOTH) }) });
+    const res = await main(MOVE);
+    expect(res.body).toStrictEqual({
+      erp: "updated",
+      moved: ["C1", "N1", "C2", "ORPHAN"],
+      told: [
+        { name: "Contoso ERP", skus: ["C1", "C2"] },
+        { name: "Northwind ERP", skus: ["N1"] },
+      ],
+      untold: ["ORPHAN"],
+    });
+  });
+
+  test("Then the sources answer names every ERP, for the page to say where a move goes", async () => {
+    resetErpsClient({ get: async () => ({ value: JSON.stringify(BOTH) }) });
+    const res = await main({ ...OWN, __ow_method: "get" });
+    expect(res.body.erpNames).toEqual(["Northwind ERP", "Contoso ERP"]);
+  });
+
   test("Then an ERP that refuses fails the move's answer, naming it", async () => {
     resetErpsClient({ get: async () => ({ value: JSON.stringify(BOTH) }) });
     erp = erpFetch((url) =>
@@ -81,7 +103,14 @@ describe("Given two ERPs", () => {
 
 describe("Given one ERP", () => {
   test("Then every product's stock goes to it in one import, as before", async () => {
-    await main(MOVE);
+    const res = await main(MOVE);
+    expect(res.body).toStrictEqual({
+      erp: "updated",
+      moved: ["C1", "N1", "C2", "ORPHAN"],
+    });
+    expect(
+      (await main({ ...OWN, __ow_method: "get" })).body.erpNames,
+    ).toBeUndefined();
     expect(told()).toEqual([
       [
         "integration-client",
