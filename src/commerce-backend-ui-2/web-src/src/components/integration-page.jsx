@@ -4,10 +4,11 @@
  * Activity · Settings · Data Map, and the side panel. Everything arrives as props, so the page
  * renders against stand-in data in the local preview too.
  */
+import { ProgressCircle } from "@react-spectrum/s2/ProgressCircle";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { ActivityTab } from "#web/components/activity-tab.jsx";
-import { Alert, Spinner } from "#web/components/controls.jsx";
+import { Alert } from "#web/components/controls.jsx";
 import { DataMapTab } from "#web/components/data-map-tab.jsx";
 import { OverviewTab } from "#web/components/overview-tab.jsx";
 import { PageFrame } from "#web/components/page-frame.jsx";
@@ -20,11 +21,16 @@ import { ago, clockTime } from "#web/time-view.js";
 
 const TICK_MS = 30 * 1000;
 
-/** What shows until everything the page needs has arrived: one spinner, nothing half-drawn. */
+/**
+ * What shows until everything the page needs has arrived. In the real Admin the SDK's own
+ * Suspense boundary keeps its "Connecting to Commerce Admin" spinner up while MainPage's first
+ * read suspends it, so this never draws there — it is the SAME Spectrum ProgressCircle, so the
+ * local preview (which has no such boundary) and the order-parts subpage match it exactly.
+ */
 export function PageLoading() {
   return (
-    <div className="erp-loading">
-      <Spinner label="Loading the integration" />
+    <div className="page-loading">
+      <ProgressCircle aria-label="Loading the integration" isIndeterminate />
     </div>
   );
 }
@@ -91,21 +97,21 @@ function RefreshButton({ busy, onRefresh }) {
  * @param {object} props
  * @param {{ status: object, settingsPage: object, history: object[], runs: object[] }}
  *   props.initial what MainPage read before drawing anything
- * @param {string|null} props.error a message to show under the tabs
- * @param {(message: string|null) => void} props.onError
+ * @param {string|null} [props.initialError] a message to show under the tabs on first draw
+ *   (the first read's soft trouble); the page owns its error state after that
  */
 export function IntegrationPage({
   api,
-  error,
   initial,
+  initialError = null,
   initialTab = "overview",
-  onError,
 }) {
-  const data = usePageData(api, initial, onError);
   const now = useNow();
   const [tab, setTab] = useState(initialTab);
   const [picked, setPicked] = useState({ activity: "", settings: "" });
   const [panel, setPanel] = useState(null);
+  const [error, setError] = useState(initialError);
+  const data = usePageData(api, initial, setError);
   // Default Config's settings as last saved, so the tab shows them when it is opened again.
   const [settingsPage, setSettingsPage] = useState(initial.settingsPage);
   const erpInfo = useMemo(() => {
@@ -122,7 +128,7 @@ export function IntegrationPage({
     setTab(tabId);
   }, []);
   const closePanel = useCallback(() => setPanel(null), []);
-  const dismiss = useCallback(() => onError(null), [onError]);
+  const dismiss = useCallback(() => setError(null), []);
 
   const attention = needsAttention(data.history, {
     erps: erpInfo.erps,
@@ -151,7 +157,7 @@ export function IntegrationPage({
   const openScheduled = useCallback(() => setPanel({ kind: "scheduled" }), []);
   const refresh = <RefreshButton busy={data.busy} onRefresh={data.refresh} />;
   const publish = publishLine(data.runs, now, (iso) => clockTime(iso));
-  const shared = { api, erpInfo, now, onError, onOpen: setPanel };
+  const shared = { api, erpInfo, now, onError: setError, onOpen: setPanel };
   let body;
   if (tab === "settings") {
     body = (
@@ -162,7 +168,7 @@ export function IntegrationPage({
         initialErp={picked.settings}
         initialPage={settingsPage}
         key={picked.settings}
-        onError={onError}
+        onError={setError}
         onSavedDefault={setSettingsPage}
         scopes={settingsPage.scopes}
         scopesNote={settingsPage.scopesNote ?? null}

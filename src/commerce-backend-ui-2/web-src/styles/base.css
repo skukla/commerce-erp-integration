@@ -529,3 +529,12 @@ code {
   place-items: center;
   min-height: 240px;
 }
+
+/* The full-page wait, laid out like the Admin SDK's own loading spinner so the two match. */
+.page-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: calc(100dvh - 48px);
+  padding: 24px;
+}

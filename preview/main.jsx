@@ -11,7 +11,7 @@ import "../src/commerce-backend-ui-2/web-src/index.css";
 import "./chrome.css";
 
 import { Provider } from "@react-spectrum/s2";
-import { useCallback, useEffect, useState } from "react";
+import { Suspense, use, useCallback, useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
 
 import { CrashBoundary } from "../src/commerce-backend-ui-2/web-src/src/components/crash-boundary.jsx";
@@ -94,31 +94,43 @@ function PartsPreview() {
   );
 }
 
+/*
+ * The preview has no Admin SDK boundary above it, so it supplies its own Suspense fallback. The
+ * body suspends on the first read exactly as MainPage does, so what the preview shows — one
+ * spinner, then the page — is what the real Admin shows. `?loading` reads from a promise that
+ * never settles, holding the loading state on screen.
+ */
+let previewRead = null;
+function firstRead() {
+  if (!previewRead) {
+    previewRead = asked.has("loading")
+      ? new Promise(() => undefined)
+      : readFirst(api, { refresh: false }).then((read) => ({
+          error: read.trouble,
+          initial: read.initial,
+        }));
+  }
+  return previewRead;
+}
+
+function PreviewBody() {
+  const { error, initial } = use(firstRead());
+  return (
+    <IntegrationPage
+      api={api}
+      initial={initial}
+      initialError={error}
+      initialTab={asked.get("section") || "overview"}
+    />
+  );
+}
+
 function Preview() {
-  const [error, setError] = useState(null);
-  const [initial, setInitial] = useState(null);
-  useEffect(() => {
-    if (asked.has("loading")) {
-      return;
-    }
-    readFirst(api, { refresh: false }).then((read) => {
-      setInitial(read.initial);
-      setError(read.trouble);
-    });
-  }, []);
   return (
     <AdminChrome title="ERP Integration">
-      {initial ? (
-        <IntegrationPage
-          api={api}
-          error={error}
-          initial={initial}
-          initialTab={asked.get("section") || "overview"}
-          onError={setError}
-        />
-      ) : (
-        <PageLoading />
-      )}
+      <Suspense fallback={<PageLoading />}>
+        <PreviewBody />
+      </Suspense>
     </AdminChrome>
   );
 }
