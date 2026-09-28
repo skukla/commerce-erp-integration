@@ -22,10 +22,7 @@ import {
   readOrderParts,
   writeOrderParts,
 } from "#lib/order-parts";
-import { OWNS } from "#lib/structure";
-
-/** The product attribute that names a product's owning ERP by the ERP's id. */
-export const OWNER_ATTRIBUTE = "erp_owner";
+import { ownersOf } from "#router/ownership";
 
 const SERVER_UNAVAILABLE = 503;
 const BAD_REQUEST = 400;
@@ -33,28 +30,6 @@ const BAD_REQUEST = 400;
 function linesOf(order) {
   const items = order?.items ?? [];
   return Array.isArray(items) ? items : Object.values(items);
-}
-
-/** An ERP's ownership setting: its own, else the owner attribute naming its id. */
-function ownershipOf(entry) {
-  return (
-    entry.ownership ?? {
-      structure_owns: OWNS.ATTRIBUTE,
-      structure_owns_attribute: `${OWNER_ATTRIBUTE}=${entry.id}`,
-    }
-  );
-}
-
-/** Which ERPs own a SKU. */
-async function ownersOf(params, sku, erps, deps) {
-  const owners = [];
-  for (const entry of erps) {
-    // biome-ignore lint/performance/noAwaitInLoops: one read per ERP, in list order
-    if (await deps.ownsSku(params, sku, ownershipOf(entry))) {
-      owners.push(entry.id);
-    }
-  }
-  return owners;
 }
 
 /**
@@ -69,7 +44,7 @@ async function splitLines(params, order, erps, deps) {
   const ownerOfItem = new Map();
   for (const line of lines.filter((l) => !l.parent_item_id && l.sku)) {
     // biome-ignore lint/performance/noAwaitInLoops: a few lines, in order
-    const owners = await ownersOf(params, line.sku, erps, deps);
+    const owners = await ownersOf(params, line.sku, erps, deps.ownsSku);
     if (owners.length === 0) {
       unrouted.push(line.sku);
     } else if (owners.length > 1) {

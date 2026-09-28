@@ -1,12 +1,14 @@
 import AioLogger from "@adobe/aio-lib-core-logging";
 
+import { knownBySku, quoteCart } from "#lib/cart-quotes";
+import { productAttributes, sourceCodesOf } from "#lib/commerce";
 import { erp } from "#lib/erp";
+import { loadErps } from "#lib/erps";
 import { erpCustomerOf } from "#lib/key-map";
 import { settingsFor } from "#lib/settings";
 import {
   cartBuyer,
   cartLines,
-  erpBuyer,
   noop,
   operations,
   readPayload,
@@ -16,6 +18,13 @@ import {
 // aborts, and this action's own Runtime limit is 15 s. Six seconds lets a cold ERP action
 // answer; a slower one falls back to Commerce's own prices.
 const ERP_TIMEOUT_MS = 6000;
+
+const QUOTE_DEPS = {
+  erp,
+  erpCustomerOf,
+  loadErps,
+  readers: { productAttributes, sourceCodesOf },
+};
 
 /**
  * Totals collector, item prices: each cart line's price becomes the ERP's contract price
@@ -42,38 +51,42 @@ async function main(params) {
       );
       return noop();
     }
-    const res = await erp.quote(
+    const quoted = await quoteCart(
       params,
-      {
-        ...(await erpBuyer(payload.quote, erpCustomerOf)),
-        lines: lines.map((l) => ({ qty: l.qty, sku: l.sku })),
-      },
+      payload.quote,
+      lines,
+      QUOTE_DEPS,
       ERP_TIMEOUT_MS,
     );
-    if (!res.ok) {
-      logger.warn(
-        `ERP quote answered ${res.status}; Commerce keeps its prices`,
+    const priceUpdates = [];
+    const partners = [];
+    for (const { res, lines: asked } of quoted) {
+      if (!res.ok) {
+        logger.warn(
+          `ERP quote answered ${res.status}; Commerce keeps its prices`,
+        );
+        continue;
+      }
+      partners.push(res.data.partnerId);
+      const bySku = knownBySku(res);
+      priceUpdates.push(
+        ...asked
+          .filter((l) => bySku.has(l.sku))
+          .map((l) => ({
+            base_price: bySku.get(l.sku).contractPrice,
+            item_id: l.itemId,
+          }))
+          .filter((u) => Number.isFinite(u.base_price) && u.base_price >= 0),
       );
-      return noop();
     }
-    const bySku = new Map(
-      (res.data.lines ?? []).filter((l) => !l.unknown).map((l) => [l.sku, l]),
-    );
-    const priceUpdates = lines
-      .filter((l) => bySku.has(l.sku))
-      .map((l) => ({
-        base_price: bySku.get(l.sku).contractPrice,
-        item_id: l.itemId,
-      }))
-      .filter((u) => Number.isFinite(u.base_price) && u.base_price >= 0);
     if (priceUpdates.length === 0) {
       logger.info(
-        `no contract price for partner ${res.data.partnerId} on ${lines.map((l) => l.sku).join(", ")} (cart buyer: ${JSON.stringify(cartBuyer(payload.quote))})`,
+        `no contract price for partner ${partners.join(", ")} on ${lines.map((l) => l.sku).join(", ")} (cart buyer: ${JSON.stringify(cartBuyer(payload.quote))})`,
       );
       return noop();
     }
     logger.info(
-      `item-prices: partner ${res.data.partnerId}, ${priceUpdates.length} line(s) priced`,
+      `item-prices: partner ${partners.join(", ")}, ${priceUpdates.length} line(s) priced`,
     );
     return operations([
       { op: "replace", path: "result/price_updates", value: priceUpdates },

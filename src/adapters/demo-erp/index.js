@@ -7,6 +7,7 @@
  * address under its own name, with only its lines, and without the single-ERP bookkeeping on
  * the Commerce order (its one ERP number field): the router owns that view.
  */
+import { paramsForErp } from "#adapters/contract";
 import { sendOrderToErp } from "#lib/order-sync";
 
 /** @type {import("../contract.js").SendPart} */
@@ -15,15 +16,15 @@ export function sendPart(params, part, deps) {
     // One ERP: the whole order, sent as it came.
     return sendOrderToErp(params, part.order, deps);
   }
-  const ownParams = {
-    ...params,
-    ERP_BASE_URL: part.erp.connection?.baseUrl ?? params.ERP_BASE_URL,
-    ERP_DISPLAY_NAME: part.erp.name,
-  };
-  return sendOrderToErp(ownParams, { ...part.order, items: part.lines }, deps, {
-    erpId: part.erp.id,
-    shared: true,
-  });
+  return sendOrderToErp(
+    paramsForErp(params, part.erp),
+    { ...part.order, items: part.lines },
+    deps,
+    {
+      erpId: part.erp.id,
+      shared: true,
+    },
+  );
 }
 
 /** The demo ERP's order messages, as the part outcome each one means. */

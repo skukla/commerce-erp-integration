@@ -65,3 +65,18 @@ export function assertAdapter(adapter, kind = "adapter") {
   }
   return adapter;
 }
+
+/**
+ * The params a call to one ERP runs with: that ERP's own address and name over the deployed
+ * ones, so the ERP client (lib/erp.js) reaches the right ERP.
+ * @param {object} params action params
+ * @param {ErpEntry} entry the ERP
+ * @returns {object}
+ */
+export function paramsForErp(params, entry) {
+  return {
+    ...params,
+    ERP_BASE_URL: entry.connection?.baseUrl ?? params.ERP_BASE_URL,
+    ERP_DISPLAY_NAME: entry.name,
+  };
+}

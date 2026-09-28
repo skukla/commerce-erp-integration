@@ -1,12 +1,14 @@
 import AioLogger from "@adobe/aio-lib-core-logging";
 
+import { knownBySku, quoteCart } from "#lib/cart-quotes";
+import { productAttributes, sourceCodesOf } from "#lib/commerce";
 import { erp } from "#lib/erp";
+import { loadErps } from "#lib/erps";
 import { erpCustomerOf } from "#lib/key-map";
 import { settingsFor } from "#lib/settings";
 import {
   cartBuyer,
   cartLines,
-  erpBuyer,
   noop,
   operations,
   readPayload,
@@ -17,6 +19,13 @@ import {
 // aborts, and this action's own Runtime limit is 15 s. Six seconds lets a cold ERP action
 // answer; a slower one falls back to Commerce's own totals.
 const ERP_TIMEOUT_MS = 6000;
+
+const QUOTE_DEPS = {
+  erp,
+  erpCustomerOf,
+  loadErps,
+  readers: { productAttributes, sourceCodesOf },
+};
 
 /**
  * Totals collector, execute: hold each line at the ERP's maximum-discount ceiling. The
@@ -61,39 +70,40 @@ async function main(params) {
       );
       return noop();
     }
-    const res = await erp.quote(
+    const quoted = await quoteCart(
       params,
-      {
-        ...(await erpBuyer(payload.quote, erpCustomerOf)),
-        lines: lines.map((l) => ({ qty: l.qty, sku: l.sku })),
-      },
+      payload.quote,
+      lines,
+      QUOTE_DEPS,
       ERP_TIMEOUT_MS,
-    );
-    if (!res.ok) {
-      logger.warn(
-        `ERP quote answered ${res.status}; Commerce keeps its totals`,
-      );
-      return noop();
-    }
-    const bySku = new Map(
-      (res.data.lines ?? []).filter((l) => !l.unknown).map((l) => [l.sku, l]),
     );
     let clawback = 0;
     const itemIds = [];
-    for (const line of lines) {
-      const quoted = bySku.get(line.sku);
-      if (!quoted) {
+    const partners = [];
+    for (const { res, lines: asked } of quoted) {
+      if (!res.ok) {
+        logger.warn(
+          `ERP quote answered ${res.status}; Commerce keeps its totals`,
+        );
         continue;
       }
-      const excess = excessOverCeiling(line, quoted);
-      if (excess > 0) {
-        clawback = round2(clawback + excess);
-        itemIds.push(line.itemId);
+      partners.push(res.data.partnerId);
+      const bySku = knownBySku(res);
+      for (const line of asked) {
+        const quotedLine = bySku.get(line.sku);
+        if (!quotedLine) {
+          continue;
+        }
+        const excess = excessOverCeiling(line, quotedLine);
+        if (excess > 0) {
+          clawback = round2(clawback + excess);
+          itemIds.push(line.itemId);
+        }
       }
     }
     if (clawback === 0) {
       logger.info(
-        `no discount over the ceiling for partner ${res.data.partnerId} (cart buyer: ${JSON.stringify(cartBuyer(payload.quote))})`,
+        `no discount over the ceiling for partner ${partners.join(", ")} (cart buyer: ${JSON.stringify(cartBuyer(payload.quote))})`,
       );
       return noop();
     }
