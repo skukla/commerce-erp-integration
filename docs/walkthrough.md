@@ -3,7 +3,8 @@
 For the person giving the demo. Three parts: the ERP screen by screen along the twenty-minute
 path, Commerce screen by screen from the other side, and one table per business concept
 saying which screen on each side holds it and what joins them. The integration's Admin page
-(Mapping tab) is the live version of those tables; this is the printable one.
+will carry a live version of those tables (the Mapping view, planned as AB-26m); until then
+this printable one is the only one.
 
 Every ERP screen below is named by its address in the ERP's own preview
 (`npm run preview` in the `demo-erp` repository, then `#…` in the address bar), so each
@@ -186,7 +187,7 @@ order event; within seconds the ERP holds a sales order with its own number.
 this pair's prefix, written back when the ERP took the order. The comments carry every ERP
 move in words: the number, the confirmation, each shipment, the invoice, a hold or a
 release, a cancellation with its reason. The status follows the ERP: Processing when the
-ERP confirms (a setting on the Mapping tab's Order card), Complete once Commerce sees it
+ERP confirms (a setting in the Admin page's Settings section), Complete once Commerce sees it
 shipped and invoiced (Commerce's own rule), Canceled when the ERP cancels, On Hold while
 the ERP holds it for credit.
 
@@ -214,20 +215,16 @@ orders wait; when the ERP opens the customer again they are released and sent. A
 by the company save event. The company's admin user's website is the website whose sales organisation the
 ERP's customer is Sold-to in.
 
-### System → the ERP's name: the integration's Admin page
+### Apps → the ERP's name → Integration: the integration's Admin page
 
-**Mapping**: one card per business concept the two systems share, Commerce's records on
-the left, the ERP's on the right, the arrow saying which side owns each piece, the join in
-a sentence with the setting that makes it editable on the card (the sales organisation per
-website, the order-number prefix, which products belong to this ERP), the card's other
-switches, the ERP's live figures, and what has crossed for that card in each direction.
-The Buying organization and Sellable item cards look up one company id or SKU as both
-systems hold it.
-
-**Status & sync**: whether the ERP is reachable, its counts, Follow an order (one order's whole life across both systems and the integration
-between them), and What crossed (every order sent and every ERP event applied, with Retry
-on anything that did not get through). Filling and resetting the ERP moved to Demo Builder
-(its Load demo data and Reset records); this page no longer has those buttons.
+Three sections. **Overview**: whether the ERP answers, what it holds, and one company id or
+SKU looked up as both systems hold it. **Activity**: what crossed each way (every order sent
+and every ERP event applied, the ERP's price events included), with Retry on anything that
+did not get through, and one order followed across both systems. **Settings**: the settings
+per scope (the sales organisation per website, the order-number prefix, which products belong
+to this ERP) and, with several ERPs, per ERP. The Mapping view, one card per business concept,
+is planned (AB-26m). Filling and resetting the ERP live in Demo Builder (its Load demo data
+and Reset records); this page has no buttons for them.
 
 ---
 
@@ -249,9 +246,9 @@ One table per business concept. "Owner" is which side decides the field; the oth
 
 ### Selling organization
 
-| ERP (Settings → Organisation) | Commerce (Stores → All Stores; the Mapping tab) | Owner |
+| ERP (Settings → Organisation) | Commerce (Stores → All Stores; the Admin page's Settings) | Owner |
 |---|---|---|
-| Sales organisation (code, name) | Website | Both: the per-website setting on the Mapping tab is the join |
+| Sales organisation (code, name) | Website | Both: the per-website setting in the Admin page's Settings is the join |
 | Company code currency, country | Base currency and locale (store configuration) | Commerce |
 | Seller identity on the invoice | Store Information (address, VAT) | Commerce; not readable over REST, so blank on the ERP |
 | Company code 1000 | — | ERP |
@@ -267,7 +264,7 @@ One table per business concept. "Owner" is which side decides the field; the oth
 
 ### Price
 
-| ERP (Pricing) | Commerce (the company's shared catalog; the Mapping tab's Price card) | Owner |
+| ERP (Pricing) | Commerce (the company's shared catalog, where the integration publishes them; each ERP price event in the Admin page's Activity) | Owner |
 |---|---|---|
 | Contract price · contract discount, in force today, with minimum quantity | Tier price for the company's shared-catalog customer group: fixed, or a percentage, at the minimum quantity, all websites | ERP; the integration writes what is in force and takes back what is not (ledgered, undone by detach) |
 | Discount ceiling | — | ERP, enforced on the order, not the cart |
@@ -312,7 +309,7 @@ for orders paid on account, the company's credit balance.
 | ERP (Settings → Warehouses; a shipment's ship-from) | Commerce (Stores → Inventory → Sources; a shipment's source) | Owner |
 |---|---|---|
 | Warehouse: code, the ERP's own name | Inventory source: code, name | Both: Commerce keeps its name; the ERP's name is set on its Settings and survives a wipe; the join is the source code |
-| Which ERP owns the products it ships | The ownership rule on the Mapping tab's Fulfilment source card | The setting, per pair |
+| Which ERP owns the products it ships | The ownership rule in the Admin page's Settings | The setting, per pair |
 
 ---
 
@@ -324,7 +321,7 @@ name, order-number prefix and ownership rule); the routing consumer is part of t
 and passes orders straight through when there is one target. The mock ERPs stay separate
 systems, each with its own screen and look. Once a second target exists, the same walk-through
 holds per ERP: each shows only the products it owns, each Commerce order carries the number
-of the ERP that took it in its own order attribute, and the Mapping tab says which products
+of the ERP that took it in its own order attribute, and the ownership setting says which products
 belong to which ERP. Today's build serves one target; that single-ERP skeleton is what the
 target list grows out of. The nine moments of a split order (one order,
 lines owned by two ERPs) belong to the routing integration and are written when it exists.
