@@ -93,11 +93,29 @@ export default defineConfig({
             label: erpName,
             type: "string",
           },
+          // Where each ERP's part of the order stands ("2 of 2 sent", "1 held"), from the
+          // router's parts record; empty for an order the router never split into parts.
+          {
+            align: "left",
+            id: `${menuId}_parts`,
+            label: "ERP parts",
+            type: "string",
+          },
         ],
         description: `${erpName}'s order number and whether the order reached it`,
         label: `${erpName} order`,
         runtimeAction: "admin-ui/order-grid",
       },
+      // The order page's button to the integration's view of that order: each ERP's part,
+      // why a part waits, and Re-send on a held or failed part (#/order-parts).
+      viewButtons: [
+        {
+          id: `${menuId}_order_parts`,
+          label: "ERP parts",
+          path: "#/order-parts",
+          type: "view",
+        },
+      ],
     },
     // Commerce's own stock transfers raise no event, so the integration offers its own on
     // the product grid: the move is made in Commerce and sent to the ERP at once

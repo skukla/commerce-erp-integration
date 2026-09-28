@@ -14,12 +14,26 @@
             "id": "erp_integration_order",
             "label": "ERP integration",
             "type": "string"
+          },
+          {
+            "align": "left",
+            "id": "erp_integration_parts",
+            "label": "ERP parts",
+            "type": "string"
           }
         ],
         "description": "ERP integration's order number and whether the order reached it",
         "label": "ERP integration order",
         "runtimeAction": "admin-ui/order-grid"
-      }
+      },
+      "viewButtons": [
+        {
+          "id": "erp_integration_order_parts",
+          "label": "ERP parts",
+          "path": "#/order-parts",
+          "type": "view"
+        }
+      ]
     },
     "product": {
       "massActions": [
