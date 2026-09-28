@@ -110,3 +110,47 @@ describe("Given several ERPs", () => {
     expect(applyErpBlock).not.toHaveBeenCalled();
   });
 });
+
+describe("Given a first ERP deployed before events named their ERP, and a second one added", () => {
+  beforeEach(async () => {
+    await replaceErps([
+      {
+        adapter: "demo-erp",
+        connection: { baseUrl: "https://a.example" },
+        id: "erp",
+        name: "Northwind ERP",
+      },
+      {
+        adapter: "demo-erp",
+        connection: { baseUrl: "https://b.example" },
+        id: "demo-erp-2",
+        name: "Sign ERP",
+      },
+    ]);
+    await pairCustomer("7", "C7");
+  });
+
+  test("Then a block that names no ERP is the first ERP's", async () => {
+    const res = await statusUpdated.main({
+      data: { blocked: true, partnerId: "C7" },
+    });
+    expect(res.statusCode ?? res.error?.statusCode).toBe(200);
+    expect(applyErpBlock).toHaveBeenCalledWith(
+      expect.anything(),
+      { blocked: true, companyId: "7", erpId: "erp" },
+      expect.anything(),
+    );
+  });
+
+  test("Then a credit limit that names no ERP is the first ERP's", async () => {
+    const res = await creditUpdated.main({
+      data: { creditLimit: 500, partnerId: "C7" },
+    });
+    expect(res.statusCode ?? res.error?.statusCode).toBe(200);
+    expect(applyErpCredit).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ companyId: "7", erpId: "erp" }),
+      expect.anything(),
+    );
+  });
+});

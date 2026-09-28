@@ -7,7 +7,7 @@ import AioLogger from "@adobe/aio-lib-core-logging";
 
 import { getOrderByIncrementId } from "#lib/commerce";
 import { recordingErpEvent } from "#lib/erp-event-history";
-import { loadErps } from "#lib/erps";
+import { eventErpId, loadErps } from "#lib/erps";
 import { companyOfErpEvent } from "#lib/key-map";
 import { orderSyncDeps } from "#lib/order-deps";
 import { stringParameters } from "#lib/utils";
@@ -22,7 +22,7 @@ import { addComment, getOrder } from "#src/order/commerce-order-api-client";
  * parts of the company's orders, open and new, with the reason in each order's history, and the
  * unblock releases them. The Commerce company's own active/blocked flag is a group decision
  * made in Commerce and is never written here. With several ERPs the event must name its ERP;
- * with one, it is that ERP.
+ * with one, it is that ERP (lib/erps.js eventErpId).
  */
 async function handle(params) {
   const logger = AioLogger("company-external-status-updated", {
@@ -36,7 +36,7 @@ async function handle(params) {
   }
   try {
     const erps = await loadErps(params);
-    const erpId = erps.length === 1 ? erps[0].id : params.data?.erpId;
+    const erpId = eventErpId(erps, params.data?.erpId);
     if (!erpId) {
       return badRequest(
         "with several ERPs the event must name its ERP (erpId)",

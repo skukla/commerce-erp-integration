@@ -13,7 +13,7 @@ import {
 } from "#lib/commerce";
 import { applyErpCredit } from "#lib/erp-credit";
 import { recordingErpEvent } from "#lib/erp-event-history";
-import { loadErps } from "#lib/erps";
+import { eventErpId, loadErps } from "#lib/erps";
 import { companyOfErpEvent } from "#lib/key-map";
 import { recordCompanyWrite } from "#lib/ledger";
 import { stringParameters } from "#lib/utils";
@@ -21,10 +21,12 @@ import { stringParameters } from "#lib/utils";
 /**
  * Several ERPs (design v1 §3.1): the ERP's limit (and exposure and available credit when it
  * sends them) goes to its own company attributes, and Commerce's limit becomes the total
- * across the ERPs (lib/erp-credit.js). The event must name its ERP.
+ * across the ERPs (lib/erp-credit.js). The event must name its ERP, unless it is the first
+ * ERP's (lib/erps.js eventErpId).
  */
 async function creditPerErp(params, erps, logger) {
-  const { creditLimit, erpId, exposure, available } = params.data ?? {};
+  const { creditLimit, exposure, available } = params.data ?? {};
+  const erpId = eventErpId(erps, params.data?.erpId);
   if (!erpId) {
     return badRequest("with several ERPs the event must name its ERP (erpId)");
   }

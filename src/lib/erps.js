@@ -50,6 +50,24 @@ export function erpById(erps, id) {
 }
 
 /**
+ * Which ERP an ERP event came from. With one ERP, that one. With several, the ERP the event
+ * names; an event naming none is the first ERP's (`erp`) while it is listed, since a first ERP
+ * deployed before events carried an id sends none. Otherwise null: it cannot be attributed.
+ * @param {import("#adapters/contract").ErpEntry[]} erps the list
+ * @param {string} [erpId] the id the event names
+ * @returns {string|null}
+ */
+export function eventErpId(erps, erpId) {
+  if (erps.length === 1) {
+    return erps[0].id;
+  }
+  if (erpId) {
+    return erpId;
+  }
+  return erpById(erps, SINGLE_ERP_ID) ? SINGLE_ERP_ID : null;
+}
+
+/**
  * The adapter that talks to an ERP.
  * @param {import("#adapters/contract").ErpEntry} entry the ERP
  * @returns {object} the adapter
