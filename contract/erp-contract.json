@@ -1,6 +1,6 @@
 {
   "name": "demo-erp",
-  "contractVersion": 8,
+  "contractVersion": 9,
   "description": "What the ERP promises its subscribers: the routes it serves, the shapes it accepts, and the events it publishes. The Commerce integration vendors this file and its tests fail when the two disagree.",
   "routes": {
     "health": ["GET"],
@@ -49,10 +49,10 @@
     "priceGroupNote": "version 7: a customer belongs to at most one price group, priceGroup on the business partner: the ERP's own, set on its screen or with PATCH partners/:id, never from an import",
     "inForce": ["items"],
     "inForceItem": ["partnerId", "lines"],
-    "inForceNote": "GET contracts/in-force answers today's prices in force for every customer with at least one line, price groups resolved in the ERP; with ?partnerId= it answers exactly that customer, lines possibly empty",
+    "inForceNote": "GET contracts/in-force answers today's prices in force for every customer with at least one line, price groups resolved in the ERP; with ?partnerId= it answers exactly that customer, lines possibly empty. version 9: the lines are what the ERP would charge the customer, by the same precedence as a quote: its own price lists, then its price group's, then its loose pricing conditions (its contract price or discount for the SKU, before its all-products discount), then the list price; the maximum discount bounds every result. A loose pricing condition counts on today's date and from its minimum quantity, as a list line does, and an all-products discount is one line per product the ERP sells. A discount stays a discountLine, so it follows the list price; a result the maximum discount cut is a discountLine at the maximum discount's percent. A product's quantity breaks are a line only where the charged price moves",
     "priceLine": ["sku", "kind", "price", "minQty", "contractNumber", "appliesTo"],
     "discountLine": ["sku", "kind", "percent", "minQty", "contractNumber", "appliesTo"],
-    "lineNote": "contractNumber is the price list the line came from; appliesTo says whether that list is the customer's own (customer) or its price group's (priceGroup)"
+    "lineNote": "contractNumber is the price list the line came from; appliesTo says whether that list is the customer's own (customer) or its price group's (priceGroup). version 9: a line a loose pricing condition set has contractNumber is null and appliesTo customer; a line the maximum discount cut keeps the list or condition it cut"
   },
 
   "order": {
@@ -80,7 +80,7 @@
     "be-observer.sales_order_cancel": { "raisedBy": "order.cancelled", "value": ["id", "orderId", "incrementId", "erpNumber", "status", "items", "notifyCustomer", "reason"], "note": "reason is one of the ERP's own cancellation reasons, for the Commerce order comment" },
     "be-observer.company_credit_update": { "raisedBy": "partner.creditLimit", "value": ["partnerId", "creditLimit"] },
     "be-observer.company_status_update": { "raisedBy": "partner.blocked", "value": ["partnerId", "blocked"] },
-    "be-observer.company_contract_update": { "raisedBy": "contract.changed", "value": ["partnerId", "lines"], "note": "version 6: raised whenever a change to a price list moves a customer's prices in force today. lines is that customer's whole set (contracts.priceLine or contracts.discountLine each), so a replay is harmless; an empty list means no list price is left. version 7: a price group's list raises one for every member customer whose prices moved, and moving a customer into or out of a price group raises one for that customer. A list or line starting or ending with the calendar raises nothing: read GET contracts/in-force to follow dates" }
+    "be-observer.company_contract_update": { "raisedBy": "contract.changed", "value": ["partnerId", "lines"], "note": "version 6: raised whenever a change to a price list moves a customer's prices in force today. lines is that customer's whole set (contracts.priceLine or contracts.discountLine each), so a replay is harmless; an empty list means no list price is left. version 7: a price group's list raises one for every member customer whose prices moved, and moving a customer into or out of a price group raises one for that customer. A list or line starting or ending with the calendar raises nothing: read GET contracts/in-force to follow dates. version 9: lines are the prices in force as contracts.inForceNote says, pricing conditions and the maximum discount included, and the event is also raised for each customer whose set moved when a pricing condition is created, changed or deleted (one naming no customer, such as a store-wide maximum discount, can move any customer) and when a product's list price changes on the ERP (a fixed price the maximum discount holds up moves with it). An empty list means the customer pays list price for everything" }
   },
   "orderEventItem": ["orderItemId", "qty", "sku"],
   "delivery": {
