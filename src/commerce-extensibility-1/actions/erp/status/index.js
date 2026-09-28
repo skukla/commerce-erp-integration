@@ -39,14 +39,25 @@ function listedHealth(params, entry) {
   );
 }
 
-/** One ERP's full health, asked at its address. */
+/**
+ * One ERP's full health, asked at its address. Like the list, an ERP that answers but refuses
+ * the call is not reachable: the integration cannot use it. The refusal is the ERP's own
+ * `errorMessage`, else Adobe's caller check's `error`, else the status it answered.
+ */
 async function healthOf(params) {
   try {
     const res = await erp.health(params);
+    if (res.ok) {
+      return { reachable: true, status: res.status, ...res.data };
+    }
     return {
-      reachable: true,
+      error:
+        res.data?.errorMessage ??
+        res.data?.error ??
+        `the ERP answered ${res.status}`,
+      ok: false,
+      reachable: false,
       status: res.status,
-      ...(res.ok ? res.data : { error: res.data?.errorMessage, ok: false }),
     };
   } catch (error) {
     return { error: error.message, ok: false, reachable: false };

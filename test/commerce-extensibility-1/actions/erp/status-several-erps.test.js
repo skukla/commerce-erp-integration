@@ -104,6 +104,24 @@ describe("Given two ERPs in the list", () => {
     expect(res.body.erpBaseUrl).toBe("https://b.example");
   });
 
+  test("Then asked for one ERP that refuses the integration, it is not reachable and the refusal is given", async () => {
+    // Adobe's caller check answers `error`, not the ERP's own `errorMessage` (Bodea 2026-09-28).
+    loadErps.mockResolvedValue(TWO);
+    erp.health.mockResolvedValue({
+      data: { error: "Technical account mismatch" },
+      ok: false,
+      status: 401,
+    });
+    const res = await status.main({ erp: "brand-b" });
+
+    expect(res.body.erp).toStrictEqual({
+      error: "Technical account mismatch",
+      ok: false,
+      reachable: false,
+      status: 401,
+    });
+  });
+
   test("Then an ERP list that cannot be read still answers the deployed ERP's health, with no list", async () => {
     loadErps.mockRejectedValue(new Error("State is down"));
     erp.health.mockResolvedValue({ data: { ok: true }, ok: true, status: 200 });
