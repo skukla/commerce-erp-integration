@@ -28,6 +28,8 @@ row says otherwise.
 | `GET companyCredits/company/{id}` | `readCompanyRow`, `getCompanyCredit` | credit limit | used today |
 | `PUT companyCredits/{creditId}` | `setCompanyCreditLimit` | ERP limit → Commerce; revert | used today |
 | `GET orders` (`increment_id` filter), `GET orders/{id}` | `getOrderByIncrementId`, kit `getOrder` | order save event → entity id | used today |
+| `GET sharedCatalog` (`customer_group_id` filter), `GET customerGroups/{id}` | `lib/commerce-tier-prices.js sharedCatalogGroupOf` | a company's custom shared catalog group, and its code | read live 2026-09-28 (Bodea, captured in `test/fixtures/commerce/`); code added (AB-26z) |
+| `POST products/tier-prices`, `POST products/tier-prices-delete`, `POST products/tier-prices-information` | `writeTierPrices`, `deleteTierPrices`, `tierPricesOf`, `revertTierPrice` | ERP contract prices → the company's shared catalog; revert | bodies from Adobe's "Manage prices for multiple products"; the information read was measured 2026-09-26; the writes are not yet run live (AB-26z Z5) |
 | `POST orders` (sparse: `entity.entity_id` + `ext_order_id`) | `setExtOrderId`, `clearExtOrderId` | ERP number write-back; clear on detach | used today |
 | `POST orders/{id}/comments` (`statusHistory` ± `status`) | `orders.comment`, kit `addComment` | notes; a custom status on confirm (a comment sets only a status of the order's current state) | used today |
 | `POST orders/{id}/cancel` | `orders.cancel`, kit `cancelOrder` | ERP cancel | used today |
@@ -73,8 +75,7 @@ Changing a subscription after install needs an uninstall + install of the app in
 
 | Webhook | Plugin hook | Status |
 |---|---|---|
-| `erp_contract_price` | `plugin.out_of_process_totals_collector.api.get_total_modifications.item_prices` (`required: false`, 1s soft / 10s hard, runs recorded via X-OW-EXTRA-LOGGING) | used today |
-| `erp_discount_ceiling` | `…get_total_modifications.execute` | used today |
+| `erp_contract_price`, `erp_discount_ceiling` (totals collector `item_prices`, `execute`) | removed in 0.9.0 (AB-26z): contract prices are synced into shared catalogs, and no ERP is asked on a cart change | removed |
 | availability check at add-to-cart / order placement (`required: true`) | AB-19 | to validate the plugin hook name |
 | credit check at order placement (`required: true`) | AB-20 | to validate |
 

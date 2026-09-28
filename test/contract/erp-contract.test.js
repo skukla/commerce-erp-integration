@@ -118,11 +118,9 @@ describe("Given the ERP contract", () => {
     }
     // The customer is named by the ERP's own number from the key map, and nothing else.
     expect(contract.order.request).toContain("partnerId");
-    expect(contract.quote.request).toContain("partnerId");
     expect(orderSync).toContain("partnerId");
     for (const key of [...COMMERCE_IDS, "email"]) {
       expect(contract.order.request).not.toContain(key);
-      expect(contract.quote.request).not.toContain(key);
     }
     for (const key of contract.order.requestLine) {
       expect(orderSync).toContain(`${key}:`);

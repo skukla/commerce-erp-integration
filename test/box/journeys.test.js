@@ -72,8 +72,6 @@ vi.mock("#lib/erp", () => {
         }),
       product: (params, sku) =>
         call("products", { params, path: `/${encodeURIComponent(sku)}` }),
-      quote: (params, body) =>
-        call("pricing", { body, method: "POST", params, path: "/quote" }),
       settings: (params) => call("settings", { params }),
     },
     erpAuthHeaders: async () => ({}),

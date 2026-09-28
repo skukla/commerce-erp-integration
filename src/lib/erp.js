@@ -169,12 +169,5 @@ export const erp = {
       path: `/${encodeURIComponent(sku)}`,
       timeoutMs,
     }),
-  quote: (params, body, timeoutMs) =>
-    erpRequest(params, "pricing", {
-      body,
-      method: "POST",
-      path: "/quote",
-      timeoutMs,
-    }),
   settings: (params) => erpRequest(params, "settings"),
 };

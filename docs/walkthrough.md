@@ -86,8 +86,9 @@ a product, a quantity and a date, and the ERP answers what it would charge and, 
 rule that did NOT apply, why (not yet valid, below the minimum quantity, a more specific
 rule won, the wrong sales organisation).
 
-The ERP's own: every condition. Commerce never stores them; the cart asks the ERP at cart
-time (part 2, the cart).
+The ERP's own: every condition. Commerce holds only what is in force for each customer: the
+integration writes it into the company's shared catalog as tier prices, and no ERP is asked
+at cart time (part 2, the cart; AB-26z).
 
 What to say: add a contract price for the customer from step 3 on the product from step 2,
 valid from today, minimum quantity 10. Test at quantity 4: it does not apply, and the ERP
@@ -173,9 +174,10 @@ there.
 ### The storefront: cart and checkout
 
 The buyer signs in as a user of the company from step 3. At quantity 4 the cart shows the
-list price; at 10, the contract price from step 4. Nothing was deployed between the two:
-the cart asks the ERP for the buyer's price on every totals calculation (the two
-totals-collector webhooks: contract price, discount ceiling). Placing the order fires the
+list price; at 10, the contract price from step 4. The price is Commerce's own: the
+integration wrote the ERP's contract price into the company's shared catalog as a tier price
+at the line's minimum quantity, so the listing and the product page show it
+too, and no ERP is asked while the buyer shops. Placing the order fires the
 order event; within seconds the ERP holds a sales order with its own number.
 
 ### Sales → Orders → the order
@@ -265,10 +267,11 @@ One table per business concept. "Owner" is which side decides the field; the oth
 
 ### Price
 
-| ERP (Pricing) | Commerce (the cart; the Mapping tab's Price card) | Owner |
+| ERP (Pricing) | Commerce (the company's shared catalog; the Mapping tab's Price card) | Owner |
 |---|---|---|
-| Contract price · contract discount · discount ceiling, with validity, minimum quantity, sales organisation | The cart's line price and discount (totals-collector webhooks, at cart time) | ERP quotes; Commerce applies; the two switches on the Price card turn each webhook on or off per website |
-| — | Shared-catalog custom price, website price | Commerce; the ERP's quote replaces the line price only where a contract price applies |
+| Contract price · contract discount, in force today, with minimum quantity | Tier price for the company's shared-catalog customer group: fixed, or a percentage, at the minimum quantity, all websites | ERP; the integration writes what is in force and takes back what is not (ledgered, undone by detach) |
+| Discount ceiling | — | ERP, enforced on the order, not the cart |
+| — | Other shared-catalog custom prices, website price | Commerce |
 
 ### Inventory position
 

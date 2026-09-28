@@ -30,11 +30,11 @@ What to have, so there is something to show:
 | An order or two placed as a company user | the storefront | `GET orders?searchCriteria[pageSize]=5` | Reset clears the ERP's number from each order; Commerce cannot delete an order |
 
 The customer group matters more than it looks. An order names its buyer's company, so the
-ERP books it to the right account whatever the group. A cart does not: the pricing webhooks
-carry only the customer group and the buyer's email, so a company left in the General group
-(Commerce's default: a company created without choosing a shared catalog joins the default one, and so its group) prices as the walk-in customer at cart time, and its
-contract prices and discounts do not show until the order lands. Measured 2026-09-25 with
-three companies sharing group 1.
+ERP books it to the right account whatever the group. Prices do not: the ERP's contract prices
+are written as tier prices for the customer group of the company's own custom shared catalog, so
+a company left in the General group (Commerce's default: a company created without choosing a
+shared catalog joins the default one, and so its group) gets no contract prices at all, and the
+integration's price publish reports it as skipped. Three companies shared group 1 on 2026-09-25.
 
 A confirmation in the ERP cannot move a Commerce order to Processing. Adobe's documentation
 (Experience League, "Order status" and "Order workflow and processing", read 2026-09-25):
