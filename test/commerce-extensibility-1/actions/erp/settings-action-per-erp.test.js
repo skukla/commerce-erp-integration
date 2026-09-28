@@ -65,6 +65,24 @@ describe("Given the resolved settings asked for one ERP", () => {
     expect(res.body.websites.base.structure_sales_org).toBe("1000");
   });
 
+  test("Then an ERP with no ownership of its own owns what routing gives it: the products whose erp_owner holds its id", async () => {
+    // The integration's "all" would fill this ERP with every product while routing sends it
+    // only its erp_owner products (router/ownership.js). Measured on Bodea 2026-09-28.
+    const res = await main({
+      __ow_method: "get",
+      erp: "brand-a",
+      websites: "bodea",
+    });
+    expect(res.body.default).toMatchObject({
+      structure_owns: "attribute",
+      structure_owns_attribute: "erp_owner=brand-a",
+    });
+    expect(res.body.websites.bodea).toMatchObject({
+      structure_owns: "attribute",
+      structure_owns_attribute: "erp_owner=brand-a",
+    });
+  });
+
   test("Then an ERP not in the list is refused", async () => {
     const res = await main({
       __ow_method: "get",

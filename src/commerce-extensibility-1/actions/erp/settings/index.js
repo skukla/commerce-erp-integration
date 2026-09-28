@@ -14,15 +14,39 @@ import {
   settingsPage,
 } from "#lib/settings";
 import { readPayload } from "#lib/webhook";
+import { ownershipOf } from "#router/ownership";
 
 /** A Commerce website code: letters, digits and underscores, starting with a letter. */
 const WEBSITE_CODE = /^[a-z][a-z0-9_]*$/u;
+
+/** One ERP's resolved settings: its own on top of the integration's, per website. */
+async function settingsForErp(params, resolved) {
+  const erps = await loadErps(params);
+  const entry = erpById(erps, String(params.erp));
+  if (!entry) {
+    return badRequest(`no ERP ${params.erp} in the list`);
+  }
+  // One ERP owns every product, as routing passes the whole order to it.
+  const owns = erps.length > 1 ? ownershipOf(entry) : {};
+  return ok({
+    body: {
+      default: { ...withErpSettings(resolved.default, entry), ...owns },
+      websites: Object.fromEntries(
+        Object.entries(resolved.websites).map(([code, values]) => [
+          code,
+          { ...withErpSettings(values, entry, code), ...owns },
+        ]),
+      ),
+    },
+  });
+}
 
 /**
  * The Admin page's settings.
  * GET ?websites=<code>,<code>[&erp=<id>]: the settings in force, Default Config and each named
  *   website's (Demo Builder reads them before it fills the ERP). With `erp`, that ERP's own
- *   settings (lib/erp-settings.js) sit on top, per website.
+ *   settings (lib/erp-settings.js) sit on top, per website; with several ERPs its ownership is
+ *   the one routing uses (router/ownership.js), so the fill gives each ERP only what it owns.
  * GET ?scope=<scope id>[&refresh=true]: the fields, the scopes a merchant can pick, and the
  *   values at that scope with where each comes from (Default Config when no scope is given).
  *   `refresh` reads Commerce's websites again first.
@@ -50,21 +74,7 @@ async function main(params) {
       if (params.erp === undefined) {
         return ok({ body: resolved });
       }
-      const entry = erpById(await loadErps(params), String(params.erp));
-      if (!entry) {
-        return badRequest(`no ERP ${params.erp} in the list`);
-      }
-      return ok({
-        body: {
-          default: withErpSettings(resolved.default, entry),
-          websites: Object.fromEntries(
-            Object.entries(resolved.websites).map(([code, values]) => [
-              code,
-              withErpSettings(values, entry, code),
-            ]),
-          ),
-        },
-      });
+      return await settingsForErp(params, resolved);
     }
     if (method === "get") {
       return ok({
