@@ -21,9 +21,12 @@ import {
 } from "#lib/commerce";
 import { erp } from "#lib/erp";
 import { recordOrderOutcome } from "#lib/history";
+import { resetOrderPartsClient } from "#lib/order-parts";
 import { sendOrderToErp } from "#lib/order-sync";
 import { settingsFor } from "#lib/settings";
 import { main } from "#src/order/commerce/created/index";
+
+import { fakeState } from "../../../../box/state.js";
 
 const outcome = (name, statusCode) => ({
   message: `${name} message`,
@@ -31,7 +34,10 @@ const outcome = (name, statusCode) => ({
   statusCode,
 });
 
+// The action reads the demo reset's mark on the order first (AB-16n); none is set here.
+beforeEach(() => resetOrderPartsClient(fakeState()));
 afterEach(() => {
+  resetOrderPartsClient();
   vi.clearAllMocks();
 });
 
