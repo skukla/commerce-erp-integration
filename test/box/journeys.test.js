@@ -573,4 +573,46 @@ describe("Pair in a box: the entity matrix, both directions", () => {
     expect([...box.commerce.db.tierPrices]).toEqual(catalogBefore);
     expect(await ledger.readLedger()).toEqual([]);
   });
+
+  // AB-16k with the real ERP: the ERP sends the price it would charge, so a customer discount
+  // set on the ERP's Pricing screen, with no price list, reaches the company's shared catalog
+  // as a discount on every product; the ERP's maximum discount cuts it; deleting it takes it
+  // back out. Nothing in this app changed for it: it writes the set it is sent.
+  test("Price, ERP → Commerce: a pricing-screen discount reaches the company's shared catalog on every product, capped by the maximum discount, and leaves when deleted", async () => {
+    await fillErp(readers, erp, "Box");
+    const catalogBefore = structuredClone([...box.commerce.db.tierPrices]);
+    const rule = async (body) =>
+      (await box.erp.call("pricing", { body, method: "POST" })).data;
+    const northwind = () =>
+      Object.fromEntries(
+        [...box.commerce.db.tierPrices.values()]
+          .filter((r) => r.customer_group === "Northwind Trading")
+          .map((r) => [`${r.sku} ${r.quantity}`, [r.price_type, r.price]]),
+      );
+    const discount = await rule({
+      kind: "contractDiscount",
+      partnerId: "C7",
+      percent: 10,
+    });
+    expect(await deliverErpEvents()).toEqual([
+      { event: "be-observer.company_contract_update", statusCode: 200 },
+    ]);
+    expect(northwind()).toEqual({
+      "A1 1": ["discount", 10],
+      "B2 1": ["discount", 10],
+    });
+    await rule({ kind: "maxDiscount", percent: 5 });
+    await deliverErpEvents();
+    expect(northwind()).toEqual({
+      "A1 1": ["discount", 5],
+      "B2 1": ["discount", 5],
+    });
+    await box.erp.call("pricing", {
+      method: "DELETE",
+      path: `/${discount._id}`,
+    });
+    await deliverErpEvents();
+    expect([...box.commerce.db.tierPrices]).toEqual(catalogBefore);
+    expect(await ledger.readLedger()).toEqual([]);
+  });
 });
