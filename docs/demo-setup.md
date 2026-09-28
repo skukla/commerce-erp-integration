@@ -72,52 +72,41 @@ Warehouse names: the ERP takes each inventory source's Commerce name the first t
 the code, and a person can rename it on the ERP's Settings → Warehouses card (`Plant 1000 ·
 Seattle DC`). Commerce keeps its own source name. The ERP name survives Reset.
 
-## Story 3: two ERPs on one store
+## Story 3: several ERPs and brands on one store
 
-Two copies of the ERP pair on one Commerce, each owning part of the catalog. Commerce tells
-their orders apart by the prefix on the ERP number; each pair decides which products are its
-own. Demo Builder deploys the second copy with its own app id (`erp-integration-2`); this
-guide covers what Commerce needs.
+One integration serves several ERPs. Each placed order is split by the ERP that owns each
+product; each ERP receives only its own lines, and ships and invoices only those. Demo Builder
+adds a second ERP from the integration card ("Add another ERP"); the ERP list is on this app's
+Settings page (the ERP switcher).
 
-Pick ONE way to split the catalog. **The product attribute is the story** (owner, 2026-09-24):
-in a real deployment a PIM writes the owning system onto each product, and Commerce carries
-it as an attribute; the demo sets that attribute in Commerce directly. Inventory sources
-remain an alternative for a store whose warehouses already map one-to-one onto ERPs.
+**Nothing is seeded (owner, 2026-09-28).** The SC creates the brands, the products and the
+scenario; the integration responds to whatever is there. The two product values below are the
+whole contract between your catalog and the integration.
 
-### 3a. Split by inventory source (alternative)
-
-| Have | Where in Admin | Check | Undo |
-|---|---|---|---|
-| One inventory source per ERP (the default source can be one of them) | Stores → Inventory → Sources → Add New Source (code `east`, a name, an address) | `GET inventory/sources` lists the codes | Commerce cannot delete a source; disable it (Enabled: No) and unassign the products |
-| Each product assigned to the source of the ERP that owns it, with a quantity | Catalog → Products → the product → Sources → Assign Sources | `GET inventory/source-items?searchCriteria[filter_groups][0][filters][0][field]=sku&searchCriteria[filter_groups][0][filters][0][value]=<sku>` lists the product's `source_code`s | unassign the source on the product |
-| A stock that sells those sources on your website (so the storefront can sell them) | Stores → Inventory → Stocks | `GET inventory/stocks` | edit the stock's sources |
-| On each pair: *Which products belong to this ERP* = Products in the inventory sources named below; *Inventory sources this ERP ships from* = its codes | the pair's Admin screen → Mapping → the Fulfilment source card, scope Default Config | after a Reset, each ERP's Products page holds only its products; `GET health` on each ERP: `counts.products` | set the mode back to All products |
-
-A product stocked in both ERPs' sources belongs to both. A product in neither belongs to
-no ERP and is skipped by both fills, and by both pairs' product and stock events.
-
-### 3b. Split by a product attribute (the story)
+**Brand and owning ERP are two different values.** `brand` is what a buyer sees: a name on the
+product and a search filter, on the one shared website, so one cart can hold several brands.
+`erp_owner` is which ERP fulfils the product; routing reads only this. They usually match, but
+not always (two brands can share an ERP; one brand can span two). In a customer's deployment
+their product information system writes both; in the demo you set them in Commerce.
 
 | Have | Where in Admin | Check | Undo |
 |---|---|---|---|
-| A product attribute `erp_owner`, **Text Field**, added to the attribute set | Stores → Attributes → Product → Add New Attribute; then Stores → Attributes → Attribute Set → drag it into the set | `GET products/attributes/erp_owner` answers with `frontend_input: "text"` | delete the attribute (same screen) |
-| A value on every product naming its ERP (`ACME`, `NORTH`) | Catalog → Products → the product; or a mass update via Actions → Update Attributes | `GET products/<sku>`: `custom_attributes` holds `erp_owner` with the value | clear the value, or delete the attribute |
-| On each pair: *Which products belong to this ERP* = Products whose attribute names this ERP; *Product attribute that names this ERP* = `erp_owner=ACME` | the pair's Admin screen → Mapping → the Fulfilment source card, scope Default Config | as 3a | set the mode back to All products |
+| A product attribute `erp_owner`, **Text Field**, in the attribute set | Stores → Attributes → Product → Add New Attribute; then Stores → Attributes → Attribute Set → drag it into the set | `GET products/attributes/erp_owner` answers with `frontend_input: "text"` | delete the attribute |
+| A product attribute `brand` (Text Field or Dropdown), in the attribute set, **Use in Search Results Layered Navigation** / filterable if you want it as a storefront filter | same screens | `GET products/attributes/brand` | delete the attribute |
+| On each product you sell through an ERP: `erp_owner` = that ERP's **id** (shown on the Settings page's ERP switcher and in Demo Builder, e.g. `demo-erp-2`, never its display name) and `brand` = the brand you are showing | Catalog → Products → the product; or Actions → Update Attributes for many | `GET products/<sku>`: `custom_attributes` holds both | clear the values |
+| The ERP's own warehouse for each ERP (an inventory source and the website's stock, as in story 1) | as story 1 | as story 1 | as story 1 |
 
-Make it a Text Field. For a Dropdown attribute the API carries the option's number, not its
-label, and the setting would have to name that number.
+What the integration does with what you created:
 
-### Both ways: the rest of the two-ERP setup
+- A product whose `erp_owner` names a listed ERP routes to it.
+- A product with no owner, or naming an ERP that is not listed, is held on the order and shown
+  to staff; the rest of the order still goes.
+- With one ERP, every product goes to it; the values change nothing.
 
-| Have | Where | Check | Undo |
-|---|---|---|---|
-| A different order-number prefix on each pair | Mapping → the Order card → *Prefix on ERP order numbers in Commerce* (`ACME`, `NORTH`; blank derives it from the ERP's name, which is only safe when the two names start differently) | after an order: `GET orders/{id}` shows `ext_order_id` like `ACME-0000001042`; the other pair's orders carry the other prefix | Reset clears the ERP numbers |
-| Each ERP's own name | Demo Builder's ERP component (`ERP_DISPLAY_NAME`), or the ERP's Settings → Name | the ERP's screen title | rename |
-| Optionally, each ERP on its own website (story 2) so each also reads as its own sales organisation | as story 2 | as story 2 | as story 2 |
-
-An order with lines from both ERPs reaches both: each ERP receives it and takes it whole.
-Splitting an order between ERPs is the routing layer's job, which this pair does not do
-(see the multi-ERP research in the Demo Builder repository).
+`erp_owner` must be a Text Field: a Dropdown's API value is the option's number, not its label.
+Each ERP can instead own products by inventory source or by another attribute (the ERP's own
+settings on the Settings page, "Which products belong to this ERP"), for a store whose
+warehouses already map one-to-one onto ERPs.
 
 ## Giving the demo
 
