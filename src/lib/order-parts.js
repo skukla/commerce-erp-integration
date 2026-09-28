@@ -13,6 +13,20 @@ const TTL_SECONDS = 365 * 24 * 60 * 60;
 /** The outcomes after which a part is never sent again. */
 export const FINAL_OUTCOMES = Object.freeze(["sent", "skipped", "dropped"]);
 
+/**
+ * A part's status from its send. A part its ERP refused stays open, failed and `refused`, so
+ * the order waits on it and staff can send it again; it is never dropped while the other parts
+ * go (design v1 §3.3, one ERP down or refusing). Measured on Bodea 2026-09-28: an ERP that
+ * answered 401 left its part dropped and the order Pending, with nothing to act on.
+ * @param {{ outcome: string }} outcome the adapter's answer
+ * @returns {{ status: string, refused?: true }}
+ */
+export function partStatusOf(outcome) {
+  return outcome.outcome === "dropped"
+    ? { refused: true, status: "failed" }
+    : { status: outcome.outcome };
+}
+
 let statePromise;
 function state() {
   if (!statePromise) {

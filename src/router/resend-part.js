@@ -15,6 +15,7 @@ import { isBlocked } from "#lib/erp-blocks";
 import { adapterFor, erpById } from "#lib/erps";
 import {
   FINAL_OUTCOMES,
+  partStatusOf,
   readOrderParts,
   writeOrderParts,
 } from "#lib/order-parts";
@@ -125,11 +126,12 @@ export async function resendPart(params, { incrementId, erpId }, deps) {
     },
     deps,
   );
+  const { refused: _refused, ...open } = part;
   record.parts[erpId] = {
-    ...part,
+    ...open,
     ...(outcome.erpNumber ? { erpNumber: outcome.erpNumber } : {}),
     message: outcome.message,
-    status: outcome.outcome,
+    ...partStatusOf(outcome),
   };
   await writeOrderParts(incrementId, record);
   if (order.entity_id !== undefined) {

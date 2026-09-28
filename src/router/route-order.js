@@ -24,6 +24,7 @@ import { isBlocked, noteCompanyOrder } from "#lib/erp-blocks";
 import { adapterFor, listErps } from "#lib/erps";
 import {
   FINAL_OUTCOMES,
+  partStatusOf,
   readOrderParts,
   writeOrderParts,
 } from "#lib/order-parts";
@@ -149,17 +150,59 @@ async function companyOfOrder(params, order, deps) {
   }
 }
 
+/**
+ * The order with its Commerce id. The order event carries none (its subscription names no
+ * `entity_id`), so the order is found by its number once, before the parts need it. Not found,
+ * the order goes on without it: each part's send finds it again, or waits for it.
+ */
+async function withOrderId(params, order, deps) {
+  if (order.entity_id !== undefined || !deps?.findOrder) {
+    return order;
+  }
+  try {
+    const found = await deps.findOrder(params, order.increment_id);
+    return found ? { ...order, entity_id: found.entityId } : order;
+  } catch (error) {
+    deps.logger?.warn?.(
+      `order ${order.increment_id}: not read from Commerce: ${error.message}`,
+    );
+    return order;
+  }
+}
+
+/**
+ * The order's combined status once its parts went: Partially Held while a part waits, On Hold
+ * while every part does. A write that fails is logged, not retried: the parts are with their
+ * ERPs, and delivering the event again would send nothing new.
+ */
+async function writeCombinedStatus(params, order, record, deps) {
+  if (order.entity_id === undefined) {
+    return;
+  }
+  try {
+    await applyCombinedStatus(params, order.entity_id, record);
+  } catch (error) {
+    deps?.logger?.warn?.(
+      `order ${order.increment_id}: status not written: ${error.message}`,
+    );
+  }
+}
+
 /** One answer for the event delivery, from each part's outcome. */
 function combine(label, outcomes, notes) {
   const all = Object.values(outcomes);
   const message = [...all.map((o) => o.message), ...notes].join(" ");
-  // A part a block holds waits for the unblock, which sends it; redelivering cannot help.
-  const retryable = all.filter((o) => !o.heldByBlock);
+  // A part a block holds waits for the unblock, which sends it; a part its ERP refused waits
+  // for staff to send it again. Delivering the event again can help neither.
+  const retryable = all.filter((o) => !(o.heldByBlock || o.refused));
   if (retryable.some((o) => o.outcome === "held" || o.outcome === "failed")) {
     return { message, outcome: "held", statusCode: SERVER_UNAVAILABLE };
   }
   if (all.some((o) => o.outcome === "sent")) {
     return { message, outcome: "sent", statusCode: 200 };
+  }
+  if (all.length > 0 && all.every((o) => o.refused)) {
+    return { message, outcome: "dropped", statusCode: BAD_REQUEST };
   }
   if (all.length === 0 && notes.length > 0) {
     return { message, outcome: "dropped", statusCode: BAD_REQUEST };
@@ -171,7 +214,8 @@ function combine(label, outcomes, notes) {
   };
 }
 
-async function routeToSeveral(params, order, deps, erps) {
+async function routeToSeveral(params, event, deps, erps) {
+  const order = await withOrderId(params, event, deps);
   const label = `order ${order.increment_id}`;
   const { byErp, unrouted, conflicts, warnings } = await splitLines(
     params,
@@ -224,18 +268,23 @@ async function routeToSeveral(params, order, deps, erps) {
       { erp: entry, lines, order, shared: true },
       deps,
     );
+    const status = partStatusOf(outcome);
     record.parts[entry.id] = {
       ...record.parts[entry.id],
       ...(outcome.erpNumber ? { erpNumber: outcome.erpNumber } : {}),
       message: outcome.message,
-      status: outcome.outcome,
+      ...status,
     };
     await writeOrderParts(order.increment_id, record);
-    outcomes[entry.id] = outcome;
+    outcomes[entry.id] =
+      outcome.outcome === "dropped"
+        ? { ...outcome, outcome: "failed", refused: true }
+        : outcome;
   }
   if (Object.keys(outcomes).length === 0) {
     await writeOrderParts(order.increment_id, record);
   }
+  await writeCombinedStatus(params, order, record, deps);
   const notes = [
     ...unrouted.map(
       (sku) => `${label}: ${sku} belongs to no ERP and was held back.`,
@@ -299,11 +348,12 @@ function routeToOne(params, order, deps, entry) {
   return routeCompanyOrder(params, order, deps, entry, send);
 }
 
-async function routeCompanyOrder(params, order, deps, entry, send) {
-  const companyId = await companyOfOrder(params, order, deps);
+async function routeCompanyOrder(params, event, deps, entry, send) {
+  const companyId = await companyOfOrder(params, event, deps);
   if (!companyId) {
     return send();
   }
+  const order = await withOrderId(params, event, deps);
   if (order.entity_id !== undefined) {
     await noteCompanyOrder(companyId, order.increment_id, order.entity_id);
   }
