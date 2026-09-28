@@ -80,6 +80,27 @@ export async function recordScheduledRun(
   }
 }
 
+/**
+ * Forget every run's record (a demo reset starts the page again, AB-16n); the next run fills it.
+ * @returns {Promise<number>} how many records there were
+ */
+export async function clearScheduledRuns() {
+  if (!stateAvailable()) {
+    return 0;
+  }
+  const client = await state();
+  let cleared = 0;
+  for (const id of RUNS) {
+    // biome-ignore lint/performance/noAwaitInLoops: one run, few runs
+    const found = await client.get(`${PREFIX}${id}`);
+    if (found?.value) {
+      await client.delete(`${PREFIX}${id}`);
+      cleared += 1;
+    }
+  }
+  return cleared;
+}
+
 /** @returns {Promise<object[]>} each run that has run, `{ id, lastRun, lastChange }` */
 export async function readScheduledRuns() {
   if (!stateAvailable()) {

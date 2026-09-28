@@ -30,6 +30,7 @@ describe("Given the History section", () => {
   test("Then the words are plain", () => {
     expect(RESULT).toStrictEqual({
       applied: "Applied",
+      done: "Done",
       dropped: "Not sent",
       failed: "Not applied yet",
       held: "Waiting for the ERP",
@@ -138,5 +139,24 @@ describe("Given the History section", () => {
     ]);
     expect(erpFilterChoices(null)).toStrictEqual([]);
     expect(erpFilterChoices([ERPS[0]])).toStrictEqual([]);
+  });
+  test("Then a demo reset reads as one plain line, with nothing to retry (AB-16n)", () => {
+    const row = historyRow({
+      attempts: 1,
+      direction: "reset",
+      kind: "reset",
+      lastAt: "2026-09-28T16:52:00.000Z",
+      message: "Demo reset on 2026-09-28: 6 orders cancelled.",
+      outcome: "done",
+      ref: "2026-09-28",
+    });
+
+    expect(row).toMatchObject({
+      direction: "Demo Builder",
+      message: "Demo reset on 2026-09-28: 6 orders cancelled.",
+      result: "Done",
+      retriable: false,
+      what: "Demo reset",
+    });
   });
 });

@@ -1,6 +1,8 @@
 import {
+  clearHistory,
   readHistory,
   recordOrderOutcome,
+  recordReset,
   resetHistoryClient,
 } from "#lib/history";
 
@@ -10,6 +12,10 @@ const TRAILING_STAR = /\*$/;
 function memoryState() {
   const store = new Map();
   return {
+    delete: vi.fn((k) => {
+      store.delete(k);
+      return Promise.resolve();
+    }),
     get: vi.fn((k) =>
       Promise.resolve(store.has(k) ? { value: store.get(k) } : undefined),
     ),
@@ -135,6 +141,34 @@ describe("Given the integration's history", () => {
     );
     expect((await readHistory({ limit: 1 })).map((e) => e.ref)).toEqual(["3"]);
     expect((await readHistory({ ref: "2" })).map((e) => e.ref)).toEqual(["2"]);
+  });
+
+  test("Then a reset clears every record and leaves one line saying it happened (AB-16n)", async () => {
+    await recordOrderOutcome(order("000000001"), {
+      message: "sent",
+      outcome: "sent",
+    });
+    await recordOrderOutcome(order("000000002"), {
+      message: "held",
+      outcome: "held",
+    });
+
+    expect(await clearHistory()).toBe(2);
+    await recordReset("Demo reset on 2026-09-22: 1 order cancelled.");
+
+    const history = await readHistory();
+    expect(history).toEqual([
+      {
+        attempts: 1,
+        direction: "reset",
+        firstAt: "2026-09-22T10:00:00.000Z",
+        kind: "reset",
+        lastAt: "2026-09-22T10:00:00.000Z",
+        message: "Demo reset on 2026-09-22: 1 order cancelled.",
+        outcome: "done",
+        ref: "2026-09-22",
+      },
+    ]);
   });
 
   test("Then a storage failure never breaks the sync that recorded it", async () => {

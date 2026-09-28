@@ -83,13 +83,35 @@ export async function detach(params, deps) {
         orders,
       })
     : undefined;
+  const activity = closed
+    ? await clearActivity(closed, closeDeps(deps))
+    : undefined;
   return {
     ...(erpId ? { erp: erpId } : {}),
     ...(closed ? { closed } : {}),
+    ...(activity ? { activity } : {}),
     holds,
     orders,
     reverted,
   };
+}
+
+/**
+ * A reset starts the Admin page's Activity again (AB-16n): its history and scheduled-run records
+ * describe ERP records the reset is about to wipe. They go, and one line says the reset happened
+ * and what it closed. Only for a reset (closeOrders), never for removing the integration.
+ */
+async function clearActivity(closed, deps) {
+  const { activity } = deps;
+  if (!activity) {
+    return;
+  }
+  const historyCleared = await activity.clearHistory();
+  const scheduledCleared = await activity.clearScheduledRuns();
+  await activity.recordReset(
+    `Demo reset on ${deps.today()}: ${closed.cancelled} ${closed.cancelled === 1 ? "order" : "orders"} cancelled, ${closed.commented} noted as closed, the ERPs' changes in Commerce undone. The activity before it was cleared.`,
+  );
+  return { historyCleared, scheduledCleared };
 }
 
 /** What the close needs beyond detach's own collaborators: the day, UTC, as YYYY-MM-DD. */

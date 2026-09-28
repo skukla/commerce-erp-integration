@@ -126,6 +126,47 @@ export async function recordOrderOutcome(order, result, options = {}) {
 }
 
 /**
+ * Delete every history record (a demo reset starts the page again, AB-16n).
+ * @returns {Promise<number>} how many were deleted
+ */
+export async function clearHistory() {
+  const client = await state();
+  const keys = [];
+  for await (const page of client.list({ match: `${PREFIX}*` })) {
+    keys.push(...page.keys);
+  }
+  for (const key of keys) {
+    // biome-ignore lint/performance/noAwaitInLoops: one delete per record, few records
+    await client.delete(key);
+  }
+  return keys.length;
+}
+
+/**
+ * The one line a demo reset leaves: that it happened, when, and what it closed.
+ * @param {string} message what the reset did, in words
+ * @param {object} [logger]
+ * @returns {Promise<void>}
+ */
+export async function recordReset(message, logger) {
+  const now = new Date().toISOString();
+  await updateRecord(
+    `reset.${now}`,
+    () => ({
+      attempts: 1,
+      direction: "reset",
+      firstAt: now,
+      kind: "reset",
+      lastAt: now,
+      message,
+      outcome: "done",
+      ref: now.slice(0, 10),
+    }),
+    logger,
+  );
+}
+
+/**
  * One record by its key under `history.`, or undefined.
  * @param {string} key e.g. `erp.<event id>`
  * @returns {Promise<object|undefined>}

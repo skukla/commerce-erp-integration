@@ -7,6 +7,7 @@
 /** How each outcome reads to a merchant. */
 export const RESULT = {
   applied: "Applied",
+  done: "Done",
   dropped: "Not sent",
   failed: "Not applied yet",
   held: "Waiting for the ERP",
@@ -95,6 +96,9 @@ export function erpFilterChoices(erps) {
  *   Retry it offers (`retry` is the history action's POST body)
  */
 export function historyRow(entry, erpName = "the ERP", erps = null) {
+  if (entry.kind === "reset") {
+    return resetRow(entry);
+  }
   const fromErp = entry.direction === "from-erp";
   const who = counterpart(entry, erpName, erps);
   return {
@@ -106,6 +110,21 @@ export function historyRow(entry, erpName = "the ERP", erps = null) {
     retry: fromErp ? { eventId: entry.eventId } : { incrementId: entry.ref },
     tries: triesText(entry),
     what: `${SUBJECT[entry.kind] ?? entry.kind} ${entry.ref}`,
+    when: entry.lastAt,
+  };
+}
+
+/** The one line a demo reset leaves (AB-16n): when, and what it closed. Nothing to retry. */
+function resetRow(entry) {
+  return {
+    direction: "Demo Builder",
+    key: `reset.${entry.lastAt}`,
+    message: entry.message,
+    result: RESULT[entry.outcome] ?? entry.outcome,
+    retriable: false,
+    retry: null,
+    tries: "",
+    what: "Demo reset",
     when: entry.lastAt,
   };
 }

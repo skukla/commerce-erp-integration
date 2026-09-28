@@ -10,8 +10,10 @@ import * as tierPrices from "#lib/commerce-tier-prices";
 import { detach } from "#lib/detach";
 import { erp } from "#lib/erp";
 import { loadErps } from "#lib/erps";
+import { clearHistory, recordReset } from "#lib/history";
 import * as ledger from "#lib/ledger";
 import * as orderParts from "#lib/order-parts";
+import { clearScheduledRuns } from "#lib/scheduled-runs";
 
 /** Why an asked-for ERP cannot be undone, or null when it can (or none was asked for). */
 function unlistedProblem(params, erps) {
@@ -67,6 +69,7 @@ async function main(params) {
       return badRequest(problem);
     }
     const result = await detach(detachParams(params), {
+      activity: { clearHistory, clearScheduledRuns, recordReset },
       commerce,
       erp,
       erps,

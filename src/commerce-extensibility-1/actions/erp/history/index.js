@@ -133,6 +133,10 @@ async function erpIdsOf(entry, erps) {
     const id = entry.event?.data?.erpId;
     return erps.some((e) => e.id === id) ? [id] : [];
   }
+  if (entry.kind === "reset") {
+    // A reset concerns every ERP: it shows under each one's filter.
+    return erps.map((e) => e.id);
+  }
   if (entry.kind !== "order") {
     return [];
   }
