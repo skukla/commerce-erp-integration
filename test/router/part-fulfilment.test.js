@@ -361,7 +361,10 @@ describe("Given one ERP's part is held while another ERP ships and invoices", ()
       items: [{ order_item_id: 2, qty: 5 }],
       matched: true,
     });
-    expect(decision).toMatchObject({ action: "partly", status: "partly-held" });
+    expect(decision).toMatchObject({
+      action: "mark-partially-held",
+      status: "partially-held",
+    });
     expect(commerce.holdOrder).not.toHaveBeenCalled();
   });
 });

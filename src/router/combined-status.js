@@ -10,7 +10,7 @@
  *   holding the whole order for one ERP's part would stop the other ERPs' shipments and
  *   invoices.
  * - While SOME parts wait and others move, the order keeps its state with the custom status
- *   "Partly on hold" (code `partly_on_hold`), set by an order comment that names the waiting
+ *   "Partially Held" (code `partially_held`), set by an order comment that names the waiting
  *   ERP and why. A comment can set only a status assigned to the order's CURRENT state, so the
  *   status must be assigned to Pending and Processing in Commerce (docs/demo-setup.md); if
  *   Commerce refuses it, the note is written alone and the event still succeeds.
@@ -33,7 +33,7 @@ import {
 const HOLDED = "holded";
 
 /** The custom order status for an order some of whose parts wait. */
-export const PARTLY_ON_HOLD = "partly_on_hold";
+export const PARTIALLY_HELD = "partially_held";
 
 /** A state's own status, to return to when no part waits any more. */
 const STATE_DEFAULT = Object.freeze({
@@ -78,7 +78,7 @@ function waitingPieces(record) {
 
 /**
  * @param {{ parts: object, unrouted?: string[], conflicts?: object[] }} record the order's parts
- * @returns {{ status: "on-hold"|"partly-held"|"pending"|"processing", reason: string }}
+ * @returns {{ status: "on-hold"|"partially-held"|"pending"|"processing", reason: string }}
  */
 export function combinedStatus(record) {
   const statuses = Object.values(record?.parts ?? {}).map((p) => p.status);
@@ -95,7 +95,7 @@ export function combinedStatus(record) {
     };
   }
   if (waiting.length > 0) {
-    return { reason: waiting.join("; "), status: "partly-held" };
+    return { reason: waiting.join("; "), status: "partially-held" };
   }
   if (statuses.includes(SENDING)) {
     return { reason: "a part is still being sent", status: "pending" };
@@ -103,20 +103,20 @@ export function combinedStatus(record) {
   return { reason: "every part is with its ERP", status: "processing" };
 }
 
-/** What to do for a partly held order. */
-function decidePartly(state, current) {
+/** What to do for a partially held order. */
+function decidePartiallyHeld(state, current) {
   if (state === HOLDED) {
-    return "release-partly";
+    return "release-partially-held";
   }
-  return current === PARTLY_ON_HOLD ? "none" : "partly";
+  return current === PARTIALLY_HELD ? "none" : "mark-partially-held";
 }
 
 /**
  * What to do to the Commerce order for a combined status.
- * @param {"on-hold"|"partly-held"|"pending"|"processing"} status the combined status
+ * @param {"on-hold"|"partially-held"|"pending"|"processing"} status the combined status
  * @param {string} state the order's state in Commerce
  * @param {string} [current] the order's status in Commerce
- * @returns {"hold"|"release"|"partly"|"release-partly"|"clear-partly"|"none"}
+ * @returns {"hold"|"release"|"mark-partially-held"|"release-partially-held"|"clear-partially-held"|"none"}
  */
 export function decideOrderAction(status, state, current) {
   if (FINISHED.includes(state)) {
@@ -125,13 +125,13 @@ export function decideOrderAction(status, state, current) {
   if (status === "on-hold") {
     return state === HOLDED ? "none" : "hold";
   }
-  if (status === "partly-held") {
-    return decidePartly(state, current);
+  if (status === "partially-held") {
+    return decidePartiallyHeld(state, current);
   }
   if (state === HOLDED) {
     return "release";
   }
-  return current === PARTLY_ON_HOLD ? "clear-partly" : "none";
+  return current === PARTIALLY_HELD ? "clear-partially-held" : "none";
 }
 
 /**
@@ -159,8 +159,8 @@ async function writeStatus(params, orderId, status, note, commerce, logger) {
   }
 }
 
-/** Mark the order Partly on hold, taking it off hold first if every part had been waiting. */
-async function markPartly(
+/** Mark the order Partially Held, taking it off hold first if every part had been waiting. */
+async function markPartiallyHeld(
   params,
   orderId,
   combined,
@@ -174,15 +174,15 @@ async function markPartly(
   await writeStatus(
     params,
     orderId,
-    PARTLY_ON_HOLD,
-    `Partly on hold: ${combined.reason}. The other parts go ahead.`,
+    PARTIALLY_HELD,
+    `Partially Held: ${combined.reason}. The other parts go ahead.`,
     commerce,
     logger,
   );
 }
 
 /** Return the status to the state's own now that no part waits. */
-async function clearPartly(params, orderId, state, commerce, logger) {
+async function clearPartiallyHeld(params, orderId, state, commerce, logger) {
   const note = "No part is waiting any more.";
   const status = STATE_DEFAULT[state];
   if (status) {
@@ -199,7 +199,7 @@ async function clearPartly(params, orderId, state, commerce, logger) {
 }
 
 /**
- * Write the combined status of a routed order: hold, release, or mark it Partly on hold.
+ * Write the combined status of a routed order: hold, release, or mark it Partially Held.
  * @param {object} params action params
  * @param {number} orderId the Commerce order id
  * @param {object} record the order's parts
@@ -227,18 +227,18 @@ export async function applyCombinedStatus(
   if (action === "release") {
     await commerce.unholdOrder(params, orderId);
   }
-  if (action === "partly" || action === "release-partly") {
-    await markPartly(
+  if (action === "mark-partially-held" || action === "release-partially-held") {
+    await markPartiallyHeld(
       params,
       orderId,
       combined,
-      action === "release-partly",
+      action === "release-partially-held",
       commerce,
       logger,
     );
   }
-  if (action === "clear-partly") {
-    await clearPartly(params, orderId, order?.state, commerce, logger);
+  if (action === "clear-partially-held") {
+    await clearPartiallyHeld(params, orderId, order?.state, commerce, logger);
   }
   return { ...combined, action };
 }

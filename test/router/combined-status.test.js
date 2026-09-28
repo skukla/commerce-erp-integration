@@ -3,7 +3,7 @@
  * every part's outcome, and the only writer of what it implies. Commerce's On Hold only while
  * EVERY part is held (Commerce will not ship or invoice an order On Hold, so holding the whole
  * order for one ERP's part would stop the others); while SOME parts are held the order keeps its
- * state with the custom status "Partly on hold" and a note naming the waiting ERP. Pending until
+ * state with the custom status "Partially Held" and a note naming the waiting ERP. Pending until
  * every part is sent; Processing while parts are moving. Complete is Commerce's own; the order is
  * never cancelled automatically.
  */
@@ -11,7 +11,7 @@ import {
   applyCombinedStatus,
   combinedStatus,
   decideOrderAction,
-  PARTLY_ON_HOLD,
+  PARTIALLY_HELD,
   setWholeOrderHold,
 } from "#router/combined-status";
 
@@ -19,7 +19,7 @@ const CANCEL_THE_ORDER = /cancel the order/u;
 const WAITING_ON_A = /waiting on erp-0 \(held\)/u;
 const NOT_OF_STATE = Object.assign(
   new Error(
-    'Request failed with status code 400 Bad Request: The status "partly_on_hold" is not part of the order status history.',
+    'Request failed with status code 400 Bad Request: The status "partially_held" is not part of the order status history.',
   ),
   { response: { status: 400 } },
 );
@@ -36,11 +36,11 @@ describe("Given the parts of an order", () => {
     [["shipped", "invoiced"], "processing"],
     [["sent", "skipped"], "processing"],
     [["sent", "dropped"], "processing"],
-    // Some parts held while others move: the order keeps moving, "Partly on hold".
-    [["held", "sent"], "partly-held"],
-    [["failed", "sent"], "partly-held"],
-    [["held", "sending"], "partly-held"],
-    [["cancelled", "shipped"], "partly-held"],
+    // Some parts held while others move: the order keeps moving, "Partially Held".
+    [["held", "sent"], "partially-held"],
+    [["failed", "sent"], "partially-held"],
+    [["held", "sending"], "partially-held"],
+    [["cancelled", "shipped"], "partially-held"],
     // Every part held: Commerce's own On Hold.
     [["held"], "on-hold"],
     [["held", "failed"], "on-hold"],
@@ -52,13 +52,13 @@ describe("Given the parts of an order", () => {
   test("Then a line that reached no ERP, or two, waits for staff while the rest moves", () => {
     expect(
       combinedStatus({ parts: parts("sent"), unrouted: ["X9"] }).status,
-    ).toBe("partly-held");
+    ).toBe("partially-held");
     expect(
       combinedStatus({
         conflicts: [{ erps: ["a", "b"], sku: "X" }],
         parts: parts("sent"),
       }).status,
-    ).toBe("partly-held");
+    ).toBe("partially-held");
     expect(combinedStatus({ parts: {}, unrouted: ["X9"] }).status).toBe(
       "on-hold",
     );
@@ -70,7 +70,7 @@ describe("Given the parts of an order", () => {
     expect(decision.reason).toMatch(CANCEL_THE_ORDER);
   });
 
-  test("Then a partly held order names the waiting ERP and why", () => {
+  test("Then a partially held order names the waiting ERP and why", () => {
     expect(combinedStatus({ parts: parts("held", "sent") }).reason).toMatch(
       WAITING_ON_A,
     );
@@ -88,13 +88,13 @@ describe("Given a combined status and the order in Commerce", () => {
     ["on-hold", "complete", undefined, "none"],
     ["on-hold", "canceled", undefined, "none"],
     ["processing", "closed", undefined, "none"],
-    ["partly-held", "processing", "processing", "partly"],
-    ["partly-held", "new", "pending", "partly"],
-    ["partly-held", "processing", PARTLY_ON_HOLD, "none"],
-    ["partly-held", "holded", "holded", "release-partly"],
-    ["partly-held", "complete", "complete", "none"],
-    ["processing", "processing", PARTLY_ON_HOLD, "clear-partly"],
-    ["pending", "new", PARTLY_ON_HOLD, "clear-partly"],
+    ["partially-held", "processing", "processing", "mark-partially-held"],
+    ["partially-held", "new", "pending", "mark-partially-held"],
+    ["partially-held", "processing", PARTIALLY_HELD, "none"],
+    ["partially-held", "holded", "holded", "release-partially-held"],
+    ["partially-held", "complete", "complete", "none"],
+    ["processing", "processing", PARTIALLY_HELD, "clear-partially-held"],
+    ["pending", "new", PARTIALLY_HELD, "clear-partially-held"],
   ])(
     "Then %s over %s (status %s) means %s",
     (status, state, current, action) => {
@@ -143,7 +143,7 @@ describe("Given the router writes the combined status", () => {
     expect(result).toMatchObject({ action: "hold", status: "on-hold" });
   });
 
-  test("Then one part held while another moves never holds the order: it is marked Partly on hold with a note", async () => {
+  test("Then one part held while another moves never holds the order: it is marked Partially Held with a note", async () => {
     const c = client("processing");
     const result = await applyCombinedStatus(
       {},
@@ -152,34 +152,37 @@ describe("Given the router writes the combined status", () => {
       c,
     );
     expect(c.holdOrder).not.toHaveBeenCalled();
-    expect(result).toMatchObject({ action: "partly", status: "partly-held" });
+    expect(result).toMatchObject({
+      action: "mark-partially-held",
+      status: "partially-held",
+    });
     expect(c.addComment).toHaveBeenCalledExactlyOnceWith({}, 55, {
       statusHistory: {
         comment: expect.stringMatching(WAITING_ON_A),
         is_customer_notified: 0,
         is_visible_on_front: 0,
-        status: PARTLY_ON_HOLD,
+        status: PARTIALLY_HELD,
       },
     });
   });
 
-  test("Then an order On Hold whose part is released while another still waits comes off hold and is marked Partly on hold", async () => {
+  test("Then an order On Hold whose part is released while another still waits comes off hold and is marked Partially Held", async () => {
     const c = client("holded");
     await applyCombinedStatus({}, 55, { parts: parts("held", "sent") }, c);
     expect(c.unholdOrder).toHaveBeenCalledWith({}, 55);
     expect(c.holdOrder).not.toHaveBeenCalled();
-    expect(statusOf(c)).toEqual([PARTLY_ON_HOLD]);
+    expect(statusOf(c)).toEqual([PARTIALLY_HELD]);
   });
 
   test("Then the last waiting part released returns the status to the state's own and says so", async () => {
-    const c = client("processing", PARTLY_ON_HOLD);
+    const c = client("processing", PARTIALLY_HELD);
     const result = await applyCombinedStatus(
       {},
       55,
       { parts: parts("sent", "sent") },
       c,
     );
-    expect(result.action).toBe("clear-partly");
+    expect(result.action).toBe("clear-partially-held");
     expect(statusOf(c)).toEqual(["processing"]);
   });
 
@@ -192,16 +195,21 @@ describe("Given the router writes the combined status", () => {
   test("Then nothing is written when the order already says what the parts say", async () => {
     const held = client("holded");
     await applyCombinedStatus({}, 55, { parts: parts("held") }, held);
-    const partly = client("processing", PARTLY_ON_HOLD);
-    await applyCombinedStatus({}, 55, { parts: parts("held", "sent") }, partly);
-    for (const c of [held, partly]) {
+    const partiallyHeld = client("processing", PARTIALLY_HELD);
+    await applyCombinedStatus(
+      {},
+      55,
+      { parts: parts("held", "sent") },
+      partiallyHeld,
+    );
+    for (const c of [held, partiallyHeld]) {
       expect(c.holdOrder).not.toHaveBeenCalled();
       expect(c.unholdOrder).not.toHaveBeenCalled();
       expect(c.addComment).not.toHaveBeenCalled();
     }
   });
 
-  test("Then a Partly on hold status Commerce refuses (not assigned to the state) leaves the note alone, and the event succeeds", async () => {
+  test("Then a Partially Held status Commerce refuses (not assigned to the state) leaves the note alone, and the event succeeds", async () => {
     const c = client("processing");
     c.addComment.mockRejectedValueOnce(NOT_OF_STATE);
     const logger = { warn: vi.fn() };
@@ -212,7 +220,7 @@ describe("Given the router writes the combined status", () => {
       c,
       logger,
     );
-    expect(result.status).toBe("partly-held");
+    expect(result.status).toBe("partially-held");
     expect(c.addComment).toHaveBeenCalledTimes(2);
     expect(c.addComment.mock.calls[1][2].statusHistory).not.toHaveProperty(
       "status",
