@@ -7,19 +7,25 @@ import AioLogger from "@adobe/aio-lib-core-logging";
 
 import {
   listSources,
+  productAttributes,
   skusForProductIds,
+  sourceCodesOf,
   transferAllStock,
   transferSomeStock,
   warehousesOfSku,
 } from "#lib/commerce";
 import { erp } from "#lib/erp";
+import { loadErps } from "#lib/erps";
 import { moveProblem, moveStock } from "#lib/move-stock";
+import { ownsSku } from "#lib/structure";
 import { readPayload } from "#lib/webhook";
+import { ownerWithParams } from "#router/erp-params";
 
 /**
  * The product grid's "Move stock between <ERP> warehouses" (lib/move-stock.js).
  * GET: the inventory sources to choose from and the ERP's name, `{ erpName, sources: [{ code, name }] }`.
- * POST { productIds, from, to, quantity? }: move the stock in Commerce, then tell the ERP.
+ * POST { productIds, from, to, quantity? }: move the stock in Commerce, then tell the ERP (with
+ * several ERPs, each product's owner).
  */
 async function main(params) {
   const logger = AioLogger("erp-move-stock", {
@@ -44,6 +50,10 @@ async function main(params) {
     }
     const result = await moveStock(params, request, {
       importStock: erp.importRecords,
+      // Several ERPs: each product's stock goes to the ERP that owns it.
+      ownerOf: ownerWithParams(await loadErps(params), (p, sku, settings) =>
+        ownsSku(p, sku, settings, { productAttributes, sourceCodesOf }),
+      ),
       skusForProductIds,
       transferAll: transferAllStock,
       transferSome: transferSomeStock,

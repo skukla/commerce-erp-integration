@@ -46,9 +46,35 @@ export function moveProblem(request) {
 }
 
 /**
- * Make the move in Commerce, then tell the ERP.
+ * Each moved product's stock, grouped by the ERP to tell. Without `ownerOf` (one ERP) it is one
+ * group for the integration's own ERP; with it, each product's owning ERP, and a product no one
+ * ERP owns is told to none.
+ * @returns {Promise<Array<{ name: string|null, params: object, stock: object[] }>>}
+ */
+async function stockByErp(params, stock, ownerOf) {
+  if (!ownerOf) {
+    return [{ name: null, params, stock }];
+  }
+  const groups = new Map();
+  for (const entry of stock) {
+    // biome-ignore lint/performance/noAwaitInLoops: one ownership read per product, in order
+    const owner = await ownerOf(params, entry.sku);
+    if (!owner) {
+      continue;
+    }
+    const group = groups.get(owner.id) ?? { ...owner, stock: [] };
+    group.stock.push(entry);
+    groups.set(owner.id, group);
+  }
+  return [...groups.values()];
+}
+
+/**
+ * Make the move in Commerce, then tell the ERP: with several ERPs, each product's owner, at its
+ * own address with its own credential (AB-16h).
  * @param {object} request `{ productIds, from, to, quantity? }`: no quantity moves all of it
- * @param {object} deps `{ skusForProductIds, transferAll, transferSome, warehousesOfSku, importStock }`
+ * @param {object} deps `{ skusForProductIds, transferAll, transferSome, warehousesOfSku,
+ *   importStock, ownerOf? }`: `ownerOf(params, sku)` answers `{ id, name, params }` or null
  * @returns {Promise<{ moved: string[], erp: "updated" }>}
  */
 export async function moveStock(params, request, deps) {
@@ -71,14 +97,21 @@ export async function moveStock(params, request, deps) {
     // biome-ignore lint/performance/noAwaitInLoops: one read per product, a few hundred at most, in order
     stock.push({ sku, warehouses: await deps.warehousesOfSku(params, sku) });
   }
-  const answer = await deps.importStock(params, {
-    origin: { event: MOVE_ORIGIN },
-    stock,
-  });
-  if (!answer.ok) {
-    throw new Error(
-      `Moved in Commerce, but the ERP answered ${answer.status}: ${answer.data?.errorMessage || "no reason given"}`,
-    );
+  const refused = [];
+  for (const group of await stockByErp(params, stock, deps.ownerOf)) {
+    // biome-ignore lint/performance/noAwaitInLoops: one ERP at a time, few ERPs
+    const answer = await deps.importStock(group.params, {
+      origin: { event: MOVE_ORIGIN },
+      stock: group.stock,
+    });
+    if (!answer.ok) {
+      refused.push(
+        `${group.name ?? "the ERP"} answered ${answer.status}: ${answer.data?.errorMessage || "no reason given"}`,
+      );
+    }
+  }
+  if (refused.length > 0) {
+    throw new Error(`Moved in Commerce, but ${refused.join("; ")}`);
   }
   return { erp: "updated", moved: skus };
 }

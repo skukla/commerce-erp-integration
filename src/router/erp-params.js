@@ -99,3 +99,22 @@ export async function ownerParamsOf(
     ? { params: paramsForErp(params, owner) }
     : { skip: `no one ERP owns ${sku}` };
 }
+
+/**
+ * With several ERPs, the ERP that owns a SKU with the params that reach it; with one, undefined
+ * (the caller tells its one ERP everything, as before).
+ * @param {import("#adapters/contract").ErpEntry[]} erps the ERP list
+ * @param {(params: object, sku: string, settings: object) => Promise<boolean>} ownsSku
+ * @returns {undefined | ((params: object, sku: string) => Promise<{ id: string, name: string, params: object }|null>)}
+ */
+export function ownerWithParams(erps, ownsSku) {
+  if (erps.length <= 1) {
+    return;
+  }
+  return async (params, sku) => {
+    const owner = await ownerOfSku(params, sku, erps, ownsSku);
+    return owner
+      ? { id: owner.id, name: owner.name, params: paramsForErp(params, owner) }
+      : null;
+  };
+}
