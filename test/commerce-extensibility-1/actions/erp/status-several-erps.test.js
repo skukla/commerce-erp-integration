@@ -32,6 +32,12 @@ const TWO = [
   },
 ];
 
+/** What an ERP's health carries during a maintenance window (contract version 8). */
+const MAINTENANCE = {
+  message: "Brand B ERP is in maintenance until 14:30 UTC.",
+  until: "2026-09-28T14:30:00.000Z",
+};
+
 afterEach(() => vi.clearAllMocks());
 
 describe("Given two ERPs in the list", () => {
@@ -80,6 +86,53 @@ describe("Given two ERPs in the list", () => {
       id: "brand-b",
       name: "Brand B ERP",
       reachable: false,
+    });
+  });
+
+  test("Then an ERP in maintenance answers its health but is not reachable, and says until when", async () => {
+    // Contract version 8: health still answers during a maintenance window, and every other
+    // route answers 503, so the integration cannot use the ERP until the window ends.
+    loadErps.mockResolvedValue(TWO);
+    erp.health.mockImplementation((params) =>
+      Promise.resolve(
+        params.ERP_BASE_URL === "https://a.example"
+          ? { data: { maintenance: null, ok: true }, ok: true, status: 200 }
+          : {
+              data: { maintenance: MAINTENANCE, ok: true },
+              ok: true,
+              status: 200,
+            },
+      ),
+    );
+    const res = await status.main({ ERP_BASE_URL: "https://a.example" });
+
+    expect(res.body.erps).toStrictEqual([
+      { id: "brand-a", name: "Brand A ERP", reachable: true },
+      {
+        error: MAINTENANCE.message,
+        id: "brand-b",
+        name: "Brand B ERP",
+        reachable: false,
+      },
+    ]);
+  });
+
+  test("Then asked for one ERP in maintenance, its health is given, not reachable, with the reason", async () => {
+    loadErps.mockResolvedValue(TWO);
+    erp.health.mockResolvedValue({
+      data: { displayName: "Brand B ERP", maintenance: MAINTENANCE, ok: true },
+      ok: true,
+      status: 200,
+    });
+    const res = await status.main({ erp: "brand-b" });
+
+    expect(res.body.erp).toStrictEqual({
+      displayName: "Brand B ERP",
+      error: MAINTENANCE.message,
+      maintenance: MAINTENANCE,
+      ok: false,
+      reachable: false,
+      status: 200,
     });
   });
 

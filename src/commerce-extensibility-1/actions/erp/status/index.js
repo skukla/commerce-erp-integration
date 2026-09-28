@@ -20,6 +20,13 @@ async function readList(params) {
 }
 
 /**
+ * Why an ERP that answered its health cannot be used, or undefined when it can: an ERP in its
+ * maintenance window (contract version 8) answers health and refuses every other call with 503
+ * until the window ends, so it is not reachable, and its health says until when.
+ */
+const maintenanceReason = (data) => data?.maintenance?.message;
+
+/**
  * One listed ERP by name with whether the integration can use it. The ERP client never throws on
  * an HTTP error, so an ERP that answers but refuses the call (Bodea 2026-09-28: 401 from an ERP
  * in another workspace) is not reachable, with the status it answered.
@@ -27,26 +34,42 @@ async function readList(params) {
 function listedHealth(params, entry) {
   const named = { id: entry.id, name: entry.name };
   return erp.health(paramsForErp(params, entry)).then(
-    (res) =>
-      res.ok
-        ? { ...named, reachable: true }
-        : {
-            error: `the ERP answered ${res.status}`,
-            ...named,
-            reachable: false,
-          },
+    (res) => {
+      if (!res.ok) {
+        return {
+          error: `the ERP answered ${res.status}`,
+          ...named,
+          reachable: false,
+        };
+      }
+      const why = maintenanceReason(res.data);
+      return why
+        ? { error: why, ...named, reachable: false }
+        : { ...named, reachable: true };
+    },
     (error) => ({ error: error.message, ...named, reachable: false }),
   );
 }
 
 /**
  * One ERP's full health, asked at its address. Like the list, an ERP that answers but refuses
- * the call is not reachable: the integration cannot use it. The refusal is the ERP's own
+ * the call is not reachable: the integration cannot use it. Nor is one in maintenance, whose
+ * health is given whole with the reason. The refusal is the ERP's own
  * `errorMessage`, else Adobe's caller check's `error`, else the status it answered.
  */
 async function healthOf(params) {
   try {
     const res = await erp.health(params);
+    const why = res.ok ? maintenanceReason(res.data) : undefined;
+    if (why) {
+      return {
+        ...res.data,
+        error: why,
+        ok: false,
+        reachable: false,
+        status: res.status,
+      };
+    }
     if (res.ok) {
       return { reachable: true, status: res.status, ...res.data };
     }

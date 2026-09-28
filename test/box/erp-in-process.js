@@ -65,8 +65,10 @@ export function startErp() {
   const { memoryCollections } = requireErp("./test/helpers/memory-db");
   const { run } = requireErp("./lib/action");
   const events = requireErp("./lib/events");
-  const handlers = Object.fromEntries(
-    ACTIONS.map((name) => [name, requireErp(`./actions/${name}`).handler]),
+  // Each action as its own `main` runs it: health and settings answer during a maintenance
+  // window (contract version 8), and every other action refuses.
+  const actions = Object.fromEntries(
+    ACTIONS.map((name) => [name, requireErp(`./actions/${name}`)]),
   );
   let cols = memoryCollections();
 
@@ -79,8 +81,8 @@ export function startErp() {
     action,
     { method = "GET", path: p = "", body, params = {} } = {},
   ) {
-    const handler = handlers[action];
-    if (!handler) {
+    const module = actions[action];
+    if (!module) {
       return {
         data: { errorMessage: `no ERP action ${action}` },
         ok: false,
@@ -99,7 +101,10 @@ export function startErp() {
     if (body !== undefined) {
       owParams.__ow_body = JSON.stringify(body);
     }
-    const res = await run(owParams, handler, { collections: async () => cols });
+    const res = await run(owParams, module.handler, {
+      collections: async () => cols,
+      openInMaintenance: Boolean(module.openInMaintenance),
+    });
     return { data: res.body, ok: res.statusCode < 400, status: res.statusCode };
   }
 

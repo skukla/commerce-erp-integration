@@ -63,6 +63,7 @@ import { replaceErps, resetErpsClient } from "#lib/erps";
 import * as keyMap from "#lib/key-map";
 import { readOrderParts } from "#lib/order-parts";
 import * as resendPartAction from "#src/erp/resend-part/index";
+import * as statusAction from "#src/erp/status/index";
 import * as orderCreated from "#src/order/commerce/created/index";
 
 import { fillErp } from "./fill-erp.js";
@@ -70,6 +71,7 @@ import { fillErp } from "./fill-erp.js";
 const ERP_A_URL = "https://erp-a.example/api/v1/web/erp";
 const ORDER = "000000042";
 const ORDER_ID = 55;
+const IN_MAINTENANCE = /^ERP B is in maintenance until \d\d:\d\d UTC\.$/;
 
 const statusOf = (res) => res.statusCode ?? res.error?.statusCode;
 const statusComments = () =>
@@ -241,5 +243,39 @@ describe("Pair in a box: an order split between two ERPs, one of them away", () 
     expect(part.refused).toBeUndefined();
     expect(box.commerce.db.orders.get(ORDER_ID).status).toBe("pending");
     expect(box.creates).toEqual({ a: [ORDER], b: [ORDER, ORDER] });
+  });
+
+  test("ERP B in maintenance (its own window, contract version 8): its part waits and the order is Partially Held; erp/status says B is in maintenance; once it ends, Re-send sends B's part once", async () => {
+    // A deployed ERP always carries its name (ERP_DISPLAY_NAME); the list's name here.
+    const started = await box.erpB.call("settings", {
+      body: { minutes: 30 },
+      method: "POST",
+      params: { ERP_DISPLAY_NAME: "ERP B" },
+      path: "/maintenance",
+    });
+    expect(started.status).toBe(200);
+    const why = started.data.maintenance.message;
+    expect(why).toMatch(IN_MAINTENANCE);
+
+    // The ERP answers 503, which the send treats as an ERP that is away: the part waits.
+    expect(statusOf(await place())).toBe(503);
+    expect(await erpOrdersFor(box.erpA)).toHaveLength(1);
+    expect((await readOrderParts(ORDER)).parts["brand-b"]).toMatchObject({
+      status: "held",
+    });
+    expect(box.commerce.db.orders.get(ORDER_ID).status).toBe("partially_held");
+
+    const status = await statusAction.main({ ERP_BASE_URL: ERP_A_URL });
+    expect(status.body.erps).toEqual([
+      { id: "erp", name: "ERP A", reachable: true },
+      { error: why, id: "brand-b", name: "ERP B", reachable: false },
+    ]);
+
+    await box.erpB.call("settings", { method: "DELETE", path: "/maintenance" });
+    const resent = await resend();
+    expect(resent.body.outcome).toBe("sent");
+    expect(await erpOrdersFor(box.erpB)).toHaveLength(1);
+    expect(await erpOrdersFor(box.erpA)).toHaveLength(1);
+    expect(box.commerce.db.orders.get(ORDER_ID).status).toBe("pending");
   });
 });
