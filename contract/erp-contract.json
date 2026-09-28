@@ -1,6 +1,6 @@
 {
   "name": "demo-erp",
-  "contractVersion": 9,
+  "contractVersion": 10,
   "description": "What the ERP promises its subscribers: the routes it serves, the shapes it accepts, and the events it publishes. The Commerce integration vendors this file and its tests fail when the two disagree.",
   "routes": {
     "health": ["GET"],
@@ -59,13 +59,14 @@
     "request": ["commerceOrderId", "commerceIncrementId", "partnerId", "lines", "currency", "total", "salesOrg", "salesOrgName"],
     "requestLine": ["sku", "qty", "price", "commerceItemId"],
     "response": ["number", "commerceOrderId", "commerceIncrementId", "partnerId", "lines", "currency", "total", "status", "header", "shipments", "invoice", "creditStatus", "creditReason", "creditDecidedAt", "history", "createdAt", "salesOrg", "salesOrgName"],
+    "spellingNote": "version 10: American English on the wire. An order's status and header read canceled (was cancelled), the cancel event is raised by order.canceled (was order.cancelled), and the reason Commerce's cancel sends is Canceled in Commerce (was Cancelled in Commerce). The old spellings are refused, not accepted alongside: the ERP and the integration are deployed together. Orders and journal entries an ERP stored with the old spellings read, and are delivered, as the new ones",
     "fromCommerce": {
       "note": "A move made IN Commerce carries origin: { event, eventId? }. The ERP records it, journals it as received, and raises no outbound event for it, so Commerce is not asked to do it twice.",
       "commerceShipment": ["commerceShipmentId", "items", "sourceCode", "origin"],
       "commerceShipmentItem": ["orderItemId", "qty"],
       "commerceInvoice": ["commerceInvoiceId", "origin"],
       "cancel": ["reason", "origin"],
-      "cancelReasonFromCommerce": "Cancelled in Commerce",
+      "cancelReasonFromCommerce": "Canceled in Commerce",
       "hold": ["reason", "origin"],
       "release": ["origin"]
     }
@@ -77,7 +78,7 @@
     "be-observer.sales_order_shipment_create": { "raisedBy": "order.shipped", "value": ["id", "orderId", "incrementId", "erpNumber", "status", "items", "notifyCustomer", "stockSourceCode"], "note": "items are THAT shipment's quantities, not the whole order; stockSourceCode names the warehouse it shipped from, or is null" },
     "be-observer.sales_order_invoice_create": { "raisedBy": "order.invoiced", "value": ["id", "orderId", "incrementId", "erpNumber", "status", "items", "notifyCustomer"] },
     "be-observer.sales_order_hold": { "raisedBy": "order.hold", "value": ["id", "orderId", "incrementId", "erpNumber", "status", "items", "notifyCustomer", "held", "reason"], "note": "held true puts the Commerce order On Hold (the ERP created the order and held it for credit), false takes it off (a release); reason is the ERP's credit reason, or null on a release. A reject is a cancel and travels as sales_order_cancel" },
-    "be-observer.sales_order_cancel": { "raisedBy": "order.cancelled", "value": ["id", "orderId", "incrementId", "erpNumber", "status", "items", "notifyCustomer", "reason"], "note": "reason is one of the ERP's own cancellation reasons, for the Commerce order comment" },
+    "be-observer.sales_order_cancel": { "raisedBy": "order.canceled", "value": ["id", "orderId", "incrementId", "erpNumber", "status", "items", "notifyCustomer", "reason"], "note": "reason is one of the ERP's own cancellation reasons, for the Commerce order comment" },
     "be-observer.company_credit_update": { "raisedBy": "partner.creditLimit", "value": ["partnerId", "creditLimit"] },
     "be-observer.company_status_update": { "raisedBy": "partner.blocked", "value": ["partnerId", "blocked"] },
     "be-observer.company_contract_update": { "raisedBy": "contract.changed", "value": ["partnerId", "lines"], "note": "version 6: raised whenever a change to a price list moves a customer's prices in force today. lines is that customer's whole set (contracts.priceLine or contracts.discountLine each), so a replay is harmless; an empty list means no list price is left. version 7: a price group's list raises one for every member customer whose prices moved, and moving a customer into or out of a price group raises one for that customer. A list or line starting or ending with the calendar raises nothing: read GET contracts/in-force to follow dates. version 9: lines are the prices in force as contracts.inForceNote says, pricing conditions and the maximum discount included, and the event is also raised for each customer whose set moved when a pricing condition is created, changed or deleted (one naming no customer, such as a store-wide maximum discount, can move any customer) and when a product's list price changes on the ERP (a fixed price the maximum discount holds up moves with it). An empty list means the customer pays list price for everything" }

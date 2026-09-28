@@ -237,7 +237,7 @@ export async function changeOnErpOrder(params, order, own, deps) {
   const label = `Commerce order ${order.increment_id ?? own.number}`;
   const origin = originOf(COMMERCE_EVENTS.orderSaved, params);
   if (order.state === CANCELED) {
-    if (own.order.header === "cancelled") {
+    if (own.order.header === "canceled") {
       return answer(
         "skipped",
         OK,
@@ -246,7 +246,7 @@ export async function changeOnErpOrder(params, order, own, deps) {
     }
     const res = await deps.erp.fromCommerce.cancel(params, own.number, {
       origin,
-      reason: "Cancelled in Commerce",
+      reason: "Canceled in Commerce",
     });
     return fromErp(res, label, `cancelled on sales order ${own.number}`);
   }
