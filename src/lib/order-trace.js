@@ -104,14 +104,18 @@ function partSteps(crossing, parts) {
   );
 }
 
-/** One ERP event coming back, as one step — applied to Commerce, or not. */
-function returnStep(crossing) {
+/**
+ * One ERP event coming back, as one step — applied to Commerce, or not. With several ERPs the
+ * step names the ERP the event came from (its `erpId`, contract version 4).
+ */
+function returnStep(crossing, erpNames) {
   const subject = CROSSING_SUBJECT[crossing.kind] ?? "Update";
+  const from = erpNames?.[crossing.event?.data?.erpId];
   const applied = crossing.outcome === "applied";
   return step(
     crossing.lastAt,
     "integration",
-    `${subject} ${applied ? "applied to" : "not applied to"} Commerce`,
+    `${subject}${from ? ` from ${from}` : ""} ${applied ? "applied to" : "not applied to"} Commerce`,
     crossing,
   );
 }
@@ -139,6 +143,8 @@ function erpSteps(erpOrder, erpName) {
  * @param {Array<{erpName: string, erpOrder: object|null, number: string}>} [input.erpOrders] -
  *   with several ERPs, each ERP holding a part of the order and its sales order (null when it
  *   did not answer); `erpOrder` is then the first that answered
+ * @param {Record<string, string>} [input.erpNames] - with several ERPs, each ERP's name by id, so
+ *   an ERP event that came back names its ERP
  * @param {Array<{erpName: string, status: string, message?: string, refused?: boolean}>} [input.parts] -
  *   with several ERPs, the order's parts in list order: the order's send is then one step per part
  * @returns {{summary: object, steps: object[]}} the summary, and the steps oldest first
@@ -148,6 +154,7 @@ export function buildOrderTrace({
   commerceUnavailable = false,
   crossings,
   erpName,
+  erpNames,
   erpOrder: oneErpOrder,
   erpOrders,
   incrementId,
@@ -167,7 +174,7 @@ export function buildOrderTrace({
   }
   for (const crossing of crossings ?? []) {
     if (crossing.direction !== "to-erp") {
-      steps.push(returnStep(crossing));
+      steps.push(returnStep(crossing, erpNames));
     } else if (crossing.kind === "order" && parts?.length > 0) {
       steps.push(...partSteps(crossing, parts));
     } else {

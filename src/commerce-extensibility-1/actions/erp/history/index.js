@@ -254,6 +254,7 @@ async function traceAcrossErps(params, erps, incrementId, logger) {
   return buildOrderTrace({
     ...side,
     erpName: holders.map(({ entry }) => entry.name).join(" and ") || "the ERPs",
+    erpNames: Object.fromEntries(erps.map((entry) => [entry.id, entry.name])),
     erpOrders,
     incrementId,
     parts: partsOf(record, erps),

@@ -164,4 +164,27 @@ describe("Given an order two ERPs share", () => {
       ["Contoso ERP", "held"],
     ]);
   });
+
+  test("Then an ERP event that came back names the ERP it came from", async () => {
+    await writeOrderParts(ORDER, {
+      parts: { contoso: { erpNumber: "0000002000", status: "sent" } },
+    });
+    readHistory.mockResolvedValueOnce([
+      {
+        attempts: 1,
+        direction: "from-erp",
+        event: { data: { erpId: "contoso", incrementId: ORDER } },
+        eventId: "ev-1",
+        kind: "shipment",
+        lastAt: "2026-09-28T11:00:00Z",
+        message: `order ${ORDER}: shipped`,
+        outcome: "applied",
+        ref: ORDER,
+      },
+    ]);
+    const back = (await trace()).steps.filter((s) => s.where === "integration");
+    expect(back.map((s) => s.what)).toEqual([
+      "Shipment from Contoso ERP applied to Commerce",
+    ]);
+  });
 });
