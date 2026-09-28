@@ -26,8 +26,21 @@ async function readList(params) {
  */
 const maintenanceReason = (data) => data?.maintenance?.message;
 
+/** What the Admin page's Overview shows per ERP, as far as its health gives it. */
+const FIGURES = ["counts", "lastImportAt", "lastWipeAt"];
+
+function figuresOf(data) {
+  return Object.fromEntries(
+    FIGURES.filter((key) => data?.[key] !== undefined).map((key) => [
+      key,
+      data[key],
+    ]),
+  );
+}
+
 /**
- * One listed ERP by name with whether the integration can use it. The ERP client never throws on
+ * One listed ERP by name with whether the integration can use it, and its own figures (counts,
+ * last fill and wipe) for the Overview. The ERP client never throws on
  * an HTTP error, so an ERP that answers but refuses the call (Bodea 2026-09-28: 401 from an ERP
  * in another workspace) is not reachable, with the status it answered.
  */
@@ -43,9 +56,10 @@ function listedHealth(params, entry) {
         };
       }
       const why = maintenanceReason(res.data);
+      const figures = figuresOf(res.data);
       return why
-        ? { error: why, ...named, reachable: false }
-        : { ...named, reachable: true };
+        ? { ...figures, error: why, ...named, reachable: false }
+        : { ...figures, ...named, reachable: true };
     },
     (error) => ({ error: error.message, ...named, reachable: false }),
   );

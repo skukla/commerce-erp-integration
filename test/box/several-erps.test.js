@@ -266,10 +266,14 @@ describe("Pair in a box: an order split between two ERPs, one of them away", () 
     expect(box.commerce.db.orders.get(ORDER_ID).status).toBe("partially_held");
 
     const status = await statusAction.main({ ERP_BASE_URL: ERP_A_URL });
-    expect(status.body.erps).toEqual([
+    // Each listed ERP also carries its own figures for the Admin page's Overview, the real
+    // ERP's health giving them during its maintenance window too.
+    expect(status.body.erps).toMatchObject([
       { id: "erp", name: "ERP A", reachable: true },
       { error: why, id: "brand-b", name: "ERP B", reachable: false },
     ]);
+    expect(status.body.erps[0].error).toBeUndefined();
+    expect(status.body.erps[1].counts.products).toEqual(expect.any(Number));
 
     await box.erpB.call("settings", { method: "DELETE", path: "/maintenance" });
     const resent = await resend();

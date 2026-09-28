@@ -175,6 +175,55 @@ describe("Given two ERPs in the list", () => {
     });
   });
 
+  // The Admin page's Overview shows each ERP's own figures, so each listed ERP carries what its
+  // health answered: its counts and when it was last filled and wiped.
+  test("Then each listed ERP carries its own figures, when its health gives them", async () => {
+    loadErps.mockResolvedValue(TWO);
+    erp.health.mockImplementation((params) =>
+      Promise.resolve(
+        params.ERP_BASE_URL === "https://a.example"
+          ? {
+              data: {
+                counts: { products: 120, salesOrders: 4 },
+                lastImportAt: "2026-09-28T09:00:00Z",
+                lastWipeAt: null,
+                ok: true,
+              },
+              ok: true,
+              status: 200,
+            }
+          : {
+              data: {
+                counts: { products: 30 },
+                maintenance: MAINTENANCE,
+                ok: true,
+              },
+              ok: true,
+              status: 200,
+            },
+      ),
+    );
+    const res = await status.main({ ERP_BASE_URL: "https://a.example" });
+
+    expect(res.body.erps).toStrictEqual([
+      {
+        counts: { products: 120, salesOrders: 4 },
+        id: "brand-a",
+        lastImportAt: "2026-09-28T09:00:00Z",
+        lastWipeAt: null,
+        name: "Brand A ERP",
+        reachable: true,
+      },
+      {
+        counts: { products: 30 },
+        error: MAINTENANCE.message,
+        id: "brand-b",
+        name: "Brand B ERP",
+        reachable: false,
+      },
+    ]);
+  });
+
   test("Then an ERP list that cannot be read still answers the deployed ERP's health, with no list", async () => {
     loadErps.mockRejectedValue(new Error("State is down"));
     erp.health.mockResolvedValue({ data: { ok: true }, ok: true, status: 200 });

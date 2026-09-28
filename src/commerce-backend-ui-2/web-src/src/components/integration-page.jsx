@@ -18,6 +18,7 @@ import { useCallback, useState } from "react";
 import { ActivitySection } from "#web/components/activity-section.jsx";
 import { OverviewSection } from "#web/components/overview-section.jsx";
 import { SettingsSection } from "#web/components/settings-section.jsx";
+import { erpStatusLine } from "#web/overview-view.js";
 
 const SECTIONS = [
   { id: "overview", label: "Overview" },
@@ -67,19 +68,20 @@ function OneErpStatus({ erp, erpName }) {
   );
 }
 
-/** Several ERPs (erp/status `erps`): each by name, with whether it answers. */
+/** Several ERPs (erp/status `erps`): each by name, whether it can be used, and why not. */
 function SeveralErpsStatus({ erps }) {
   return (
     <div className="erp-status">
-      {erps.map((entry) => (
-        <StatusLight
-          key={entry.id}
-          variant={entry.reachable ? "positive" : "negative"}>
-          {entry.reachable
-            ? `Connected to ${entry.name}`
-            : `${entry.name} does not answer`}
-        </StatusLight>
-      ))}
+      {erps.map((entry) => {
+        const line = erpStatusLine(entry);
+        return (
+          <StatusLight
+            key={entry.id}
+            variant={line.reachable ? "positive" : "negative"}>
+            {line.text}
+          </StatusLight>
+        );
+      })}
       <Text>
         Each order line goes to the ERP that owns its product; each ERP's
         prices, stock, credit and order progress come back to Commerce as they
@@ -102,10 +104,12 @@ export function IntegrationPage({
   const [section, setSection] = useState(initialSection);
   const erp = status?.erp ?? {};
   const erpName = erp.displayName || "the ERP";
+  // Several ERPs: the list erp/status gives, which every section names its ERPs from.
+  const erps = (status?.erps?.length ?? 0) > 1 ? status.erps : null;
   return (
     <div className="erp-page">
-      {(status?.erps?.length ?? 0) > 1 ? (
-        <SeveralErpsStatus erps={status.erps} />
+      {erps ? (
+        <SeveralErpsStatus erps={erps} />
       ) : (
         <OneErpStatus erp={erp} erpName={erpName} />
       )}
@@ -131,12 +135,18 @@ export function IntegrationPage({
             <OverviewSection
               api={api}
               erpName={erpName}
+              erps={erps}
               onError={onError}
               status={status}
             />
           )}
           {section === "activity" && (
-            <ActivitySection api={api} erpName={erpName} onError={onError} />
+            <ActivitySection
+              api={api}
+              erpName={erpName}
+              erps={erps}
+              onError={onError}
+            />
           )}
           {section === "settings" && (
             <>
