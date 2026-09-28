@@ -7,6 +7,7 @@
 import { useCallback, useState } from "react";
 
 import { LookupPanel } from "#web/components/panel-lookup.jsx";
+import { MapEntryPanel } from "#web/components/panel-map.jsx";
 import {
   CompaniesPanel,
   problemNote,
@@ -105,6 +106,15 @@ export function PanelContent({
           onClose={onClose}
           onOpen={onOpen}
           text={panel.text}
+        />
+      );
+    case "map":
+      return (
+        <MapEntryPanel
+          entryId={panel.entryId}
+          erpInfo={erpInfo}
+          key={panel.entryId}
+          onClose={onClose}
         />
       );
     case "reset":

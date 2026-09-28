@@ -1,13 +1,14 @@
 /*
  * The integration's page, as it looks once everything it shows has loaded (MainPage waits for
  * that, so nothing half-drawn is ever on screen): the band with each ERP, the tabs Overview ·
- * Activity · Settings, and the side panel. Everything arrives as props, so the page renders
- * against stand-in data in the local preview too.
+ * Activity · Settings · Data Map, and the side panel. Everything arrives as props, so the page
+ * renders against stand-in data in the local preview too.
  */
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { ActivityTab } from "#web/components/activity-tab.jsx";
 import { Alert, Spinner } from "#web/components/controls.jsx";
+import { DataMapTab } from "#web/components/data-map-tab.jsx";
 import { OverviewTab } from "#web/components/overview-tab.jsx";
 import { PageFrame } from "#web/components/page-frame.jsx";
 import { PanelContent } from "#web/components/panel-content.jsx";
@@ -181,6 +182,16 @@ export function IntegrationPage({
         initialErp={picked.activity}
         key={picked.activity}
       />,
+    );
+  } else if (tab === "data-map") {
+    body = frame(
+      <>
+        <span className="band-note">
+          Checked {ago(data.loadedAt.toISOString(), now)}
+        </span>
+        {refresh}
+      </>,
+      <DataMapTab {...shared} />,
     );
   } else {
     body = frame(

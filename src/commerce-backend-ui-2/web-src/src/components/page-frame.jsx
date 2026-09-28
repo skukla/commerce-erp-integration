@@ -1,8 +1,8 @@
 /*
  * The frame every tab sits in: Commerce Admin's gray band with one chip per ERP (its color, its
  * name, whether it answers) and the tab's own actions on the right, then the tabs Overview ·
- * Activity · Settings. The Admin draws the left rail and the page title "ERP Integration"
- * around the frame, so neither is drawn here.
+ * Activity · Settings · Data Map. The Admin draws the left rail and the page title "ERP
+ * Integration" around the frame, so neither is drawn here.
  */
 import { useCallback } from "react";
 
@@ -13,6 +13,7 @@ export const TABS = Object.freeze([
   { id: "overview", label: "Overview" },
   { id: "activity", label: "Activity" },
   { id: "settings", label: "Settings" },
+  { id: "data-map", label: "Data Map" },
 ]);
 
 /** One ERP in the band: its color, its name, and whether it answers. */
