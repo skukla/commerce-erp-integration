@@ -1,10 +1,10 @@
 {
   "name": "demo-erp",
-  "contractVersion": 7,
+  "contractVersion": 8,
   "description": "What the ERP promises its subscribers: the routes it serves, the shapes it accepts, and the events it publishes. The Commerce integration vendors this file and its tests fail when the two disagree.",
   "routes": {
     "health": ["GET"],
-    "settings": ["GET", "PATCH"],
+    "settings": ["GET", "PATCH", "POST /maintenance", "DELETE /maintenance"],
     "admin": ["POST /wipe", "POST /import"],
     "products": ["GET", "GET /:sku", "PATCH /:sku", "DELETE /:sku"],
     "partners": ["GET", "GET /:id", "PATCH /:id"],
@@ -88,5 +88,12 @@
     "body": { "data": ["uid", "event", "value"] },
     "maxAttempts": 10,
     "erpId": "version 4: every delivered event's object value carries erpId (a list value, the stock lines, is sent as it is), the id the integration's ERP list gives this ERP (set at deploy as ERP_ID), when the ERP was deployed with one. An event without erpId is the single ERP's. The integration matches an order message to that ERP's part and a customer message to that ERP's key-map pairs"
+  },
+  "maintenance": {
+    "note": "version 8: the ERP's maintenance window. POST settings/maintenance { minutes? } starts it (a whole number from 1 to 1440; 30 when absent; a second start restarts it from now), DELETE settings/maintenance ends it, and it ends by itself when the time passes. While it runs, every route of every action but the open ones answers the refusal below, reads and writes alike, and outbound events wait; a caller treats it as an ERP that is down and tries again later. health answers maintenance: null, or the window below",
+    "openRoutes": ["health", "settings"],
+    "health": ["until", "message"],
+    "healthNote": "until is when the window ends (ISO 8601); message says so in the ERP's own time zone, e.g. Contoso ERP is in maintenance until 14:30 UTC.",
+    "refusal": { "statusCode": 503, "errorCode": "ERP_MAINTENANCE", "body": ["status", "errorCode", "errorMessage", "maintenanceUntil"] }
   }
 }
