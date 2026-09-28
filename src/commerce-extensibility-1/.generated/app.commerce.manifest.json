@@ -426,6 +426,14 @@
             "runtimeActions": [
               "company-backoffice/status-updated"
             ]
+          },
+          {
+            "description": "The ERP changed the prices in force for a customer (its price lists), sent as the whole set for that customer",
+            "label": "ERP Customer Prices Updated",
+            "name": "be-observer.company_contract_update",
+            "runtimeActions": [
+              "company-backoffice/contract-updated"
+            ]
           }
         ],
         "provider": {
@@ -450,6 +458,6 @@
     "displayName": "ERP integration",
     "id": "commerce-erp-integration",
     "upgradeMode": "auto",
-    "version": "0.9.0"
+    "version": "0.9.1"
   }
 }

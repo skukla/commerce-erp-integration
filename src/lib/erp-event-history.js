@@ -21,6 +21,10 @@ const DESCRIBE = {
     message: `order ${d.incrementId}: cancelled`,
     ref: d.incrementId,
   }),
+  contract: (d) => ({
+    message: `partner ${d.partnerId}: ${Array.isArray(d.lines) ? d.lines.length : 0} price line(s) in force`,
+    ref: d.partnerId,
+  }),
   credit: (d) => ({
     message: `company ${d.companyId}: credit limit ${d.creditLimit}`,
     ref: d.companyId,
@@ -90,7 +94,7 @@ async function record(kind, params, ended) {
 /**
  * Wrap an ERP event handler so how each event ended is recorded.
  * @param {string} kind what the event changes: price, stock, order-status, shipment,
- *   invoice, cancel, credit, block
+ *   invoice, cancel, credit, block, contract
  * @param {(params: object) => Promise<object>} handler the action's own main
  * @returns {(params: object) => Promise<object>} the handler, recording as it answers
  */
@@ -112,6 +116,7 @@ export function recordingErpEvent(kind, handler) {
 export const HANDLER_ACTIONS = {
   block: "company-backoffice/status-updated",
   cancel: "order-backoffice/cancelled",
+  contract: "company-backoffice/contract-updated",
   credit: "company-backoffice/credit-updated",
   invoice: "order-backoffice/invoice-created",
   "order-status": "order-backoffice/updated",

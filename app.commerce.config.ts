@@ -63,7 +63,8 @@ const erpName = process.env.ERP_DISPLAY_NAME?.trim() || "ERP integration";
  *
  * No webhook: no ERP is asked while the shopper waits. Each ERP's contract prices are
  * synced ahead into the company's shared catalog as tier prices (erp/prices, which Demo
- * Builder runs after a fill), so the cart, the listing and the product page all
+ * Builder runs after a fill, and the ERP's customer prices event, handled by
+ * company-backoffice/contract-updated), so the cart, the listing and the product page all
  * price from Commerce; a discount limit is the ERP's to enforce on the order. The two cart
  * webhooks that asked the ERP on every cart change were removed (AB-26z, 2026-09-28).
  *
@@ -421,6 +422,13 @@ export default defineConfig({
             name: "be-observer.company_status_update",
             runtimeActions: ["company-backoffice/status-updated"],
           },
+          {
+            description:
+              "The ERP changed the prices in force for a customer (its price lists), sent as the whole set for that customer",
+            label: "ERP Customer Prices Updated",
+            name: "be-observer.company_contract_update",
+            runtimeActions: ["company-backoffice/contract-updated"],
+          },
         ],
         provider: {
           description:
@@ -453,6 +461,6 @@ export default defineConfig({
     // version with every change to what this file registers, or the change never reaches
     // Commerce. "auto" runs the plan; the library marks it experimental.
     upgradeMode: "auto",
-    version: "0.9.0",
+    version: "0.9.1",
   },
 });
