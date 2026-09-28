@@ -150,8 +150,10 @@ export async function clearHistory() {
  */
 export async function recordReset(message, logger) {
   const now = new Date().toISOString();
+  // The key in milliseconds: State keys take only letters, digits, "-", "_" and "." (an ISO
+  // time's ":" made the put fail, silently, on Bodea 2026-09-28).
   await updateRecord(
-    `reset.${now}`,
+    `reset.${Date.parse(now)}`,
     () => ({
       attempts: 1,
       direction: "reset",

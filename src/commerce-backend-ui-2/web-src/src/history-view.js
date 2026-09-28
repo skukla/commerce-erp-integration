@@ -118,7 +118,7 @@ export function historyRow(entry, erpName = "the ERP", erps = null) {
 function resetRow(entry) {
   return {
     direction: "Demo Builder",
-    key: `reset.${entry.lastAt}`,
+    key: `reset.${Date.parse(entry.lastAt)}`,
     message: entry.message,
     result: RESULT[entry.outcome] ?? entry.outcome,
     retriable: false,

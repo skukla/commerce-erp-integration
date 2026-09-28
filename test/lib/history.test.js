@@ -7,6 +7,7 @@ import {
 } from "#lib/history";
 
 const TRAILING_STAR = /\*$/;
+const STORE_KEY = /^[a-zA-Z0-9-_.]{1,1024}$/;
 
 /** App Builder State, in memory: get, put and a glob `list`, as aio-lib-state 5 has them. */
 function memoryState() {
@@ -25,6 +26,11 @@ function memoryState() {
       yield { keys: [...store.keys()].filter((k) => k.startsWith(prefix)) };
     },
     put: vi.fn((k, v, opts) => {
+      // aio-lib-state refuses any key outside its alphabet (lib/constants.js,
+      // REGEX_PATTERN_STORE_KEY); a fake that accepts every key hid a lost reset line.
+      if (!STORE_KEY.test(k)) {
+        return Promise.reject(new Error(`invalid key ${k}`));
+      }
       store.set(k, v);
       return Promise.resolve(opts);
     }),
