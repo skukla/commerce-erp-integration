@@ -375,6 +375,23 @@ export async function setCompanyStatus(params, companyId, status) {
     .json();
 }
 
+/**
+ * Replace a company's custom attributes with this set (the per-ERP credit attributes,
+ * lib/erp-credit.js). Written whole: the REST call may replace the set.
+ */
+export async function setCompanyCustomAttributes(
+  params,
+  companyId,
+  attributes,
+) {
+  const client = await commerceClient(params);
+  return client
+    .post("company/setCustomAttributes", {
+      json: { company_id: String(companyId), custom_attributes: attributes },
+    })
+    .json();
+}
+
 /** Set a company's credit limit. */
 export async function setCompanyCreditLimit(
   params,

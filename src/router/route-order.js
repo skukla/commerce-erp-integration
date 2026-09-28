@@ -16,6 +16,7 @@
  * The ERP number is not written onto the Commerce order by any one part; the combined view is
  * slice B2's.
  */
+import { isBlocked, noteCompanyOrder } from "#lib/erp-blocks";
 import { adapterFor, listErps } from "#lib/erps";
 import {
   FINAL_OUTCOMES,
@@ -62,11 +63,32 @@ async function splitLines(params, order, erps, deps) {
   return { byErp, conflicts, unrouted };
 }
 
+/** The buyer's Commerce company, or null (a guest, or a company that cannot be read). */
+async function companyOfOrder(params, order, deps) {
+  if (
+    !deps?.companyIdOf ||
+    order.customer_id === undefined ||
+    order.customer_id === null
+  ) {
+    return null;
+  }
+  try {
+    return await deps.companyIdOf(params, order.customer_id);
+  } catch (error) {
+    deps.logger?.warn?.(
+      `order ${order.increment_id}: company not read: ${error.message}`,
+    );
+    return null;
+  }
+}
+
 /** One answer for the event delivery, from each part's outcome. */
 function combine(label, outcomes, notes) {
   const all = Object.values(outcomes);
   const message = [...all.map((o) => o.message), ...notes].join(" ");
-  if (all.some((o) => o.outcome === "held" || o.outcome === "failed")) {
+  // A part a block holds waits for the unblock, which sends it; redelivering cannot help.
+  const retryable = all.filter((o) => !o.heldByBlock);
+  if (retryable.some((o) => o.outcome === "held" || o.outcome === "failed")) {
     return { message, outcome: "held", statusCode: SERVER_UNAVAILABLE };
   }
   if (all.some((o) => o.outcome === "sent")) {
@@ -93,6 +115,13 @@ async function routeToSeveral(params, order, deps, erps) {
   const record = await readOrderParts(order.increment_id);
   record.unrouted = unrouted;
   record.conflicts = conflicts;
+  const companyId = await companyOfOrder(params, order, deps);
+  if (companyId) {
+    record.companyId = companyId;
+    if (order.entity_id !== undefined) {
+      await noteCompanyOrder(companyId, order.increment_id, order.entity_id);
+    }
+  }
   const outcomes = {};
   for (const entry of erps.filter((e) => byErp.has(e.id))) {
     const lines = byErp.get(entry.id);
@@ -108,7 +137,19 @@ async function routeToSeveral(params, order, deps, erps) {
       skus: lines.filter((l) => !l.parent_item_id).map((l) => l.sku),
       status: "sending",
     };
-    // biome-ignore lint/performance/noAwaitInLoops: the record is saved before each send
+    // biome-ignore lint/performance/noAwaitInLoops: one ERP at a time, the record saved in order
+    if (companyId && (await isBlocked(companyId, entry.id))) {
+      const message = `${entry.name} blocks this company; its lines wait until it lifts the block.`;
+      record.parts[entry.id] = {
+        ...record.parts[entry.id],
+        heldBy: "block",
+        message,
+        status: "held",
+      };
+      await writeOrderParts(order.increment_id, record);
+      outcomes[entry.id] = { heldByBlock: true, message, outcome: "held" };
+      continue;
+    }
     await writeOrderParts(order.increment_id, record);
     const outcome = await adapterFor(entry).sendPart(
       params,

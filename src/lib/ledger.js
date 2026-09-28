@@ -146,6 +146,9 @@ function revertOne(entry, writers) {
       ? writers.name(entry.id, entry.before)
       : writers.price(entry.id, entry.before);
   }
+  if (entry.field === "customAttributes") {
+    return writers.customAttributes(entry.id, entry.before);
+  }
   return entry.field === "creditLimit"
     ? writers.creditLimit(entry.id, entry.creditId, entry.before)
     : writers.status(entry.id, entry.before);
@@ -156,6 +159,7 @@ function revertOne(entry, writers) {
  *
 @param {object} writers one per thing the ERP can change:
  *   `{ creditLimit(companyId, creditId, before), status(companyId, before),
+ *      customAttributes(companyId, before) (the per-ERP credit attributes),
  *      name(sku, before), price(sku, before), stock(sku, source, before) }`
  * @returns {Promise<{ reverted: number, failed: {id, field, error}[] }>}
  */

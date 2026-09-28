@@ -21,6 +21,8 @@ export async function detach(params, deps) {
   const reverted = await ledger.revertLedger({
     creditLimit: (companyId, creditId, before) =>
       commerce.setCompanyCreditLimit(params, creditId, companyId, before),
+    customAttributes: (companyId, before) =>
+      commerce.setCompanyCustomAttributes(params, companyId, before),
     name: (sku, before) => commerce.setProductName(params, sku, before),
     price: (sku, before) => commerce.setProductPrice(params, sku, before),
     status: (companyId, before) =>
