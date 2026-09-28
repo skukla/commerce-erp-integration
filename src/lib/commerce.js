@@ -119,7 +119,7 @@ async function creditOf(client, companyId) {
 
 /**
  * The company admin's website id, or null. The admin's website is the buyer's sales
- * organisation (business structure): `website_id` is documented on the customer object.
+ * organization (business structure): `website_id` is documented on the customer object.
  */
 async function adminWebsiteOf(client, company) {
   if (!company.super_user_id) {
@@ -208,7 +208,7 @@ const websiteOfStore = new Map();
 
 /**
  * The code of the website a store view belongs to: an order carries its store view, and an
- * ERP's sales organisation can be set per website (lib/erp-settings.js). Read once per
+ * ERP's sales organization can be set per website (lib/erp-settings.js). Read once per
  * activation for all store views.
  * @returns {Promise<string|undefined>}
  */

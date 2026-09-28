@@ -46,7 +46,7 @@ describe("Given the order-number prefix (rule M4)", () => {
   });
 });
 
-describe("Given the sales organisation of an order", () => {
+describe("Given the sales organization of an order", () => {
   test("Then the website's setting names it, with its name when one is set, else 1000 alone", () => {
     expect(
       salesOrgOf({

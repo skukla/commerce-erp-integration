@@ -149,7 +149,7 @@ describe("Given the ERP order events the kit has no handler for", () => {
     expect(addComment).toHaveBeenCalledWith(expect.anything(), 55, {
       statusHistory: {
         comment:
-          "Cancelled in the ERP (ERP sales order 0000001000): Duplicate order",
+          "Canceled in the ERP (ERP sales order 0000001000): Duplicate order",
         is_customer_notified: 0,
         is_visible_on_front: 0,
       },
@@ -170,7 +170,7 @@ describe("Given the ERP order events the kit has no handler for", () => {
     expect(addComment).toHaveBeenCalledTimes(1);
     const { comment } = addComment.mock.calls[0][2].statusHistory;
     expect(comment).toBe(
-      "Cancelled in the ERP (ERP sales order 0000001000): Duplicate order. Commerce did not cancel this order because part of it is already invoiced or shipped. It is On Hold: close the rest with a credit memo.",
+      "Canceled in the ERP (ERP sales order 0000001000): Duplicate order. Commerce did not cancel this order because part of it is already invoiced or shipped. It is On Hold: close the rest with a credit memo.",
     );
   });
   test("Then a refused cancel that fails to hold still records why, and answers success so the event is not retried", async () => {
@@ -183,7 +183,7 @@ describe("Given the ERP order events the kit has no handler for", () => {
     const res = await cancelled.main({ data: { orderId: 55 } });
     expect(res.statusCode).toBe(200);
     expect(addComment.mock.calls[0][2].statusHistory.comment).toBe(
-      "Cancelled in the ERP. Commerce did not cancel this order because part of it is already invoiced or shipped. It could not be put On Hold: close the rest with a credit memo.",
+      "Canceled in the ERP. Commerce did not cancel this order because part of it is already invoiced or shipped. It could not be put On Hold: close the rest with a credit memo.",
     );
   });
 });

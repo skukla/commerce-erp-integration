@@ -17,7 +17,7 @@ import { splitExtOrderId } from "#lib/structure";
 
 /** What the ERP's own status history calls each state, in the words the page shows. */
 const ERP_STATUS = {
-  cancelled: "cancelled it",
+  cancelled: "canceled it",
   confirmed: "confirmed it",
   created: "created sales order",
   invoiced: "invoiced it",
@@ -82,7 +82,7 @@ function partWhat(part) {
     return part.refused ? `Refused by ${name}` : `Not taken by ${name}`;
   }
   const what = {
-    cancelled: `Cancelled by ${name}`,
+    cancelled: `Canceled by ${name}`,
     held: `Waiting for ${name}`,
     sending: `Sending to ${name}`,
   };

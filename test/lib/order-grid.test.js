@@ -71,7 +71,7 @@ describe("Given several ERPs and an order's parts", () => {
   test.each([
     ["failed", "Contoso ERP not sent"],
     ["sending", "Contoso ERP sending"],
-    ["cancelled", "Contoso ERP cancelled"],
+    ["cancelled", "Contoso ERP canceled"],
   ])("Then a %s part says where it stands", (status, cell) => {
     expect(partsNumbersCell({ parts: { contoso: { status } } }, ERPS)).toBe(
       cell,

@@ -53,7 +53,7 @@ export function isNewOrder(order) {
 
 /**
  * The ERP's order request for a Commerce order and its entity id. The website's settings
- * name the sales organisation the order belongs to (business structure).
+ * name the sales organization the order belongs to (business structure).
  */
 export function erpOrderFrom(order, entityId, settings = {}) {
   const rawItems = order.items ?? [];

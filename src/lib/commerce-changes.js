@@ -241,14 +241,16 @@ export async function changeOnErpOrder(params, order, own, deps) {
       return answer(
         "skipped",
         OK,
-        `${label}: the ERP already shows it cancelled`,
+        `${label}: the ERP already shows it canceled`,
       );
     }
     const res = await deps.erp.fromCommerce.cancel(params, own.number, {
       origin,
+      // A reason code from the ERP contract's list (demo-erp lib/orders.js), not words: it
+      // keeps the contract's spelling; the ERP shows it as "Canceled in Commerce".
       reason: "Cancelled in Commerce",
     });
-    return fromErp(res, label, `cancelled on sales order ${own.number}`);
+    return fromErp(res, label, `canceled on sales order ${own.number}`);
   }
   if (order.state === HOLDED) {
     if (own.order.creditStatus === "held") {

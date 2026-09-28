@@ -108,7 +108,7 @@ describe("Given the settings the section shows", () => {
     expect(groupsAt("global")).toStrictEqual(SETTING_GROUPS);
     expect(groupsAt("website").map((g) => g.legend)).toStrictEqual([
       "Orders",
-      "Sales organisation",
+      "Sales organization",
     ]);
   });
 });

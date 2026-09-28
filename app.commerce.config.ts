@@ -177,16 +177,16 @@ export default defineConfig({
       {
         default: "1000",
         description:
-          "The ERP sales organisation that sells through this website (four letters or digits, like an SAP sales org). Orders from this website carry it.",
-        label: "ERP sales organisation for this website",
+          "The ERP sales organization that sells through this website (four letters or digits, like an SAP sales org). Orders from this website carry it.",
+        label: "ERP sales organization for this website",
         name: "structure_sales_org",
         type: "text",
       },
       {
         default: "",
         description:
-          "What the ERP calls that sales organisation. Blank: the ERP prints the website's name.",
-        label: "Sales organisation name",
+          "What the ERP calls that sales organization. Blank: the ERP prints the website's name.",
+        label: "Sales organization name",
         name: "structure_sales_org_name",
         type: "text",
       },

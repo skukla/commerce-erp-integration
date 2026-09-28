@@ -394,7 +394,7 @@ const NO_LINE =
   /no line of order .* belongs to this ERP \(products whose erp_owner is ACME\)/u;
 
 describe("Given the business structure on an order", () => {
-  test("Then the website's sales organisation rides on the request, and the written-back number carries the pair's prefix", async () => {
+  test("Then the website's sales organization rides on the request, and the written-back number carries the pair's prefix", async () => {
     const d = deps();
     d.settingsFor = vi.fn(async () => ({
       orders_hold_offline: true,

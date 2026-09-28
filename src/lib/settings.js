@@ -153,7 +153,7 @@ export async function settingsFor(storeViewId, logger) {
 
 /**
  * The settings at one website's scope, with Default Config beneath it: what an order
- * from that website carries as its sales organisation (business structure). Never
+ * from that website carries as its sales organization (business structure). Never
  * throws; unreadable answers the declared defaults.
  * @param {string} websiteCode the website's code
  */

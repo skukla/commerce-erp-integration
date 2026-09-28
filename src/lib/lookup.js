@@ -165,7 +165,7 @@ export function companyLookup({ commerce, companyId, credit, erp }) {
         Array.isArray(erp?.salesOrgs) && erp.salesOrgs.length > 0
           ? erp.salesOrgs.join(", ")
           : null,
-      label: "Sales organisations",
+      label: "Sales organizations",
     },
   ];
   return {

@@ -193,7 +193,7 @@ describe("Given a company to look up", () => {
     expect(res.body.rows[8]).toStrictEqual({
       commerce: null,
       erp: "2000",
-      label: "Sales organisations",
+      label: "Sales organizations",
     });
     expect(res.body.erpHash).toBe("#partners?open=C000103");
   });

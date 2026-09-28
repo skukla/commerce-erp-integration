@@ -14,7 +14,7 @@ calls the integration itself makes; the few that are not (`inventory/stocks`,
 ## Story 1: one ERP, one store
 
 **Needs nothing beyond a store with products, and companies if you want B2B.** Every setting
-has a default: orders are sent, the sales organisation is `1000`, every product belongs to
+has a default: orders are sent, the sales organization is `1000`, every product belongs to
 the ERP, ERP order numbers are prefixed with the first four letters of the ERP's name.
 
 What to have, so there is something to show:
@@ -44,28 +44,28 @@ impact on the order processing workflow"; an order leaves Pending when payment i
 custom ones included. So the ERP's confirmation lands as a note, plus the optional status
 above, and Processing follows the invoice or shipment as Commerce requires.
 
-## Story 2: the business structure (two websites as two sales organisations)
+## Story 2: the business structure (two websites as two sales organizations)
 
-The ERP shows a company code (itself), sales organisations (one per Commerce website) and
+The ERP shows a company code (itself), sales organizations (one per Commerce website) and
 warehouses (one per inventory source). With one website everything says `1000` and the story
 is invisible. To show it, give Commerce a second website and tell the integration which sales
-organisation sells through it.
+organization sells through it.
 
 | Have | Where in Admin | Check | Undo |
 |---|---|---|---|
 | A second website, with a store and a store view | Stores → Settings → All Stores → Create Website (then a store and a store view under it) | `GET store/websites` lists both codes; `GET store/storeConfigs` shows one row per store view with `website_id` and `base_currency_code` | Stores → All Stores → the website → Delete Web Site |
 | A different base currency on the second website, if you want the invoice to say EUR | Stores → Configuration → General → Currency Setup, scope set to that website | `GET store/storeConfigs`: the second website's `base_currency_code` | set the scope back to Use Default |
-| The sales organisation for each website | the integration's Admin screen (Apps → the integration's name → Integration) → Mapping → the Selling organization card, scope picker set to the website: *ERP sales organisation for this website* (four letters or digits, `2000`) and *Sales organisation name* (`Online EU`) | the ERP's Settings → Organisation card lists both after a Reset; or `GET health` on the ERP and read `structure.salesOrgs` | set the field back to `1000` at that scope, or clear the website override |
+| The sales organization for each website | the integration's Admin screen (Apps → the integration's name → Integration) → Mapping → the Selling organization card, scope picker set to the website: *ERP sales organization for this website* (four letters or digits, `2000`) and *Sales organization name* (`Online EU`) | the ERP's Settings → Organization card lists both after a Reset; or `GET health` on the ERP and read `structure.salesOrgs` | set the field back to `1000` at that scope, or clear the website override |
 | A company whose admin user belongs to the second website | Customers → Companies → the company → Company Admin; the admin's customer account must be on that website (Customers → All Customers → the account → Account Information → Associate to Website) | `GET company/{id}` gives `super_user_id`; `GET customers/{super_user_id}` gives `website_id` = the second website's id | move the customer back to the main website |
 | An order from the second website | the storefront on the second website's URL | `GET orders/{id}` shows `store_id` of a store view under that website; in the ERP the order header prints `2000 · Online EU` | Reset (clears the ERP number; the Commerce order stays) |
 
-What you will see after a Reset: the ERP's Settings → Organisation card prints
-`1000 · <ERP name> · <currency> · <country>` and both sales organisations with their website
-and counts. The customer document says which sales organisations the company is "Sold-to
-in". The invoice's Seller card prints the sales organisation of the order.
+What you will see after a Reset: the ERP's Settings → Organization card prints
+`1000 · <ERP name> · <currency> · <country>` and both sales organizations with their website
+and counts. The customer document says which sales organizations the company is "Sold-to
+in". The invoice's Seller card prints the sales organization of the order.
 
 What the ERP cannot show: Store Information (the seller's address and VAT number) is not
-readable over Commerce's REST API, so the Organisation and Seller cards print the base
+readable over Commerce's REST API, so the Organization and Seller cards print the base
 currency and locale from the store configuration and leave address and VAT blank. That is a
 limit of the API, not of the demo setup.
 

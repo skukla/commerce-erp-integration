@@ -26,7 +26,7 @@ export function orderGridCell(record) {
 
 /** Where a part not yet with a number stands, in the words of a cell. */
 const PART_WORDS = {
-  cancelled: "cancelled",
+  cancelled: "canceled",
   failed: "not sent",
   held: "waiting",
   sending: "sending",

@@ -20,7 +20,7 @@
 /** Words both of the reset's notes carry; an order whose history holds them was closed before. */
 const RESET_NOTE = "by the demo reset on";
 
-export const cancelledNote = (day) => `Cancelled by the demo reset on ${day}.`;
+export const cancelledNote = (day) => `Canceled by the demo reset on ${day}.`;
 export const removedNote = (day) =>
   `The ERP documents for this order were removed by the demo reset on ${day}.`;
 

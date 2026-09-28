@@ -1,7 +1,7 @@
 /*
  * Per-ERP settings (design v1 §2, slice B3b). Settings that differ per ERP live on that ERP's
  * entry in the ERP list (lib/erps.js), edited through `erp/erps`: which products it owns, its
- * order-number prefix, and its sales organisation, per website if need be. Settings for the
+ * order-number prefix, and its sales organization, per website if need be. Settings for the
  * whole integration (send orders, hold when offline, the confirm status, contract prices,
  * the discount ceiling) stay in App Management's configuration (lib/settings.js). An entry's
  * value wins; anything it does not set is the integration's configured value, so an install

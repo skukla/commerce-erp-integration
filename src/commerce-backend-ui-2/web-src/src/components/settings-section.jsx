@@ -8,7 +8,7 @@
  * With several ERPs an ERP switcher sits beside the scope (design v1 §2). "Every ERP" edits the
  * integration's configuration, which is every ERP's default; picking an ERP edits only the
  * settings that ERP sets for itself (which products it owns, its prefix, its sales
- * organisation), on its entry in the ERP list, and shows what it does not set as inherited.
+ * organization), on its entry in the ERP list, and shows what it does not set as inherited.
  */
 import {
   Button,

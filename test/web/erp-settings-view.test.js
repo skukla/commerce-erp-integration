@@ -1,7 +1,7 @@
 /*
  * The Admin page's per-ERP settings (Phase B slice B3b, design v1 §2): with several ERPs the
  * Settings section gets an ERP switcher; an ERP's own settings (which products it owns, its
- * prefix, its sales organisation) are edited on its entry, and what it does not set shows as
+ * prefix, its sales organization) are edited on its entry, and what it does not set shows as
  * inherited from the integration's configuration.
  */
 import { PER_ERP_KEYS } from "#lib/erp-settings";
@@ -47,14 +47,14 @@ describe("Given the ERP list", () => {
     ]);
   });
 
-  test("Then an ERP's groups hold only its own settings: every one at Default Config, the sales organisation at a website", () => {
+  test("Then an ERP's groups hold only its own settings: every one at Default Config, the sales organization at a website", () => {
     expect(erpGroupsAt("global").map((g) => g.legend)).toEqual([
-      "Sales organisation",
+      "Sales organization",
       "Products and order numbers",
     ]);
     expect(erpGroupsAt("website").map((g) => [g.legend, g.names])).toEqual([
       [
-        "Sales organisation",
+        "Sales organization",
         ["structure_sales_org", "structure_sales_org_name"],
       ],
     ]);

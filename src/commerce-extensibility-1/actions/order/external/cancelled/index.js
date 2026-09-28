@@ -73,14 +73,14 @@ async function handle(params) {
       : `. ${REFUSED} ${await holdForStaff(params, orderId, logger)}`;
     await addComment(params, orderId, {
       statusHistory: {
-        comment: `Cancelled in the ERP${erp}${reason}${outcome}`,
+        comment: `Canceled in the ERP${erp}${reason}${outcome}`,
         is_customer_notified: 0,
         is_visible_on_front: 0,
       },
     });
     return ok(
       cancelled
-        ? "Order cancelled successfully"
+        ? "Order canceled successfully"
         : "Commerce kept the order (invoiced or shipped); it is held for a credit memo",
     );
   } catch (error) {

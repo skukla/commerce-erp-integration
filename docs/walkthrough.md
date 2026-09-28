@@ -55,12 +55,12 @@ until it is sellable again. Commerce is not told; that is the ERP's decision.
 
 ### 3. Customers, and one customer (`#partners`, then a row, or `#partners?open=C000102`)
 
-The list: customer, name, sales organisations, payment terms, credit limit, **Exposure**,
+The list: customer, name, sales organizations, payment terms, credit limit, **Exposure**,
 **Available**, credit block. The walk-in account (P000000) has no credit relationship and
 shows dashes.
 
 The customer document: identity (customer, name, partner type Sold-to, the sales
-organisations it is Sold-to in, payment terms), Legal identity (legal name, VAT / tax id, reseller id, legal
+organizations it is Sold-to in, payment terms), Legal identity (legal name, VAT / tax id, reseller id, legal
 address), Credit (limit, exposure, available, credit status, **Credit block**, **Website
 account**, orders on credit hold, and a meter of how much of the limit is used), Open items (the uninvoiced orders the
 exposure is made of, adding up to it; switch to History for every order), Pricing (the
@@ -71,7 +71,7 @@ Filled by Demo Builder: the company's name, legal identity, the credit limit (fr
 read-only copy of the company's Active/Blocked switch in Commerce. The ERP's own: payment terms,
 the **Credit block** (None, Stop shipping, Stop invoicing, Stop all: "Set here. Stops this ERP's
 orders only."), which nothing from Commerce ever changes, exposure and available (never stored),
-the sales-organisation
+the sales-organization
 memberships (widened by every order the customer places). The ERP holds no Commerce id: which
 Commerce company a customer is lives in the integration's key map.
 
@@ -81,11 +81,11 @@ customer still owes for; the list under it is that figure.
 ### 4. Pricing conditions (`#pricing`)
 
 The rules: contract prices, contract discounts, discount ceilings, each with customer,
-product, sales organisation scope, amount, minimum quantity, validity and a status (active,
+product, sales organization scope, amount, minimum quantity, validity and a status (active,
 scheduled, expired). Add one with **Add rule**. Then **Test a Price**: pick a customer and
 a product, a quantity and a date, and the ERP answers what it would charge and, for every
 rule that did NOT apply, why (not yet valid, below the minimum quantity, a more specific
-rule won, the wrong sales organisation).
+rule won, the wrong sales organization).
 
 The ERP's own: every condition. Commerce holds only what is in force for each customer: the
 integration writes it into the company's shared catalog as tier prices, and no ERP is asked
@@ -100,11 +100,11 @@ says why. Test at 10: it does.
 The list: sales order, order date, reference (the Commerce order number), sold-to,
 **Shipping** (not, partly, fully shipped), **Billing** (not invoiced, invoiced, credited),
 net amount, status. Two filters: what work is open (the cues) and the stage (open, in
-process, completed, cancelled).
+process, completed, canceled).
 
-The order document, the screen that carries the demo: a header of labelled fields
+The order document, the screen that carries the demo: a header of labeled fields
 (document type, order date, the customer reference, sold-to and ship-to, sales
-organisation, payment terms, currency, overall status, shipping status, billing status,
+organization, payment terms, currency, overall status, shipping status, billing status,
 credit status), numbered lines with order, shipped and open quantities (a SKU opens the
 product), the money (net, tax, total), Related documents (the shipments and the invoice as
 boxes that open), and the Timeline (everything that happened to it, when, with the
@@ -112,7 +112,7 @@ documents linked). The actions the ERP allows sit on the title line: Confirm, Cr
 shipment, Create invoice, Cancel order; on a held order, Release and Reject.
 
 Mirrored: the order itself as placed (lines, quantities, prices, the buyer, the currency,
-the Commerce order number, the sales organisation of the website it came through). The
+the Commerce order number, the sales organization of the website it came through). The
 ERP's own: its number, confirmation, every shipment and the invoice, the credit decision,
 the status words, the timeline.
 
@@ -127,7 +127,7 @@ Shipments: number, date, sales order, sold-to, ship-from (the ERP's own plant na
 quantity, status (open until posted). The shipment document: header, ship-from, lines.
 Invoices: number, billing date, sales order, sold-to, total, status. The invoice
 document: header (billing date, bill-to, payment terms, **due date**, currency), the
-Seller (this ERP as the company code, the sales organisation, the country), lines, totals.
+Seller (this ERP as the company code, the sales organization, the country), lines, totals.
 
 The ERP's own: both documents, their numbers, the due date. Mirrored: nothing on them,
 except the seller's currency and country, which come from the website mapped to the
@@ -148,7 +148,7 @@ orders go On Hold, and the next order waits there until you open the customer ag
 ### 8. Event Journal (`#events`)
 
 Every change the ERP published (price, stock, credit limit, block, order confirmed,
-shipment posted, invoice created, cancelled, credit hold) and every change that arrived
+shipment posted, invoice created, canceled, credit hold) and every change that arrived
 from Commerce (imports, a Commerce-side shipment, invoice, cancellation or hold), as
 sentences naming the documents, each a link. Delivered, pending or failed, with Retry and
 Requeue. The detail page carries the wire name and the event id Debug Tracing lists.
@@ -157,12 +157,12 @@ Requeue. The detail page carries the wire name and the event id Debug Tracing li
 
 Name; Records (Sync records, Wipe all records, and what the last wipe removed);
 Document numbering (each range's next number, and the currency money falls back to);
-Organisation (the company code with its currency and country; each sales organisation
+Organization (the company code with its currency and country; each sales organization
 with its website and its customer and order counts); Warehouses (each plant with its ERP
 name, its Commerce source code and name, its product count; click to rename); Appearance.
 
 The ERP's own: the name, the warehouse names, the look. Derived from Commerce on every
-sync: the organisation card. Nothing here survives a wipe except the settings themselves,
+sync: the organization card. Nothing here survives a wipe except the settings themselves,
 and a counter never rewinds, so no document number is ever handed out twice.
 
 ---
@@ -212,7 +212,7 @@ the company's Active/Blocked switch is the website account, set only here and co
 ERP read-only ("Closed" there). The ERP's credit block holds that ERP's
 orders of the company instead (On Hold, the reason in each order's history), and its next
 orders wait; when the ERP opens the customer again they are released and sent. A change made here reaches the ERP at once,
-by the company save event. The company's admin user's website is the website whose sales organisation the
+by the company save event. The company's admin user's website is the website whose sales organization the
 ERP's customer is Sold-to in.
 
 ### Apps → the integration's name → Integration: the integration's Admin page
@@ -221,7 +221,7 @@ Three sections. **Overview**: whether the ERP answers, what it holds, and one co
 SKU looked up as both systems hold it. **Activity**: what crossed each way (every order sent
 and every ERP event applied, the ERP's price events included), with Retry on anything that
 did not get through, and one order followed across both systems. **Settings**: the settings
-per scope (the sales organisation per website, the order-number prefix, which products belong
+per scope (the sales organization per website, the order-number prefix, which products belong
 to this ERP) and, with several ERPs, per ERP. The Mapping view, one card per business concept,
 is planned (AB-26m). Filling and resetting the ERP live in Demo Builder (its Load demo data
 and Reset records); this page has no buttons for them.
@@ -242,13 +242,13 @@ One table per business concept. "Owner" is which side decides the field; the oth
 | Website account (Active · Closed) | Status (active / blocked) | Commerce; copied to the ERP read-only. Closed stops all website orders |
 | Legal identity (legal name, VAT / tax id, reseller id, address) | The company's legal fields | Commerce |
 | Payment terms | — | ERP |
-| Sales organisations it is Sold-to in | The company admin's website | Derived: the website's sales organisation setting |
+| Sales organizations it is Sold-to in | The company admin's website | Derived: the website's sales organization setting |
 
 ### Selling organization
 
-| ERP (Settings → Organisation) | Commerce (Stores → All Stores; the Admin page's Settings) | Owner |
+| ERP (Settings → Organization) | Commerce (Stores → All Stores; the Admin page's Settings) | Owner |
 |---|---|---|
-| Sales organisation (code, name) | Website | Both: the per-website setting in the Admin page's Settings is the join |
+| Sales organization (code, name) | Website | Both: the per-website setting in the Admin page's Settings is the join |
 | Company code currency, country | Base currency and locale (store configuration) | Commerce |
 | Seller identity on the invoice | Store Information (address, VAT) | Commerce; not readable over REST, so blank on the ERP |
 | Company code 1000 | — | ERP |

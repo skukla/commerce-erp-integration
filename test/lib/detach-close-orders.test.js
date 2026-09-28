@@ -10,7 +10,7 @@
 import { detach } from "#lib/detach";
 
 const DAY = "2026-09-28";
-const CANCELLED = `Cancelled by the demo reset on ${DAY}.`;
+const CANCELLED = `Canceled by the demo reset on ${DAY}.`;
 const REMOVED = `The ERP documents for this order were removed by the demo reset on ${DAY}.`;
 
 const line = (extra = {}) => ({

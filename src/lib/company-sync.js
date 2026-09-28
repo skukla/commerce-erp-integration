@@ -10,10 +10,10 @@ import { salesOrgOf } from "#lib/structure";
 
 /**
  * ERP business-partner rows; ids are `C<companyId>`. With the websites and each website's
- * sales organisation (business structure), a company's admin website names the sales
- * organisation it buys through; a company with no admin website belongs to none yet.
+ * sales organization (business structure), a company's admin website names the sales
+ * organization it buys through; a company with no admin website belongs to none yet.
  * @param {Array<{id:number, code:string}>} [websites]
- * @param {Map<number, string>} [salesOrgByWebsite] website id → sales organisation code
+ * @param {Map<number, string>} [salesOrgByWebsite] website id → sales organization code
  * @returns {object[]}
  */
 export function partnersFrom(

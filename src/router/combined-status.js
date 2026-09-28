@@ -62,7 +62,7 @@ function waitingPieces(record) {
     .filter(([, part]) => WAITS.includes(part.status))
     .map(([id, part]) =>
       part.status === "cancelled"
-        ? `${id} was cancelled in its ERP; close it with a credit memo`
+        ? `${id} was canceled in its ERP; close it with a credit memo`
         : `waiting on ${id} (${part.status})`,
     );
   if ((record?.unrouted ?? []).length > 0) {
@@ -89,7 +89,7 @@ export function combinedStatus(record) {
       statuses.length > 0 && statuses.every((s) => s === "cancelled");
     return {
       reason: allCancelled
-        ? "every part was cancelled in its ERP; cancel the order in Commerce"
+        ? "every part was canceled in its ERP; cancel the order in Commerce"
         : waiting.join("; "),
       status: "on-hold",
     };

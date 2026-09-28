@@ -137,7 +137,7 @@ describe("Given a company asked of both systems", () => {
       },
       { commerce: "DE 812345678", erp: "DE 812345678", label: "VAT / tax id" },
       { commerce: null, erp: "NET15", label: "Payment terms" },
-      { commerce: null, erp: "2000", label: "Sales organisations" },
+      { commerce: null, erp: "2000", label: "Sales organizations" },
     ]);
     expect(answer.erpHash).toBe("#partners?open=C000103");
   });

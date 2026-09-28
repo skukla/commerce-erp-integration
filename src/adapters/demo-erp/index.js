@@ -6,7 +6,7 @@
  * A part of an order shared between several ERPs (`part.shared`) is sent to this ERP's own
  * address under its own name, with only its lines, and without the single-ERP bookkeeping on
  * the Commerce order (its one ERP number field): the router owns that view. It is sent with
- * this ERP's own settings (lib/erp-settings.js) over the integration's: its sales organisation
+ * this ERP's own settings (lib/erp-settings.js) over the integration's: its sales organization
  * for the order's website, its prefix and its ownership.
  */
 import { paramsForErp } from "#adapters/contract";
@@ -43,7 +43,7 @@ export function sendPart(params, part, deps) {
 
 /** The demo ERP's order messages, as the part outcome each one means. */
 const OUTCOMES = Object.freeze({
-  cancel: () => ["cancelled", "cancelled in the ERP"],
+  cancel: () => ["cancelled", "canceled in the ERP"],
   hold: (data) =>
     data.held
       ? ["held", "on credit hold in the ERP"]
@@ -51,7 +51,7 @@ const OUTCOMES = Object.freeze({
   invoice: () => ["invoiced", "invoiced in the ERP"],
   "order-status": (data) =>
     data.status === "cancelled"
-      ? ["cancelled", "cancelled in the ERP"]
+      ? ["cancelled", "canceled in the ERP"]
       : [
           String(data.status || "sent"),
           `${data.status || "updated"} in the ERP`,

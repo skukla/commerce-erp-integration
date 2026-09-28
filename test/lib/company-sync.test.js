@@ -92,7 +92,7 @@ describe("Given a company saved in Commerce", () => {
     expect(d.pairCustomer).not.toHaveBeenCalled();
   });
 
-  test("Then a company with no admin website belongs to no sales organisation, and no website is read", async () => {
+  test("Then a company with no admin website belongs to no sales organization, and no website is read", async () => {
     const d = deps();
     d.readCompanyRow.mockResolvedValue({ ...ROW, websiteId: null });
     const partner = await companyToErp({}, 21, ORIGIN, d);
@@ -139,9 +139,9 @@ describe("Given companies turned into business partners", () => {
       },
     ]);
   });
-  // Business structure: the company admin's website names the sales organisation the
+  // Business structure: the company admin's website names the sales organization the
   // company buys through; the legal identity rides along for the customer document.
-  test("Then a company's admin website gives its sales organisation, and its legal identity comes with it", () => {
+  test("Then a company's admin website gives its sales organization, and its legal identity comes with it", () => {
     const rows = partnersFrom(
       [
         {
@@ -182,7 +182,7 @@ describe("Given companies turned into business partners", () => {
       salesOrgs: ["2000"],
       vatTaxId: "US12-3456789",
     });
-    // A website the read did not list: the company belongs to no sales organisation yet.
+    // A website the read did not list: the company belongs to no sales organization yet.
     expect(rows[1]).toMatchObject({ salesOrgs: [] });
   });
 });

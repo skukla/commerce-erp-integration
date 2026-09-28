@@ -83,7 +83,7 @@ afterEach(() => {
 });
 
 describe("Given the declared settings", () => {
-  test("Then every switch defaults to on, and the structure fields to a single ERP selling everything as sales organisation 1000", () => {
+  test("Then every switch defaults to on, and the structure fields to a single ERP selling everything as sales organization 1000", () => {
     expect(SETTING_DEFAULTS).toStrictEqual({
       orders_confirm_status: "",
       orders_hold_offline: true,
@@ -345,7 +345,7 @@ describe("Given the Structure settings (business-structure plan, step 02)", () =
     );
     expect(lib.saveProblem({ orders_send: "yes" })).toMatch(BOOLEAN_WORDS);
   });
-  test("Then every structure setting has a declared default, and the sales organisation defaults to 1000", async () => {
+  test("Then every structure setting has a declared default, and the sales organization defaults to 1000", async () => {
     const lib = await import("#lib/settings");
     expect(lib.SETTING_DEFAULTS.structure_sales_org).toBe("1000");
     expect(lib.SETTING_DEFAULTS.structure_owns).toBe("all");

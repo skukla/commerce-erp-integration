@@ -1,6 +1,6 @@
 /*
  * Per-ERP settings (Phase B slice B3b, design v1 §2): which products an ERP owns, its
- * order-number prefix and its sales organisation (per website) live on that ERP's entry in
+ * order-number prefix and its sales organization (per website) live on that ERP's entry in
  * the ERP list. Anything the entry does not set falls back to the integration's own
  * configuration, so one ERP behaves exactly as before.
  */

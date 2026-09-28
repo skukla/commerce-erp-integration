@@ -1,6 +1,6 @@
 /*
  * The seller side of the structure, as the integration carries it (business-structure
- * plan, step 02): which sales organisation an order belongs to, and the prefix that tells
+ * plan, step 02): which sales organization an order belongs to, and the prefix that tells
  * one ERP's order numbers from another's on the same Commerce store.
  *
  * Multi-ERP rule M4 (owner, 2026-09-24): the number written onto a Commerce order is
@@ -54,8 +54,8 @@ export function splitExtOrderId(extOrderId) {
 }
 
 /**
- * The sales organisation an order from a website belongs to: the website's setting, else
- * `1000` (a store with one website and no setting is one sales organisation).
+ * The sales organization an order from a website belongs to: the website's setting, else
+ * `1000` (a store with one website and no setting is one sales organization).
  * @param {object} [settings] the settings read for the order's store view
  * @returns {{ salesOrg: string, salesOrgName?: string }}
  */

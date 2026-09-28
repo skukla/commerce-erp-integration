@@ -28,7 +28,7 @@ const DESCRIBE = {
     ref: companyOf(d).ref,
   }),
   cancel: (d) => ({
-    message: `order ${d.incrementId}: cancelled`,
+    message: `order ${d.incrementId}: canceled`,
     ref: d.incrementId,
   }),
   contract: (d) => ({

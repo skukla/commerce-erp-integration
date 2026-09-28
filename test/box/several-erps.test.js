@@ -303,7 +303,7 @@ describe("Pair in a box: an order split between two ERPs, one of them away", () 
  */
 describe("Pair in a box: a reset closes the orders the two ERPs hold", () => {
   const DAY = "2026-09-28";
-  const CANCELLED = `Cancelled by the demo reset on ${DAY}.`;
+  const CANCELLED = `Canceled by the demo reset on ${DAY}.`;
   const REMOVED = `The ERP documents for this order were removed by the demo reset on ${DAY}.`;
   const SPLIT = 55;
   const INVOICED = 56;

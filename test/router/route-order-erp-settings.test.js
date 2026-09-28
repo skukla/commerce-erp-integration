@@ -1,6 +1,6 @@
 /*
  * Per-ERP settings reach an ERP's part (Phase B slice B3b, design v1 §2): each part is sent
- * with its ERP's own sales organisation (for the order's website) and ownership, over the
+ * with its ERP's own sales organization (for the order's website) and ownership, over the
  * integration's configured values. An ERP that sets nothing sends what the integration says.
  */
 import { resetOrderPartsClient } from "#lib/order-parts";
@@ -78,7 +78,7 @@ function deps() {
 }
 
 describe("Given two ERPs, one with settings of its own", () => {
-  test("Then each part carries its ERP's sales organisation for the order's website, and its ownership decides its lines", async () => {
+  test("Then each part carries its ERP's sales organization for the order's website, and its ownership decides its lines", async () => {
     const d = deps();
     await routeOrder({}, ORDER, d, ERPS);
     const sent = d.erp.createOrder.mock.calls.map(([params, body]) => ({
