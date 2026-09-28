@@ -50,6 +50,7 @@ const ACTIONS = [
   "products",
   "partners",
   "pricing",
+  "contracts",
   "orders",
   "shipments",
   "invoices",

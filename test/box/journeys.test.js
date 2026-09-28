@@ -63,6 +63,13 @@ vi.mock("#lib/erp", () => {
       health: (params) => call("health", { params }),
       importRecords: (params, body) =>
         call("admin", { body, method: "POST", params, path: "/import" }),
+      inForce: (params, partnerId) =>
+        call("contracts", {
+          params,
+          path: partnerId
+            ? `/in-force?partnerId=${encodeURIComponent(partnerId)}`
+            : "/in-force",
+        }),
       listOrders: (params) => call("orders", { params }),
       order: (params, number) => call("orders", { params, path: `/${number}` }),
       ordersByReference: (params, reference) =>
@@ -103,8 +110,10 @@ import { erp } from "#lib/erp";
 import * as keyMap from "#lib/key-map";
 import * as ledger from "#lib/ledger";
 import { splitExtOrderId } from "#lib/structure";
+import * as contractUpdated from "#src/company/external/contract-updated/index";
 import * as creditUpdated from "#src/company/external/credit-updated/index";
 import * as statusUpdated from "#src/company/external/status-updated/index";
+import * as erpPrices from "#src/erp/prices/index";
 import * as orderChanged from "#src/order/commerce/changed/index";
 import * as orderCreated from "#src/order/commerce/created/index";
 import * as orderInvoiced from "#src/order/commerce/invoiced/index";
@@ -125,6 +134,7 @@ import { fillErp } from "./fill-erp.js";
 const ERP_HANDLERS = {
   "be-observer.catalog_product_update": erpProduct,
   "be-observer.catalog_stock_update": erpStock,
+  "be-observer.company_contract_update": contractUpdated,
   "be-observer.company_credit_update": creditUpdated,
   "be-observer.company_status_update": statusUpdated,
   "be-observer.sales_order_cancel": erpCancelled,
@@ -568,6 +578,56 @@ describe("Pair in a box: the entity matrix, both directions", () => {
       { commerce: commerceLib, erp, ledger, tierPrices },
     );
     expect(result.reverted).toEqual({ failed: [], reverted: 3 });
+    expect([...box.commerce.db.tierPrices]).toEqual(catalogBefore);
+    expect(await ledger.readLedger()).toEqual([]);
+  });
+
+  // AB-26z with the real ERP: a price list activated in the ERP raises contract.changed, and
+  // the handler puts the price into the company's shared catalog. A list ending raises an
+  // event too, but a date passing raises none, so erp/prices is what follows the ERP's prices
+  // in force: after the list is deactivated, a publish takes the price back out.
+  test("Price, ERP → Commerce: a price list activated in the ERP reaches the company's shared catalog; after it is deactivated a publish removes it", async () => {
+    await fillErp(readers, erp, "Box");
+    const catalogBefore = structuredClone([...box.commerce.db.tierPrices]);
+    const created = await box.erp.call("contracts", {
+      body: {
+        appliesTo: "customer",
+        description: "Northwind 2026",
+        lines: [{ kind: "price", minQty: 1, price: 8, sku: "A1" }],
+        partnerId: "C7",
+        startingDate: "2020-01-01",
+      },
+      method: "POST",
+    });
+    expect(created.ok).toBe(true);
+    const { number } = created.data;
+    await box.erp.call("contracts", {
+      method: "POST",
+      path: `/${number}/activate`,
+    });
+    expect(await deliverErpEvents()).toEqual([
+      { event: "be-observer.company_contract_update", statusCode: 200 },
+    ]);
+    expect(box.commerce.db.tierPrices.get("A1|Northwind Trading|1|0")).toEqual({
+      customer_group: "Northwind Trading",
+      price: 8,
+      price_type: "fixed",
+      quantity: 1,
+      sku: "A1",
+      website_id: 0,
+    });
+    await box.erp.call("contracts", {
+      method: "POST",
+      path: `/${number}/deactivate`,
+    });
+    const published = await erpPrices.main({ __ow_method: "post" });
+    expect(published.statusCode).toBe(200);
+    expect(published.body).toMatchObject({ failed: [], removed: 1 });
+    expect([...box.commerce.db.tierPrices]).toEqual(catalogBefore);
+    // The deactivation's own event, delivered late, finds nothing left to do.
+    expect(await deliverErpEvents()).toEqual([
+      { event: "be-observer.company_contract_update", statusCode: 200 },
+    ]);
     expect([...box.commerce.db.tierPrices]).toEqual(catalogBefore);
     expect(await ledger.readLedger()).toEqual([]);
   });
