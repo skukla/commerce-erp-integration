@@ -10,64 +10,73 @@ import { erp } from "#lib/erp";
 import { loadErps } from "#lib/erps";
 import { readLedger } from "#lib/ledger";
 
-/**
- * With several ERPs, each listed ERP by name with whether it answers, each asked at its own
- * address: the Admin page header names them all (slice B7). Undefined with one ERP, or when
- * the list cannot be read, so the answer is as before.
- */
-async function listedErps(params) {
-  let erps;
+/** The ERP list, or an empty one when it cannot be read (the answer is then as with one ERP). */
+async function readList(params) {
   try {
-    erps = await loadErps(params);
+    return await loadErps(params);
   } catch {
-    return;
+    return [];
   }
-  if (erps.length <= 1) {
-    return;
-  }
-  return Promise.all(
-    erps.map((entry) =>
-      erp.health(paramsForErp(params, entry)).then(
-        () => ({ id: entry.id, name: entry.name, reachable: true }),
-        (error) => ({
-          error: error.message,
-          id: entry.id,
-          name: entry.name,
-          reachable: false,
-        }),
-      ),
-    ),
-  );
 }
 
 /**
- * GET status: the ERP's health as the integration sees it, the ledger size, and what
- * this app declares. The flyout's status tool and the Admin screen read this. With several
- * ERPs, `erps` lists each by name with whether it answers.
+ * One listed ERP by name with whether the integration can use it. The ERP client never throws on
+ * an HTTP error, so an ERP that answers but refuses the call (Bodea 2026-09-28: 401 from an ERP
+ * in another workspace) is not reachable, with the status it answered.
+ */
+function listedHealth(params, entry) {
+  const named = { id: entry.id, name: entry.name };
+  return erp.health(paramsForErp(params, entry)).then(
+    (res) =>
+      res.ok
+        ? { ...named, reachable: true }
+        : {
+            error: `the ERP answered ${res.status}`,
+            ...named,
+            reachable: false,
+          },
+    (error) => ({ error: error.message, ...named, reachable: false }),
+  );
+}
+
+/** One ERP's full health, asked at its address. */
+async function healthOf(params) {
+  try {
+    const res = await erp.health(params);
+    return {
+      reachable: true,
+      status: res.status,
+      ...(res.ok ? res.data : { error: res.data?.errorMessage, ok: false }),
+    };
+  } catch (error) {
+    return { error: error.message, ok: false, reachable: false };
+  }
+}
+
+/**
+ * GET status[?erp=<id>]: the ERP's health as the integration sees it, the ledger size, and what
+ * this app declares. The flyout's status tool and the Admin screen read this. With `erp`, the
+ * health is that listed ERP's, asked at its address; else the ERP the app deployed with. With
+ * several ERPs, `erps` lists each by name with whether the integration can use it (slice B7).
  */
 async function main(params) {
   const logger = AioLogger("erp-status", { level: params.LOG_LEVEL || "info" });
   try {
-    let health = { ok: false, reachable: false };
-    try {
-      const res = await erp.health(params);
-      health = {
-        reachable: true,
-        status: res.status,
-        ...(res.ok ? res.data : { error: res.data?.errorMessage, ok: false }),
-      };
-    } catch (error) {
-      health = { error: error.message, ok: false, reachable: false };
-    }
-    const [ledger, erps] = await Promise.all([
+    const list = await readList(params);
+    const asked = list.find((entry) => entry.id === String(params.erp ?? ""));
+    const target = asked ? paramsForErp(params, asked) : params;
+    const [health, ledger, erps] = await Promise.all([
+      healthOf(target),
       readLedger(),
-      listedErps(params),
+      list.length > 1
+        ? Promise.all(list.map((entry) => listedHealth(params, entry)))
+        : undefined,
     ]);
     return ok({
       body: {
         app: { id: appConfig.metadata.id, version: appConfig.metadata.version },
         erp: health,
-        erpBaseUrl: params.ERP_BASE_URL || null,
+        erpBaseUrl: target.ERP_BASE_URL || null,
         ...(erps ? { erps } : {}),
         ledger: { entries: ledger.length },
       },

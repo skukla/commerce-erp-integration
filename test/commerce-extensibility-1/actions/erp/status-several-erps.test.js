@@ -58,6 +58,52 @@ describe("Given two ERPs in the list", () => {
     );
   });
 
+  test("Then an ERP that answers but refuses the integration is not reachable, and says why", async () => {
+    // Bodea 2026-09-28: an ERP in another workspace answered 401 to every call and was shown
+    // as answering, because the ERP client never throws on an HTTP error.
+    loadErps.mockResolvedValue(TWO);
+    erp.health.mockImplementation((params) =>
+      Promise.resolve(
+        params.ERP_BASE_URL === "https://a.example"
+          ? { data: { ok: true }, ok: true, status: 200 }
+          : {
+              data: { error: "Technical account mismatch" },
+              ok: false,
+              status: 401,
+            },
+      ),
+    );
+    const res = await status.main({ ERP_BASE_URL: "https://a.example" });
+
+    expect(res.body.erps[1]).toStrictEqual({
+      error: "the ERP answered 401",
+      id: "brand-b",
+      name: "Brand B ERP",
+      reachable: false,
+    });
+  });
+
+  test("Then asked for one ERP, the health is that ERP's, asked at its address", async () => {
+    loadErps.mockResolvedValue(TWO);
+    erp.health.mockImplementation((params) =>
+      Promise.resolve({
+        data: { displayName: params.ERP_BASE_URL, ok: true },
+        ok: true,
+        status: 200,
+      }),
+    );
+    const res = await status.main({
+      ERP_BASE_URL: "https://a.example",
+      erp: "brand-b",
+    });
+
+    expect(res.body.erp).toMatchObject({
+      displayName: "https://b.example",
+      reachable: true,
+    });
+    expect(res.body.erpBaseUrl).toBe("https://b.example");
+  });
+
   test("Then an ERP list that cannot be read still answers the deployed ERP's health, with no list", async () => {
     loadErps.mockRejectedValue(new Error("State is down"));
     erp.health.mockResolvedValue({ data: { ok: true }, ok: true, status: 200 });
