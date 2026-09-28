@@ -61,9 +61,11 @@ const erpName = process.env.ERP_DISPLAY_NAME?.trim() || "ERP integration";
  * sends them: after the order is saved, with the ERP number written back and I/O Events
  * delivering again while the ERP is offline (src/lib/order-sync.js).
  *
- * Two webhooks carry what must answer while the shopper waits: contract prices and the
- * discount ceiling at cart time. Both are `required: false` with a one-second soft timeout
- * on purpose: when the ERP is offline Commerce keeps its own prices.
+ * No webhook: no ERP is asked while the shopper waits. Each ERP's contract prices are
+ * synced ahead into the company's shared catalog as tier prices (erp/prices, which Demo
+ * Builder runs after a fill), so the cart, the listing and the product page all
+ * price from Commerce; a discount limit is the ERP's to enforce on the order. The two cart
+ * webhooks that asked the ERP on every cart change were removed (AB-26z, 2026-09-28).
  *
  * The ERP → Commerce direction is the kit's back-office eventing: the ERP posts its events
  * to the ingestion webhook, they are published to the `erp` provider, and the handler
@@ -160,22 +162,6 @@ export default defineConfig({
         label: "Order status when the ERP confirms",
         name: "orders_confirm_status",
         type: "text",
-      },
-      {
-        default: true,
-        description:
-          "Cart prices come from the ERP's contract prices for the buyer's company.",
-        label: "Use ERP contract prices in the cart",
-        name: "pricing_contract_prices",
-        type: "boolean",
-      },
-      {
-        default: true,
-        description:
-          "A cart discount larger than the ERP allows for the buyer is reduced to the ERP's limit.",
-        label: "Apply the ERP's maximum discount",
-        name: "pricing_discount_ceiling",
-        type: "boolean",
       },
       // Business structure (plan erp-business-structure): the seller side, per website
       // and per pair. Read through src/lib/settings.js like the switches above.
@@ -459,7 +445,7 @@ export default defineConfig({
   },
   metadata: {
     description:
-      "Adobe Commerce integration to a demo ERP: orders to the ERP with the ERP number written back, contract pricing at cart time, and the ERP events (prices, stock, credit limits, order statuses) applied to Commerce.",
+      "Adobe Commerce integration to a demo ERP: orders to the ERP with the ERP number written back, the ERP's contract prices in each company's shared catalog, and the ERP events (prices, stock, credit limits, order statuses) applied to Commerce.",
     displayName: erpName,
     id: appId,
     // Upgrades an installed app when this version changes (lib-app 2.x): webhooks, events and
@@ -467,72 +453,6 @@ export default defineConfig({
     // version with every change to what this file registers, or the change never reaches
     // Commerce. "auto" runs the plan; the library marks it experimental.
     upgradeMode: "auto",
-    version: "0.8.9",
+    version: "0.9.0",
   },
-  webhooks: [
-    {
-      category: "modification",
-      description:
-        "Replaces each cart line price with the ERP contract price for the buyer business partner",
-      label: "ERP contract prices into cart totals",
-      requireAdobeAuth: true,
-      runtimeAction: "webhook/item-prices",
-      webhook: {
-        batch_name: "erp_totals_collector_item_prices",
-        fallback_error_message:
-          "ERP pricing is unavailable, so this cart cannot be updated right now. Please try again in a moment.",
-        // Runtime records a blocking web action's run only when it failed, unless the
-        // request carries this header (Adobe Runtime, "Logging and monitoring"). Commerce
-        // sends the headers registered here, so every cart webhook run is readable
-        // afterwards — the only way to see what Commerce actually sent (2026-09-25).
-        headers: [{ name: "X-OW-EXTRA-LOGGING", value: "on" }],
-        hook_name: "erp_contract_price",
-        method: "POST",
-        // Asked for, not what happens: Commerce as a Cloud Service stores and runs every
-        // webhook as required (measured 2026-09-26). A failing hook stops the cart with
-        // fallback_error_message, so that message says the cart cannot be updated.
-        required: false,
-        soft_timeout: 1000,
-        // Ten seconds, not five: a cold Runtime action plus a cold ERP quote measured
-        // 3.8 s warm on 2026-09-25, and a cart that fails on a cold start is worse than
-        // a cart that waits. Adobe's own example uses 30 s.
-        timeout: 10_000,
-        webhook_method:
-          "plugin.out_of_process_totals_collector.api.get_total_modifications.item_prices",
-        webhook_type: "after",
-      },
-    },
-    {
-      category: "modification",
-      description:
-        "Caps the combined discount on each cart line at the ERP maximum-discount ceiling for the buyer business partner",
-      label: "ERP discount ceiling",
-      requireAdobeAuth: true,
-      runtimeAction: "webhook/discounts",
-      webhook: {
-        batch_name: "erp_totals_collector",
-        fallback_error_message:
-          "ERP discounts are unavailable, so this cart cannot be updated right now. Please try again in a moment.",
-        // Runtime records a blocking web action's run only when it failed, unless the
-        // request carries this header (Adobe Runtime, "Logging and monitoring"). Commerce
-        // sends the headers registered here, so every cart webhook run is readable
-        // afterwards — the only way to see what Commerce actually sent (2026-09-25).
-        headers: [{ name: "X-OW-EXTRA-LOGGING", value: "on" }],
-        hook_name: "erp_discount_ceiling",
-        method: "POST",
-        // Asked for, not what happens: Commerce as a Cloud Service stores and runs every
-        // webhook as required (measured 2026-09-26). A failing hook stops the cart with
-        // fallback_error_message, so that message says the cart cannot be updated.
-        required: false,
-        soft_timeout: 1000,
-        // Ten seconds, not five: a cold Runtime action plus a cold ERP quote measured
-        // 3.8 s warm on 2026-09-25, and a cart that fails on a cold start is worse than
-        // a cart that waits. Adobe's own example uses 30 s.
-        timeout: 10_000,
-        webhook_method:
-          "plugin.out_of_process_totals_collector.api.get_total_modifications.execute",
-        webhook_type: "after",
-      },
-    },
-  ],
 });

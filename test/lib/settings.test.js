@@ -88,8 +88,6 @@ describe("Given the declared settings", () => {
       orders_confirm_status: "",
       orders_hold_offline: true,
       orders_send: true,
-      pricing_contract_prices: true,
-      pricing_discount_ceiling: true,
       structure_order_prefix: "",
       structure_owns: "all",
       structure_owns_attribute: "",
@@ -108,9 +106,9 @@ describe("Given a checkout reading its settings", () => {
   });
 
   test("Then an unknown store view reads Default Config", async () => {
-    store.set(DEFAULT_KEY, { pricing_contract_prices: false });
+    store.set(DEFAULT_KEY, { orders_hold_offline: false });
     const values = await settingsFor(9);
-    expect(values.pricing_contract_prices).toBe(false);
+    expect(values.orders_hold_offline).toBe(false);
     expect(mockGetConfiguration).toHaveBeenCalledTimes(2);
   });
 
@@ -266,14 +264,14 @@ describe("Given the settings page", () => {
 
   test("Then a save is sent as the library's list, at the chosen scope", async () => {
     await saveSettings("w1", {
+      orders_hold_offline: null,
       orders_send: false,
-      pricing_contract_prices: null,
     });
     expect(mockSetConfiguration).toHaveBeenCalledExactlyOnceWith(
       {
         config: [
+          { name: "orders_hold_offline", value: null },
           { name: "orders_send", value: false },
-          { name: "pricing_contract_prices", value: null },
         ],
       },
       { id: "w1" },
@@ -301,9 +299,9 @@ describe("Given the settings page", () => {
   test("Then true, false and null are accepted", () => {
     expect(
       saveProblem({
+        orders_confirm_status: null,
         orders_hold_offline: null,
         orders_send: false,
-        pricing_discount_ceiling: true,
       }),
     ).toBeNull();
   });

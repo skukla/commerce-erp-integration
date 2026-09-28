@@ -98,11 +98,6 @@ export const SETTING_GROUPS = Object.freeze([
     scope: "website",
   },
   {
-    legend: "Prices",
-    names: ["pricing_contract_prices", "pricing_discount_ceiling"],
-    scope: "website",
-  },
-  {
     legend: "Sales organisation",
     names: ["structure_sales_org", "structure_sales_org_name"],
     scope: "website",

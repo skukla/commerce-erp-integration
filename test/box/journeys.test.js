@@ -25,15 +25,11 @@ vi.mock("#lib/settings", () => ({
     orders_confirm_status: "",
     orders_hold_offline: true,
     orders_send: true,
-    pricing_contract_prices: true,
-    pricing_discount_ceiling: true,
   },
   settingsFor: async () => ({
     orders_confirm_status: "",
     orders_hold_offline: true,
     orders_send: true,
-    pricing_contract_prices: true,
-    pricing_discount_ceiling: true,
   }),
   websiteSettings: async () => ({ structure_sales_org: "1000" }),
 }));

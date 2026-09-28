@@ -21,20 +21,6 @@
     "type": "text"
   },
   {
-    "default": true,
-    "description": "Cart prices come from the ERP's contract prices for the buyer's company.",
-    "label": "Use ERP contract prices in the cart",
-    "name": "pricing_contract_prices",
-    "type": "boolean"
-  },
-  {
-    "default": true,
-    "description": "A cart discount larger than the ERP allows for the buyer is reduced to the ERP's limit.",
-    "label": "Apply the ERP's maximum discount",
-    "name": "pricing_discount_ceiling",
-    "type": "boolean"
-  },
-  {
     "default": "1000",
     "description": "The ERP sales organisation that sells through this website (four letters or digits, like an SAP sales org). Orders from this website carry it.",
     "label": "ERP sales organisation for this website",

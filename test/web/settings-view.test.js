@@ -17,7 +17,7 @@ import { BODEA_SCOPE_TREE } from "./fixtures/bodea-scope-tree.js";
 const VALUES = [
   { name: "orders_send", origin: "global", value: true },
   { name: "orders_hold_offline", origin: "website", value: false },
-  { name: "pricing_contract_prices", origin: "global", value: true },
+  { name: "orders_confirm_status", origin: "global", value: "" },
 ];
 
 describe("Given a save", () => {
@@ -108,7 +108,6 @@ describe("Given the settings the section shows", () => {
     expect(groupsAt("global")).toStrictEqual(SETTING_GROUPS);
     expect(groupsAt("website").map((g) => g.legend)).toStrictEqual([
       "Orders",
-      "Prices",
       "Sales organisation",
     ]);
   });

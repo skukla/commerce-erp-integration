@@ -19,10 +19,6 @@ runtimeManifest:
       license: Apache-2.0
       actions:
         $include: ./actions/starter-kit/actions.config.yaml
-    webhook:
-      license: Apache-2.0
-      actions:
-        $include: ./actions/webhook/actions.config.yaml
     product-commerce:
       license: Apache-2.0
       actions:

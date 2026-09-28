@@ -46,9 +46,7 @@ describe("Given the app's identity in Commerce", () => {
 
     for (const a of ids) {
       for (const b of ids.filter((other) => other !== a)) {
-        expect(`${prefix(b)}erp_contract_price`.startsWith(prefix(a))).toBe(
-          false,
-        );
+        expect(`${prefix(b)}any_webhook`.startsWith(prefix(a))).toBe(false);
       }
     }
   });

@@ -71,20 +71,6 @@
         "type": "text"
       },
       {
-        "default": true,
-        "description": "Cart prices come from the ERP's contract prices for the buyer's company.",
-        "label": "Use ERP contract prices in the cart",
-        "name": "pricing_contract_prices",
-        "type": "boolean"
-      },
-      {
-        "default": true,
-        "description": "A cart discount larger than the ERP allows for the buyer is reduced to the ERP's limit.",
-        "label": "Apply the ERP's maximum discount",
-        "name": "pricing_discount_ceiling",
-        "type": "boolean"
-      },
-      {
         "default": "1000",
         "description": "The ERP sales organisation that sells through this website (four letters or digits, like an SAP sales org). Orders from this website carry it.",
         "label": "ERP sales organisation for this website",
@@ -460,60 +446,10 @@
     ]
   },
   "metadata": {
-    "description": "Adobe Commerce integration to a demo ERP: orders to the ERP with the ERP number written back, contract pricing at cart time, and the ERP events (prices, stock, credit limits, order statuses) applied to Commerce.",
+    "description": "Adobe Commerce integration to a demo ERP: orders to the ERP with the ERP number written back, the ERP's contract prices in each company's shared catalog, and the ERP events (prices, stock, credit limits, order statuses) applied to Commerce.",
     "displayName": "ERP integration",
     "id": "commerce-erp-integration",
     "upgradeMode": "auto",
-    "version": "0.8.9"
-  },
-  "webhooks": [
-    {
-      "category": "modification",
-      "description": "Replaces each cart line price with the ERP contract price for the buyer business partner",
-      "label": "ERP contract prices into cart totals",
-      "requireAdobeAuth": true,
-      "runtimeAction": "webhook/item-prices",
-      "webhook": {
-        "batch_name": "erp_totals_collector_item_prices",
-        "fallback_error_message": "ERP pricing is unavailable, so this cart cannot be updated right now. Please try again in a moment.",
-        "headers": [
-          {
-            "name": "X-OW-EXTRA-LOGGING",
-            "value": "on"
-          }
-        ],
-        "hook_name": "erp_contract_price",
-        "method": "POST",
-        "required": false,
-        "soft_timeout": 1000,
-        "timeout": 10000,
-        "webhook_method": "plugin.out_of_process_totals_collector.api.get_total_modifications.item_prices",
-        "webhook_type": "after"
-      }
-    },
-    {
-      "category": "modification",
-      "description": "Caps the combined discount on each cart line at the ERP maximum-discount ceiling for the buyer business partner",
-      "label": "ERP discount ceiling",
-      "requireAdobeAuth": true,
-      "runtimeAction": "webhook/discounts",
-      "webhook": {
-        "batch_name": "erp_totals_collector",
-        "fallback_error_message": "ERP discounts are unavailable, so this cart cannot be updated right now. Please try again in a moment.",
-        "headers": [
-          {
-            "name": "X-OW-EXTRA-LOGGING",
-            "value": "on"
-          }
-        ],
-        "hook_name": "erp_discount_ceiling",
-        "method": "POST",
-        "required": false,
-        "soft_timeout": 1000,
-        "timeout": 10000,
-        "webhook_method": "plugin.out_of_process_totals_collector.api.get_total_modifications.execute",
-        "webhook_type": "after"
-      }
-    }
-  ]
+    "version": "0.9.0"
+  }
 }
