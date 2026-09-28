@@ -482,7 +482,9 @@ describe("Pair in a box: the entity matrix, both directions", () => {
     ).toBe(200);
   });
 
-  test("Buying organization and credit, ERP → Commerce: a block and a credit limit set in the ERP reach the company, ledgered, and come back on reset", async () => {
+  // Each ERP for itself, one ERP too (owner, 2026-09-28): the ERP's block holds the company's
+  // orders and never switches the Commerce company off; the unblock releases them.
+  test("Buying organization and credit, ERP → Commerce: a block holds the company's open order and leaves the company active; the unblock releases it; a credit limit reaches the company, ledgered, and comes back on reset", async () => {
     await seeded();
     await box.erp.call("partners", {
       body: { blocking: "all", creditLimit: 250 },
@@ -490,10 +492,18 @@ describe("Pair in a box: the entity matrix, both directions", () => {
       path: "/C7",
     });
     await deliverErpEvents();
-    expect(box.commerce.db.companies.get(7).status).toBe(3);
-    expect(box.commerce.db.credits.get(7).credit_limit).toBe(250);
-    await detach({}, { commerce: commerceLib, erp, ledger });
     expect(box.commerce.db.companies.get(7).status).toBe(1);
+    expect(box.commerce.db.orders.get(55).state).toBe("holded");
+    expect(box.commerce.db.credits.get(7).credit_limit).toBe(250);
+    await box.erp.call("partners", {
+      body: { blocking: "open" },
+      method: "PATCH",
+      path: "/C7",
+    });
+    await deliverErpEvents();
+    expect(box.commerce.db.orders.get(55).state).not.toBe("holded");
+    expect(box.commerce.db.companies.get(7).status).toBe(1);
+    await detach({}, { commerce: commerceLib, erp, ledger });
     expect(box.commerce.db.credits.get(7).credit_limit).toBe(1000);
   });
 });

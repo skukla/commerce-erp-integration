@@ -4,7 +4,9 @@
  * that ERP's adapter.
  *
  * With one ERP in the list the part is the whole order, sent exactly as before routing
- * existed (pass-through). With several (slice B1):
+ * existed (pass-through), except that a company's order is recorded as that ERP's one part and
+ * waits while that ERP blocks the company: each ERP for itself, with one ERP too (owner,
+ * 2026-09-28). With several (slice B1):
  * - a line's owner is the ERP whose ownership setting owns its product, read through the one
  *   ownership rule the integration has (lib/structure.js). An ERP's ownership defaults to
  *   "the products whose erp_owner attribute holds this ERP's id": the attribute a product
@@ -23,6 +25,7 @@ import {
   readOrderParts,
   writeOrderParts,
 } from "#lib/order-parts";
+import { applyCombinedStatus } from "#router/combined-status";
 import { ownersOf } from "#router/ownership";
 
 const SERVER_UNAVAILABLE = 503;
@@ -203,15 +206,83 @@ export function routeOrder(params, order, deps, erps) {
   return routeOver(params, order, deps, listErps(params));
 }
 
+/** The whole order as its one ERP's part, for the parts record. */
+function wholePart(order) {
+  const lines = linesOf(order);
+  return {
+    itemIds: lines
+      .map((l) => Number(l.item_id))
+      .filter((id) => Number.isFinite(id)),
+    skus: lines.filter((l) => !l.parent_item_id && l.sku).map((l) => l.sku),
+  };
+}
+
+/**
+ * One ERP: today's send, plus the bookkeeping a block needs for a company's order. A guest's
+ * order touches no state. While the ERP blocks the company the order waits (answered as done
+ * for the event: the unblock sends it, a redelivery could not).
+ */
+function routeToOne(params, order, deps, entry) {
+  // The adapter first: an ERP of an unknown kind fails at once, before anything is read.
+  const adapter = adapterFor(entry);
+  const send = () =>
+    adapter.sendPart(
+      params,
+      { erp: entry, lines: linesOf(order), order },
+      deps,
+    );
+  return routeCompanyOrder(params, order, deps, entry, send);
+}
+
+async function routeCompanyOrder(params, order, deps, entry, send) {
+  const companyId = await companyOfOrder(params, order, deps);
+  if (!companyId) {
+    return send();
+  }
+  if (order.entity_id !== undefined) {
+    await noteCompanyOrder(companyId, order.increment_id, order.entity_id);
+  }
+  const record = await readOrderParts(order.increment_id);
+  record.companyId = companyId;
+  if (await isBlocked(companyId, entry.id)) {
+    const message = `${entry.name} blocks this company; the order waits until it lifts the block.`;
+    record.parts[entry.id] = {
+      ...wholePart(order),
+      heldBy: "block",
+      message,
+      status: "held",
+    };
+    await writeOrderParts(order.increment_id, record);
+    if (order.entity_id !== undefined) {
+      // Staff see why the order waits: On Hold, with the reason in its history.
+      await applyCombinedStatus(params, order.entity_id, record);
+      await deps.addNote?.(params, order.entity_id, message);
+    }
+    return { message, outcome: "skipped", statusCode: 200 };
+  }
+  const outcome = await send();
+  record.parts[entry.id] = {
+    ...wholePart(order),
+    ...(outcome.erpNumber ? { erpNumber: outcome.erpNumber } : {}),
+    message: outcome.message,
+    status: outcome.outcome,
+  };
+  await writeOrderParts(order.increment_id, record);
+  return outcome;
+}
+
 function routeOver(params, order, deps, erps) {
   const [first] = erps;
-  if (erps.length === 1 || !order?.increment_id) {
-    // One ERP, or the save that only wrote an ERP number back: exactly today's send.
+  if (!order?.increment_id) {
+    // The save that only wrote an ERP number back: exactly today's send.
     return adapterFor(first).sendPart(
       params,
       { erp: first, lines: linesOf(order), order },
       deps,
     );
+  }
+  if (erps.length === 1) {
+    return routeToOne(params, order, deps, first);
   }
   return routeToSeveral(params, order, deps, erps);
 }

@@ -130,13 +130,15 @@ company code.
 
 ### 7. A held order (`#orders?open=0000001007`)
 
-An order that arrived over the customer's limit, or from a blocked customer, is created
-and HELD, not refused. The header says On credit hold with the reason; Confirm is not
+An order that arrived over the customer's limit is created and HELD, not refused. (An
+order from a customer the ERP blocks never reaches the ERP: it waits On Hold in Commerce, with
+the reason in its history, and is sent when the ERP opens the customer again.) The header says On credit hold with the reason; Confirm is not
 offered; Release and Reject are. Release lets it proceed; Reject cancels it with the
 reason Credit rejected, which Commerce hears.
 
-What to say: raise exposure past the limit or block the customer, place a second order in
-the storefront, and watch it arrive held.
+What to say: raise exposure past the limit, place a second order in the storefront, and
+watch it arrive held. Or block the customer: the company stays active in Commerce, its open
+orders go On Hold, and the next order waits there until you open the customer again.
 
 ### 8. Event Journal (`#events`)
 
@@ -199,9 +201,10 @@ the warehouses the ERP knows.
 
 ### Customers → Companies → the company
 
-The credit limit follows the ERP's; Status reads Blocked when the ERP blocks the customer
-at any level (shipping, invoicing or all business: Commerce has one boolean) and Active
-again when the ERP opens it. A change made here reaches the ERP at once,
+The credit limit follows the ERP's. Status stays Active when the ERP blocks the customer:
+the company's own flag is the group's decision, made here. The ERP's block holds that ERP's
+orders of the company instead (On Hold, the reason in each order's history), and its next
+orders wait; when the ERP opens the customer again they are released and sent. A change made here reaches the ERP at once,
 by the company save event. The company's admin user's website is the website whose sales organisation the
 ERP's customer is Sold-to in.
 

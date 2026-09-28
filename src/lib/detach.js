@@ -25,6 +25,9 @@ export async function detach(params, deps) {
       commerce.setCompanyCustomAttributes(params, companyId, before),
     name: (sku, before) => commerce.setProductName(params, sku, before),
     price: (sku, before) => commerce.setProductPrice(params, sku, before),
+    // Nothing writes a company status any more (an ERP's block holds its orders instead,
+    // owner 2026-09-28), but installs from before that change hold ledger entries for a
+    // status they did write. Undoing that existing data is what detach is for, so this stays.
     status: (companyId, before) =>
       commerce.setCompanyStatus(params, companyId, before),
     stock: (sku, source, before) =>

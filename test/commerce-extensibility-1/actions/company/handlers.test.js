@@ -29,6 +29,7 @@ vi.mock("#lib/erp", () => ({
 
 import { setCompanyCreditLimit, setCompanyStatus } from "#lib/commerce";
 import { erp } from "#lib/erp";
+import { isBlocked, resetErpBlocksClient } from "#lib/erp-blocks";
 import { pairCustomer, resetKeyMapClient } from "#lib/key-map";
 import { recordCompanyWrite } from "#lib/ledger";
 import * as creditUpdated from "#src/company/external/credit-updated/index";
@@ -81,15 +82,21 @@ describe("Given the ERP company events", () => {
       field: "creditLimit",
     });
   });
-  test("Then a block event sets the paired company to status 3 and ledgers the previous status", async () => {
-    await statusUpdated.main({ data: { blocked: true, partnerId: "C000103" } });
-    expect(setCompanyStatus).toHaveBeenCalledWith(expect.anything(), "21", 3);
-    expect(recordCompanyWrite).toHaveBeenCalledWith({
-      after: 3,
-      before: 1,
-      companyId: "21",
-      field: "status",
+  // Each ERP for itself, one ERP too (owner, 2026-09-28): the block is recorded against that
+  // ERP and holds its orders; the Commerce company's own flag is never written.
+  test("Then a block event with one ERP records the ERP's block on the paired company and never switches the company off", async () => {
+    const store = new Map();
+    resetErpBlocksClient({
+      get: async (k) => (store.has(k) ? { value: store.get(k) } : undefined),
+      put: async (k, v) => store.set(k, v),
     });
+    const res = await statusUpdated.main({
+      data: { blocked: true, partnerId: "C000103" },
+    });
+    expect(res.statusCode).toBe(200);
+    expect(await isBlocked("21", "erp")).toBe(true);
+    expect(setCompanyStatus).not.toHaveBeenCalled();
+    expect(recordCompanyWrite).not.toHaveBeenCalled();
   });
   test("Then a customer the key map does not pair is no Commerce company: skipped, even if the event names a Commerce id", async () => {
     const res = await creditUpdated.main({

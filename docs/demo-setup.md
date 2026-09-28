@@ -116,7 +116,7 @@ walk: the ERP screen by screen, Commerce from the other side, and how each relat
 ## Putting it all back
 
 - **Reset records** on the ERP's card in Demo Builder undoes every write the integration made
-  onto Commerce (credit limits and blocks it changed, product names, prices and stock the ERP
+  onto Commerce (credit limits it changed, product names, prices and stock the ERP
   decided, the ERP number on every order), wipes the ERP and fills it from Commerce again.
 - **Detach**, or removing the integration in Demo Builder, does the first half and leaves
   the ERP alone.
