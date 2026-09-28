@@ -1,10 +1,11 @@
 import { companyLookup, productLookup } from "#lib/lookup";
+import { orderPartsPage } from "#lib/order-parts-view";
 
 import { BODEA_SCOPE_TREE } from "../test/web/fixtures/bodea-scope-tree.js";
 
 /*
  * Stand-in answers for the Admin page's actions, in the shapes the actions really return
- * (erp/status, erp/settings, erp/history — see each action). The preview renders the real
+ * (erp/status, erp/settings, erp/history, erp/order-parts — see each action). The preview renders the real
  * components against these, so the layout can be looked at without a Commerce Admin, a
  * sign-in, or a deployed app.
  */
@@ -288,6 +289,60 @@ const ERPS = [
   },
 ];
 
+/*
+ * One routed order's parts, as the router records them (lib/order-parts.js): Northwind has its
+ * part, with a setup warning from the variant check; Contoso holds its part on a credit block.
+ * The page's rows are made by the real erp/order-parts view (lib/order-parts-view.js).
+ */
+const ORDER_PARTS = {
+  companyId: "7",
+  conflicts: [],
+  parts: {
+    contoso: {
+      heldBy: "block",
+      itemIds: [3],
+      message:
+        "Contoso ERP blocks this company; its lines wait until it lifts the block.",
+      skus: ["SIGN-A2"],
+      status: "held",
+    },
+    erp: {
+      erpNumber: "NORT-0000001042",
+      itemIds: [1, 2],
+      message: "Order sent to Northwind ERP as NORT-0000001042.",
+      skus: ["CAB-RED"],
+      status: "sent",
+      warnings: [
+        "CAB's variants belong to different ERPs (erp: CAB-RED; contoso: CAB-BLUE); fix the setup.",
+      ],
+    },
+  },
+  unrouted: [],
+};
+
+function orderParts() {
+  return Promise.resolve({
+    incrementId: "000000042",
+    orderId: 55,
+    ...orderPartsPage({ erps: ERPS, record: ORDER_PARTS }),
+  });
+}
+
+function resendPart(_incrementId, erpId) {
+  const { heldBy: _heldBy, ...part } = ORDER_PARTS.parts[erpId];
+  ORDER_PARTS.parts[erpId] = {
+    ...part,
+    erpNumber: "CON-0000000311",
+    message: "Order sent to Contoso ERP as CON-0000000311.",
+    status: "sent",
+  };
+  return Promise.resolve({
+    message: ORDER_PARTS.parts[erpId].message,
+    outcome: "sent",
+    part: ORDER_PARTS.parts[erpId],
+  });
+}
+
 function saveErpSettings(id, website, changes) {
   const entry = ERPS.find((candidate) => candidate.id === id);
   const settings = { ...(entry.settings ?? {}) };
@@ -308,7 +363,8 @@ function saveErpSettings(id, website, changes) {
   return Promise.resolve({ entry: { ...entry } });
 }
 
-export function fakeApi() {
+/** `oneErp`: the status as one ERP answers it, with no list (the header as before). */
+export function fakeApi({ oneErp = false } = {}) {
   return {
     erps: () => Promise.resolve({ entries: ERPS, stored: true }),
     history: (failedOnly) =>
@@ -320,6 +376,8 @@ export function fakeApi() {
           : HISTORY,
       }),
     lookup: (query) => Promise.resolve(fakeLookup(query)),
+    orderParts,
+    resendPart,
     retry: () => Promise.resolve({ outcome: "sent" }),
     saveErpSettings,
     saveSettings: (scope, changes) => {
@@ -363,6 +421,20 @@ export function fakeApi() {
             ],
           },
         },
+        // With several ERPs, erp/status lists each with whether it answers.
+        ...(oneErp
+          ? {}
+          : {
+              erps: [
+                { id: "erp", name: "Northwind ERP", reachable: true },
+                {
+                  error: "fetch failed",
+                  id: "contoso",
+                  name: "Contoso ERP",
+                  reachable: false,
+                },
+              ],
+            }),
         ledger: { entries: 2 },
       }),
     trace: () => Promise.resolve({ trace: TRACE }),

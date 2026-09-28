@@ -1,13 +1,14 @@
 /*
  * The Admin page as it looks, rendered against stand-in data (fake-api.js): `?section=`
  * opens a section (overview, activity, settings), `?loading` shows what the page shows until
- * everything has arrived, `?crash` the crash screen.
+ * everything has arrived, `?crash` the crash screen, `?one-erp` the header with one ERP, and
+ * `?page=order-parts` the order view's "ERP parts" page.
  */
 import "@react-spectrum/s2/page.css";
 import "../src/commerce-backend-ui-2/web-src/index.css";
 
 import { Provider } from "@react-spectrum/s2";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
 
 import { CrashBoundary } from "../src/commerce-backend-ui-2/web-src/src/components/crash-boundary.jsx";
@@ -15,14 +16,35 @@ import {
   IntegrationPage,
   PageLoading,
 } from "../src/commerce-backend-ui-2/web-src/src/components/integration-page.jsx";
+import { OrderParts } from "../src/commerce-backend-ui-2/web-src/src/components/order-parts.jsx";
 import { fakeApi } from "./fake-api.js";
 
-const api = fakeApi();
 const asked = new URLSearchParams(window.location.search);
+const api = fakeApi({ oneErp: asked.has("one-erp") });
 
 // `?crash` shows the crash screen the Admin page falls back to.
 function Crash() {
   throw new Error("A crash asked for by ?crash");
+}
+
+/** The order view's "ERP parts" page, against one stand-in routed order. */
+function PartsPreview() {
+  const [error, setError] = useState(null);
+  const [page, setPage] = useState(null);
+  const load = useCallback(() => api.orderParts().then(setPage), []);
+  useEffect(() => {
+    load();
+  }, [load]);
+  return (
+    <Provider background="base" colorScheme="light">
+      {error && <p>{error}</p>}
+      {page ? (
+        <OrderParts api={api} onError={setError} onReload={load} page={page} />
+      ) : (
+        <PageLoading />
+      )}
+    </Provider>
+  );
 }
 
 function Preview() {
@@ -60,5 +82,9 @@ function Preview() {
 }
 
 createRoot(document.getElementById("root")).render(
-  <CrashBoundary>{asked.has("crash") ? <Crash /> : <Preview />}</CrashBoundary>,
+  <CrashBoundary>
+    {asked.has("crash") && <Crash />}
+    {!asked.has("crash") &&
+      (asked.get("page") === "order-parts" ? <PartsPreview /> : <Preview />)}
+  </CrashBoundary>,
 );

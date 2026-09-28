@@ -1,9 +1,10 @@
 /*
  * The integration's page, as it looks once everything it shows has loaded (MainPage waits
  * for that, so nothing half-drawn is ever on screen). Commerce's own header already names the
- * ERP, so the page opens with whether the ERP answers, then a short list of sections: what
- * the integration holds, what has crossed, and what a merchant chooses. Everything arrives as
- * props, so the page renders against stand-in data in the local preview too.
+ * ERP, so the page opens with whether the ERP answers (with several ERPs, each by name), then
+ * a short list of sections: what the integration holds, what has crossed, and what a merchant
+ * chooses. Everything arrives as props, so the page renders against stand-in data in the
+ * local preview too.
  */
 import {
   Heading,
@@ -49,6 +50,45 @@ function NavItem({ current, onSelect, section }) {
   );
 }
 
+/** One ERP: whether it answers, and what crosses. Unchanged since before several ERPs. */
+function OneErpStatus({ erp, erpName }) {
+  return (
+    <div className="erp-status">
+      <StatusLight variant={erp.reachable ? "positive" : "negative"}>
+        {erp.reachable
+          ? `Connected to ${erpName}`
+          : `${erpName} does not answer`}
+      </StatusLight>
+      <Text>
+        Orders go to {erpName}; its prices, stock, credit and order progress
+        come back to Commerce as they change.
+      </Text>
+    </div>
+  );
+}
+
+/** Several ERPs (erp/status `erps`): each by name, with whether it answers. */
+function SeveralErpsStatus({ erps }) {
+  return (
+    <div className="erp-status">
+      {erps.map((entry) => (
+        <StatusLight
+          key={entry.id}
+          variant={entry.reachable ? "positive" : "negative"}>
+          {entry.reachable
+            ? `Connected to ${entry.name}`
+            : `${entry.name} does not answer`}
+        </StatusLight>
+      ))}
+      <Text>
+        Each order line goes to the ERP that owns its product; each ERP's
+        prices, stock, credit and order progress come back to Commerce as they
+        change.
+      </Text>
+    </div>
+  );
+}
+
 export function IntegrationPage({
   api,
   error,
@@ -64,17 +104,11 @@ export function IntegrationPage({
   const erpName = erp.displayName || "the ERP";
   return (
     <div className="erp-page">
-      <div className="erp-status">
-        <StatusLight variant={erp.reachable ? "positive" : "negative"}>
-          {erp.reachable
-            ? `Connected to ${erpName}`
-            : `${erpName} does not answer`}
-        </StatusLight>
-        <Text>
-          Orders go to {erpName}; its prices, stock, credit and order progress
-          come back to Commerce as they change.
-        </Text>
-      </div>
+      {(status?.erps?.length ?? 0) > 1 ? (
+        <SeveralErpsStatus erps={status.erps} />
+      ) : (
+        <OneErpStatus erp={erp} erpName={erpName} />
+      )}
       {error && (
         <InlineAlert variant="negative">
           <Heading>Something went wrong</Heading>

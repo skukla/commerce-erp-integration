@@ -121,3 +121,39 @@ erps:
   annotations:
     require-adobe-auth: true
     final: true
+# The order view's "ERP parts" page: an order's parts, read from the router's record.
+order-parts:
+  function: ./order-parts/index.js
+  web: 'yes'
+  runtime: nodejs:24
+  inputs:
+    LOG_LEVEL: $LOG_LEVEL
+    AIO_COMMERCE_AUTH_IMS_CLIENT_ID: $AIO_COMMERCE_AUTH_IMS_CLIENT_ID
+    AIO_COMMERCE_AUTH_IMS_CLIENT_SECRETS: $AIO_COMMERCE_AUTH_IMS_CLIENT_SECRETS
+    AIO_COMMERCE_AUTH_IMS_TECHNICAL_ACCOUNT_ID: $AIO_COMMERCE_AUTH_IMS_TECHNICAL_ACCOUNT_ID
+    AIO_COMMERCE_AUTH_IMS_TECHNICAL_ACCOUNT_EMAIL: $AIO_COMMERCE_AUTH_IMS_TECHNICAL_ACCOUNT_EMAIL
+    AIO_COMMERCE_AUTH_IMS_ORG_ID: $AIO_COMMERCE_AUTH_IMS_ORG_ID
+    AIO_COMMERCE_AUTH_IMS_SCOPES: $AIO_COMMERCE_AUTH_IMS_SCOPES
+    ERP_BASE_URL: $ERP_BASE_URL
+    ERP_DISPLAY_NAME: $ERP_DISPLAY_NAME
+  annotations:
+    require-adobe-auth: true
+    final: true
+# The parts page's Re-send: one held or failed part sent again, only that part.
+resend-part:
+  function: ./resend-part/index.js
+  web: 'yes'
+  runtime: nodejs:24
+  inputs:
+    LOG_LEVEL: $LOG_LEVEL
+    AIO_COMMERCE_AUTH_IMS_CLIENT_ID: $AIO_COMMERCE_AUTH_IMS_CLIENT_ID
+    AIO_COMMERCE_AUTH_IMS_CLIENT_SECRETS: $AIO_COMMERCE_AUTH_IMS_CLIENT_SECRETS
+    AIO_COMMERCE_AUTH_IMS_TECHNICAL_ACCOUNT_ID: $AIO_COMMERCE_AUTH_IMS_TECHNICAL_ACCOUNT_ID
+    AIO_COMMERCE_AUTH_IMS_TECHNICAL_ACCOUNT_EMAIL: $AIO_COMMERCE_AUTH_IMS_TECHNICAL_ACCOUNT_EMAIL
+    AIO_COMMERCE_AUTH_IMS_ORG_ID: $AIO_COMMERCE_AUTH_IMS_ORG_ID
+    AIO_COMMERCE_AUTH_IMS_SCOPES: $AIO_COMMERCE_AUTH_IMS_SCOPES
+    ERP_BASE_URL: $ERP_BASE_URL
+    ERP_DISPLAY_NAME: $ERP_DISPLAY_NAME
+  annotations:
+    require-adobe-auth: true
+    final: true

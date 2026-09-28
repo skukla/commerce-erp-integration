@@ -33,7 +33,8 @@ import { ownersOf } from "#router/ownership";
 const SERVER_UNAVAILABLE = 503;
 const BAD_REQUEST = 400;
 
-function linesOf(order) {
+/** An order's lines, whether they come as a list or keyed by id. */
+export function linesOf(order) {
   const items = order?.items ?? [];
   return Array.isArray(items) ? items : Object.values(items);
 }

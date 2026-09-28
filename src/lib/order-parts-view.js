@@ -62,3 +62,41 @@ export function partRows(record, erps) {
     warnings: part.warnings ?? [],
   }));
 }
+
+/**
+ * With one ERP and no parts record (a guest's order is sent whole and keeps none), the order
+ * is its ERP's one part, read from the order's history record (lib/history.js). Staff send it
+ * again with the Admin screen's Retry, so the row says it is the whole order.
+ */
+function wholeOrderRecord(history, erp) {
+  return {
+    parts: {
+      [erp.id]: {
+        ...(history.erpNumber ? { erpNumber: history.erpNumber } : {}),
+        message: history.message,
+        status: history.outcome,
+      },
+    },
+  };
+}
+
+/**
+ * Everything the order's parts page shows.
+ * @param {{ record?: object, history?: object, erps: object[] }} sources the order's parts
+ *   record, its history record (`order.<increment id>`) and the ERP list
+ * @returns {{ rows: object[], summary: string|undefined, unrouted: string[], conflicts: object[] }}
+ */
+export function orderPartsPage({ record, history, erps }) {
+  const routed = Object.keys(record?.parts ?? {}).length > 0;
+  const whole = !routed && history && erps.length === 1;
+  const shown = whole ? wholeOrderRecord(history, erps[0]) : record;
+  const rows = partRows(shown, erps).map((row) =>
+    whole ? { ...row, wholeOrder: true } : row,
+  );
+  return {
+    conflicts: record?.conflicts ?? [],
+    rows,
+    summary: partsSummary(shown),
+    unrouted: record?.unrouted ?? [],
+  };
+}

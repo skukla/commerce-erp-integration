@@ -46,6 +46,12 @@ export function makeApi(ims, origin = window.location.origin) {
     // The product grid's stock move (erp/move-stock): the sources, then the move.
     moveStock: (body) => call("move-stock", { body, method: "POST" }),
     moveStockSources: () => call("move-stock"),
+    // The order view's "ERP parts" page: one order's parts by its Commerce order id, and
+    // Re-send of one held or failed part (erp/order-parts, erp/resend-part).
+    orderParts: (orderId) =>
+      call(`order-parts?orderId=${encodeURIComponent(orderId)}`),
+    resendPart: (incrementId, erpId) =>
+      call("resend-part", { body: { erpId, incrementId }, method: "POST" }),
     // `{ incrementId }` for an order, `{ eventId }` for an ERP event (history-view.js).
     retry: (target) => call("history", { body: target, method: "POST" }),
     saveErpSettings: (id, website, values) =>

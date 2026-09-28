@@ -1,0 +1,79 @@
+/*
+ * erp/status with several ERPs (slice B7): the Admin page header names every listed ERP with
+ * whether it answers. Each ERP is asked at its own address. With one ERP the answer is
+ * unchanged: no list.
+ */
+vi.mock("#lib/erp", () => ({
+  erp: { health: vi.fn() },
+}));
+vi.mock("#lib/ledger", () => ({
+  readLedger: vi.fn(async () => []),
+}));
+vi.mock("#lib/erps", () => ({
+  loadErps: vi.fn(),
+}));
+
+import { erp } from "#lib/erp";
+import { loadErps } from "#lib/erps";
+import * as status from "#src/erp/status/index";
+
+const TWO = [
+  {
+    adapter: "demo-erp",
+    connection: { baseUrl: "https://a.example" },
+    id: "brand-a",
+    name: "Brand A ERP",
+  },
+  {
+    adapter: "demo-erp",
+    connection: { baseUrl: "https://b.example" },
+    id: "brand-b",
+    name: "Brand B ERP",
+  },
+];
+
+afterEach(() => vi.clearAllMocks());
+
+describe("Given two ERPs in the list", () => {
+  test("Then each is asked at its own address, and the answer lists each with whether it answers", async () => {
+    loadErps.mockResolvedValue(TWO);
+    erp.health.mockImplementation((params) =>
+      params.ERP_BASE_URL === "https://a.example"
+        ? Promise.resolve({ data: { ok: true }, ok: true, status: 200 })
+        : Promise.reject(new Error("fetch failed")),
+    );
+    const res = await status.main({ ERP_BASE_URL: "https://a.example" });
+
+    expect(res.body.erps).toStrictEqual([
+      { id: "brand-a", name: "Brand A ERP", reachable: true },
+      {
+        error: "fetch failed",
+        id: "brand-b",
+        name: "Brand B ERP",
+        reachable: false,
+      },
+    ]);
+    expect(erp.health.mock.calls.map(([p]) => p.ERP_BASE_URL)).toEqual(
+      expect.arrayContaining(["https://a.example", "https://b.example"]),
+    );
+  });
+
+  test("Then an ERP list that cannot be read still answers the deployed ERP's health, with no list", async () => {
+    loadErps.mockRejectedValue(new Error("State is down"));
+    erp.health.mockResolvedValue({ data: { ok: true }, ok: true, status: 200 });
+    const res = await status.main({});
+    expect(res.statusCode).toBe(200);
+    expect(res.body.erp.reachable).toBe(true);
+    expect(res.body.erps).toBeUndefined();
+  });
+});
+
+describe("Given one ERP in the list", () => {
+  test("Then the answer has no list, as before", async () => {
+    loadErps.mockResolvedValue([TWO[0]]);
+    erp.health.mockResolvedValue({ data: { ok: true }, ok: true, status: 200 });
+    const res = await status.main({});
+    expect(res.body.erps).toBeUndefined();
+    expect(erp.health).toHaveBeenCalledTimes(1);
+  });
+});

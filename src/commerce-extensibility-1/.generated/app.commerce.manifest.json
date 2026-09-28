@@ -188,6 +188,9 @@
               },
               {
                 "name": "sku"
+              },
+              {
+                "name": "erp_owner"
               }
             ],
             "label": "Product Deleted",

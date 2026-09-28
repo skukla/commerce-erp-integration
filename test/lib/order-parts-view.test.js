@@ -3,7 +3,7 @@
  * Orders grid, and the rows of the order's parts page. Read from the router's parts record
  * (lib/order-parts.js record shape).
  */
-import { partRows, partsSummary } from "#lib/order-parts-view";
+import { orderPartsPage, partRows, partsSummary } from "#lib/order-parts-view";
 
 const ERPS = [
   { id: "brand-a", name: "Brand A ERP" },
@@ -126,5 +126,52 @@ describe("Given an order's parts record, the parts page's rows", () => {
   test("Then a part whose ERP left the list keeps its id as its name", () => {
     const [row] = partRows({ parts: { gone: { status: "sent" } } }, ERPS);
     expect(row.erpName).toBe("gone");
+  });
+});
+
+describe("Given an order's page of parts", () => {
+  test("Then a routed order shows its parts, its summary and the lines that reached no ERP", () => {
+    const page = orderPartsPage({
+      erps: ERPS,
+      record: {
+        conflicts: [{ erps: ["brand-a", "brand-b"], sku: "X" }],
+        parts: { "brand-a": { status: "sent" } },
+        unrouted: ["Y"],
+      },
+    });
+    expect(page).toMatchObject({
+      conflicts: [{ erps: ["brand-a", "brand-b"], sku: "X" }],
+      summary: "1 of 1 sent, 1 line with no ERP, 1 line claimed twice",
+      unrouted: ["Y"],
+    });
+    expect(page.rows.map((r) => r.erpId)).toEqual(["brand-a"]);
+  });
+
+  test("Then with one ERP an order the router kept no parts for is one part, from the order's history", () => {
+    const page = orderPartsPage({
+      erps: [{ id: "erp", name: "Northwind ERP" }],
+      history: { erpNumber: "N-9", message: "ERP down", outcome: "failed" },
+      record: { parts: {} },
+    });
+    expect(page.rows).toStrictEqual([
+      {
+        canResend: true,
+        erpId: "erp",
+        erpName: "Northwind ERP",
+        erpNumber: "N-9",
+        skus: [],
+        status: "failed",
+        waitsFor: "ERP down",
+        warnings: [],
+        wholeOrder: true,
+      },
+    ]);
+    expect(page.summary).toBe("1 failed");
+  });
+
+  test("Then an order no ERP has seen has no parts", () => {
+    expect(
+      orderPartsPage({ erps: ERPS, record: { parts: {} } }).rows,
+    ).toStrictEqual([]);
   });
 });

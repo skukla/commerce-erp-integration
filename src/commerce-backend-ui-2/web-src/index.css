@@ -94,6 +94,17 @@ main {
   border-bottom: 1px solid var(--s2-color-gray-300, #ddd);
 }
 
+/* The order view's ERP parts page: the summary, then one row per ERP's part. */
+.erp-order-parts {
+  display: grid;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+.erp-part-warning {
+  margin-top: 4px;
+  color: var(--s2-color-notice-content, #8a5a00);
+}
+
 /* Follow an order: the search line, then one line per step, oldest first. */
 .erp-trace-controls {
   display: flex;

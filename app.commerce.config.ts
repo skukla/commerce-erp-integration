@@ -276,7 +276,9 @@ export default defineConfig({
           {
             description:
               "Fires after a product is deleted in Commerce, so the ERP copy goes too instead of lingering until the next reset",
-            fields: [field("id"), field("sku")],
+            // erp_owner: with several ERPs the delete goes only to the owning ERP, and the
+            // product is gone from Commerce by then, so the event has to carry its owner.
+            fields: [field("id"), field("sku"), field("erp_owner")],
             label: "Product Deleted",
             name: "observer.catalog_product_delete_commit_after",
             priority: true,
