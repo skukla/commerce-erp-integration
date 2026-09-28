@@ -11,82 +11,24 @@ const box = await vi.hoisted(async () => {
   const { createFakeCommerce } = await import("./fake-commerce.js");
   const { startErp } = await import("./erp-in-process.js");
   const { fakeState } = await import("./state.js");
+  const { erpClientModule, settingsModule } = await import("./box-modules.js");
   const commerce = createFakeCommerce();
   const erpBox = startErp();
   const state = fakeState();
-  return { commerce, erp: erpBox, state };
+  return {
+    commerce,
+    erp: erpBox,
+    erpClient: erpClientModule(erpBox.call),
+    settings: settingsModule(),
+    state,
+  };
 });
 
 vi.mock("@adobe/aio-lib-state", () => ({
   default: { init: async () => box.state },
 }));
-vi.mock("#lib/settings", () => ({
-  SETTING_DEFAULTS: {
-    orders_confirm_status: "",
-    orders_hold_offline: true,
-    orders_send: true,
-  },
-  settingsFor: async () => ({
-    orders_confirm_status: "",
-    orders_hold_offline: true,
-    orders_send: true,
-  }),
-  websiteSettings: async () => ({ structure_sales_org: "1000" }),
-}));
-vi.mock("#lib/erp", () => {
-  const { call } = box.erp;
-  const post = (action, path, body) => (params) =>
-    call(action, { body, method: "POST", params, path });
-  return {
-    erp: {
-      createOrder: (params, order) =>
-        call("orders", { body: order, method: "POST", params }),
-      deleteProduct: (params, sku, body) =>
-        call("products", {
-          body,
-          method: "DELETE",
-          params,
-          path: `/${encodeURIComponent(sku)}`,
-        }),
-      fromCommerce: {
-        cancel: (params, number, body) =>
-          post("orders", `/${number}/cancel`, body)(params),
-        hold: (params, number, body) =>
-          post("orders", `/${number}/credit/hold`, body)(params),
-        invoice: (params, number, body) =>
-          post("orders", `/${number}/commerce-invoice`, body)(params),
-        release: (params, number, body) =>
-          post("orders", `/${number}/credit/release`, body)(params),
-        ship: (params, number, body) =>
-          post("orders", `/${number}/commerce-shipment`, body)(params),
-      },
-      health: (params) => call("health", { params }),
-      importRecords: (params, body) =>
-        call("admin", { body, method: "POST", params, path: "/import" }),
-      inForce: (params, partnerId) =>
-        call("contracts", {
-          params,
-          path: partnerId
-            ? `/in-force?partnerId=${encodeURIComponent(partnerId)}`
-            : "/in-force",
-        }),
-      listOrders: (params) => call("orders", { params }),
-      order: (params, number) => call("orders", { params, path: `/${number}` }),
-      ordersByReference: (params, reference) =>
-        call("orders", {
-          params,
-          path: `?reference=${encodeURIComponent(reference)}`,
-        }),
-      product: (params, sku) =>
-        call("products", { params, path: `/${encodeURIComponent(sku)}` }),
-      settings: (params) => call("settings", { params }),
-    },
-    erpAuthHeaders: async () => ({}),
-    erpBaseUrl: () => "in-process",
-    erpRequest: async () => ({ data: {}, ok: false, status: 500 }),
-    resetErpTokenCache: () => undefined,
-  };
-});
+vi.mock("#lib/settings", () => box.settings);
+vi.mock("#lib/erp", () => box.erpClient);
 vi.mock("#lib/commerce", () => box.commerce.lib);
 vi.mock("#lib/commerce-before", () => box.commerce.before);
 vi.mock("#lib/commerce-tier-prices", () => box.commerce.tierPrices);
