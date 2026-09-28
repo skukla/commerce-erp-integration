@@ -10,6 +10,30 @@ import { recordOrderOutcome } from "#lib/history";
 import { orderSyncDeps } from "#lib/order-deps";
 import { sendOrderToErp } from "#lib/order-sync";
 
+const SOURCE_FIELD = /source|nominat/i;
+
+/**
+ * What the order event carries on its lines, in field names only, plus any field about an
+ * inventory source (a source code is not personal): logged to learn whether the per-line
+ * nominated source reaches the event (sandbox check, 2026-09-28).
+ */
+function orderLineShape(order) {
+  const raw = order?.items ?? [];
+  const items = Array.isArray(raw) ? raw : Object.values(raw);
+  const first = items[0] ?? {};
+  const sourceFields = Object.fromEntries(
+    Object.entries(first).filter(([key]) => SOURCE_FIELD.test(key)),
+  );
+  return {
+    fields: Object.keys(first).sort(),
+    lines: items.length,
+    orderFields: Object.keys(order ?? {}).filter((key) =>
+      SOURCE_FIELD.test(key),
+    ),
+    sourceFields,
+  };
+}
+
 /**
  * observer.sales_order_save_commit_after: a new Commerce order goes to the ERP and the
  * ERP's number comes back onto it (lib/order-sync.js). A 503 answer asks I/O Events to
@@ -21,6 +45,7 @@ async function main(params) {
   });
   try {
     const order = params.data?.value ?? params.data;
+    logger.info(`order event lines: ${JSON.stringify(orderLineShape(order))}`);
     const result = await sendOrderToErp(params, order, orderSyncDeps(logger));
     logger.info(result.message);
     // For the Commerce Admin screen's history and its Retry (lib/history.js).
