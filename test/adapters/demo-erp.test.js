@@ -9,7 +9,7 @@ describe("Given a message from the demo ERP", () => {
     ["invoice", {}, "invoiced"],
     ["shipment", {}, "shipped"],
     ["order-status", { status: "confirmed" }, "confirmed"],
-    ["order-status", { status: "cancelled" }, "cancelled"],
+    ["order-status", { status: "canceled" }, "cancelled"],
   ])("Then %s %j reads as %s", (type, data, outcome) => {
     const read = readOutcome({
       data: { erpNumber: "0000001003", ...data },

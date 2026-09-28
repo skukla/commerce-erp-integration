@@ -366,7 +366,7 @@ describe("Pair in a box: the entity matrix, both directions", () => {
     expect(
       (await orderChanged.main(box.commerce.events.orderSaved(55))).statusCode,
     ).toBe(200);
-    expect((await erpOrder(number)).status).toBe("cancelled");
+    expect((await erpOrder(number)).status).toBe("canceled");
     expect(await box.erp.pendingEvents()).toEqual([]);
     expect(writesOf("cancel")).toHaveLength(1);
   });

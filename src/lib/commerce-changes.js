@@ -237,7 +237,7 @@ export async function changeOnErpOrder(params, order, own, deps) {
   const label = `Commerce order ${order.increment_id ?? own.number}`;
   const origin = originOf(COMMERCE_EVENTS.orderSaved, params);
   if (order.state === CANCELED) {
-    if (own.order.header === "cancelled") {
+    if (own.order.header === "canceled") {
       return answer(
         "skipped",
         OK,
@@ -246,9 +246,9 @@ export async function changeOnErpOrder(params, order, own, deps) {
     }
     const res = await deps.erp.fromCommerce.cancel(params, own.number, {
       origin,
-      // A reason code from the ERP contract's list (demo-erp lib/orders.js), not words: it
-      // keeps the contract's spelling; the ERP shows it as "Canceled in Commerce".
-      reason: "Cancelled in Commerce",
+      // A reason code from the ERP contract's list (demo-erp lib/orders.js), not words
+      // (contract version 10; the old "Cancelled in Commerce" is refused on the wire).
+      reason: "Canceled in Commerce",
     });
     return fromErp(res, label, `canceled on sales order ${own.number}`);
   }

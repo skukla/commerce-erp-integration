@@ -5,6 +5,8 @@ import {
   shipmentFromCommerce,
 } from "#lib/commerce-changes";
 
+import contract from "../../contract/erp-contract.json" with { type: "json" };
+
 const ok = (data) => ({ data, ok: true, status: 200 });
 const gone = { data: {}, ok: false, status: 404 };
 const REMAIN = /2 EA remain/u;
@@ -155,7 +157,7 @@ describe("Given a change made in Commerce", () => {
     expect((await invoiceFromCommerce({}, {}, d)).outcome).toBe("dropped");
   });
 
-  test("Then a cancellation in Commerce cancels the ERP order with Commerce's reason, once", async () => {
+  test("Then a cancellation in Commerce cancels the ERP order with the contract's reason, once", async () => {
     const d = deps();
     const result = await orderChangeFromCommerce(
       {},
@@ -169,9 +171,12 @@ describe("Given a change made in Commerce", () => {
     expect(result.outcome).toBe("sent");
     expect(d.erp.fromCommerce.cancel).toHaveBeenCalledWith({}, "0000001003", {
       origin: { event: "observer.sales_order_save_commit_after" },
-      reason: "Cancelled in Commerce",
+      reason: contract.order.fromCommerce.cancelReasonFromCommerce,
     });
-    d.erp.order.mockResolvedValueOnce(ok(erpOrder({ header: "cancelled" })));
+    expect(contract.order.fromCommerce.cancelReasonFromCommerce).toBe(
+      "Canceled in Commerce",
+    );
+    d.erp.order.mockResolvedValueOnce(ok(erpOrder({ header: "canceled" })));
     const again = await orderChangeFromCommerce(
       {},
       { ext_order_id: "0000001003", state: "canceled" },

@@ -85,7 +85,7 @@ describe("Given an order two ERPs share", () => {
         event: "observer.sales_order_save_commit_after",
         eventId: "evt-1",
       },
-      reason: "Cancelled in Commerce",
+      reason: "Canceled in Commerce",
     });
   });
 

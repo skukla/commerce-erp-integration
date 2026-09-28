@@ -50,7 +50,7 @@ const OUTCOMES = Object.freeze({
       : ["sent", "credit hold released in the ERP"],
   invoice: () => ["invoiced", "invoiced in the ERP"],
   "order-status": (data) =>
-    data.status === "cancelled"
+    data.status === "canceled"
       ? ["cancelled", "canceled in the ERP"]
       : [
           String(data.status || "sent"),
