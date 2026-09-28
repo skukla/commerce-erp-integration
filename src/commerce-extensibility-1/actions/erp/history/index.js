@@ -7,15 +7,18 @@ import {
 import AioLogger from "@adobe/aio-lib-core-logging";
 import openwhisk from "openwhisk";
 
+import { paramsForErp } from "#adapters/contract";
 import { getOrderByIncrementId } from "#lib/commerce";
 import { erp } from "#lib/erp";
 import { HANDLER_ACTIONS, readErpEvent } from "#lib/erp-event-history";
+import { loadErps } from "#lib/erps";
 import { readHistory, recordOrderOutcome } from "#lib/history";
 import { orderSyncDeps } from "#lib/order-deps";
 import { retryOrderToErp } from "#lib/order-sync";
 import { buildOrderTrace } from "#lib/order-trace";
 import { splitExtOrderId } from "#lib/structure";
 import { readPayload } from "#lib/webhook";
+import { orderHolders } from "#router/order-holders";
 
 /** Order numbers are letters, digits and dashes; anything else never reaches Commerce. */
 const ORDER_NUMBER = /^[A-Za-z0-9-]{1,50}$/u;
@@ -117,18 +120,16 @@ async function retryErpEvent(eventId, logger) {
  * One order as all three sides know it: Commerce's own order, this integration's record of
  * what crossed, and — when the order reached it — the ERP's sales order with its status
  * history. An ERP that cannot be reached, or never got the order, simply contributes
- * nothing: the Commerce half is still the answer to "where is my order?".
+ * nothing: the Commerce half is still the answer to "where is my order?". With several ERPs,
+ * each ERP holding the order is asked (traceAcrossErps).
  */
 async function traceOrder(params, incrementId, logger) {
-  let commerceUnavailable = false;
-  const [commerceOrder, crossings] = await Promise.all([
-    getOrderByIncrementId(params, incrementId).catch((error) => {
-      logger.warn(`trace: Commerce order ${incrementId}: ${error.message}`);
-      commerceUnavailable = true;
-      return null;
-    }),
-    readHistory({ ref: incrementId }),
-  ]);
+  const erps = await loadErps(params);
+  if (erps.length > 1) {
+    return traceAcrossErps(params, erps, incrementId, logger);
+  }
+  const { commerceOrder, commerceUnavailable, crossings } =
+    await readCommerceSide(params, incrementId, logger);
   // The Commerce field carries this pair's prefix (rule M4); the ERP is asked by number.
   // When Commerce did not answer, the ERP is asked by the order's reference instead, so a
   // slow Commerce read does not also lose the ERP half of the story.
@@ -138,10 +139,7 @@ async function traceOrder(params, incrementId, logger) {
       ? await erpNumberByReference(params, incrementId, logger)
       : undefined);
   const answered = erpNumber
-    ? await erp.order(params, erpNumber, TRACE_TIMEOUT_MS).catch((error) => {
-        logger.warn(`trace: ERP order ${erpNumber}: ${error.message}`);
-        return { ok: false };
-      })
+    ? await askForOrder(params, erpNumber, logger)
     : { ok: false };
   return buildOrderTrace({
     commerceOrder,
@@ -149,6 +147,63 @@ async function traceOrder(params, incrementId, logger) {
     crossings,
     erpName: params.ERP_DISPLAY_NAME || "the ERP",
     erpOrder: answered.ok ? answered.data : null,
+    incrementId,
+  });
+}
+
+/** Commerce's order and this integration's history of it; Commerce not answering is noted. */
+async function readCommerceSide(params, incrementId, logger) {
+  let commerceUnavailable = false;
+  const [commerceOrder, crossings] = await Promise.all([
+    getOrderByIncrementId(params, incrementId).catch((error) => {
+      logger.warn(`trace: Commerce order ${incrementId}: ${error.message}`);
+      commerceUnavailable = true;
+      return null;
+    }),
+    readHistory({ ref: incrementId }),
+  ]);
+  return { commerceOrder, commerceUnavailable, crossings };
+}
+
+/** One sales order from one ERP. Never throws. */
+function askForOrder(erpParams, erpNumber, logger) {
+  return erp.order(erpParams, erpNumber, TRACE_TIMEOUT_MS).catch((error) => {
+    logger.warn(`trace: ERP order ${erpNumber}: ${error.message}`);
+    return { ok: false };
+  });
+}
+
+/**
+ * The trace with several ERPs: each ERP holding the order (router/order-holders.js) is asked
+ * for its own sales order, at its own address with its own credential (AB-16h).
+ */
+async function traceAcrossErps(params, erps, incrementId, logger) {
+  const side = await readCommerceSide(params, incrementId, logger);
+  const holders = await orderHolders(params, erps, {
+    byReference: (erpParams) =>
+      erpNumberByReference(erpParams, incrementId, logger),
+    extOrderId: side.commerceOrder?.ext_order_id,
+    incrementId,
+    searchAll: side.commerceUnavailable,
+  });
+  const erpOrders = await Promise.all(
+    holders.map(async ({ entry, number }) => {
+      const answered = await askForOrder(
+        paramsForErp(params, entry),
+        number,
+        logger,
+      );
+      return {
+        erpName: entry.name,
+        erpOrder: answered.ok ? answered.data : null,
+        number,
+      };
+    }),
+  );
+  return buildOrderTrace({
+    ...side,
+    erpName: holders.map(({ entry }) => entry.name).join(" and ") || "the ERPs",
+    erpOrders,
     incrementId,
   });
 }

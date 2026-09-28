@@ -107,6 +107,9 @@ function erpSteps(erpOrder, erpName) {
  * @param {object[]} input.crossings - this order's history records, either direction
  * @param {string} input.erpName - what the SC calls this ERP
  * @param {object|null} input.erpOrder - the ERP's own order, or null when it never arrived
+ * @param {Array<{erpName: string, erpOrder: object|null, number: string}>} [input.erpOrders] -
+ *   with several ERPs, each ERP holding a part of the order and its sales order (null when it
+ *   did not answer); `erpOrder` is then the first that answered
  * @returns {{summary: object, steps: object[]}} the summary, and the steps oldest first
  */
 export function buildOrderTrace({
@@ -114,9 +117,12 @@ export function buildOrderTrace({
   commerceUnavailable = false,
   crossings,
   erpName,
-  erpOrder,
+  erpOrder: oneErpOrder,
+  erpOrders,
   incrementId,
 }) {
+  const sides = erpOrders ?? [{ erpName, erpOrder: oneErpOrder }];
+  const erpOrder = sides.find((side) => side.erpOrder)?.erpOrder ?? null;
   const steps = [];
   if (commerceOrder) {
     steps.push(
@@ -134,7 +140,9 @@ export function buildOrderTrace({
         : returnStep(crossing),
     );
   }
-  steps.push(...erpSteps(erpOrder, erpName));
+  for (const side of sides) {
+    steps.push(...erpSteps(side.erpOrder, side.erpName));
+  }
   steps.sort((a, b) => String(a.at).localeCompare(String(b.at)));
 
   return {
@@ -153,6 +161,16 @@ export function buildOrderTrace({
         commerceOrder?.increment_id ??
         (commerceUnavailable ? (incrementId ?? null) : null),
       reachedErp: Boolean(erpOrder),
+      ...(erpOrders ? { erps: erpOrders.map(erpSummary) } : {}),
     },
+  };
+}
+
+/** One ERP's side of a split order, for the summary. */
+function erpSummary(side) {
+  return {
+    name: side.erpName,
+    number: side.erpOrder?.number ?? side.number ?? null,
+    status: side.erpOrder?.status ?? null,
   };
 }
