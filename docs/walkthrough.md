@@ -215,7 +215,7 @@ orders wait; when the ERP opens the customer again they are released and sent. A
 by the company save event. The company's admin user's website is the website whose sales organisation the
 ERP's customer is Sold-to in.
 
-### Apps → the ERP's name → Integration: the integration's Admin page
+### Apps → the integration's name → Integration: the integration's Admin page
 
 Three sections. **Overview**: whether the ERP answers, what it holds, and one company id or
 SKU looked up as both systems hold it. **Activity**: what crossed each way (every order sent

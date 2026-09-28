@@ -50,8 +50,14 @@ function copyIdentity(): { appId: string; menuId: string } {
 }
 
 const { appId, menuId } = copyIdentity();
-/** What the Admin menu and the app are called: the ERP's name, so two ERPs read apart. */
-const erpName = process.env.ERP_DISPLAY_NAME?.trim() || "ERP integration";
+/**
+ * What the Admin menu, the page and the App Management app are called: the integration's own
+ * name, which the SC gives it in Demo Builder (INTEGRATION_DISPLAY_NAME). Not an ERP's name:
+ * one integration serves every ERP on the store, and each ERP keeps its own name wherever a
+ * value names that ERP. Read at build time, so a rename reaches Commerce on the next deploy.
+ */
+const integrationName =
+  process.env.INTEGRATION_DISPLAY_NAME?.trim() || "ERP Integration";
 
 /**
  * What this app declares to Commerce. Regenerated into
@@ -80,20 +86,21 @@ export default defineConfig({
       description:
         "Health of the ERP integration, sync log, reset and controls",
       id: menuId,
-      // Commerce heads each app's entry with the app's name (the ERP's), so the entry
-      // itself names what it opens rather than repeating the ERP.
+      // Commerce heads each app's entry with the app's name (the integration's), so the entry
+      // itself names what it opens rather than repeating that name.
       label: "Integration",
-      pageTitle: erpName,
+      pageTitle: integrationName,
     },
-    // This ERP's column on Sales > Orders: its order number and where the send stands
-    // (admin-ui/order-grid, from the integration's order history). A copy has its own column.
+    // The ERP column on Sales > Orders: the ERP's order number and where the send stands
+    // (admin-ui/order-grid, from the integration's order history). Its label names no ERP:
+    // with several ERPs each cell names its own. A copy has its own column.
     order: {
       gridColumns: {
         columns: [
           {
             align: "left",
             id: `${menuId}_order`,
-            label: erpName,
+            label: "ERP order",
             type: "string",
           },
           // Where each ERP's part of the order stands ("2 of 2 sent", "1 held"), from the
@@ -105,8 +112,9 @@ export default defineConfig({
             type: "string",
           },
         ],
-        description: `${erpName}'s order number and whether the order reached it`,
-        label: `${erpName} order`,
+        description:
+          "The ERP's order number and whether the order reached the ERP",
+        label: "ERP order",
         runtimeAction: "admin-ui/order-grid",
       },
       // The order page's button to the integration's view of that order: each ERP's part,
@@ -127,9 +135,9 @@ export default defineConfig({
       massActions: [
         {
           id: `${menuId}_move_stock`,
-          label: `Move stock between ${erpName} warehouses`,
+          label: "Move stock between ERP warehouses",
           path: "#/move-stock",
-          title: `Move stock between ${erpName} warehouses`,
+          title: "Move stock between ERP warehouses",
           type: "view",
         },
       ],
@@ -454,13 +462,13 @@ export default defineConfig({
   metadata: {
     description:
       "Adobe Commerce integration to a demo ERP: orders to the ERP with the ERP number written back, the ERP's contract prices in each company's shared catalog, and the ERP events (prices, stock, credit limits, order statuses) applied to Commerce.",
-    displayName: erpName,
+    displayName: integrationName,
     id: appId,
     // Upgrades an installed app when this version changes (lib-app 2.x): webhooks, events and
     // the Admin UI registration are brought to this config after each deploy. Bump the
     // version with every change to what this file registers, or the change never reaches
     // Commerce. "auto" runs the plan; the library marks it experimental.
     upgradeMode: "auto",
-    version: "0.9.1",
+    version: "0.9.2",
   },
 });

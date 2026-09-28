@@ -79,18 +79,49 @@ describe("Given the app's identity in Commerce", () => {
     ).rejects.toThrow("DEMO_BUILDER_COPY_NUMBER");
   });
 
-  test("Then the app and its page are named after the ERP, so two ERPs can be told apart", async () => {
-    const config = await loadConfig({ ERP_DISPLAY_NAME: "Northwind ERP" });
+  test("Then the app and its page carry the integration's own name, not an ERP's", async () => {
+    const config = await loadConfig({
+      ERP_DISPLAY_NAME: "Northwind ERP",
+      INTEGRATION_DISPLAY_NAME: "Bodea ERP Hub",
+    });
 
     expect(config.adminUi.menu.label).toBe("Integration");
-    expect(config.adminUi.menu.pageTitle).toBe("Northwind ERP");
-    expect(config.metadata.displayName).toBe("Northwind ERP");
+    expect(config.adminUi.menu.pageTitle).toBe("Bodea ERP Hub");
+    expect(config.metadata.displayName).toBe("Bodea ERP Hub");
   });
 
-  test("Then with no ERP name the app reads as before", async () => {
-    const config = await loadConfig({ ERP_DISPLAY_NAME: "" });
+  test("Then with no integration name the app is called ERP Integration", async () => {
+    const config = await loadConfig({
+      ERP_DISPLAY_NAME: "Northwind ERP",
+      INTEGRATION_DISPLAY_NAME: "",
+    });
 
-    expect(config.adminUi.menu.label).toBe("Integration");
-    expect(config.metadata.displayName).toBe("ERP integration");
+    expect(config.adminUi.menu.pageTitle).toBe("ERP Integration");
+    expect(config.metadata.displayName).toBe("ERP Integration");
+  });
+
+  // The column and the action are about every ERP on the store, so they name none of them.
+  test("Then the order column and the stock action read neutrally, whatever the ERP is called", async () => {
+    const config = await loadConfig({
+      ERP_DISPLAY_NAME: "Northwind ERP",
+      INTEGRATION_DISPLAY_NAME: "Bodea ERP Hub",
+    });
+    const grid = config.adminUi.order.gridColumns;
+    const [moveStock] = config.adminUi.product.massActions;
+    const labels = [
+      grid.label,
+      grid.description,
+      grid.columns[0].label,
+      moveStock.label,
+      moveStock.title,
+    ];
+
+    expect(grid.label).toBe("ERP order");
+    expect(moveStock.label).toBe("Move stock between ERP warehouses");
+    expect(moveStock.title).toBe("Move stock between ERP warehouses");
+    for (const label of labels) {
+      expect(label).not.toContain("Northwind");
+      expect(label).not.toContain("Bodea");
+    }
   });
 });

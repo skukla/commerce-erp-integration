@@ -4,7 +4,7 @@
       "description": "Health of the ERP integration, sync log, reset and controls",
       "id": "erp_integration",
       "label": "Integration",
-      "pageTitle": "ERP integration"
+      "pageTitle": "ERP Integration"
     },
     "order": {
       "gridColumns": {
@@ -12,7 +12,7 @@
           {
             "align": "left",
             "id": "erp_integration_order",
-            "label": "ERP integration",
+            "label": "ERP order",
             "type": "string"
           },
           {
@@ -22,8 +22,8 @@
             "type": "string"
           }
         ],
-        "description": "ERP integration's order number and whether the order reached it",
-        "label": "ERP integration order",
+        "description": "The ERP's order number and whether the order reached the ERP",
+        "label": "ERP order",
         "runtimeAction": "admin-ui/order-grid"
       },
       "viewButtons": [
@@ -39,9 +39,9 @@
       "massActions": [
         {
           "id": "erp_integration_move_stock",
-          "label": "Move stock between ERP integration warehouses",
+          "label": "Move stock between ERP warehouses",
           "path": "#/move-stock",
-          "title": "Move stock between ERP integration warehouses",
+          "title": "Move stock between ERP warehouses",
           "type": "view"
         }
       ]
@@ -455,9 +455,9 @@
   },
   "metadata": {
     "description": "Adobe Commerce integration to a demo ERP: orders to the ERP with the ERP number written back, the ERP's contract prices in each company's shared catalog, and the ERP events (prices, stock, credit limits, order statuses) applied to Commerce.",
-    "displayName": "ERP integration",
+    "displayName": "ERP Integration",
     "id": "commerce-erp-integration",
     "upgradeMode": "auto",
-    "version": "0.9.1"
+    "version": "0.9.2"
   }
 }
