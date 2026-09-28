@@ -82,6 +82,7 @@ vi.mock("#lib/erp", () => {
 });
 vi.mock("#lib/commerce", () => box.commerce.lib);
 vi.mock("#lib/commerce-before", () => box.commerce.before);
+vi.mock("#lib/commerce-tier-prices", () => box.commerce.tierPrices);
 vi.mock("#src/order/commerce-order-api-client", () => box.commerce.orderClient);
 vi.mock(
   "#src/order/commerce-shipment-api-client",
@@ -94,6 +95,9 @@ vi.mock(
 );
 
 import * as commerceLib from "#lib/commerce";
+import * as tierPrices from "#lib/commerce-tier-prices";
+import { contractPriceDeps } from "#lib/contract-price-deps";
+import { publishErpPrices } from "#lib/contract-prices";
 import { detach } from "#lib/detach";
 import { erp } from "#lib/erp";
 import * as keyMap from "#lib/key-map";
@@ -499,5 +503,72 @@ describe("Pair in a box: the entity matrix, both directions", () => {
     expect(box.commerce.db.companies.get(7).status).toBe(1);
     await detach({}, { commerce: commerceLib, erp, ledger });
     expect(box.commerce.db.credits.get(7).credit_limit).toBe(1000);
+  });
+
+  // AB-26z: the buyer's contract price is Commerce's own, a tier price in the company's
+  // shared catalog, so the cart prices from the catalog and no ERP is asked on a cart
+  // change. Whatever the publish wrote, detach takes back: the catalog ends as it began.
+  test("Price, ERP → Commerce: contract prices in force land in the company's shared catalog, a replay writes nothing, and detach leaves the catalog as it was", async () => {
+    await fillErp(readers, erp, "Box");
+    const catalogBefore = structuredClone([...box.commerce.db.tierPrices]);
+    const inForce = [
+      {
+        lines: [
+          {
+            contractNumber: "K1",
+            kind: "price",
+            minQty: 1,
+            price: 8,
+            sku: "A1",
+          },
+          {
+            contractNumber: "K1",
+            kind: "price",
+            minQty: 1,
+            price: 4,
+            sku: "B2",
+          },
+          {
+            contractNumber: "K1",
+            kind: "discount",
+            minQty: 10,
+            percent: 15,
+            sku: "A1",
+          },
+        ],
+        partnerId: "C7",
+      },
+    ];
+    const publish = () =>
+      publishErpPrices(
+        {},
+        { id: "erp" },
+        inForce,
+        contractPriceDeps({}, [{ id: "erp" }], "erp"),
+      );
+    expect(await publish()).toMatchObject({
+      failed: [],
+      skipped: [],
+      written: 3,
+    });
+    const catalog = Object.fromEntries(
+      [...box.commerce.db.tierPrices.values()].map((r) => [
+        `${r.sku} ${r.quantity}`,
+        [r.customer_group, r.price_type, r.price],
+      ]),
+    );
+    expect(catalog).toEqual({
+      "A1 1": ["Northwind Trading", "fixed", 8],
+      "A1 10": ["Northwind Trading", "discount", 15],
+      "B2 1": ["Northwind Trading", "fixed", 4],
+    });
+    expect(await publish()).toMatchObject({ unchanged: 3, written: 0 });
+    const result = await detach(
+      {},
+      { commerce: commerceLib, erp, ledger, tierPrices },
+    );
+    expect(result.reverted).toEqual({ failed: [], reverted: 3 });
+    expect([...box.commerce.db.tierPrices]).toEqual(catalogBefore);
+    expect(await ledger.readLedger()).toEqual([]);
   });
 });

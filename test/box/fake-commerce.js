@@ -43,6 +43,8 @@ function seed() {
         },
       ],
     ]),
+    // Company 7's own custom shared catalog, whose customer group Commerce names by code.
+    customerGroups: new Map([[2, "Northwind Trading"]]),
     // The order's buyer: a user of company 7, as a real B2B order has (the ERP now knows
     // the buyer only through the integration's key map, never by email or group).
     customers: new Map([[3, { company_id: 7, id: 3 }]]),
@@ -94,6 +96,7 @@ function seed() {
         { id: 102, name: "Shirt", price: 5, sku: "B2", type_id: "simple" },
       ],
     ]),
+    sharedCatalogs: [{ customer_group_id: 2, id: 5, type: 0 }],
     shipments: [],
     sourceItems: new Map([
       ["A1|default", 50],
@@ -104,8 +107,26 @@ function seed() {
       ["default", "Default Source"],
       ["east", "East DC"],
     ]),
+    // Tier prices by SKU|group code|quantity|website. The SC had already priced B2 in
+    // Northwind's catalog before the ERP did, so a revert has a price to put back.
+    tierPrices: new Map([
+      [
+        "B2|Northwind Trading|1|0",
+        {
+          customer_group: "Northwind Trading",
+          price: 4.5,
+          price_type: "fixed",
+          quantity: 1,
+          sku: "B2",
+          website_id: 0,
+        },
+      ],
+    ]),
   };
 }
+
+const tierKey = (r) =>
+  `${r.sku}|${r.customer_group}|${Number(r.quantity)}|${Number(r.website_id)}`;
 
 /** @returns {object} the fake store with `lib` (for #lib/commerce), the kit clients, event builders and `writes` */
 export function createFakeCommerce() {
@@ -262,6 +283,51 @@ export function createFakeCommerce() {
           const [, code] = key.split("|");
           return { code, name: db.sources.get(code) || code, quantity };
         }),
+  };
+
+  /** The shared catalog and tier-price calls (the shape #lib/commerce-tier-prices answers). */
+  const tierPrices = {
+    ALL_WEBSITES: 0,
+    deleteTierPrices: async (_p, prices) => {
+      for (const r of prices) {
+        db.tierPrices.delete(tierKey(r));
+      }
+      record("deleteTierPrices", { prices: clone(prices) });
+    },
+    revertTierPrice: async (p, entry) => {
+      const row = (v) => ({
+        customer_group: entry.customerGroup,
+        price: v.price,
+        price_type: v.priceType,
+        quantity: entry.quantity,
+        sku: entry.id,
+        website_id: entry.websiteId,
+      });
+      return entry.before
+        ? tierPrices.writeTierPrices(p, [row(entry.before)])
+        : tierPrices.deleteTierPrices(p, [row(entry.after)]);
+    },
+    sharedCatalogGroupOf: async (_p, companyId) => {
+      const groupId = db.companies.get(Number(companyId))?.customer_group_id;
+      const custom = db.sharedCatalogs.find(
+        (c) => c.customer_group_id === groupId && c.type === 0,
+      );
+      return custom
+        ? {
+            customerGroup: db.customerGroups.get(groupId),
+            customerGroupId: groupId,
+            sharedCatalogId: custom.id,
+          }
+        : { skip: `company ${companyId} has no custom shared catalog` };
+    },
+    tierPricesOf: async (_p, skus) =>
+      clone([...db.tierPrices.values()].filter((r) => skus.includes(r.sku))),
+    writeTierPrices: async (_p, prices) => {
+      for (const r of prices) {
+        db.tierPrices.set(tierKey(r), clone(r));
+      }
+      record("writeTierPrices", { prices: clone(prices) });
+    },
   };
 
   const orderClient = {
@@ -458,6 +524,7 @@ export function createFakeCommerce() {
     },
     shipmentClient,
     stockClient,
+    tierPrices,
     writes,
   };
 }
