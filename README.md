@@ -175,7 +175,8 @@ design, v1). Adobe's starter-kit actions stay where the kit puts them
 
 | Piece | Where | What it is |
 |---|---|---|
-| The router | `src/router/route-order.js` | Where a placed order goes first. It knows no ERP: it reads the ERP list and hands each ERP its part of the order through that ERP's adapter. Today it passes the whole order to the one ERP; splitting lines by their owning ERP comes next |
+| The router | `src/router/route-order.js` | Where a placed order goes first. It knows no ERP: it reads the ERP list, gives each line to the ERP that owns its product, and hands each ERP only its lines through that ERP's adapter. With one ERP it passes the whole order through, exactly as before. With several, a product's owner is the ERP whose id its `erp_owner` attribute holds (or the ERP's own ownership setting); a line no ERP owns is held back, and a line two ERPs claim is a setup error sent to neither |
+| The order's parts | `src/lib/order-parts.js` | One record per order in App Builder State (`order-parts-<order number>`): each ERP's part, what happened to it, and the lines held back. A redelivered order event sends only the parts that did not reach their ERP |
 | The contract | `src/adapters/contract.js` | The two functions every adapter implements: `sendPart` (send this ERP its part) and `readOutcome` (turn the ERP's message into the part's outcome) |
 | The adapters | `src/adapters/<kind>/` | One folder per KIND of ERP. `demo-erp/` talks to the demo ERP; `example/` is a commented skeleton showing what adding another kind takes |
 | The ERP list | `src/lib/erps.js` | One entry per ERP: an `id` that never changes (the key for everything), a `name` for people, its adapter kind, and its connection |

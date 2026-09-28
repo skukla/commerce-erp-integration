@@ -138,71 +138,127 @@ const canRetry = (status) =>
   status === TOO_MANY_REQUESTS ||
   status >= SERVER_ERROR;
 
+const result = (outcome, statusCode, message) => ({
+  message,
+  outcome,
+  statusCode,
+});
+
+/** An event that carries no order number: the save that wrote the ERP number back, or junk. */
+function withoutNumber(order) {
+  if (order?.ext_order_id) {
+    // Commerce raises the save event again for the write-back of the ERP number, with
+    // only the saved fields in it (measured 2026-09-25: a 400 "no order number" three
+    // milliseconds after the write-back). Ours, and done.
+    return result("skipped", 200, "the save that wrote the ERP number back.");
+  }
+  const fields = Object.keys(order ?? {}).join(", ") || "none";
+  return result(
+    "dropped",
+    BAD_REQUEST,
+    `The event carries no order number (fields: ${fields}).`,
+  );
+}
+
+/**
+ * The checks before an order is sent: it has a number, its website sends orders, this ERP owns
+ * a line of it, Commerce can read it, and (for a whole order) it has no ERP number yet. A part
+ * the router chose (`shared`) skips the ownership and ERP-number checks: they are the router's.
+ * @returns {Promise<{ stop: object } | { found: object, label: string, settings: object }>}
+ */
+async function readyToSend(params, order, deps, shared) {
+  if (!order?.increment_id) {
+    return { stop: withoutNumber(order) };
+  }
+  const label = `order ${order.increment_id}`;
+  if (order.ext_order_id && !shared) {
+    return {
+      stop: result(
+        "skipped",
+        200,
+        `${label} already has ERP number ${order.ext_order_id}.`,
+      ),
+    };
+  }
+  const settings = await deps.settingsFor(order.store_id, deps.logger);
+  if (!settings.orders_send) {
+    return {
+      stop: result(
+        "skipped",
+        200,
+        `${label}: sending orders to the ERP is off for its website.`,
+      ),
+    };
+  }
+  if (!(shared || (await hasOwnedLine(params, order, settings, deps)))) {
+    return {
+      stop: result(
+        "skipped",
+        200,
+        `no line of ${label} belongs to this ERP (${ownershipFilter(settings).describe})`,
+      ),
+    };
+  }
+  const found = await deps.findOrder(params, order.increment_id);
+  if (!found) {
+    return {
+      stop: result(
+        "held",
+        UNAVAILABLE,
+        `${label} is not readable in Commerce yet.`,
+      ),
+    };
+  }
+  if (found.extOrderId && !shared) {
+    return {
+      stop: result(
+        "skipped",
+        200,
+        `${label} already has ERP number ${found.extOrderId}.`,
+      ),
+    };
+  }
+  return { found, label, settings };
+}
+
+/** A part the router chose, taken by its ERP: noted on the order, no single-ERP write-back. */
+async function partTaken(params, found, label, erpName, number, deps) {
+  await deps
+    .addNote(
+      params,
+      found.entityId,
+      `Created in ${erpName} as sales order ${number}`,
+    )
+    .catch((error) =>
+      deps.logger?.warn(`${label}: note not added: ${error.message}`),
+    );
+  return {
+    ...result(
+      "sent",
+      200,
+      `${label}: ${erpName} took its part as sales order ${number}.`,
+    ),
+    erpNumber: number,
+  };
+}
+
 /**
  * Send one order event's order to the ERP.
  * @param {object} params action params (ERP and Commerce credentials)
  * @param {object} order the event's `data.value`
  * @param {object} deps `{ erp, findOrder, setExtOrderId, addNote, settingsFor, ownsSku?, recordProgress?, logger }`
+ * @param {{ shared?: boolean }} [options] `shared`: this is one ERP's part of an order several
+ *   ERPs share (src/router/route-order.js). The router already chose its lines, and the
+ *   order's one ERP number field is not this part's to read or write.
  * @returns {Promise<{ outcome: "sent"|"skipped"|"held"|"dropped"|"failed", statusCode: number, message: string, erpNumber?: string }>}
  */
-export async function sendOrderToErp(params, order, deps) {
-  const result = (outcome, statusCode, message) => ({
-    message,
-    outcome,
-    statusCode,
-  });
-  if (!order?.increment_id) {
-    if (order?.ext_order_id) {
-      // Commerce raises the save event again for the write-back of the ERP number, with
-      // only the saved fields in it (measured 2026-09-25: a 400 "no order number" three
-      // milliseconds after the write-back). Ours, and done.
-      return result("skipped", 200, "the save that wrote the ERP number back.");
-    }
-    const fields = Object.keys(order ?? {}).join(", ") || "none";
-    return result(
-      "dropped",
-      BAD_REQUEST,
-      `The event carries no order number (fields: ${fields}).`,
-    );
+export async function sendOrderToErp(params, order, deps, options = {}) {
+  const shared = options.shared === true;
+  const ready = await readyToSend(params, order, deps, shared);
+  if ("stop" in ready) {
+    return ready.stop;
   }
-  const label = `order ${order.increment_id}`;
-  if (order.ext_order_id) {
-    return result(
-      "skipped",
-      200,
-      `${label} already has ERP number ${order.ext_order_id}.`,
-    );
-  }
-  const settings = await deps.settingsFor(order.store_id, deps.logger);
-  if (!settings.orders_send) {
-    return result(
-      "skipped",
-      200,
-      `${label}: sending orders to the ERP is off for its website.`,
-    );
-  }
-  if (!(await hasOwnedLine(params, order, settings, deps))) {
-    return result(
-      "skipped",
-      200,
-      `no line of ${label} belongs to this ERP (${ownershipFilter(settings).describe})`,
-    );
-  }
-  const found = await deps.findOrder(params, order.increment_id);
-  if (!found) {
-    return result(
-      "held",
-      UNAVAILABLE,
-      `${label} is not readable in Commerce yet.`,
-    );
-  }
-  if (found.extOrderId) {
-    return result(
-      "skipped",
-      200,
-      `${label} already has ERP number ${found.extOrderId}.`,
-    );
-  }
+  const { found, label, settings } = ready;
 
   const commerceCompanyId = await companyOf(params, order, deps);
   const partnerId = await erpCustomerFor(commerceCompanyId, order, deps);
@@ -240,6 +296,9 @@ export async function sendOrderToErp(params, order, deps) {
     res = { error: error.message };
   }
   const number = res?.ok ? res.data?.number : undefined;
+  if (number && shared) {
+    return partTaken(params, found, label, erpName, number, deps);
+  }
   if (number) {
     await deps.recordProgress?.(order, {
       erpNumber: number,

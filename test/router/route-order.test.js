@@ -7,7 +7,6 @@ vi.mock("#lib/order-sync", () => ({
   })),
 }));
 
-import { listErps } from "#lib/erps";
 import { sendOrderToErp } from "#lib/order-sync";
 import { routeOrder } from "#router/route-order";
 
@@ -45,12 +44,5 @@ describe("Given an ERP list the router cannot use", () => {
       routeOrder({}, ORDER, {}, [{ adapter: "sap", id: "erp-2" }]),
     ).toThrow('No adapter "sap" for ERP erp-2.');
     expect(sendOrderToErp).not.toHaveBeenCalled();
-  });
-
-  test("Then several ERPs are refused until splitting is built (slice B1)", () => {
-    const two = [...listErps(), { ...listErps()[0], id: "erp-2" }];
-    expect(() => routeOrder({}, ORDER, {}, two)).toThrow(
-      "Routing an order to 2 ERPs is not built yet",
-    );
   });
 });
