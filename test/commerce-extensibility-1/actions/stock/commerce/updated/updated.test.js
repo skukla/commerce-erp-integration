@@ -14,7 +14,10 @@ vi.mock("#lib/commerce", () => ({
   ]),
 }));
 vi.mock("#lib/settings", () => ({ settingsFor: vi.fn(async () => ({})) }));
-vi.mock("#lib/structure", () => ({ ownsSku: vi.fn(async () => true) }));
+vi.mock("#lib/structure", async (importOriginal) => ({
+  ...(await importOriginal()),
+  ownsSku: vi.fn(async () => true),
+}));
 
 import { erp } from "#lib/erp";
 import { main } from "#src/stock/commerce/updated/index";

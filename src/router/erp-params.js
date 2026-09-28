@@ -74,3 +74,28 @@ export function stockParamsOf(params, erps, ownsSku) {
     return owner ? paramsForErp(params, owner) : unowned;
   };
 }
+
+/**
+ * Where a change made in Commerce to a product goes: the ERP that owns it. With one ERP, that
+ * ERP when its own ownership setting owns the SKU (rule M3), with the integration's params as
+ * before; with several, the one ERP the routing ownership rule names, with its own params.
+ * @param {object} params action params
+ * @param {string} sku the product
+ * @param {object} deps `{ erps, ownsSku(params, sku, settings), settingsFor(storeId) }`
+ * @returns {Promise<{ params: object } | { skip: string }>} the params, or why no ERP hears it
+ */
+export async function ownerParamsOf(
+  params,
+  sku,
+  { erps, ownsSku, settingsFor },
+) {
+  if (erps.length <= 1) {
+    return (await ownsSku(params, sku, await settingsFor(null)))
+      ? { params }
+      : { skip: `${sku} is not this ERP's product` };
+  }
+  const owner = await ownerOfSku(params, sku, erps, ownsSku);
+  return owner
+    ? { params: paramsForErp(params, owner) }
+    : { skip: `no one ERP owns ${sku}` };
+}
