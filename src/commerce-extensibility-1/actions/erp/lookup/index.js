@@ -5,15 +5,20 @@ import {
 } from "@adobe/aio-commerce-sdk/core/responses";
 import AioLogger from "@adobe/aio-lib-core-logging";
 
+import { paramsForErp } from "#adapters/contract";
 import {
   getCompany,
   getCompanyCredit,
   getProduct,
+  productAttributes,
   sourceCodesOf,
 } from "#lib/commerce";
 import { erp } from "#lib/erp";
+import { loadErps } from "#lib/erps";
 import { erpCustomerOf } from "#lib/key-map";
 import { companyLookup, productLookup } from "#lib/lookup";
+import { ownsSku } from "#lib/structure";
+import { ownersOf } from "#router/ownership";
 
 /** A SKU as Commerce allows it; anything else never reaches either system. */
 const SKU = /^[A-Za-z0-9 _./-]{1,64}$/u;
@@ -87,9 +92,74 @@ async function lookupCompany(params, companyId) {
 }
 
 /**
+ * A SKU with several ERPs: the one ERP that owns it is asked, at its own address, and named
+ * (`owner`). A SKU no ERP owns, or two claim, shows an empty ERP side and `owner: null`.
+ */
+async function lookupSkuAcross(params, sku, erps) {
+  const owners = await ownersOf(params, sku, erps, (p, s, settings) =>
+    ownsSku(p, s, settings, { productAttributes, sourceCodesOf }),
+  );
+  const owner =
+    owners.length === 1 ? erps.find((e) => e.id === owners[0]) : null;
+  const [commerce, sourceCodes, answer] = await Promise.all([
+    getProduct(params, sku).catch(notFoundAsNull),
+    sourceCodesOf(params, sku).catch(() => []),
+    owner
+      ? erp.product(paramsForErp(params, owner), sku, ERP_TIMEOUT_MS)
+      : { ok: false, status: NOT_FOUND },
+  ]);
+  return {
+    ...productLookup({
+      commerce,
+      erp: erpRecord(answer, `product ${sku}`),
+      sku,
+      sourceCodes,
+    }),
+    owner: owner ? { id: owner.id, name: owner.name } : null,
+    owners,
+  };
+}
+
+/** A company with several ERPs: as it stands in each ERP, its customer there from the key map. */
+async function lookupCompanyAcross(params, companyId, erps) {
+  const [commerce, credit] = await Promise.all([
+    getCompany(params, companyId).catch(notFoundAsNull),
+    getCompanyCredit(params, companyId).catch(notFoundAsNull),
+  ]);
+  const perErp = await Promise.all(
+    erps.map(async (entry) => {
+      const paired = await erpCustomerOf(companyId, entry.id);
+      const document = paired
+        ? erpRecord(
+            await erp.partner(
+              paramsForErp(params, entry),
+              paired,
+              ERP_TIMEOUT_MS,
+            ),
+            `partner ${paired} in ${entry.name}`,
+          )
+        : null;
+      return {
+        erpId: entry.id,
+        erpName: entry.name,
+        ...companyLookup({
+          commerce,
+          companyId,
+          credit,
+          erp: document ?? (paired ? { id: paired } : null),
+        }),
+      };
+    }),
+  );
+  return { erps: perErp, key: companyId, kind: "company" };
+}
+
+/**
  * GET lookup?sku=<sku> | ?company=<Commerce company id>: one entity as both systems hold
  * it, lined up row by row for the Mapping tab (lib/lookup.js). A side that does not have
- * it answers with empty cells; that is the answer, not an error.
+ * it answers with empty cells; that is the answer, not an error. With several ERPs a company
+ * answers `{ kind, key, erps: [one lookup per ERP] }` and a SKU names its owning ERP; with one
+ * ERP the answer is as it always was.
  */
 async function main(params) {
   const logger = AioLogger("erp-lookup", { level: params.LOG_LEVEL || "info" });
@@ -99,14 +169,26 @@ async function main(params) {
       if (!SKU.test(sku)) {
         return badRequest("Name the product to look up by its SKU.");
       }
-      return ok({ body: await lookupSku(params, sku) });
+      const erps = await loadErps(params);
+      return ok({
+        body:
+          erps.length > 1
+            ? await lookupSkuAcross(params, sku, erps)
+            : await lookupSku(params, sku),
+      });
     }
     if (params.company !== undefined) {
       const companyId = String(params.company).trim();
       if (!COMPANY_ID.test(companyId)) {
         return badRequest("Name the company to look up by its Commerce id.");
       }
-      return ok({ body: await lookupCompany(params, companyId) });
+      const erps = await loadErps(params);
+      return ok({
+        body:
+          erps.length > 1
+            ? await lookupCompanyAcross(params, companyId, erps)
+            : await lookupCompany(params, companyId),
+      });
     }
     return badRequest("Name a sku or a company to look up.");
   } catch (error) {
