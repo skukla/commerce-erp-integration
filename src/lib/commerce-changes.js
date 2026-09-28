@@ -22,6 +22,9 @@ const answer = (outcome, statusCode, message) => ({
   statusCode,
 });
 
+/** No ERP order to act on, and the answer that ends the delivery. */
+const not = (result) => ({ answer: result, number: null, order: null });
+
 /**
  * The ERP order behind a Commerce order, or the answer that ends the delivery.
  * @param {object} deps `{ erp, settingsFor? }` — with `settingsFor`, the prefix is checked first
@@ -30,7 +33,6 @@ const answer = (outcome, statusCode, message) => ({
  *   is the outcome that ends this delivery when the order is not this ERP's
  */
 export async function mine(params, extOrderId, deps) {
-  const not = (result) => ({ answer: result, number: null, order: null });
   const { prefix, number } = splitExtOrderId(extOrderId);
   if (!number) {
     return not(
@@ -55,6 +57,17 @@ export async function mine(params, extOrderId, deps) {
       );
     }
   }
+  return askErp(params, number, deps);
+}
+
+/**
+ * Rule M2 for a sales order whose ERP is already known: ask that ERP for it.
+ * @param {object} params the params that reach the ERP
+ * @param {string} number the ERP's sales order number
+ * @param {object} deps `{ erp }`
+ * @returns {Promise<{ answer: object|null, number: string|null, order: object|null }>}
+ */
+export async function askErp(params, number, deps) {
   const own = await deps.erp.order(params, number);
   if (own.ok) {
     return { answer: null, number, order: own.data };
@@ -209,6 +222,18 @@ export async function orderChangeFromCommerce(params, order, deps) {
   if (own.answer !== null) {
     return own.answer;
   }
+  return changeOnErpOrder(params, order, own, deps);
+}
+
+/**
+ * Tell one ERP what a Commerce order save means for its sales order: a cancel, a hold, or the
+ * release of a hold Commerce made. Anything else is nothing to do.
+ * @param {object} params the params that reach the ERP
+ * @param {object} order the event's value
+ * @param {{ number: string, order: object }} own the ERP's sales order (askErp)
+ * @param {object} deps `{ erp }`
+ */
+export async function changeOnErpOrder(params, order, own, deps) {
   const label = `Commerce order ${order.increment_id ?? own.number}`;
   const origin = originOf(COMMERCE_EVENTS.orderSaved, params);
   if (order.state === CANCELED) {
