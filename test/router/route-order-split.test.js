@@ -171,7 +171,7 @@ describe("Given lines no ERP or two ERPs claim", () => {
     const d = deps();
     const claimAll = ERPS.map((e) => ({
       ...e,
-      ownership: { structure_owns: OWNS.ALL },
+      settings: { structure_owns: OWNS.ALL },
     }));
     const result = await routeOrder({}, ORDER, d, claimAll);
     expect(d.erp.createOrder).not.toHaveBeenCalled();

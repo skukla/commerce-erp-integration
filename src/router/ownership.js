@@ -21,11 +21,6 @@ export const OWNER_ATTRIBUTE = "erp_owner";
  * owner attribute naming its id.
  */
 export function ownershipOf(entry) {
-  // `ownership` is B1's in-memory form (never stored: erp/erps keeps `settings`); kept so the
-  // router's own tests still read. Stored entries use `settings`.
-  if (entry.ownership) {
-    return entry.ownership;
-  }
   const own = entry.settings ?? {};
   if (own.structure_owns) {
     return Object.fromEntries(
