@@ -9,8 +9,10 @@ import AioLogger from "@adobe/aio-lib-core-logging";
 import { nameOf, priceOf } from "#lib/commerce-before";
 import { currentPriceEvent, currentProduct } from "#lib/erp-current";
 import { recordingErpEvent } from "#lib/erp-event-history";
+import { loadErps } from "#lib/erps";
 import { recordProductWrite } from "#lib/ledger";
 import { stringParameters } from "#lib/utils";
+import { paramsOfEvent, UNATTRIBUTED } from "#router/erp-params";
 
 import { postProcess } from "./post.js";
 import { preProcess } from "./pre.js";
@@ -37,9 +39,14 @@ async function handle(params) {
       logger.error(`Validation failed with error: ${validation.message}`);
       return badRequest(validation.message);
     }
-    // The event says which SKU changed; the ERP says what it is now (lib/erp-current.js).
-    const { sku } = params.data;
-    const product = await currentProduct(params, sku);
+    // The event says which SKU changed; the ERP that sent it says what it is now
+    // (lib/erp-current.js), asked at its own address with its own credential.
+    const { erpId, sku } = params.data;
+    const erpParams = paramsOfEvent(params, await loadErps(params), erpId);
+    if (!erpParams) {
+      return badRequest(UNATTRIBUTED);
+    }
+    const product = await currentProduct(erpParams, sku);
     if (!product) {
       return badRequest(`The ERP has no product ${sku}; nothing to apply`);
     }

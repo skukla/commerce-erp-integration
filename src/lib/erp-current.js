@@ -87,12 +87,22 @@ export function currentStockLines(lines, products) {
  *
  * @param {object} params - the action params
  * @param {Array<{ sku: string }>} lines - the event's lines
+ * @param {(sku: string) => Promise<object|null>} [paramsOfSku] - the params that reach the ERP
+ *   holding a SKU (router/erp-params.js); null when no ERP can be asked, which reads as a
+ *   product the ERP does not have. Without it, every SKU is asked with `params`.
  * @returns {Promise<Map<string, object|null>>}
  */
-export async function currentProducts(params, lines) {
+export async function currentProducts(
+  params,
+  lines,
+  paramsOfSku = async () => params,
+) {
   const skus = [...new Set(lines.map((line) => line.sku))];
   const products = await Promise.all(
-    skus.map((sku) => currentProduct(params, sku)),
+    skus.map(async (sku) => {
+      const erpParams = await paramsOfSku(sku);
+      return erpParams ? currentProduct(erpParams, sku) : null;
+    }),
   );
   return new Map(skus.map((sku, index) => [sku, products[index]]));
 }

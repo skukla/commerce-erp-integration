@@ -6,11 +6,15 @@ import {
 } from "@adobe/aio-commerce-sdk/core/responses";
 import AioLogger from "@adobe/aio-lib-core-logging";
 
+import { productAttributes, sourceCodesOf } from "#lib/commerce";
 import { quantityOf } from "#lib/commerce-before";
 import { currentProducts, currentStockLines } from "#lib/erp-current";
 import { recordingErpEvent } from "#lib/erp-event-history";
+import { loadErps } from "#lib/erps";
 import { recordProductWrite } from "#lib/ledger";
+import { ownsSku } from "#lib/structure";
 import { stringParameters } from "#lib/utils";
+import { stockParamsOf } from "#router/erp-params";
 
 import { postProcess } from "./post.js";
 import { preProcess } from "./pre.js";
@@ -37,11 +41,17 @@ async function handle(params) {
       logger.error(`Validation failed with error: ${validation.message}`);
       return badRequest(validation.message);
     }
-    // The event says which SKUs and warehouses changed; the ERP says the quantities now
-    // (lib/erp-current.js). A line the ERP no longer has is dropped.
+    // The event says which SKUs and warehouses changed; the ERP that holds each product says
+    // the quantities now (lib/erp-current.js). A line the ERP no longer has is dropped.
+    const paramsOfSku = stockParamsOf(
+      params,
+      await loadErps(params),
+      (p, sku, settings) =>
+        ownsSku(p, sku, settings, { productAttributes, sourceCodesOf }),
+    );
     const lines = currentStockLines(
       params.data,
-      await currentProducts(params, params.data),
+      await currentProducts(params, params.data, paramsOfSku),
     );
     if (lines.length === 0) {
       return badRequest(
