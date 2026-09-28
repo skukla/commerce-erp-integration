@@ -47,10 +47,10 @@ cart. Orders are never held up at checkout: they reach the ERP after they are sa
 **Changing a webhook or event after install.** A webhook REMOVED from the config is removed from
 Commerce by an ordinary upgrade: measured on 2026-09-28, upgrading an install from 0.8.9 to
 0.9.1 took the two cart webhooks (contract price and discount ceiling, AB-26z) off the store
-(`GET V1/webhooks/list` listed both before the upgrade and none after). Not measured: whether an
-upgrade changes a webhook that is already subscribed (its `required`, timeout or field list) or
-registers a new event. If one does not arrive after an upgrade, uninstall and install the app
-again; Commerce's `POST V1/webhooks/unsubscribe` removes one webhook by its method, type, batch
+(`GET V1/webhooks/list` listed both before the upgrade and none after). The same upgrade registered a NEW event (the
+ERP's customer prices event reached its handler within two minutes). Not measured: whether an
+upgrade changes a webhook that is already subscribed (its `required`, timeout or field list). If
+a change does not arrive after an upgrade, uninstall and install the app again; Commerce's `POST V1/webhooks/unsubscribe` removes one webhook by its method, type, batch
 and hook name.
 
 **Looking at the Admin page without Commerce.** `npm run preview` builds the page's own
