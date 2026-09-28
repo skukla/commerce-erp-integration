@@ -44,15 +44,14 @@ and if so, where is it ledgered?
 No webhook: no ERP is asked while a buyer shops, so an ERP that is slow or away never breaks a
 cart. Orders are never held up at checkout: they reach the ERP after they are saved.
 
-**Changing a webhook or event after install.** App Management's installer skips a webhook that
-is already subscribed and never updates it, and uninstall removes only what the current config
-lists. So a changed `required`, timeout or field list, a new event, or a removed webhook reaches
-Commerce only through an uninstall run with the old config, then an install with the new one.
-**This applies to version 0.9.0**, which removed the two cart webhooks (contract price and
-discount ceiling, AB-26z): on a store where an earlier version is installed, uninstall with
-that version's config, then install 0.9.0. An upgrade alone leaves both webhooks subscribed,
-still called on every cart change, and Commerce as a Cloud Service runs every webhook as
-required (measured 2026-09-26), so a failing one stops the cart.
+**Changing a webhook or event after install.** A webhook REMOVED from the config is removed from
+Commerce by an ordinary upgrade: measured on 2026-09-28, upgrading an install from 0.8.9 to
+0.9.1 took the two cart webhooks (contract price and discount ceiling, AB-26z) off the store
+(`GET V1/webhooks/list` listed both before the upgrade and none after). Not measured: whether an
+upgrade changes a webhook that is already subscribed (its `required`, timeout or field list) or
+registers a new event. If one does not arrive after an upgrade, uninstall and install the app
+again; Commerce's `POST V1/webhooks/unsubscribe` removes one webhook by its method, type, batch
+and hook name.
 
 **Looking at the Admin page without Commerce.** `npm run preview` builds the page's own
 components against stand-in data (`preview/`) and serves it on 8978. It is the real shell,
