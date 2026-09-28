@@ -107,6 +107,20 @@ describe("Given an ERP event applied to Commerce", () => {
       "7",
     ],
     ["block", { blocked: true, companyId: 7 }, "company 7: blocked", "7"],
+    // The ERP's own events name its customer, not the Commerce company (contract version 3):
+    // the Admin page puts the company's name in when it reads the history.
+    [
+      "credit",
+      { creditLimit: 25_000, partnerId: "100042" },
+      "customer 100042: credit limit 25000",
+      "100042",
+    ],
+    [
+      "block",
+      { blocked: true, partnerId: "100042" },
+      "customer 100042: blocked",
+      "100042",
+    ],
   ])(
     "Then a %s event reads as what changed",
     async (kind, data, message, ref) => {

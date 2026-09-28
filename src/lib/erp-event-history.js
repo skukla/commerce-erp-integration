@@ -11,11 +11,21 @@
  */
 import { readRecord, updateRecord } from "#lib/history";
 
+/**
+ * Who a company event is about: the Commerce company when the event names it, else the ERP's
+ * own customer, which is what the ERP's events carry (contract version 3). The Admin page
+ * puts the company's name in when it reads the history (lib/history-names.js).
+ */
+const companyOf = (d) =>
+  d.companyId === undefined
+    ? { ref: d.partnerId, who: `customer ${d.partnerId}` }
+    : { ref: d.companyId, who: `company ${d.companyId}` };
+
 /** What each event changed, in the words a merchant reads, and the thing it is about. */
 const DESCRIBE = {
   block: (d) => ({
-    message: `company ${d.companyId}: ${d.blocked ? "blocked" : "unblocked"}`,
-    ref: d.companyId,
+    message: `${companyOf(d).who}: ${d.blocked ? "blocked" : "unblocked"}`,
+    ref: companyOf(d).ref,
   }),
   cancel: (d) => ({
     message: `order ${d.incrementId}: cancelled`,
@@ -26,8 +36,8 @@ const DESCRIBE = {
     ref: d.partnerId,
   }),
   credit: (d) => ({
-    message: `company ${d.companyId}: credit limit ${d.creditLimit}`,
-    ref: d.companyId,
+    message: `${companyOf(d).who}: credit limit ${d.creditLimit}`,
+    ref: companyOf(d).ref,
   }),
   hold: (d) => ({
     message: `order ${d.incrementId}: ${d.held ? "on credit hold" : "credit hold released"}`,
