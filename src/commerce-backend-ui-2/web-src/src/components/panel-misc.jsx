@@ -2,12 +2,30 @@
  * The side panel's smaller views: the companies a name search found, one Activity record as it
  * was kept, a demo reset's line, and the scheduled price publish.
  */
+import { useCallback } from "react";
+
 import { ErpChip } from "#web/components/controls.jsx";
 import { SidePanel } from "#web/components/side-panel.jsx";
 import { publishLine, scheduledRunRows } from "#web/scheduled-view.js";
 import { clockTime, dayAndTime } from "#web/time-view.js";
 
 const capitalized = (text) => text.charAt(0).toUpperCase() + text.slice(1);
+
+/** One company a name search found; opens its own lookup. */
+function CompanyMatch({ company, onOpen }) {
+  const open = useCallback(
+    () => onOpen({ id: company.id, kind: "company" }),
+    [company.id, onOpen],
+  );
+  return (
+    <li>
+      <button onClick={open} type="button">
+        {company.name}
+        <small>Commerce company {company.id}</small>
+      </button>
+    </li>
+  );
+}
 
 /** The companies whose name holds what was typed, to pick one. */
 export function CompaniesPanel({ matches, onClose, onOpen, text }) {
@@ -19,14 +37,7 @@ export function CompaniesPanel({ matches, onClose, onOpen, text }) {
       title={`Companies named “${text}”`}>
       <ul className="matches">
         {matches.map((company) => (
-          <li key={company.id}>
-            <button
-              onClick={() => onOpen({ id: company.id, kind: "company" })}
-              type="button">
-              {company.name}
-              <small>Commerce company {company.id}</small>
-            </button>
-          </li>
+          <CompanyMatch company={company} key={company.id} onOpen={onOpen} />
         ))}
       </ul>
     </SidePanel>
@@ -67,7 +78,7 @@ function RecordSub({ erpInfo, now, row }) {
 
 /** One Activity record, as it was kept. */
 export function RecordPanel({ erpInfo, extra, foot, now, onClose, row }) {
-  const entry = row.entry;
+  const { entry } = row;
   const facts = [
     ["Kind", row.typeLabel],
     ["About", entry.ref || "–"],

@@ -4,18 +4,23 @@
  * with Commerce's "Use Default Value" (or, for one ERP, "Same as All ERPs") under it. Ticked,
  * the control is grayed out and the wider value applies.
  */
-import { useState } from "react";
+import { useCallback, useState } from "react";
 
 import { confirmStatusOptions, settingText } from "#web/settings-copy.js";
 
 function Switch({ disabled, label, onChange, value }) {
+  const change = useCallback(
+    (event) => onChange(event.target.checked),
+    [onChange],
+  );
   return (
     <label className="switch">
       <input
+        aria-checked={Boolean(value)}
         aria-label={label}
         checked={Boolean(value)}
         disabled={disabled}
-        onChange={(event) => onChange(event.target.checked)}
+        onChange={change}
         role="switch"
         type="checkbox"
       />
@@ -26,12 +31,16 @@ function Switch({ disabled, label, onChange, value }) {
 }
 
 function Select({ disabled, label, onChange, options, value }) {
+  const change = useCallback(
+    (event) => onChange(event.target.value),
+    [onChange],
+  );
   return (
     <select
       aria-label={label}
       className="select"
       disabled={disabled}
-      onChange={(event) => onChange(event.target.value)}
+      onChange={change}
       value={value ?? ""}>
       {options.map((option) => (
         <option key={option.value} value={option.value}>
@@ -45,6 +54,10 @@ function Select({ disabled, label, onChange, options, value }) {
 /** The confirm status: a pick from Commerce's Pending statuses, or a text box when unread. */
 function ConfirmStatus({ disabled, label, onChange, statuses, value }) {
   const options = confirmStatusOptions(statuses, value);
+  const change = useCallback(
+    (event) => onChange(event.target.value),
+    [onChange],
+  );
   if (options) {
     return (
       <Select
@@ -62,7 +75,7 @@ function ConfirmStatus({ disabled, label, onChange, statuses, value }) {
         aria-label={label}
         className="input"
         disabled={disabled}
-        onChange={(event) => onChange(event.target.value)}
+        onChange={change}
         placeholder="erp_confirmed"
         value={value ?? ""}
       />
@@ -76,6 +89,10 @@ function ConfirmStatus({ disabled, label, onChange, statuses, value }) {
 
 /** The control a field is edited with. */
 function Control({ disabled, field, onChange, options, statuses, text }) {
+  const change = useCallback(
+    (event) => onChange(event.target.value),
+    [onChange],
+  );
   if (field.name === "orders_confirm_status") {
     return (
       <ConfirmStatus
@@ -113,7 +130,7 @@ function Control({ disabled, field, onChange, options, statuses, text }) {
       aria-label={text.label}
       className="input"
       disabled={disabled}
-      onChange={(event) => onChange(event.target.value)}
+      onChange={change}
       placeholder={text.placeholder}
       value={field.value ?? ""}
     />
@@ -141,11 +158,18 @@ export function SettingRow({
   const [open, setOpen] = useState(false);
   const text = settingText(field.name, erp);
   const moreId = `more-${field.name}`;
-  const change = (value) => onChange(field.name, value);
-  const toggleDefault = (event) =>
-    event.target.checked
-      ? onUseDefault(field.name)
-      : onChange(field.name, field.value);
+  const change = useCallback(
+    (value) => onChange(field.name, value),
+    [field.name, onChange],
+  );
+  const toggleDefault = useCallback(
+    (event) =>
+      event.target.checked
+        ? onUseDefault(field.name)
+        : onChange(field.name, field.value),
+    [field.name, field.value, onChange, onUseDefault],
+  );
+  const toggleOpen = useCallback(() => setOpen((current) => !current), []);
   return (
     <div className="setting">
       <div>
@@ -156,7 +180,7 @@ export function SettingRow({
             aria-expanded={open}
             aria-label={`More about ${text.label.toLowerCase()}`}
             className="info"
-            onClick={() => setOpen(!open)}
+            onClick={toggleOpen}
             type="button">
             i
           </button>

@@ -199,11 +199,18 @@ export function fakeApi({ allGood = false, oneErp = false } = {}) {
   const answer = (value) => Promise.resolve(value);
   return {
     erps: () =>
-      answer({ entries: oneErp ? [ERP_ENTRIES[0]] : ERP_ENTRIES, stored: !oneErp }),
+      answer({
+        entries: oneErp ? [ERP_ENTRIES[0]] : ERP_ENTRIES,
+        stored: !oneErp,
+      }),
     history: (failedOnly, erp) =>
       answer({
         entries: shown
-          .filter((e) => !failedOnly || ["held", "dropped", "failed", "refused"].includes(e.outcome))
+          .filter(
+            (e) =>
+              !failedOnly ||
+              ["held", "dropped", "failed", "refused"].includes(e.outcome),
+          )
           .filter((e) => oneErp || !erp || (e.erpIds ?? []).includes(erp)),
       }),
     lookup: (query) => {
@@ -218,7 +225,11 @@ export function fakeApi({ allGood = false, oneErp = false } = {}) {
     },
     orderParts,
     resendPart,
-    retry: () => answer({ message: "Sent again; see Activity for how it ended.", outcome: "sent" }),
+    retry: () =>
+      answer({
+        message: "Sent again; see Activity for how it ended.",
+        outcome: "sent",
+      }),
     saveErpSettings,
     saveSettings: (scope, changes) => {
       for (const [name, value] of Object.entries(changes)) {
@@ -228,7 +239,9 @@ export function fakeApi({ allGood = false, oneErp = false } = {}) {
           values.set(`${scope}:${name}`, value);
         }
       }
-      const { confirmStatuses: _statuses, ...page } = settingsPage(scope, { oneErp });
+      const { confirmStatuses: _statuses, ...page } = settingsPage(scope, {
+        oneErp,
+      });
       return answer(page);
     },
     scheduled: () => answer({ scheduled: scheduledRuns() }),

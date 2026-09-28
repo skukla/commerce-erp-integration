@@ -5,16 +5,16 @@
  * ERP, by type, or to the problems only. Picking one ERP reads that ERP's records from the whole
  * history (erp/history ?erp), not only the newest 100.
  */
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 import { Badge, erpStyle, RowErpChips } from "#web/components/controls.jsx";
 import {
   dayGroups,
   eventRow,
   rowMatches,
+  shortName,
   TYPES,
 } from "#web/history-view.js";
-import { shortName } from "#web/overview-view.js";
 import { clockTime } from "#web/time-view.js";
 
 const ARROWS = {
@@ -23,12 +23,28 @@ const ARROWS = {
   to: "M4 12h15m-5-6 6 6-6 6",
 };
 
-function FilterChip({ children, className = "", onPress, pressed, style }) {
+/**
+ * One filter choice. Picks a value directly, or (`toggle`) flips the field it names — either
+ * way its own click handler is built here, from stable props, so no caller writes an inline one.
+ */
+function FilterChip({
+  children,
+  className = "",
+  filterKey,
+  onSelect,
+  pressed,
+  style,
+  toggle = false,
+  value,
+}) {
+  const onClick = useCallback(() => {
+    onSelect(filterKey, toggle ? !pressed : value);
+  }, [filterKey, onSelect, pressed, toggle, value]);
   return (
     <button
       aria-pressed={pressed}
       className={`filter-chip ${className}`.trim()}
-      onClick={onPress}
+      onClick={onClick}
       style={style}
       type="button">
       {children}
@@ -37,23 +53,32 @@ function FilterChip({ children, className = "", onPress, pressed, style }) {
 }
 
 function Filters({ erpInfo, filters, setFilters }) {
-  const set = (change) => setFilters({ ...filters, ...change });
+  const onSelect = useCallback(
+    (key, value) => setFilters((current) => ({ ...current, [key]: value })),
+    [setFilters],
+  );
   return (
     <div className="feed-tools">
       <div aria-label="Filter activity" className="filters" role="toolbar">
         {erpInfo.several && (
           <div className="filter-group">
             <span>ERP</span>
-            <FilterChip onPress={() => set({ erp: "" })} pressed={!filters.erp}>
+            <FilterChip
+              filterKey="erp"
+              onSelect={onSelect}
+              pressed={!filters.erp}
+              value="">
               All ERPs
             </FilterChip>
             {erpInfo.erps.map((erp) => (
               <FilterChip
                 className="is-erp"
+                filterKey="erp"
                 key={erp.id}
-                onPress={() => set({ erp: erp.id })}
+                onSelect={onSelect}
                 pressed={filters.erp === erp.id}
-                style={erpStyle(erpInfo.colors, erp.id)}>
+                style={erpStyle(erpInfo.colors, erp.id)}
+                value={erp.id}>
                 {shortName(erp.name)}
               </FilterChip>
             ))}
@@ -61,22 +86,30 @@ function Filters({ erpInfo, filters, setFilters }) {
         )}
         <div className="filter-group">
           <span>Type</span>
-          <FilterChip onPress={() => set({ type: "" })} pressed={!filters.type}>
+          <FilterChip
+            filterKey="type"
+            onSelect={onSelect}
+            pressed={!filters.type}
+            value="">
             All
           </FilterChip>
           {TYPES.map((type) => (
             <FilterChip
+              filterKey="type"
               key={type.id}
-              onPress={() => set({ type: type.id })}
-              pressed={filters.type === type.id}>
+              onSelect={onSelect}
+              pressed={filters.type === type.id}
+              value={type.id}>
               {type.label}
             </FilterChip>
           ))}
         </div>
         <FilterChip
           className="problems"
-          onPress={() => set({ problems: !filters.problems })}
-          pressed={filters.problems}>
+          filterKey="problems"
+          onSelect={onSelect}
+          pressed={filters.problems}
+          toggle>
           Problems only
         </FilterChip>
       </div>
@@ -90,11 +123,12 @@ function EventRow({ erpInfo, onOpen, row }) {
     row.direction === "reset" ? "is-reset" : "",
     row.problem ? "is-problem" : "",
   ].filter(Boolean);
+  const onClick = useCallback(
+    () => onOpen({ ...row.open, row }),
+    [onOpen, row],
+  );
   return (
-    <button
-      className={classes.join(" ")}
-      onClick={() => onOpen({ ...row.open, row })}
-      type="button">
+    <button className={classes.join(" ")} onClick={onClick} type="button">
       <time dateTime={row.at}>{clockTime(row.at)}</time>
       <span className="dir">
         <svg aria-hidden="true" viewBox="0 0 24 24">
@@ -184,15 +218,18 @@ export function ActivityTab({
               {day.title} {day.date && <span>{day.date}</span>}
             </h3>
             {day.rows.map((row) => (
-              <EventRow erpInfo={erpInfo} key={row.key} onOpen={onOpen} row={row} />
+              <EventRow
+                erpInfo={erpInfo}
+                key={row.key}
+                onOpen={onOpen}
+                row={row}
+              />
             ))}
           </section>
         ))}
       </div>
       {days.length === 0 && (
-        <p className="feed-empty">
-          {emptyFeed(entries, filters)}
-        </p>
+        <p className="feed-empty">{emptyFeed(entries, filters)}</p>
       )}
       {days.length > 0 && (
         <p className="feed-end">

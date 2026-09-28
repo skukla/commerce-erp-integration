@@ -6,10 +6,8 @@
  * not (a maintenance window, a refusal such as "the ERP answered 401", or a network error), its
  * figures, and how it looks (demo-erp's `appearance`).
  */
-import { isProblem, shortName } from "#web/history-view.js";
-import { dayAndTime, ago, sameDay } from "#web/time-view.js";
-
-export { shortName };
+import { isProblem } from "#web/history-view.js";
+import { ago, dayAndTime, sameDay } from "#web/time-view.js";
 
 const NONE = "–";
 const ENDED = /[.!?]$/u;

@@ -24,7 +24,6 @@ function CompareTable({ table }) {
       <thead>
         <tr>
           {table.columns.map((column, index) => (
-            // biome-ignore lint/suspicious/noArrayIndexKey: columns are positional; two can read alike
             <th key={index}>{column}</th>
           ))}
         </tr>
@@ -36,12 +35,10 @@ function CompareTable({ table }) {
               <th>{row.label}</th>
               {row.cells.map((cell, index) =>
                 cell ? (
-                  // biome-ignore lint/suspicious/noArrayIndexKey: cells are positional
                   <td key={index}>
                     Its screen: <code>{cell}</code>
                   </td>
                 ) : (
-                  // biome-ignore lint/suspicious/noArrayIndexKey: cells are positional
                   <td className="empty" key={index} />
                 ),
               )}
@@ -50,7 +47,6 @@ function CompareTable({ table }) {
             <tr key={row.label}>
               <th>{row.label}</th>
               {row.cells.map((cell, index) => (
-                // biome-ignore lint/suspicious/noArrayIndexKey: cells are positional
                 <Cell key={index} value={cell} />
               ))}
             </tr>
@@ -102,7 +98,9 @@ export function LookupPanel({
   const owner = answer?.owner
     ? erpInfo.erps.find((erp) => erp.id === answer.owner.id)
     : null;
-  const title = product ? asked : (table && nameOf(table)) || `Company ${asked}`;
+  const title = product
+    ? asked
+    : (table && nameOf(table)) || `Company ${asked}`;
   let sub = product ? null : `Commerce company ${asked}`;
   if (owner) {
     sub = (

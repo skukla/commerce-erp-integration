@@ -6,11 +6,7 @@
  */
 import { useCallback, useState } from "react";
 
-import {
-  Badge,
-  RowErpChips,
-  erpStyle,
-} from "#web/components/controls.jsx";
+import { Badge, erpStyle, RowErpChips } from "#web/components/controls.jsx";
 import { SearchBox } from "#web/components/search-box.jsx";
 import { needsAttention } from "#web/history-view.js";
 import { erpCard, erpStatusLine, todayCounts } from "#web/overview-view.js";
@@ -18,6 +14,10 @@ import { publishLine } from "#web/scheduled-view.js";
 import { clockTime, whenText } from "#web/time-view.js";
 
 function Today({ counts, onOpen, publish }) {
+  const openScheduled = useCallback(
+    () => onOpen({ kind: "scheduled" }),
+    [onOpen],
+  );
   const tiles = [
     [counts.ordersSent, "Orders sent"],
     [counts.erpApplied, "ERP updates applied"],
@@ -38,10 +38,7 @@ function Today({ counts, onOpen, publish }) {
         ))}
       </div>
       <div className="today-foot">
-        <button
-          className="band-link"
-          onClick={() => onOpen({ kind: "scheduled" })}
-          type="button">
+        <button className="band-link" onClick={openScheduled} type="button">
           Next price publish <strong>{publish.next}</strong> · {publish.last}
         </button>
       </div>
@@ -51,6 +48,14 @@ function Today({ counts, onOpen, publish }) {
 
 function ErpCardView({ card, erp, erpInfo, onShow }) {
   const line = erpStatusLine(erp);
+  const showSettings = useCallback(
+    () => onShow("settings", erp.id),
+    [erp.id, onShow],
+  );
+  const showActivity = useCallback(
+    () => onShow("activity", erp.id),
+    [erp.id, onShow],
+  );
   return (
     <article className="erp-card" style={erpStyle(erpInfo.colors, erp.id)}>
       <div>
@@ -61,16 +66,10 @@ function ErpCardView({ card, erp, erpInfo, onShow }) {
         </div>
       </div>
       <div className="links">
-        <button
-          className="btn btn-link"
-          onClick={() => onShow("settings", erp.id)}
-          type="button">
+        <button className="btn btn-link" onClick={showSettings} type="button">
           Settings
         </button>
-        <button
-          className="btn btn-link"
-          onClick={() => onShow("activity", erp.id)}
-          type="button">
+        <button className="btn btn-link" onClick={showActivity} type="button">
           Activity
         </button>
       </div>
@@ -94,6 +93,11 @@ function ErpCardView({ card, erp, erpInfo, onShow }) {
 }
 
 function AttentionRow({ erpInfo, now, onOpen, onRetry, retrying, row }) {
+  const retryThis = useCallback(() => onRetry(row), [onRetry, row]);
+  const openThis = useCallback(
+    () => onOpen({ ...row.open, row }),
+    [onOpen, row],
+  );
   return (
     <tr>
       <td className="what">
@@ -112,15 +116,12 @@ function AttentionRow({ erpInfo, now, onOpen, onRetry, retrying, row }) {
           <button
             className="btn btn-secondary btn-small"
             disabled={retrying !== null}
-            onClick={() => onRetry(row)}
+            onClick={retryThis}
             type="button">
             {retrying === row.key ? "Retrying" : "Retry"}
           </button>
         )}
-        <button
-          className="btn btn-link"
-          onClick={() => onOpen({ ...row.open, row })}
-          type="button">
+        <button className="btn btn-link" onClick={openThis} type="button">
           View
         </button>
       </td>
@@ -219,7 +220,12 @@ export function OverviewTab({
   return (
     <>
       <div className="ov-top">
-        <SearchBox api={api} erpInfo={erpInfo} history={history} onOpen={onOpen} />
+        <SearchBox
+          api={api}
+          erpInfo={erpInfo}
+          history={history}
+          onOpen={onOpen}
+        />
         <Today
           counts={todayCounts(history, now)}
           onOpen={onOpen}

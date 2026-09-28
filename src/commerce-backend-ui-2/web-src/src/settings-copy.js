@@ -98,10 +98,16 @@ export function confirmStatusOptions(statuses, current) {
   }
   const options = [
     { label: "Empty (note only)", value: "" },
-    ...statuses.map((s) => ({ label: `${s.label} (${s.value})`, value: s.value })),
+    ...statuses.map((s) => ({
+      label: `${s.label} (${s.value})`,
+      value: s.value,
+    })),
   ];
   if (current && !statuses.some((s) => s.value === current)) {
-    options.push({ label: `${current} (not a Pending status)`, value: current });
+    options.push({
+      label: `${current} (not a Pending status)`,
+      value: current,
+    });
   }
   return options;
 }
@@ -135,7 +141,9 @@ export function cardsAt({ atDefault, erp, several }) {
     return ["salesOrg", "connection", products];
   }
   if (several) {
-    return atDefault ? ["orders", "salesOrg", "erpList"] : ["orders", "salesOrg"];
+    return atDefault
+      ? ["orders", "salesOrg", "erpList"]
+      : ["orders", "salesOrg"];
   }
   return ["orders", "salesOrg", products, "connection"];
 }

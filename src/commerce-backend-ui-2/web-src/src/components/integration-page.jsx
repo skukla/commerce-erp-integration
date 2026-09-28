@@ -40,7 +40,10 @@ function useNow() {
 
 /** The page's own answers, read again on Refresh and after a Retry. */
 function usePageData(api, initial, onError) {
-  const [data, setData] = useState(() => ({ ...initial, loadedAt: new Date() }));
+  const [data, setData] = useState(() => ({
+    ...initial,
+    loadedAt: new Date(),
+  }));
   const [busy, setBusy] = useState(false);
   const readActivity = useCallback(async () => {
     try {
@@ -120,24 +123,31 @@ export function IntegrationPage({
   const closePanel = useCallback(() => setPanel(null), []);
   const dismiss = useCallback(() => onError(null), [onError]);
 
-  const attention = needsAttention(data.history, { erps: erpInfo.erps, now }).length;
-  const frame = (actions, children) => (
-    <PageFrame
-      actions={actions}
-      attention={attention}
-      erpInfo={erpInfo}
-      notice={
-        error && (
-          <Alert onDismiss={dismiss} title="Something went wrong">
-            {error}
-          </Alert>
-        )
-      }
-      onTab={choose}
-      tab={tab}>
-      {children}
-    </PageFrame>
+  const attention = needsAttention(data.history, {
+    erps: erpInfo.erps,
+    now,
+  }).length;
+  const frame = useCallback(
+    (actions, children) => (
+      <PageFrame
+        actions={actions}
+        attention={attention}
+        erpInfo={erpInfo}
+        notice={
+          error && (
+            <Alert onDismiss={dismiss} title="Something went wrong">
+              {error}
+            </Alert>
+          )
+        }
+        onTab={choose}
+        tab={tab}>
+        {children}
+      </PageFrame>
+    ),
+    [attention, choose, dismiss, erpInfo, error, tab],
   );
+  const openScheduled = useCallback(() => setPanel({ kind: "scheduled" }), []);
   const refresh = <RefreshButton busy={data.busy} onRefresh={data.refresh} />;
   const publish = publishLine(data.runs, now, (iso) => clockTime(iso));
   const shared = { api, erpInfo, now, onError, onOpen: setPanel };
@@ -160,10 +170,7 @@ export function IntegrationPage({
   } else if (tab === "activity") {
     body = frame(
       <>
-        <button
-          className="band-link"
-          onClick={() => setPanel({ kind: "scheduled" })}
-          type="button">
+        <button className="band-link" onClick={openScheduled} type="button">
           Next price publish <strong>{publish.next}</strong> · {publish.last}
         </button>
         {refresh}

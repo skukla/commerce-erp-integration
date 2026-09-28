@@ -116,8 +116,8 @@
   stroke-width: 2;
 }
 .event .sentence {
-  overflow-wrap: anywhere;
   color: var(--text-strong);
+  overflow-wrap: anywhere;
 }
 .event .sentence small {
   display: block;

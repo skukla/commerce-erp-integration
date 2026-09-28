@@ -4,7 +4,7 @@
  */
 import { useEffect, useRef } from "react";
 
-import { shortName } from "#web/overview-view.js";
+import { shortName } from "#web/history-view.js";
 
 /** The custom properties that color one ERP's elements (index.css --erp, --erp-tint). */
 export function erpStyle(colors, id) {
@@ -60,15 +60,15 @@ export function Badge({ children, tone }) {
 }
 
 export function Spinner({ label }) {
-  return (
-    <div aria-label={label} className="spinner" role="progressbar" />
-  );
+  return <div aria-label={label} className="spinner" role="progressbar" />;
 }
 
 /** A message across the page: something went wrong, it worked, or a notice. */
 export function Alert({ children, onDismiss, title, tone = "bad" }) {
   return (
-    <div className={`alert alert-${tone}`} role={tone === "bad" ? "alert" : "status"}>
+    <div
+      className={`alert alert-${tone}`}
+      role={tone === "bad" ? "alert" : "status"}>
       <div>
         {title && <strong>{title}</strong>}
         {children}

@@ -40,13 +40,22 @@ function AdminChrome({ children, title }) {
     <div className="preview-admin">
       <nav aria-label="Admin menu (preview stand-in)" className="preview-rail">
         <div className="preview-logo">A</div>
-        {["Dashboard", "Sales", "Catalog", "Customers", "Marketing", "Content", "Reports", "Stores", "System", "Apps"].map(
-          (item) => (
-            <span className={item === "Apps" ? "is-active" : ""} key={item}>
-              {item}
-            </span>
-          ),
-        )}
+        {[
+          "Dashboard",
+          "Sales",
+          "Catalog",
+          "Customers",
+          "Marketing",
+          "Content",
+          "Reports",
+          "Stores",
+          "System",
+          "Apps",
+        ].map((item) => (
+          <span className={item === "Apps" ? "is-active" : ""} key={item}>
+            {item}
+          </span>
+        ))}
       </nav>
       <div className="preview-content">
         <header className="preview-header">
@@ -71,7 +80,12 @@ function PartsPreview() {
       <main className="erp-subpage">
         {error && <p>{error}</p>}
         {page ? (
-          <OrderParts api={api} onError={setError} onReload={load} page={page} />
+          <OrderParts
+            api={api}
+            onError={setError}
+            onReload={load}
+            page={page}
+          />
         ) : (
           <PageLoading />
         )}

@@ -59,9 +59,7 @@ function shortDate(date, timeZone) {
  * @param {string} [timeZone]
  */
 export function sameDay(a, b, timeZone) {
-  return (
-    dayKey(new Date(a), timeZone) === dayKey(new Date(b), timeZone)
-  );
+  return dayKey(new Date(a), timeZone) === dayKey(new Date(b), timeZone);
 }
 
 /**
@@ -134,5 +132,4 @@ export function ago(iso, now) {
   return plural(Math.floor(gone / DAY), "day");
 }
 
-const plural = (count, unit) =>
-  `${count} ${unit}${count === 1 ? "" : "s"} ago`;
+const plural = (count, unit) => `${count} ${unit}${count === 1 ? "" : "s"} ago`;

@@ -445,8 +445,8 @@ code {
 .compare th,
 .compare td {
   padding: 10px 12px;
-  text-align: left;
   vertical-align: top;
+  text-align: left;
   border-bottom: 1px solid var(--line);
 }
 .compare thead th {

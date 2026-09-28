@@ -17,8 +17,8 @@ import {
   SalesOrgCard,
   WebsiteNote,
 } from "#web/components/settings-cards.jsx";
-import { erpFields, integrationFields } from "#web/settings-fields.js";
 import { cardsAt } from "#web/settings-copy.js";
+import { erpFields, integrationFields } from "#web/settings-fields.js";
 import {
   ERP_WEBSITE_NAMES,
   erpValues,
@@ -89,7 +89,21 @@ function useScopePage(api, initialPage, scopeId, onError) {
 }
 
 /** The scope bar: which ERP, on which website. */
-function ScopeBar({ atDefault, choices, erpId, erps, onErp, onScope, scopeId, several }) {
+function ScopeBar({
+  atDefault,
+  choices,
+  erpId,
+  erps,
+  onErp,
+  onScope,
+  scopeId,
+  several,
+}) {
+  const changeErp = useCallback((event) => onErp(event.target.value), [onErp]);
+  const changeScope = useCallback(
+    (event) => onScope(event.target.value),
+    [onScope],
+  );
   return (
     <div className="scope-bar">
       {several ? (
@@ -98,7 +112,7 @@ function ScopeBar({ atDefault, choices, erpId, erps, onErp, onScope, scopeId, se
           <select
             className="select scope-select"
             id="for-erp"
-            onChange={(event) => onErp(event.target.value)}
+            onChange={changeErp}
             value={erpId}>
             <option value="">All ERPs</option>
             {erps.map((erp) => (
@@ -118,7 +132,7 @@ function ScopeBar({ atDefault, choices, erpId, erps, onErp, onScope, scopeId, se
         aria-label="on website"
         className="select scope-select"
         id="for-website"
-        onChange={(event) => onScope(event.target.value)}
+        onChange={changeScope}
         value={scopeId}>
         {choices.map((choice) => (
           <option key={choice.id} value={choice.id}>
@@ -131,8 +145,8 @@ function ScopeBar({ atDefault, choices, erpId, erps, onErp, onScope, scopeId, se
           "Default Config applies to every website unless a website changes it."
         ) : (
           <>
-            Untick <em>Use Default Value</em> to change a setting for this website
-            only.
+            Untick <em>Use Default Value</em> to change a setting for this
+            website only.
           </>
         )}
       </span>
@@ -170,13 +184,19 @@ function SaveActions({ changed, onSave, saved, saving }) {
 function Cards({ cards, entries, entry, erpInfo, fields, row, several }) {
   const card = {
     connection: <ConnectionCard entry={entry ?? entries[0]} key="connection" />,
-    erpList: <ErpListCard colors={erpInfo.colors} entries={entries} key="erpList" />,
+    erpList: (
+      <ErpListCard colors={erpInfo.colors} entries={entries} key="erpList" />
+    ),
     orders: <OrdersCard key="orders" row={row} />,
     products: <ProductsCard fields={fields} key="products" row={row} />,
     salesOrg: (
       <SalesOrgCard
         key="salesOrg"
-        note={several && !entry ? "Every ERP uses these unless it sets its own." : null}
+        note={
+          several && !entry
+            ? "Every ERP uses these unless it sets its own."
+            : null
+        }
         row={row}
       />
     ),
@@ -186,7 +206,10 @@ function Cards({ cards, entries, entry, erpInfo, fields, row, several }) {
   const narrow = cards.filter((id) => id !== "erpList");
   const [left, right] = entry
     ? [narrow.slice(0, 2), narrow.slice(2)]
-    : [narrow.filter((id, i) => i % 2 === 0), narrow.filter((id, i) => i % 2 === 1)];
+    : [
+        narrow.filter((_id, i) => i % 2 === 0),
+        narrow.filter((_id, i) => i % 2 === 1),
+      ];
   return (
     <div className="settings-grid">
       <div className="col">{left.map((id) => card[id])}</div>
@@ -227,9 +250,13 @@ export function SettingsTab({
   const choices = websiteChoices(scopes);
   const scopeLevel = choices.find((c) => c.id === scopeId)?.level ?? "global";
   const atDefault = scopeLevel === "global";
-  const entry = erpId ? entries.find((candidate) => candidate.id === erpId) : null;
+  const entry = erpId
+    ? entries.find((candidate) => candidate.id === erpId)
+    : null;
   const websiteCode = websiteCodeOf(scopes, scopeId);
-  const values = entry ? erpValues(entry, websiteCode, page?.values) : page?.values;
+  const values = entry
+    ? erpValues(entry, websiteCode, page?.values)
+    : page?.values;
   const changes = pendingChanges(values, edits);
   const changed = Object.keys(changes).length > 0;
 
@@ -243,8 +270,17 @@ export function SettingsTab({
       setScopeId(next.scope);
     }
   }, []);
-  const ask = (next) => (changed ? setAsked(next) : go(next));
+  const ask = useCallback(
+    (next) => (changed ? setAsked(next) : go(next)),
+    [changed, go],
+  );
+  const askErp = useCallback((erp) => ask({ erp }), [ask]);
+  const askScope = useCallback((scope) => ask({ scope }), [ask]);
   const cancelSwitch = useCallback(() => setAsked(null), []);
+  const confirmSwitch = useCallback(() => {
+    go(asked);
+    setAsked(null);
+  }, [asked, go]);
   const onChange = useCallback(
     (name, value) => {
       setSaved(false);
@@ -264,7 +300,11 @@ export function SettingsTab({
     setSaving(true);
     try {
       if (entry) {
-        const answer = await api.saveErpSettings(entry.id, websiteCode, changes);
+        const answer = await api.saveErpSettings(
+          entry.id,
+          websiteCode,
+          changes,
+        );
         setEntries((list) =>
           list.map((e) => (e.id === answer.entry.id ? answer.entry : e)),
         );
@@ -308,9 +348,18 @@ export function SettingsTab({
     statuses,
     useDefaultFor: (name) => useDefaultLabel(name, Boolean(entry), atDefault),
   });
-  const cards = cardsAt({ atDefault, erp: Boolean(entry), several: erpInfo.several });
+  const cards = cardsAt({
+    atDefault,
+    erp: Boolean(entry),
+    several: erpInfo.several,
+  });
   const actions = (
-    <SaveActions changed={changed} onSave={save} saved={saved} saving={saving} />
+    <SaveActions
+      changed={changed}
+      onSave={save}
+      saved={saved}
+      saving={saving}
+    />
   );
   return frame(
     actions,
@@ -321,8 +370,8 @@ export function SettingsTab({
         choices={choices}
         erpId={erpId}
         erps={erpInfo.erps}
-        onErp={(erp) => ask({ erp })}
-        onScope={(scope) => ask({ scope })}
+        onErp={askErp}
+        onScope={askScope}
         scopeId={scopeId}
         several={erpInfo.several}
       />
@@ -345,10 +394,7 @@ export function SettingsTab({
         <ConfirmDialog
           message="All data that hasn't been saved will be lost."
           onCancel={cancelSwitch}
-          onConfirm={() => {
-            go(asked);
-            setAsked(null);
-          }}
+          onConfirm={confirmSwitch}
           title="Switch scope?"
         />
       )}

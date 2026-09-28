@@ -1,9 +1,5 @@
 /* What the "Follow an order" section says: the headline, and one row per step. */
-import {
-  traceHeadline,
-  traceRow,
-  traceSummary,
-} from "#web/trace-view.js";
+import { traceHeadline, traceRow, traceSummary } from "#web/trace-view.js";
 
 describe("Given one order's trace", () => {
   test("Then the headline answers where the order is, on both sides", () => {

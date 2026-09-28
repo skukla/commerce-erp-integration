@@ -91,7 +91,11 @@ export function PanelContent({
           extra={extra}
           foot={foot}
           key={`${panel.kind}.${panel.sku ?? panel.id}`}
-          query={panel.kind === "product" ? { sku: panel.sku } : { company: panel.id }}
+          query={
+            panel.kind === "product"
+              ? { sku: panel.sku }
+              : { company: panel.id }
+          }
         />
       );
     case "companies":

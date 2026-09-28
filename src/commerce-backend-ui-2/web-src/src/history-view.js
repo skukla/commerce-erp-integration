@@ -79,7 +79,8 @@ const MADE_IN_COMMERCE = {
 };
 
 const NOT_APPLIED = " — not applied: ";
-const ORDER_REFUSED = /^(?:commerce )?order (\S+) was refused by the ERP: (.+)$/iu;
+const ORDER_REFUSED =
+  /^(?:commerce )?order (\S+) was refused by the ERP: (.+)$/iu;
 const ORDER_WAITING = /^order (\S+) is waiting for the ERP \((.+)\)\.?$/iu;
 const SENT_TO = /sent to (.+?) as /gu;
 const SUBJECT = /^(?:customer|company|partner) [^\s:]+/u;
@@ -226,7 +227,9 @@ function triesText(entry) {
     return entry.retriedBy ? `The last try by an ${entry.retriedBy}` : "";
   }
   const tries = `${entry.attempts} tries`;
-  return entry.retriedBy ? `${tries}, the last by an ${entry.retriedBy}` : tries;
+  return entry.retriedBy
+    ? `${tries}, the last by an ${entry.retriedBy}`
+    : tries;
 }
 
 /** The row's second line: what the message says after its first sentence, and the tries. */

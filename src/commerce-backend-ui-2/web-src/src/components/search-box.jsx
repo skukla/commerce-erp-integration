@@ -58,6 +58,16 @@ async function find(api, target, onOpen) {
   return matches.length > 0;
 }
 
+/** One of the search's own suggestions: fills the box and runs that search. */
+function ExampleButton({ example, onPick }) {
+  const pick = useCallback(() => onPick(example.text), [example.text, onPick]);
+  return (
+    <button className="btn btn-link" onClick={pick} type="button">
+      {example.label}
+    </button>
+  );
+}
+
 export function SearchBox({ api, erpInfo, history, onOpen }) {
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
@@ -91,53 +101,55 @@ export function SearchBox({ api, erpInfo, history, onOpen }) {
     },
     [search, text],
   );
+  const pick = useCallback(
+    (picked) => {
+      setText(picked);
+      search(picked);
+    },
+    [search],
+  );
   const examples = searchExamples(history);
+  const onTextChange = useCallback((event) => setText(event.target.value), []);
   return (
-    <form className="search" onSubmit={submit} role="search">
-      <label htmlFor="erp-search">Find an order, product or company</label>
-      <div className="search-row">
-        <input
-          aria-describedby="erp-search-hint"
-          autoComplete="off"
-          className="input"
-          id="erp-search"
-          onChange={(event) => setText(event.target.value)}
-          placeholder="Order number, SKU, or a company’s name or id"
-          type="search"
-          value={text}
-        />
-        <button className="btn btn-secondary" disabled={busy} type="submit">
-          {busy ? "Finding" : "Find"}
-        </button>
-      </div>
-      <div className="search-hint" id="erp-search-hint">
-        {examples.length > 0 ? (
-          <>
-            Try{" "}
-            {examples.map((example, index) => (
-              <span key={example.text}>
-                {index > 0 && (index === examples.length - 1 ? " or " : ", ")}
-                <button
-                  className="btn btn-link"
-                  onClick={() => {
-                    setText(example.text);
-                    search(example.text);
-                  }}
-                  type="button">
-                  {example.label}
-                </button>
-              </span>
-            ))}
-          </>
-        ) : (
-          "An order number, a SKU, or a company’s name or Commerce id."
-        )}
-      </div>
-      {miss && (
-        <div className="search-miss" role="status">
-          {miss}
+    <search>
+      <form className="search" onSubmit={submit}>
+        <label htmlFor="erp-search">Find an order, product or company</label>
+        <div className="search-row">
+          <input
+            aria-describedby="erp-search-hint"
+            autoComplete="off"
+            className="input"
+            id="erp-search"
+            onChange={onTextChange}
+            placeholder="Order number, SKU, or a company’s name or id"
+            type="search"
+            value={text}
+          />
+          <button className="btn btn-secondary" disabled={busy} type="submit">
+            {busy ? "Finding" : "Find"}
+          </button>
         </div>
-      )}
-    </form>
+        <div className="search-hint" id="erp-search-hint">
+          {examples.length > 0 ? (
+            <>
+              Try{" "}
+              {examples.map((example, index) => (
+                <span key={example.text}>
+                  {index > 0 && (index === examples.length - 1 ? " or " : ", ")}
+                  <ExampleButton example={example} onPick={pick} />
+                </span>
+              ))}
+            </>
+          ) : (
+            "An order number, a SKU, or a company’s name or Commerce id."
+          )}
+        </div>
+        {miss && (
+          <div className="search-miss" role="status">
+            {miss}
+          </div>
+        )}
+      </form>
+    </search>
   );
 }

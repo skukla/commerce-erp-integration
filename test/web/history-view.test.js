@@ -19,6 +19,8 @@ const ERPS = [
   { id: "erp", name: "Northwind ERP" },
   { id: "contoso", name: "Contoso ERP" },
 ];
+const HELD_DETAIL =
+  /^Order sent to Northwind ERP as NORT-0000001014 · Contoso ERP is in maintenance until 15:55/u;
 
 const order = (outcome, extra = {}) => ({
   attempts: 1,
@@ -129,10 +131,10 @@ describe("Given an order sent to the ERPs", () => {
       }),
       { erps: ERPS, now: NOW },
     );
-    expect(row.sentence).toBe("Order 3000000024: Contoso ERP’s part is waiting");
-    expect(row.detail).toMatch(
-      /^Order sent to Northwind ERP as NORT-0000001014 · Contoso ERP is in maintenance until 15:55/u,
+    expect(row.sentence).toBe(
+      "Order 3000000024: Contoso ERP’s part is waiting",
     );
+    expect(row.detail).toMatch(HELD_DETAIL);
   });
 
   test.each([
@@ -276,10 +278,15 @@ describe("Given an update from an ERP", () => {
 
   test("Then a company's customer prices read as a count of prices, by its name", () => {
     const row = eventRow(
-      fromErp("contract", "100042", "partner 100042: 3 price line(s) in force", {
-        company: { id: "4", name: "Kukla Studios" },
-        erpIds: ["erp"],
-      }),
+      fromErp(
+        "contract",
+        "100042",
+        "partner 100042: 3 price line(s) in force",
+        {
+          company: { id: "4", name: "Kukla Studios" },
+          erpIds: ["erp"],
+        },
+      ),
       { erps: ERPS, now: NOW },
     );
     expect(row.sentence).toBe("Kukla Studios: 3 customer prices in force");

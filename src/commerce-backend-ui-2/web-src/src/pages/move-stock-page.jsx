@@ -16,14 +16,14 @@ import { Alert, Spinner } from "#web/components/controls.jsx";
 import { movedSummary, moveIntro, plural } from "#web/move-stock-view.js";
 
 function SourcePick({ id, label, onChange, sources, value }) {
+  const change = useCallback(
+    (event) => onChange(event.target.value),
+    [onChange],
+  );
   return (
     <label htmlFor={id}>
       {label}
-      <select
-        className="select"
-        id={id}
-        onChange={(event) => onChange(event.target.value)}
-        value={value ?? ""}>
+      <select className="select" id={id} onChange={change} value={value ?? ""}>
         {sources.map((s) => (
           <option key={s.code} value={s.code}>
             {s.name}
@@ -40,13 +40,20 @@ function MoveForm({ busy, onMove, productCount, sources }) {
   const [to, setTo] = useState(sources[1]?.code ?? null);
   const [amount, setAmount] = useState("all");
   const [quantity, setQuantity] = useState(1);
-  const ready = from && to && from !== to && (amount === "all" || quantity >= 1);
+  const ready =
+    from && to && from !== to && (amount === "all" || quantity >= 1);
   const submit = useCallback(
     (event) => {
       event.preventDefault();
       onMove({ from, quantity: amount === "some" ? quantity : null, to });
     },
     [amount, from, onMove, quantity, to],
+  );
+  const pickAll = useCallback(() => setAmount("all"), []);
+  const pickSome = useCallback(() => setAmount("some"), []);
+  const changeQuantity = useCallback(
+    (event) => setQuantity(Number(event.target.value)),
+    [],
   );
   return (
     <form className="move-form" onSubmit={submit}>
@@ -70,7 +77,7 @@ function MoveForm({ busy, onMove, productCount, sources }) {
           <input
             checked={amount === "all"}
             name="amount"
-            onChange={() => setAmount("all")}
+            onChange={pickAll}
             type="radio"
           />
           All of it (the origin is taken off the product)
@@ -79,7 +86,7 @@ function MoveForm({ busy, onMove, productCount, sources }) {
           <input
             checked={amount === "some"}
             name="amount"
-            onChange={() => setAmount("some")}
+            onChange={pickSome}
             type="radio"
           />
           A quantity of each product
@@ -92,7 +99,7 @@ function MoveForm({ busy, onMove, productCount, sources }) {
             className="input"
             id="move-quantity"
             min={1}
-            onChange={(event) => setQuantity(Number(event.target.value))}
+            onChange={changeQuantity}
             step={1}
             type="number"
             value={quantity}
@@ -104,7 +111,9 @@ function MoveForm({ busy, onMove, productCount, sources }) {
         className="btn btn-secondary"
         disabled={!ready || busy}
         type="submit">
-        {busy ? "Moving" : `Move ${plural(productCount, "product", "products")}`}
+        {busy
+          ? "Moving"
+          : `Move ${plural(productCount, "product", "products")}`}
       </button>
     </form>
   );

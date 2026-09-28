@@ -14,13 +14,15 @@ import {
 } from "#web/settings-copy.js";
 import { erpValues } from "#web/settings-view.js";
 
+const NON_BLANK = /\S/u;
+
 describe("Given each setting's words", () => {
   test("Then every setting the app declares has a label, a help line and more to read", () => {
     for (const { name } of appConfig.businessConfig.schema) {
       const text = settingText(name, null);
-      expect(text.label, name).toMatch(/\S/u);
-      expect(text.help, name).toMatch(/\S/u);
-      expect(text.more, name).toMatch(/\S/u);
+      expect(text.label, name).toMatch(NON_BLANK);
+      expect(text.help, name).toMatch(NON_BLANK);
+      expect(text.more, name).toMatch(NON_BLANK);
     }
   });
 
@@ -83,7 +85,10 @@ describe("Given which products an ERP owns", () => {
 
 describe("Given the cards a view holds", () => {
   test.each([
-    [{ atDefault: true, erp: false, several: true }, ["orders", "salesOrg", "erpList"]],
+    [
+      { atDefault: true, erp: false, several: true },
+      ["orders", "salesOrg", "erpList"],
+    ],
     [{ atDefault: false, erp: false, several: true }, ["orders", "salesOrg"]],
     [
       { atDefault: true, erp: true, several: true },
@@ -149,8 +154,10 @@ describe("Given an ERP's value at a website it does not set", () => {
     const values = erpValues(entry, "bodea", [
       { name: "structure_sales_org", value: "1000" },
     ]);
-    expect(values.find((v) => v.name === "structure_sales_org")).toStrictEqual(
-      { name: "structure_sales_org", own: false, value: "2000" },
-    );
+    expect(values.find((v) => v.name === "structure_sales_org")).toStrictEqual({
+      name: "structure_sales_org",
+      own: false,
+      value: "2000",
+    });
   });
 });

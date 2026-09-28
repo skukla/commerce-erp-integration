@@ -17,7 +17,7 @@ function trapTab(event, panel) {
   if (items.length === 0) {
     return;
   }
-  const first = items[0];
+  const [first] = items;
   const last = items.at(-1);
   if (event.shiftKey && document.activeElement === first) {
     event.preventDefault();
@@ -64,6 +64,7 @@ export function SidePanel({ children, foot, kicker, onClose, sub, title }) {
     <>
       {/* biome-ignore lint/a11y/noStaticElementInteractions: the scrim is a mouse shortcut; Escape and the Close button are the keyboard's way out */}
       {/* biome-ignore lint/a11y/useKeyWithClickEvents: as above, Escape closes the panel */}
+      {/* biome-ignore lint/a11y/noNoninteractiveElementInteractions: as above; a real button here would sit on top of the page as a full-screen click target, which is not what a scrim is */}
       <div className="scrim" onClick={onClose} />
       <aside
         aria-labelledby="panel-title"

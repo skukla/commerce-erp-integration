@@ -4,6 +4,8 @@
  * Activity · Settings. The Admin draws the left rail and the page title "ERP Integration"
  * around the frame, so neither is drawn here.
  */
+import { useCallback } from "react";
+
 import { erpStyle } from "#web/components/controls.jsx";
 import { erpStatusLine } from "#web/overview-view.js";
 
@@ -28,10 +30,11 @@ function ErpStatus({ colors, erp }) {
 }
 
 function Tab({ attention, current, onSelect, tab }) {
+  const select = useCallback(() => onSelect(tab.id), [onSelect, tab.id]);
   return (
     <button
       aria-current={current ? "page" : undefined}
-      onClick={() => onSelect(tab.id)}
+      onClick={select}
       type="button">
       {tab.label}
       {tab.id === "overview" && attention > 0 && (

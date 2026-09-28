@@ -10,7 +10,12 @@ import { erpFields, integrationFields } from "#web/settings-fields.js";
 const PAGE = {
   fields: [
     { default: true, label: "Send", name: "orders_send", type: "boolean" },
-    { default: "1000", label: "Org", name: "structure_sales_org", type: "text" },
+    {
+      default: "1000",
+      label: "Org",
+      name: "structure_sales_org",
+      type: "text",
+    },
     { default: "all", label: "Owns", name: "structure_owns", type: "list" },
     {
       default: "",
@@ -63,7 +68,9 @@ describe("Given the integration's fields at a website", () => {
       inherited: false,
       value: false,
     });
-    expect(edited.get("structure_sales_org")).toMatchObject({ inherited: true });
+    expect(edited.get("structure_sales_org")).toMatchObject({
+      inherited: true,
+    });
   });
 
   test("Then at Default Config nothing is inherited", () => {
@@ -81,9 +88,9 @@ describe("Given one ERP's fields among several", () => {
   ];
 
   test("Then what it does not set is the integration's, and shows as Same as All ERPs", () => {
-    expect(erpFields(PAGE, values, {}).get("structure_sales_org")).toMatchObject(
-      { inherited: true, value: "1000" },
-    );
+    expect(
+      erpFields(PAGE, values, {}).get("structure_sales_org"),
+    ).toMatchObject({ inherited: true, value: "1000" });
     expect(
       erpFields(PAGE, values, {}).get("structure_order_prefix"),
     ).toMatchObject({ inherited: false, value: "CON" });

@@ -34,7 +34,7 @@ describe("Given the page opening", () => {
   test("Then Activity that cannot be read leaves the page up, empty, with the reason", async () => {
     const api = fakeApi({
       history: vi.fn(async () => {
-        throw new Error("State is down");
+        await Promise.reject(new Error("State is down"));
       }),
     });
     const read = await readFirst(api);
@@ -45,7 +45,7 @@ describe("Given the page opening", () => {
   test("Then a status that cannot be read is the page's failure", async () => {
     const api = fakeApi({
       status: vi.fn(async () => {
-        throw new Error("401");
+        await Promise.reject(new Error("401"));
       }),
     });
     await expect(readFirst(api)).rejects.toThrow("401");

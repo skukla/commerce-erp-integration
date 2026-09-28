@@ -3,13 +3,13 @@
  * answers), the Overview's card per ERP, and today's counts, which the page works out from the
  * Activity records it already reads.
  */
+import { shortName } from "#web/history-view.js";
 import {
   erpCard,
   erpColors,
   erpStatusLine,
   listedErps,
   PALETTES,
-  shortName,
   todayCounts,
 } from "#web/overview-view.js";
 
@@ -34,9 +34,10 @@ const CONTOSO = {
 
 describe("Given the ERPs erp/status lists", () => {
   test("Then several ERPs are the list as it is", () => {
-    expect(listedErps({ erp: {}, erps: [NORTHWIND, CONTOSO] })).toStrictEqual(
-      [NORTHWIND, CONTOSO],
-    );
+    expect(listedErps({ erp: {}, erps: [NORTHWIND, CONTOSO] })).toStrictEqual([
+      NORTHWIND,
+      CONTOSO,
+    ]);
   });
 
   test("Then one ERP is its health, named by its display name", () => {
