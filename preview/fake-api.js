@@ -2,10 +2,17 @@ import { companyLookup, productLookup } from "#lib/lookup";
 import { orderPartsPage } from "#lib/order-parts-view";
 
 import { BODEA_SCOPE_TREE } from "../test/web/fixtures/bodea-scope-tree.js";
+import {
+  lookupAcross,
+  SCHEDULED,
+  STATUS_ERPS,
+  TRACE_SEVERAL,
+  withErpIds,
+} from "./fake-several-erps.js";
 
 /*
  * Stand-in answers for the Admin page's actions, in the shapes the actions really return
- * (erp/status, erp/settings, erp/history, erp/order-parts — see each action). The preview renders the real
+ * (erp/status, erp/settings, erp/history, erp/lookup, erp/order-parts — see each action). The preview renders the real
  * components against these, so the layout can be looked at without a Commerce Admin, a
  * sign-in, or a deployed app.
  */
@@ -347,19 +354,32 @@ function saveErpSettings(id, website, changes) {
   return Promise.resolve({ entry: { ...entry } });
 }
 
+const HISTORY_SEVERAL = withErpIds(HISTORY);
+
+function fakeLookupSeveral(query) {
+  return lookupAcross(query, fakeLookup(query), {
+    company: LOOKUP_COMPANY,
+    sku: LOOKUP_PRODUCT.commerce.sku,
+  });
+}
+
+const NOT_THROUGH = ["held", "dropped", "failed", "refused"];
+
+function fakeHistory(oneErp, failedOnly, erp) {
+  const all = oneErp ? HISTORY : HISTORY_SEVERAL;
+  return all
+    .filter((e) => !failedOnly || NOT_THROUGH.includes(e.outcome))
+    .filter((e) => oneErp || !erp || e.erpIds.includes(erp));
+}
+
 /** `oneErp`: the status as one ERP answers it, with no list (the header as before). */
 export function fakeApi({ oneErp = false } = {}) {
   return {
     erps: () => Promise.resolve({ entries: ERPS, stored: true }),
-    history: (failedOnly) =>
-      Promise.resolve({
-        entries: failedOnly
-          ? HISTORY.filter((e) =>
-              ["held", "dropped", "failed", "refused"].includes(e.outcome),
-            )
-          : HISTORY,
-      }),
-    lookup: (query) => Promise.resolve(fakeLookup(query)),
+    history: (failedOnly, erp) =>
+      Promise.resolve({ entries: fakeHistory(oneErp, failedOnly, erp) }),
+    lookup: (query) =>
+      Promise.resolve(oneErp ? fakeLookup(query) : fakeLookupSeveral(query)),
     orderParts,
     resendPart,
     retry: () => Promise.resolve({ outcome: "sent" }),
@@ -374,6 +394,7 @@ export function fakeApi({ oneErp = false } = {}) {
       }
       return Promise.resolve(settingsPage(scope));
     },
+    scheduled: () => Promise.resolve({ scheduled: SCHEDULED }),
     settings: (scope) => Promise.resolve(settingsPage(scope)),
     status: () =>
       Promise.resolve({
@@ -405,23 +426,16 @@ export function fakeApi({ oneErp = false } = {}) {
             ],
           },
         },
-        // With several ERPs, erp/status lists each with whether it answers.
+        // With several ERPs, erp/status lists each with whether it can be used, why not,
+        // and its own figures.
         ...(oneErp
           ? {}
           : {
-              erps: [
-                { id: "erp", name: "Northwind ERP", reachable: true },
-                {
-                  error: "fetch failed",
-                  id: "contoso",
-                  name: "Contoso ERP",
-                  reachable: false,
-                },
-              ],
+              erps: STATUS_ERPS,
             }),
         ledger: { entries: 2 },
       }),
-    trace: () => Promise.resolve({ trace: TRACE }),
+    trace: () => Promise.resolve({ trace: oneErp ? TRACE : TRACE_SEVERAL }),
   };
 }
 

@@ -13,6 +13,7 @@ import { overviewRows } from "#web/overview-view.js";
 
 const PRODUCT = { kind: "sku", label: "SKU" };
 const COMPANY = { kind: "company", label: "Commerce company id" };
+const when = (iso) => new Date(iso).toLocaleString();
 
 /** Several ERPs: one row per ERP, with whether it can be used and its own figures. */
 function ErpsTable({ erps }) {
@@ -31,7 +32,7 @@ function ErpsTable({ erps }) {
         </tr>
       </thead>
       <tbody>
-        {overviewRows(erps).map((row) => (
+        {overviewRows(erps, when).map((row) => (
           <tr key={row.id}>
             <td>{row.name}</td>
             <td>{row.state}</td>

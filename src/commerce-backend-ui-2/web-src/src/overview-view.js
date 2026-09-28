@@ -37,17 +37,18 @@ export function erpStatusLine(entry) {
 /**
  * The Overview's rows, one per ERP, with a dash for a figure the ERP did not give.
  * @param {object[]} erps the listed ERPs (erp/status `erps`)
+ * @param {(iso: string) => string} [when] how the page writes a time
  * @returns {object[]}
  */
-export function overviewRows(erps) {
+export function overviewRows(erps, when = (iso) => iso) {
   return erps.map((entry) => {
     const counts = entry.counts ?? {};
     return {
       businessPartners: counts.businessPartners ?? NONE,
       events: counts.events ?? NONE,
       id: entry.id,
-      lastImportAt: entry.lastImportAt || "never",
-      lastWipeAt: entry.lastWipeAt || "never",
+      lastImportAt: entry.lastImportAt ? when(entry.lastImportAt) : "never",
+      lastWipeAt: entry.lastWipeAt ? when(entry.lastWipeAt) : "never",
       name: entry.name,
       products: counts.products ?? NONE,
       salesOrders: counts.salesOrders ?? NONE,

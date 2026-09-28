@@ -43,32 +43,35 @@ describe("Given the ERPs the page header lists", () => {
 describe("Given the Overview with several ERPs", () => {
   test("Then each ERP is a row with its own figures, and a dash where it gave none", () => {
     expect(
-      overviewRows([
-        {
-          counts: {
-            businessPartners: 12,
-            events: 0,
-            products: 120,
-            salesOrders: 4,
+      overviewRows(
+        [
+          {
+            counts: {
+              businessPartners: 12,
+              events: 0,
+              products: 120,
+              salesOrders: 4,
+            },
+            id: "erp",
+            lastImportAt: "2026-09-28T09:00:00Z",
+            name: "Northwind ERP",
+            reachable: true,
           },
-          id: "erp",
-          lastImportAt: "2026-09-28T09:00:00Z",
-          name: "Northwind ERP",
-          reachable: true,
-        },
-        {
-          error: "the ERP answered 401",
-          id: "contoso",
-          name: "Contoso ERP",
-          reachable: false,
-        },
-      ]),
+          {
+            error: "the ERP answered 401",
+            id: "contoso",
+            name: "Contoso ERP",
+            reachable: false,
+          },
+        ],
+        (iso) => `[${iso}]`,
+      ),
     ).toStrictEqual([
       {
         businessPartners: 12,
         events: 0,
         id: "erp",
-        lastImportAt: "2026-09-28T09:00:00Z",
+        lastImportAt: "[2026-09-28T09:00:00Z]",
         lastWipeAt: "never",
         name: "Northwind ERP",
         products: 120,
