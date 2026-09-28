@@ -8,11 +8,12 @@ import AioLogger from "@adobe/aio-lib-core-logging";
 
 import { recordOrderOutcome } from "#lib/history";
 import { orderSyncDeps } from "#lib/order-deps";
-import { sendOrderToErp } from "#lib/order-sync";
+import { routeOrder } from "#router/route-order";
 
 /**
- * observer.sales_order_save_commit_after: a new Commerce order goes to the ERP and the
- * ERP's number comes back onto it (lib/order-sync.js). A 503 answer asks I/O Events to
+ * observer.sales_order_save_commit_after: a new Commerce order goes to the router, which
+ * hands each ERP its part through that ERP's adapter (src/router/route-order.js); the ERP's
+ * number comes back onto the order (lib/order-sync.js). A 503 answer asks I/O Events to
  * deliver again later; a 400 ends the delivery.
  */
 async function main(params) {
@@ -21,7 +22,7 @@ async function main(params) {
   });
   try {
     const order = params.data?.value ?? params.data;
-    const result = await sendOrderToErp(params, order, orderSyncDeps(logger));
+    const result = await routeOrder(params, order, orderSyncDeps(logger));
     logger.info(result.message);
     // For the Commerce Admin screen's history and its Retry (lib/history.js).
     await recordOrderOutcome(order, result, { logger });

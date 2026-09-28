@@ -312,7 +312,8 @@ const NOT_FOUND = 404;
  * website's settings still apply, and an order that has an ERP number is left alone.
  * @param {object} params action params (ERP and Commerce credentials)
  * @param {string} incrementId the order number a shopper sees
- * @param {object} deps `sendOrderToErp`'s, plus `getOrder(params, incrementId)`
+ * @param {object} deps `sendOrderToErp`'s, plus `getOrder(params, incrementId)` and, optionally,
+ *   `send` (the router; defaults to `sendOrderToErp`)
  * @returns {Promise<{ outcome: string, statusCode: number, message: string }>}
  */
 export async function retryOrderToErp(params, incrementId, deps) {
@@ -324,5 +325,7 @@ export async function retryOrderToErp(params, incrementId, deps) {
       statusCode: NOT_FOUND,
     };
   }
-  return sendOrderToErp(params, { ...order, _isNew: true }, deps);
+  // `deps.send` is the router when the real collaborators are used (lib/order-deps.js).
+  const send = deps.send ?? sendOrderToErp;
+  return send(params, { ...order, _isNew: true }, deps);
 }

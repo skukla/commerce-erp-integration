@@ -13,7 +13,9 @@
   "imports": {
     "#app.commerce.config": "./src/commerce-extensibility-1/.generated/app.commerce.config.js",
     "#telemetry": "./src/telemetry.js",
+    "#adapters/*": "./src/adapters/*.js",
     "#lib/*": "./src/lib/*.js",
+    "#router/*": "./src/router/*.js",
     "#src/*": "./src/commerce-extensibility-1/actions/*.js",
     "#web/*": "./src/commerce-backend-ui-2/web-src/src/*",
     "#web-actions/*": "./src/commerce-backend-ui-2/actions/*"

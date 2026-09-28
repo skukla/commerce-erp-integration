@@ -17,6 +17,7 @@ import { recordOrderOutcome } from "#lib/history";
 import { erpCustomerOf } from "#lib/key-map";
 import { settingsFor } from "#lib/settings";
 import { ownsSku } from "#lib/structure";
+import { routeOrder } from "#router/route-order";
 
 /**
  * @param {object} logger the action's logger
@@ -35,6 +36,8 @@ export function orderSyncDeps(logger) {
       ownsSku(p, sku, settings, { productAttributes, sourceCodesOf }),
     recordProgress: (order, step) =>
       recordOrderOutcome(order, step, { logger, progress: true }),
+    // The Admin screen's Retry sends through the router, as the order event does.
+    send: routeOrder,
     setExtOrderId,
     settingsFor,
   };

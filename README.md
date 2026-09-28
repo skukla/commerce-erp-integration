@@ -167,6 +167,23 @@ twin of the Admin page's Mapping tab).
 | `ERP_DISPLAY_NAME` | what the ERP is called in comments and on the Admin screen |
 | `AIO_COMMERCE_AUTH_IMS_*` | the server-to-server credential the deploy injects; it authenticates calls to Commerce and to the ERP (the ERP's actions are `require-adobe-auth`) |
 
+## Code layout
+
+Laid out the way a customer would build an integration for several ERPs (the several-ERPs
+design, v1). Adobe's starter-kit actions stay where the kit puts them
+(`src/commerce-extensibility-1/actions/<entity>/commerce|external/`); four pieces sit beside them:
+
+| Piece | Where | What it is |
+|---|---|---|
+| The router | `src/router/route-order.js` | Where a placed order goes first. It knows no ERP: it reads the ERP list and hands each ERP its part of the order through that ERP's adapter. Today it passes the whole order to the one ERP; splitting lines by their owning ERP comes next |
+| The contract | `src/adapters/contract.js` | The two functions every adapter implements: `sendPart` (send this ERP its part) and `readOutcome` (turn the ERP's message into the part's outcome) |
+| The adapters | `src/adapters/<kind>/` | One folder per KIND of ERP. `demo-erp/` talks to the demo ERP; `example/` is a commented skeleton showing what adding another kind takes |
+| The ERP list | `src/lib/erps.js` | One entry per ERP: an `id` that never changes (the key for everything), a `name` for people, its adapter kind, and its connection |
+
+Adding an ERP of a kind already built is one line in the ERP list. Adding a new kind is one
+adapter folder (copy `example/`) plus that line. The router, the storefront and the other
+adapters do not change.
+
 ## Develop
 
 ```bash
