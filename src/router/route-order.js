@@ -14,7 +14,9 @@
  * - a line no ERP owns is held back and recorded; a line two ERPs claim is a setup error,
  *   recorded and sent to neither;
  * - each part is recorded (lib/order-parts.js) and sent once: a redelivered order event sends
- *   only the parts that did not reach their ERP.
+ *   only the parts that did not reach their ERP;
+ * - a configurable product whose variants belong to different ERPs is a setup warning on the
+ *   part its ordered variant went to (slice B7), never a reason to hold the order.
  * The ERP number is not written onto the Commerce order by any one part; the combined view is
  * slice B2's.
  */
@@ -38,7 +40,8 @@ function linesOf(order) {
 
 /**
  * Group an order's lines by owning ERP. A configurable's child line travels with its parent.
- * @returns {Promise<{ byErp: Map<string, object[]>, unrouted: string[], conflicts: object[] }>}
+ * @returns {Promise<{ byErp: Map<string, object[]>, unrouted: string[], conflicts: object[],
+ *   warnings: Map<string, string[]> }>}
  */
 async function splitLines(params, order, erps, deps) {
   const lines = linesOf(order);
@@ -63,7 +66,67 @@ async function splitLines(params, order, erps, deps) {
       byErp.set(owner, [...(byErp.get(owner) ?? []), line]);
     }
   }
-  return { byErp, conflicts, unrouted };
+  const warnings = await variantWarnings(
+    params,
+    lines,
+    ownerOfItem,
+    erps,
+    deps,
+  );
+  return { byErp, conflicts, unrouted, warnings };
+}
+
+/**
+ * The variant check (slice B7): a configurable product whose variants belong to different
+ * ERPs is a setup mistake. The ordered variant still goes to its own ERP; the part it went to
+ * records a warning. A check that cannot read the variants is logged, never an error: the
+ * order is never held for it.
+ * @returns {Promise<Map<string, string[]>>} warnings by the ERP id of the part
+ */
+async function variantWarnings(params, lines, ownerOfItem, erps, deps) {
+  const warnings = new Map();
+  if (!deps?.variantsOf) {
+    return warnings;
+  }
+  const configurables = lines.filter(
+    (l) =>
+      l.product_type === "configurable" &&
+      !l.parent_item_id &&
+      ownerOfItem.has(l.item_id),
+  );
+  for (const line of configurables) {
+    // biome-ignore lint/performance/noAwaitInLoops: few configurable lines, in order
+    const warning = await variantWarning(params, line, erps, deps);
+    if (warning) {
+      const owner = ownerOfItem.get(line.item_id);
+      warnings.set(owner, [...(warnings.get(owner) ?? []), warning]);
+    }
+  }
+  return warnings;
+}
+
+async function variantWarning(params, line, erps, deps) {
+  try {
+    const { parentSku, skus } = await deps.variantsOf(params, line.product_id);
+    const byOwner = new Map();
+    for (const sku of skus) {
+      for (const owner of await ownersOf(params, sku, erps, deps.ownsSku)) {
+        byOwner.set(owner, [...(byOwner.get(owner) ?? []), sku]);
+      }
+    }
+    if (byOwner.size <= 1) {
+      return null;
+    }
+    const owners = [...byOwner]
+      .map(([owner, owned]) => `${owner}: ${owned.join(", ")}`)
+      .join("; ");
+    return `${parentSku}'s variants belong to different ERPs (${owners}); fix the setup.`;
+  } catch (error) {
+    deps.logger?.warn?.(
+      `variants of ${line.sku} not checked: ${error.message}`,
+    );
+    return null;
+  }
 }
 
 /** The buyer's Commerce company, or null (a guest, or a company that cannot be read). */
@@ -109,7 +172,7 @@ function combine(label, outcomes, notes) {
 
 async function routeToSeveral(params, order, deps, erps) {
   const label = `order ${order.increment_id}`;
-  const { byErp, unrouted, conflicts } = await splitLines(
+  const { byErp, unrouted, conflicts, warnings } = await splitLines(
     params,
     order,
     erps,
@@ -139,6 +202,7 @@ async function routeToSeveral(params, order, deps, erps) {
         .filter((id) => Number.isFinite(id)),
       skus: lines.filter((l) => !l.parent_item_id).map((l) => l.sku),
       status: "sending",
+      ...(warnings.has(entry.id) ? { warnings: warnings.get(entry.id) } : {}),
     };
     // biome-ignore lint/performance/noAwaitInLoops: one ERP at a time, the record saved in order
     if (companyId && (await isBlocked(companyId, entry.id))) {

@@ -334,6 +334,23 @@ export async function skuForProductId(params, productId) {
   return data.items?.[0]?.sku ?? null;
 }
 
+/**
+ * A configurable product's SKU and its variants' SKUs, from the product id an order line
+ * carries (the router's variant check, router/route-order.js).
+ * @returns {Promise<{ parentSku: string|null, skus: string[] }>}
+ */
+export async function variantsOfProduct(params, productId) {
+  const parentSku = await skuForProductId(params, productId);
+  if (!parentSku) {
+    return { parentSku: null, skus: [] };
+  }
+  const client = await commerceClient(params);
+  const children = await client
+    .get(`configurable-products/${encodeURIComponent(parentSku)}/children`)
+    .json();
+  return { parentSku, skus: (children ?? []).map((child) => child.sku) };
+}
+
 /** @returns {Promise<object|null>} the product by SKU, or null when Commerce has none */
 export async function getProduct(params, sku) {
   const client = await commerceClient(params);

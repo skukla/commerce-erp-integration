@@ -11,6 +11,7 @@ import {
   productAttributes,
   setExtOrderId,
   sourceCodesOf,
+  variantsOfProduct,
   websiteCodeOfStore,
 } from "#lib/commerce";
 import { erp } from "#lib/erp";
@@ -43,6 +44,9 @@ export function orderSyncDeps(logger) {
     send: routeOrder,
     setExtOrderId,
     settingsFor,
+    // The router's variant check, with several ERPs only (router/route-order.js). Wrapped,
+    // so a path that never checks variants never touches the binding.
+    variantsOf: (p, productId) => variantsOfProduct(p, productId),
     // Read only when a part of a split order is sent (lib/erp-settings.js).
     websiteCodeOf: async (p, storeId) => websiteCodeOfStore(p, storeId),
   };
