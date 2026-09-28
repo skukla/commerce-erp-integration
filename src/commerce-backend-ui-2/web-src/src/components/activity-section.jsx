@@ -1,11 +1,12 @@
 /*
  * What crossed between Commerce and the ERP and how it ended, with Retry on what did not get
- * through, and one order followed end to end.
+ * through, one order followed end to end, and the runs the integration makes on a schedule.
  */
 import { Heading } from "@react-spectrum/s2";
 
 import { History } from "#web/components/history.jsx";
 import { OrderTrace } from "#web/components/order-trace.jsx";
+import { ScheduledRuns } from "#web/components/scheduled-runs.jsx";
 
 export function ActivitySection({ api, erpName, erps, onError }) {
   return (
@@ -15,6 +16,7 @@ export function ActivitySection({ api, erpName, erps, onError }) {
       </Heading>
       <History api={api} erpName={erpName} erps={erps} onError={onError} />
       <OrderTrace api={api} erpName={erpName} onError={onError} />
+      <ScheduledRuns api={api} onError={onError} />
     </section>
   );
 }

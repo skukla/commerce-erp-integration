@@ -12,6 +12,11 @@ const mockInvoke = vi.fn(async () => ({ statusCode: 200 }));
 vi.mock("openwhisk", () => ({
   default: () => ({ actions: { invoke: mockInvoke } }),
 }));
+vi.mock("#lib/scheduled-runs", () => ({
+  readScheduledRuns: vi.fn(async () => [
+    { id: "prices", lastRun: { at: "T" } },
+  ]),
+}));
 vi.mock("#lib/order-deps", () => ({
   orderSyncDeps: vi.fn((logger) => ({ logger, marker: "real deps" })),
 }));
@@ -35,6 +40,14 @@ afterEach(() => {
 });
 
 describe("Given the history action", () => {
+  test("Then GET ?scheduled=true answers the scheduled runs, and no history", async () => {
+    const res = await main({ __ow_method: "get", scheduled: "true" });
+    expect(res.body).toStrictEqual({
+      scheduled: [{ id: "prices", lastRun: { at: "T" } }],
+    });
+    expect(readHistory).not.toHaveBeenCalled();
+  });
+
   test("Then GET lists the history, newest first, with the screen's filters", async () => {
     readHistory.mockResolvedValueOnce([HELD]);
 

@@ -66,6 +66,8 @@ export function makeApi(ims, origin = window.location.origin) {
     // for a value means "use the wider scope's value" (erp/settings).
     saveSettings: (scope, values) =>
       call("settings", { body: { scope, values }, method: "PATCH" }),
+    // The scheduled runs: when each last ran and what it changed (erp/history).
+    scheduled: () => call("history?scheduled=true"),
     settings: (scope, options) => call(settingsPath(scope, options)),
     status: () => call("status"),
     // One order's whole life, gathered from Commerce, this history and the ERP.

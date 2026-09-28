@@ -22,7 +22,13 @@ vi.mock("#lib/contract-prices", async (importOriginal) => ({
 import { publishErpPrices } from "#lib/contract-prices";
 import { erp } from "#lib/erp";
 import { loadErps } from "#lib/erps";
+import {
+  readScheduledRuns,
+  resetScheduledRunsClient,
+} from "#lib/scheduled-runs";
 import { main } from "#src/erp/prices-scheduled/index";
+
+import { fakeState } from "../../../box/state.js";
 
 const ERP = (id, baseUrl) => ({
   adapter: "demo-erp",
@@ -45,7 +51,10 @@ beforeEach(() => {
     written: 0,
   });
 });
-afterEach(() => vi.clearAllMocks());
+afterEach(() => {
+  vi.clearAllMocks();
+  resetScheduledRunsClient();
+});
 
 describe("Given the hourly alarm", () => {
   test("Then every ERP's prices in force are published, with the trigger's payload and no method", async () => {
@@ -68,6 +77,24 @@ describe("Given the hourly alarm", () => {
       unchanged: 4,
       written: 0,
     });
+  });
+
+  // The Admin page's Activity section shows the schedule working (AB-16c).
+  test("Then each run is recorded for the Admin page: when it ran and what it changed", async () => {
+    resetScheduledRunsClient(fakeState());
+    await main({});
+    const [run] = await readScheduledRuns();
+    expect(run.id).toBe("prices");
+    expect(run.lastRun).toMatchObject({ removed: 2, unchanged: 4, written: 0 });
+    expect(run.lastChange).toMatchObject({ removed: 2 });
+  });
+
+  test("Then a failed run is recorded with why", async () => {
+    resetScheduledRunsClient(fakeState());
+    loadErps.mockRejectedValueOnce(new Error("state down"));
+    await main({});
+    const [run] = await readScheduledRuns();
+    expect(run.lastRun.error).toBe("state down");
   });
 
   test("Then a failure is an error answer, so the run is recorded as failed", async () => {

@@ -17,6 +17,7 @@ import { orderSyncDeps } from "#lib/order-deps";
 import { readOrderParts } from "#lib/order-parts";
 import { retryOrderToErp } from "#lib/order-sync";
 import { buildOrderTrace } from "#lib/order-trace";
+import { readScheduledRuns } from "#lib/scheduled-runs";
 import { splitExtOrderId } from "#lib/structure";
 import { readPayload } from "#lib/webhook";
 import { orderHolders } from "#router/order-holders";
@@ -33,6 +34,8 @@ const TRACE_TIMEOUT_MS = 5000;
  * The Commerce Admin screen's history (lib/history.js).
  * GET ?failedOnly=true&ref=<order>&erp=<id>: the records, newest first; with several ERPs
  *   each names the ERPs it concerns (`erpIds`), and `erp` keeps one ERP's (historyOfErps).
+ * GET ?scheduled=true: the scheduled runs, when each last ran and what it changed
+ *   (lib/scheduled-runs.js).
  * POST { incrementId }: send that order to the ERP again, record it as an admin's retry,
  *   and answer how it ended with the order's record. An order that still did not get
  *   through is an answer, not an error: the record says why.
@@ -76,6 +79,9 @@ async function main(params) {
       return ok({
         body: { trace: await traceOrder(params, incrementId, logger) },
       });
+    }
+    if (params.scheduled === "true") {
+      return ok({ body: { scheduled: await readScheduledRuns() } });
     }
     const filter = {
       failedOnly: params.failedOnly === "true",
