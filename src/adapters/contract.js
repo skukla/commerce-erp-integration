@@ -14,7 +14,8 @@
  *   and the value a product's owning-ERP attribute holds.
  * @property {string} name The label people read.
  * @property {string} adapter The kind of ERP: the adapter folder that talks to it.
- * @property {object} connection Where the adapter sends.
+ * @property {object} connection Where the adapter sends: `baseUrl`, and `auth` for an ERP
+ *   outside the integration's workspace (its own credential, lib/erp-auth.js).
  */
 
 /**
@@ -68,7 +69,8 @@ export function assertAdapter(adapter, kind = "adapter") {
 
 /**
  * The params a call to one ERP runs with: that ERP's own address and name over the deployed
- * ones, so the ERP client (lib/erp.js) reaches the right ERP.
+ * ones, so the ERP client (lib/erp.js) reaches the right ERP; and, for an ERP with its own
+ * credential (`connection.auth`, lib/erp-auth.js), that credential over the integration's.
  * @param {object} params action params
  * @param {ErpEntry} entry the ERP
  * @returns {object}
@@ -78,5 +80,40 @@ export function paramsForErp(params, entry) {
     ...params,
     ERP_BASE_URL: entry.connection?.baseUrl ?? params.ERP_BASE_URL,
     ERP_DISPLAY_NAME: entry.name,
+    ...imsParamsOf(entry.connection?.auth),
+  };
+}
+
+const NOT_A_CONTEXT_CHARACTER = /[^a-zA-Z0-9_.-]/gu;
+
+/**
+ * An ERP's credential as the params resolveImsAuthParams (@adobe/aio-commerce-lib-auth) reads.
+ * The token request itself uses only the client id, first secret, org and scopes
+ * (@adobe/aio-lib-ims-oauth, ims-oauth_server_to_server); the technical account is only
+ * checked present, so an ERP that names none keeps the integration's there. The IMS context
+ * is the ERP client's own: aio-lib-ims caches a context's token in App Builder State by
+ * context name, and a shared name could hand one ERP another's token.
+ * @param {object} [auth] the ERP's `connection.auth`
+ * @returns {object} params to lay over the integration's, or none
+ */
+function imsParamsOf(auth) {
+  if (!auth) {
+    return {};
+  }
+  return {
+    AIO_COMMERCE_AUTH_IMS_CLIENT_ID: auth.clientId,
+    AIO_COMMERCE_AUTH_IMS_CLIENT_SECRETS: [auth.clientSecret],
+    AIO_COMMERCE_AUTH_IMS_CONTEXT: `erp-${auth.clientId.replace(NOT_A_CONTEXT_CHARACTER, "-")}`,
+    AIO_COMMERCE_AUTH_IMS_ORG_ID: auth.orgId,
+    AIO_COMMERCE_AUTH_IMS_SCOPES: auth.scopes,
+    ...(auth.technicalAccountId
+      ? { AIO_COMMERCE_AUTH_IMS_TECHNICAL_ACCOUNT_ID: auth.technicalAccountId }
+      : {}),
+    ...(auth.technicalAccountEmail
+      ? {
+          AIO_COMMERCE_AUTH_IMS_TECHNICAL_ACCOUNT_EMAIL:
+            auth.technicalAccountEmail,
+        }
+      : {}),
   };
 }
