@@ -5,7 +5,7 @@
  * detach that is not a reset (removing the integration, one ERP's undo) leaves them alone.
  */
 // biome-ignore-all lint/suspicious/useAwait: the fakes answer promises without waiting on anything; the real collaborators are async and detach awaits them
-import { detach } from "#lib/detach";
+import { detach, resetLine } from "#lib/detach";
 
 const DAY = "2026-09-28";
 
@@ -54,7 +54,7 @@ describe("Given a reset's detach (closeOrders)", () => {
     expect(calls[1]).toBe("clearScheduledRuns");
     expect(calls[2][0]).toBe("recordReset");
     expect(activity.recordReset.mock.calls[0][0]).toBe(
-      `Demo reset on ${DAY}: 0 orders cancelled, 0 noted as closed, the ERPs' changes in Commerce undone. The activity before it was cleared.`,
+      `Demo reset on ${DAY}: no orders to close; the ERPs' changes in Commerce undone. The activity before it was cleared.`,
     );
     expect(result.activity).toEqual({ historyCleared: 5, scheduledCleared: 1 });
   });
@@ -69,5 +69,30 @@ describe("Given a detach that is not a reset (removing the integration)", () => 
     expect(activity.clearHistory).not.toHaveBeenCalled();
     expect(activity.recordReset).not.toHaveBeenCalled();
     expect(result.activity).toBeUndefined();
+  });
+});
+
+describe("Given what a reset closed", () => {
+  test.each([
+    [
+      { cancelled: 21, commented: 3 },
+      "21 orders canceled, 3 noted as closed; the ERPs' changes in Commerce undone.",
+    ],
+    [
+      { cancelled: 1, commented: 0 },
+      "1 order canceled; the ERPs' changes in Commerce undone.",
+    ],
+    [
+      { cancelled: 0, commented: 2 },
+      "2 orders noted as closed; the ERPs' changes in Commerce undone.",
+    ],
+    [
+      { cancelled: 0, commented: 0 },
+      "no orders to close; the ERPs' changes in Commerce undone.",
+    ],
+  ])("Then the reset's line says only what it did (%o)", (closed, said) => {
+    expect(resetLine(DAY, closed)).toBe(
+      `Demo reset on ${DAY}: ${said} The activity before it was cleared.`,
+    );
   });
 });

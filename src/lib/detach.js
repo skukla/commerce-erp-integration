@@ -108,10 +108,33 @@ async function clearActivity(closed, deps) {
   }
   const historyCleared = await activity.clearHistory();
   const scheduledCleared = await activity.clearScheduledRuns();
-  await activity.recordReset(
-    `Demo reset on ${deps.today()}: ${closed.cancelled} ${closed.cancelled === 1 ? "order" : "orders"} cancelled, ${closed.commented} noted as closed, the ERPs' changes in Commerce undone. The activity before it was cleared.`,
-  );
+  await activity.recordReset(resetLine(deps.today(), closed));
   return { historyCleared, scheduledCleared };
+}
+
+const ordersCount = (count) => `${count} ${count === 1 ? "order" : "orders"}`;
+
+/**
+ * The one line a reset leaves on the Admin page's Activity: only what it did, so a reset of an
+ * empty store does not read "0 orders canceled, 0 noted as closed".
+ * @param {string} day the reset's day, YYYY-MM-DD
+ * @param {{ cancelled: number, commented: number }} closed what closeOrders closed
+ * @returns {string}
+ */
+export function resetLine(day, closed) {
+  const done = [];
+  if (closed.cancelled > 0) {
+    done.push(`${ordersCount(closed.cancelled)} canceled`);
+  }
+  if (closed.commented > 0) {
+    done.push(
+      done.length > 0
+        ? `${closed.commented} noted as closed`
+        : `${ordersCount(closed.commented)} noted as closed`,
+    );
+  }
+  const what = done.length > 0 ? done.join(", ") : "no orders to close";
+  return `Demo reset on ${day}: ${what}; the ERPs' changes in Commerce undone. The activity before it was cleared.`;
 }
 
 /** What the close needs beyond detach's own collaborators: the day, UTC, as YYYY-MM-DD. */
