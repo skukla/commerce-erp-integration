@@ -30,7 +30,8 @@ const FINISHED = Object.freeze(["canceled", "closed", "complete"]);
 const BLOCKING = Object.freeze(["held", "failed"]);
 const WAITING = Object.freeze(["sending"]);
 
-const COMMERCE = Object.freeze({ getOrder, holdOrder, unholdOrder });
+/** Commerce's order calls, looked up when used: a module that only imports this file never needs them. */
+const commerceCalls = () => ({ getOrder, holdOrder, unholdOrder });
 
 function onHold(reason) {
   return { reason, status: "on-hold" };
@@ -101,7 +102,7 @@ export async function applyCombinedStatus(
   params,
   orderId,
   record,
-  commerce = COMMERCE,
+  commerce = commerceCalls(),
 ) {
   const combined = combinedStatus(record);
   const order = await commerce.getOrder(params, orderId);
@@ -127,7 +128,7 @@ export async function setWholeOrderHold(
   params,
   orderId,
   held,
-  commerce = COMMERCE,
+  commerce = commerceCalls(),
 ) {
   const order = await commerce.getOrder(params, orderId);
   const isHeld = order?.state === HOLDED;

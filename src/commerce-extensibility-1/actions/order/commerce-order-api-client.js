@@ -49,6 +49,22 @@ async function invoiceOrder(params, orderId) {
 }
 
 /**
+ * Invoice some of an order's lines (capture), one ERP's part of a split order (design v1 §3.3).
+ * @param {object} params - Environment params from the IO Runtime request
+ * @param {number} orderId - order id
+ * @param {Array<{order_item_id: number, qty: number}>} items - the lines and quantities
+ */
+async function invoiceOrderItems(params, orderId, items) {
+  const client = await getCommerceClient(
+    resolveImsAuthParams(params),
+    COMMERCE_FETCH_OPTIONS,
+  );
+  return await client.post(`order/${orderId}/invoice`, {
+    json: { capture: true, items, notify: false },
+  });
+}
+
+/**
  * Cancel an order.
  * @param {object} params - Environment params from the IO Runtime request
  * @param {number} orderId - order id
@@ -93,5 +109,6 @@ export {
   getOrder,
   holdOrder,
   invoiceOrder,
+  invoiceOrderItems,
   unholdOrder,
 };

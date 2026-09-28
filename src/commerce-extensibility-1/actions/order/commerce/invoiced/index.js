@@ -10,6 +10,7 @@ import { invoiceFromCommerce } from "#lib/commerce-changes";
 import { erp } from "#lib/erp";
 import { recordCommerceChange } from "#lib/history";
 import { settingsFor } from "#lib/settings";
+import { fulfilmentFromCommerce } from "#router/part-fulfilment";
 import { getOrder } from "#src/order/commerce-order-api-client";
 
 /**
@@ -22,15 +23,18 @@ async function main(params) {
     level: params.LOG_LEVEL || "info",
   });
   try {
-    const result = await invoiceFromCommerce(
-      params,
-      params.data?.value ?? params.data,
-      {
+    // A split order: each ERP hears only its own lines (router/part-fulfilment.js).
+    const result =
+      (await fulfilmentFromCommerce(
+        params,
+        "invoice",
+        params.data?.value ?? params.data,
+      )) ??
+      (await invoiceFromCommerce(params, params.data?.value ?? params.data, {
         erp,
         getOrder,
         settingsFor,
-      },
-    );
+      }));
     logger.info(result.message);
     await recordCommerceChange(
       "invoiced",

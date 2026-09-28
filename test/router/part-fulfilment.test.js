@@ -1,0 +1,321 @@
+/*
+ * Shipments and invoices per part (design v1 §3.3, slice B4): with several ERPs each ERP
+ * invoices and ships only its own lines, an invoice comes before its shipment, and invoice
+ * calls on one order run one at a time.
+ */
+import {
+  readOrderParts,
+  resetOrderPartsClient,
+  writeOrderParts,
+} from "#lib/order-parts";
+import {
+  fulfilmentFromCommerce,
+  invoicePart,
+  prepareShipment,
+  recordShipped,
+} from "#router/part-fulfilment";
+
+function memoryState() {
+  const store = new Map();
+  return {
+    delete: vi.fn(async (k) => store.delete(k)),
+    get: vi.fn(async (k) =>
+      store.has(k) ? { value: store.get(k) } : undefined,
+    ),
+    put: vi.fn(async (k, v) => store.set(k, v)),
+    store,
+  };
+}
+
+const ERPS = [
+  {
+    adapter: "demo-erp",
+    connection: { baseUrl: "https://a.example" },
+    id: "brand-a",
+    name: "Brand A ERP",
+  },
+  {
+    adapter: "demo-erp",
+    connection: { baseUrl: "https://b.example" },
+    id: "brand-b",
+    name: "Brand B ERP",
+  },
+];
+const ORDER = "000000042";
+const ORDER_ID = 55;
+
+/** A routed order: Brand A owns item 1 (cabinet), Brand B owns item 2 (sign). */
+async function routed() {
+  await writeOrderParts(ORDER, {
+    conflicts: [],
+    parts: {
+      "brand-a": {
+        erpNumber: "A-100",
+        itemIds: [1],
+        skus: ["CAB1"],
+        status: "sent",
+      },
+      "brand-b": {
+        erpNumber: "B-200",
+        itemIds: [2],
+        skus: ["SIGN1"],
+        status: "sent",
+      },
+    },
+    unrouted: [],
+  });
+}
+
+const message = (erpId, erpNumber, items) => ({
+  erpId,
+  erpNumber,
+  incrementId: ORDER,
+  items,
+  orderId: ORDER_ID,
+});
+
+let state;
+beforeEach(async () => {
+  state = memoryState();
+  resetOrderPartsClient(state);
+  await routed();
+});
+
+describe("Given an ERP invoices its part", () => {
+  test("Then Commerce gets a partial invoice of that ERP's lines only, and a repeat invoices nothing", async () => {
+    const invoiceItems = vi.fn(async () => 901);
+    const deps = { erps: ERPS, invoiceItems };
+    const msg = message("brand-a", "A-100", [
+      { orderItemId: 1, qty: 3, sku: "CAB1" },
+      { orderItemId: 2, qty: 5, sku: "SIGN1" },
+    ]);
+
+    const first = await invoicePart({}, ORDER_ID, msg, deps);
+    expect(first).toMatchObject({ matched: true });
+    expect(invoiceItems).toHaveBeenCalledExactlyOnceWith({}, ORDER_ID, [
+      { order_item_id: 1, qty: 3 },
+    ]);
+    expect((await readOrderParts(ORDER)).parts["brand-a"].invoiced).toEqual({
+      1: 3,
+    });
+
+    await invoicePart({}, ORDER_ID, msg, deps);
+    expect(invoiceItems).toHaveBeenCalledTimes(1);
+  });
+
+  test("Then with one ERP nothing is done here (the whole-order invoice stays the handler's)", async () => {
+    const invoiceItems = vi.fn();
+    const one = await invoicePart(
+      {},
+      ORDER_ID,
+      message("brand-a", "A-100", []),
+      {
+        erps: [ERPS[0]],
+        invoiceItems,
+      },
+    );
+    expect(one).toBeNull();
+    expect(invoiceItems).not.toHaveBeenCalled();
+  });
+
+  test("Then a message for no part is refused with the reason", async () => {
+    const res = await invoicePart({}, ORDER_ID, message("brand-z", "Z-1", []), {
+      erps: ERPS,
+      invoiceItems: vi.fn(),
+    });
+    expect(res).toMatchObject({ matched: false });
+  });
+});
+
+describe("Given two invoice messages for one order at once", () => {
+  test("Then they run one at a time: the second waits for the first, and each is invoiced once", async () => {
+    let inFlight = 0;
+    let most = 0;
+    const invoiceItems = vi.fn(async () => {
+      inFlight += 1;
+      most = Math.max(most, inFlight);
+      await new Promise((r) => setTimeout(r, 20));
+      inFlight -= 1;
+      return 1;
+    });
+    const deps = {
+      erps: ERPS,
+      invoiceItems,
+      wait: () => new Promise((r) => setTimeout(r, 10)),
+    };
+    await Promise.all([
+      invoicePart(
+        {},
+        ORDER_ID,
+        message("brand-a", "A-100", [{ orderItemId: 1, qty: 3 }]),
+        deps,
+      ),
+      invoicePart(
+        {},
+        ORDER_ID,
+        message("brand-b", "B-200", [{ orderItemId: 2, qty: 5 }]),
+        deps,
+      ),
+    ]);
+    expect(most).toBe(1);
+    expect(invoiceItems).toHaveBeenCalledTimes(2);
+    const { parts } = await readOrderParts(ORDER);
+    expect(parts["brand-a"].invoiced).toEqual({ 1: 3 });
+    expect(parts["brand-b"].invoiced).toEqual({ 2: 5 });
+  });
+
+  test("Then a lock that stays taken answers busy, so the event is delivered again (never lost)", async () => {
+    state.store.set(
+      "order-invoice-lock-000000042",
+      JSON.stringify({ token: "someone-else", until: Date.now() + 60_000 }),
+    );
+    const invoiceItems = vi.fn();
+    const res = await invoicePart(
+      {},
+      ORDER_ID,
+      message("brand-a", "A-100", [{ orderItemId: 1, qty: 3 }]),
+      { attempts: 2, erps: ERPS, invoiceItems, wait: () => Promise.resolve() },
+    );
+    expect(res).toMatchObject({ busy: true });
+    expect(invoiceItems).not.toHaveBeenCalled();
+  });
+});
+
+describe("Given an ERP ships its part", () => {
+  test("Then the shipment carries only that part's lines, and a shipment before its invoice invoices first", async () => {
+    const invoiceItems = vi.fn(async () => 1);
+    const prep = await prepareShipment(
+      {},
+      ORDER_ID,
+      message("brand-b", "B-200", [{ orderItemId: 2, qty: 5 }]),
+      {
+        items: [
+          { order_item_id: 2, qty: 5 },
+          { order_item_id: 1, qty: 3 },
+        ],
+      },
+      { erps: ERPS, invoiceItems },
+    );
+    expect(prep).toMatchObject({
+      items: [{ order_item_id: 2, qty: 5 }],
+      matched: true,
+    });
+    expect(invoiceItems).toHaveBeenCalledExactlyOnceWith({}, ORDER_ID, [
+      { order_item_id: 2, qty: 5 },
+    ]);
+
+    await recordShipped(ORDER, prep.erpId, prep.items);
+    expect((await readOrderParts(ORDER)).parts["brand-b"].shipped).toEqual({
+      2: 5,
+    });
+  });
+
+  test("Then a part already invoiced ships without a second invoice", async () => {
+    const invoiceItems = vi.fn(async () => 1);
+    const deps = { erps: ERPS, invoiceItems };
+    await invoicePart(
+      {},
+      ORDER_ID,
+      message("brand-a", "A-100", [{ orderItemId: 1, qty: 3 }]),
+      deps,
+    );
+    await prepareShipment(
+      {},
+      ORDER_ID,
+      message("brand-a", "A-100", [{ orderItemId: 1, qty: 3 }]),
+      { items: [{ order_item_id: 1, qty: 3 }] },
+      deps,
+    );
+    expect(invoiceItems).toHaveBeenCalledTimes(1);
+  });
+
+  test("Then with one ERP the shipment is left exactly as it was", async () => {
+    expect(
+      await prepareShipment(
+        {},
+        ORDER_ID,
+        message("erp", "1", []),
+        { items: [{ order_item_id: 1, qty: 1 }] },
+        {
+          erps: [ERPS[0]],
+          invoiceItems: vi.fn(),
+        },
+      ),
+    ).toBeNull();
+  });
+});
+
+describe("Given Commerce ships or invoices lines of two ERPs' parts", () => {
+  test("Then each ERP is told only its own lines, at its own address", async () => {
+    const ship = vi.fn(async () => ({ data: {}, ok: true, status: 200 }));
+    const erp = { fromCommerce: { invoice: vi.fn(), ship } };
+    const res = await fulfilmentFromCommerce(
+      {},
+      "shipment",
+      {
+        entity_id: 7,
+        items: [
+          { order_item_id: 1, qty: 3 },
+          { order_item_id: 2, qty: 5 },
+        ],
+        order_id: ORDER_ID,
+      },
+      { erp, erps: ERPS, getOrder: async () => ({ increment_id: ORDER }) },
+    );
+    expect(res).toMatchObject({ outcome: "sent" });
+    expect(ship).toHaveBeenCalledTimes(2);
+    const [aParams, aNumber, aBody] = ship.mock.calls[0];
+    expect(aParams.ERP_BASE_URL).toBe("https://a.example");
+    expect(aNumber).toBe("A-100");
+    expect(aBody.items).toEqual([{ orderItemId: 1, qty: 3 }]);
+    const [bParams, bNumber, bBody] = ship.mock.calls[1];
+    expect(bParams.ERP_BASE_URL).toBe("https://b.example");
+    expect(bNumber).toBe("B-200");
+    expect(bBody.items).toEqual([{ orderItemId: 2, qty: 5 }]);
+  });
+
+  test("Then an invoice covering one ERP's lines goes to that ERP only", async () => {
+    const invoice = vi.fn(async () => ({ data: {}, ok: true, status: 200 }));
+    const erp = { fromCommerce: { invoice, ship: vi.fn() } };
+    await fulfilmentFromCommerce(
+      {},
+      "invoice",
+      {
+        entity_id: 9,
+        items: [{ order_item_id: 2, qty: 5 }],
+        order_id: ORDER_ID,
+      },
+      { erp, erps: ERPS, getOrder: async () => ({ increment_id: ORDER }) },
+    );
+    expect(invoice).toHaveBeenCalledTimes(1);
+    expect(invoice.mock.calls[0][1]).toBe("B-200");
+  });
+
+  test("Then with one ERP, or an order that was never split, it is not handled here", async () => {
+    const deps = {
+      erp: {},
+      erps: [ERPS[0]],
+      getOrder: async () => ({ increment_id: ORDER }),
+    };
+    expect(
+      await fulfilmentFromCommerce(
+        {},
+        "shipment",
+        { order_id: ORDER_ID },
+        deps,
+      ),
+    ).toBeNull();
+    expect(
+      await fulfilmentFromCommerce(
+        {},
+        "shipment",
+        { order_id: 1 },
+        {
+          ...deps,
+          erps: ERPS,
+          getOrder: async () => ({ increment_id: "never-split" }),
+        },
+      ),
+    ).toBeNull();
+  });
+});

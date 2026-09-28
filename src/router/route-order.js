@@ -101,6 +101,10 @@ async function routeToSeveral(params, order, deps, erps) {
       continue;
     }
     record.parts[entry.id] = {
+      // Commerce's order item ids: the part's shipments and invoices name its lines by them.
+      itemIds: lines
+        .map((l) => Number(l.item_id))
+        .filter((id) => Number.isFinite(id)),
       skus: lines.filter((l) => !l.parent_item_id).map((l) => l.sku),
       status: "sending",
     };

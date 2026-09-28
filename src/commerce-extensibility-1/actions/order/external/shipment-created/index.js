@@ -9,6 +9,7 @@ import AioLogger from "@adobe/aio-lib-core-logging";
 import { recordingErpEvent } from "#lib/erp-event-history";
 import { stringParameters } from "#lib/utils";
 import { applyCombinedStatus } from "#router/combined-status";
+import { prepareShipment, recordShipped } from "#router/part-fulfilment";
 import { recordPartMessage } from "#router/part-outcomes";
 
 import { postProcess } from "./post.js";
@@ -39,6 +40,22 @@ async function handle(params) {
     logger.debug(`Transform data: ${stringParameters(params)}`);
     const transformed = transformData(params);
     logger.debug(`Preprocess data: ${stringParameters(params)}`);
+    // Several ERPs: only this ERP's lines ship, invoiced first when they are not yet.
+    const split = await prepareShipment(
+      params,
+      Number(params.data.orderId ?? params.data.id),
+      params.data,
+      transformed,
+    );
+    if (split?.busy) {
+      return buildErrorResponse(503, { body: { message: split.reason } });
+    }
+    if (split && !split.matched) {
+      return badRequest(split.reason);
+    }
+    if (split) {
+      transformed.items = split.items;
+    }
     const preProcessed = preProcess(params, transformed);
     logger.debug(`Start sending data: ${JSON.stringify(transformed)}`);
     const result = await sendData(params, transformed, preProcessed);
@@ -51,6 +68,9 @@ async function handle(params) {
     logger.debug(`Postprocess data: ${stringParameters(params)}`);
     postProcess(params, transformed, preProcessed, result);
     // Several ERPs: the message is one ERP's part; record it and write the combined status.
+    if (split) {
+      await recordShipped(params.data.incrementId, split.erpId, split.items);
+    }
     const part = await recordPartMessage(params, "shipment", params.data);
     if (part?.matched) {
       await applyCombinedStatus(params, Number(params.data.id), part.record);
