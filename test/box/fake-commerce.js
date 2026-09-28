@@ -283,6 +283,9 @@ export function createFakeCommerce() {
           const [, code] = key.split("|");
           return { code, name: db.sources.get(code) || code, quantity };
         }),
+    // The store's one view (store 1) is on the one website listWebsites answers.
+    websiteCodeOfStore: async (_p, storeId) =>
+      Number(storeId) === 1 ? "base" : undefined,
   };
 
   /** The shared catalog and tier-price calls (the shape #lib/commerce-tier-prices answers). */
