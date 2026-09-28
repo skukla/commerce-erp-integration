@@ -78,6 +78,7 @@ describe("Given the ERP company events", () => {
       after: 250,
       before: 1000,
       companyId: "21",
+      erpId: "erp",
       extra: { creditId: 42 },
       field: "creditLimit",
     });

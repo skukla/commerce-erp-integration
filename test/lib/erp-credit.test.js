@@ -58,7 +58,7 @@ describe("Given two ERPs setting a company's credit", () => {
     expect(result).toEqual({ total: 1400 });
   });
 
-  test("Then both writes are ledgered with what Commerce had before, so detach can put them back", async () => {
+  test("Then both writes are ledgered with what Commerce had before and the ERP that made them, so detach can put them back", async () => {
     const before = [{ attribute_code: "unrelated", value: "x" }];
     const d = deps(before);
     await applyErpCredit(
@@ -73,12 +73,14 @@ describe("Given two ERPs setting a company's credit", () => {
       ],
       before,
       companyId: "7",
+      erpId: "cabinets",
       field: "customAttributes",
     });
     expect(d.recordCompanyWrite).toHaveBeenCalledWith({
       after: 300,
       before: 500,
       companyId: "7",
+      erpId: "cabinets",
       extra: { creditId: 42 },
       field: "creditLimit",
     });

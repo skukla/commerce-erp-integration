@@ -16,8 +16,16 @@
  * Kept in App Builder State under one key so revert reads one document. Entries record
  * the value BEFORE the first ERP write; later writes to the same field keep that first
  * "before", so revert lands on what Commerce had before the ERP ever touched it.
+ *
+ * Every entry names its ERP (AB-16c), so one ERP can be undone and the others left. A product
+ * entry names the ERP whose value Commerce holds now (`erpId`, the latest writer); a company
+ * entry lists every ERP that wrote it (`erpIds`), because a company's credit attributes and
+ * credit limit are one value shared between the ERPs. An entry naming none is the first
+ * ERP's (`erp`), the rule the key map uses.
  */
 import stateLib from "@adobe/aio-lib-state";
+
+import { SINGLE_ERP_ID } from "#lib/erps";
 
 const KEY = "erp-company-ledger";
 const TTL_SECONDS = 365 * 24 * 60 * 60;
@@ -64,25 +72,46 @@ function asEntry(entry) {
     : { ...entry, id: entry.companyId, kind: "company" };
 }
 
+/** Stamp an entry with the ERP that wrote it: a product's latest writer, a company's every one. */
+function stamp(entry, erpId) {
+  if (erpId === undefined) {
+    return;
+  }
+  if (entry.kind === "company") {
+    entry.erpIds = [...new Set([...(entry.erpIds ?? []), erpId])];
+  } else {
+    entry.erpId = erpId;
+  }
+}
+
 /**
  * Record one write. The first entry for a (kind, id, field, source) keeps its `before`;
  * later ones only move `after`, so a revert lands on what Commerce had before the ERP
- * ever touched it.
+ * ever touched it. The ERP is not part of that key: two ERPs writing one value are one
+ * value to put back, and whole undo stays one revert per value.
  */
-async function recordWrite({ kind, id, field, before, after, extra = {} }) {
+async function recordWrite({
+  kind,
+  id,
+  field,
+  before,
+  after,
+  erpId,
+  extra = {},
+}) {
   const entries = (await readLedger()).map(asEntry);
-  const existing = entries.find(
+  let entry = entries.find(
     (e) =>
       e.kind === kind &&
       e.id === String(id) &&
       e.field === field &&
       e.source === extra.source,
   );
-  if (existing) {
-    existing.after = after;
-    existing.at = new Date().toISOString();
+  if (entry) {
+    entry.after = after;
+    entry.at = new Date().toISOString();
   } else {
-    entries.push({
+    entry = {
       after,
       at: new Date().toISOString(),
       before,
@@ -90,8 +119,10 @@ async function recordWrite({ kind, id, field, before, after, extra = {} }) {
       id: String(id),
       kind,
       ...extra,
-    });
+    };
+    entries.push(entry);
   }
+  stamp(entry, erpId);
   await writeLedger(entries);
   return entries;
 }
@@ -99,18 +130,20 @@ async function recordWrite({ kind, id, field, before, after, extra = {} }) {
 /**
  * Record a company write: a credit limit or a block the ERP decided.
  *
- * @param {object} write `{ companyId, field, before, after, extra }`
+ * @param {object} write `{ companyId, field, before, after, erpId, extra }`
  */
 export function recordCompanyWrite({
   companyId,
   field,
   before,
   after,
+  erpId,
   extra = {},
 }) {
   return recordWrite({
     after,
     before,
+    erpId,
     extra,
     field,
     id: companyId,
@@ -122,10 +155,25 @@ export function recordCompanyWrite({
  * Record a product write: a price, or the stock of ONE source (two sources of a SKU are
  * two entries, because they are two different values to put back).
  *
- * @param {object} write `{ sku, field, before, after, extra }` — `extra.source` for stock
+ * @param {object} write `{ sku, field, before, after, erpId, extra }` — `extra.source` for stock
  */
-export function recordProductWrite({ sku, field, before, after, extra = {} }) {
-  return recordWrite({ after, before, extra, field, id: sku, kind: "product" });
+export function recordProductWrite({
+  sku,
+  field,
+  before,
+  after,
+  erpId,
+  extra = {},
+}) {
+  return recordWrite({
+    after,
+    before,
+    erpId,
+    extra,
+    field,
+    id: sku,
+    kind: "product",
+  });
 }
 
 /** The row a tier price entry stands for: one per SKU, customer group, quantity, website. */
@@ -215,37 +263,87 @@ function revertOne(entry, writers) {
     : writers.status(entry.id, entry.before);
 }
 
+/** The ERPs an entry is for. An entry naming none is the first ERP's. */
+export function erpsOfEntry(entry) {
+  if (entry.erpIds?.length > 0) {
+    return entry.erpIds;
+  }
+  return [entry.erpId ?? SINGLE_ERP_ID];
+}
+
 /**
- * Put back everything the ERP changed on Commerce, oldest first.
+ * A company's credit attributes and credit limit: one value the ERPs share, so undoing one
+ * ERP rebuilds it from what the others hold instead of restoring `before`.
+ */
+export function isSharedCredit(entry) {
+  return (
+    entry.kind === "company" &&
+    (entry.field === "customAttributes" || entry.field === "creditLimit")
+  );
+}
+
+/** Which entries a revert puts back: every one, or one ERP's own (never the shared credit). */
+function revertedBy(erpId) {
+  return (entry) =>
+    erpId === undefined ||
+    (!isSharedCredit(entry) && erpsOfEntry(entry).includes(erpId));
+}
+
+/** Write what is left, or empty the ledger when nothing is. */
+function keep(entries) {
+  return entries.length === 0 ? clearLedger() : writeLedger(entries);
+}
+
+/**
+ * Put back everything the ERP changed on Commerce, oldest first. With an ERP id, only that
+ * ERP's own entries; the others' stay in the ledger for their own undo.
  *
 @param {object} writers one per thing the ERP can change:
  *   `{ creditLimit(companyId, creditId, before), status(companyId, before),
  *      customAttributes(companyId, before) (the per-ERP credit attributes),
  *      name(sku, before), price(sku, before), stock(sku, source, before),
  *      tierPrice(entry) (delete the row written, or put back the price it held) }`
+ * @param {string} [erpId] the one ERP to undo; every ERP when absent
  * @returns {Promise<{ reverted: number, failed: {id, field, error}[] }>}
  */
-export async function revertLedger(writers) {
+export async function revertLedger(writers, erpId) {
   const entries = (await readLedger()).map(asEntry);
+  const selected = revertedBy(erpId);
   const failed = [];
-  const kept = [];
+  // The entry itself, not every entry sharing its id and field: two tier prices of one SKU
+  // (two groups, two quantities) are two rows, and only the failed one stays.
+  const stays = new Set();
   let reverted = 0;
-  for (const entry of entries) {
+  for (const entry of entries.filter(selected)) {
     try {
       // biome-ignore lint/performance/noAwaitInLoops: one write per entry, in order
       await revertOne(entry, writers);
       reverted += 1;
     } catch (error) {
       failed.push({ error: error.message, field: entry.field, id: entry.id });
-      // The entry itself, not every entry sharing its id and field: two tier prices of
-      // one SKU (two groups, two quantities) are two rows, and only the failed one stays.
-      kept.push(entry);
+      stays.add(entry);
     }
   }
-  if (failed.length === 0) {
-    await clearLedger();
-  } else {
-    await writeLedger(kept);
-  }
+  await keep(entries.filter((e) => !selected(e) || stays.has(e)));
   return { failed, reverted };
+}
+
+/**
+ * One ERP's credit is off a company: drop it from the company's credit entries, or drop the
+ * entries once the company is back to the limit it had before any ERP (`restored`).
+ * @param {string} companyId the company
+ * @param {string} erpId the ERP undone
+ * @param {{ restored: boolean }} outcome
+ */
+export async function forgetCompanyErp(companyId, erpId, { restored }) {
+  const entries = (await readLedger()).map(asEntry);
+  const next = entries.flatMap((e) => {
+    if (!isSharedCredit(e) || e.id !== String(companyId)) {
+      return [e];
+    }
+    return restored
+      ? []
+      : [{ ...e, erpIds: erpsOfEntry(e).filter((id) => id !== erpId) }];
+  });
+  await keep(next);
 }

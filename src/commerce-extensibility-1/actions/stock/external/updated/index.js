@@ -14,13 +14,24 @@ import { loadErps } from "#lib/erps";
 import { recordProductWrite } from "#lib/ledger";
 import { ownsSku } from "#lib/structure";
 import { stringParameters } from "#lib/utils";
-import { stockParamsOf } from "#router/erp-params";
+import { stockErpOf } from "#router/erp-params";
 
 import { postProcess } from "./post.js";
 import { preProcess } from "./pre.js";
 import { sendData } from "./sender.js";
 import { transformData } from "./transformer.js";
 import { validateData } from "./validator.js";
+
+/** The params for each SKU's ERP, remembering which ERP that was for the ledger. */
+function rememberingErps(erpOf) {
+  const erpIdOf = new Map();
+  const paramsOfSku = async (sku) => {
+    const found = await erpOf(sku);
+    erpIdOf.set(sku, found?.id);
+    return found?.params ?? null;
+  };
+  return { erpIdOf, paramsOfSku };
+}
 
 /**
  * This action is on charge of sending updated stock information in external back-office application to Adobe commerce
@@ -42,12 +53,12 @@ async function handle(params) {
       return badRequest(validation.message);
     }
     // The event says which SKUs and warehouses changed; the ERP that holds each product says
-    // the quantities now (lib/erp-current.js). A line the ERP no longer has is dropped.
-    const paramsOfSku = stockParamsOf(
-      params,
-      await loadErps(params),
-      (p, sku, settings) =>
+    // the quantities now (lib/erp-current.js). A line the ERP no longer has is dropped. Which
+    // ERP that was is kept for the ledger, so that ERP's reset puts the stock back (AB-16c).
+    const { erpIdOf, paramsOfSku } = rememberingErps(
+      stockErpOf(params, await loadErps(params), (p, sku, settings) =>
         ownsSku(p, sku, settings, { productAttributes, sourceCodesOf }),
+      ),
     );
     const lines = currentStockLines(
       params.data,
@@ -88,6 +99,7 @@ async function handle(params) {
       await recordProductWrite({
         after: Number(item.quantity),
         before: before[index],
+        erpId: erpIdOf.get(item.sku),
         extra: { source: item.source_code },
         field: "stock",
         sku: item.sku,

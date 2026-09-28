@@ -94,6 +94,8 @@ async function handle(params) {
       after: Number(creditLimit),
       before: Number(credit.credit_limit ?? 0),
       companyId,
+      // The one ERP there is (lib/erps.js eventErpId), so its reset undoes this (AB-16c).
+      erpId: eventErpId(erps),
       extra: { creditId: credit.id },
       field: "creditLimit",
     });

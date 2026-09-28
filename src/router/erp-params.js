@@ -56,22 +56,28 @@ export async function ownerOfSku(params, sku, erps, ownsSku) {
 }
 
 /**
- * For an inbound stock event (its value is a list of lines, so it names no ERP): the params
- * that reach the ERP holding each SKU. With several ERPs that is the product's owner, else the
- * event's ERP by eventErpId (the first ERP while it is listed).
+ * For an inbound stock event (its value is a list of lines, so it names no ERP): the ERP holding
+ * each SKU, with the params that reach it. With several ERPs that is the product's owner, else
+ * the event's ERP by eventErpId (the first ERP while it is listed); with one, that ERP with the
+ * integration's own params.
  * @param {object} params action params
  * @param {import("#adapters/contract").ErpEntry[]} erps the ERP list
  * @param {(params: object, sku: string, settings: object) => Promise<boolean>} ownsSku
- * @returns {(sku: string) => Promise<object|null>}
+ * @returns {(sku: string) => Promise<{ id: string, params: object }|null>}
  */
-export function stockParamsOf(params, erps, ownsSku) {
+export function stockErpOf(params, erps, ownsSku) {
   if (erps.length <= 1) {
-    return async () => params;
+    return async () => ({ id: eventErpId(erps), params });
   }
-  const unowned = paramsOfEvent(params, erps);
+  const unownedId = eventErpId(erps);
+  const unowned = unownedId
+    ? { id: unownedId, params: paramsOfErp(params, erps, unownedId) }
+    : null;
   return async (sku) => {
     const owner = await ownerOfSku(params, sku, erps, ownsSku);
-    return owner ? paramsForErp(params, owner) : unowned;
+    return owner
+      ? { id: owner.id, params: paramsForErp(params, owner) }
+      : unowned;
   };
 }
 

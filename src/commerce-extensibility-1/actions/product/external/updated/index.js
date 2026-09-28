@@ -9,7 +9,7 @@ import AioLogger from "@adobe/aio-lib-core-logging";
 import { nameOf, priceOf } from "#lib/commerce-before";
 import { currentPriceEvent, currentProduct } from "#lib/erp-current";
 import { recordingErpEvent } from "#lib/erp-event-history";
-import { loadErps } from "#lib/erps";
+import { eventErpId, loadErps } from "#lib/erps";
 import { recordProductWrite } from "#lib/ledger";
 import { stringParameters } from "#lib/utils";
 import { paramsOfEvent, UNATTRIBUTED } from "#router/erp-params";
@@ -42,7 +42,8 @@ async function handle(params) {
     // The event says which SKU changed; the ERP that sent it says what it is now
     // (lib/erp-current.js), asked at its own address with its own credential.
     const { erpId, sku } = params.data;
-    const erpParams = paramsOfEvent(params, await loadErps(params), erpId);
+    const erps = await loadErps(params);
+    const erpParams = paramsOfEvent(params, erps, erpId);
     if (!erpParams) {
       return badRequest(UNATTRIBUTED);
     }
@@ -67,10 +68,13 @@ async function handle(params) {
         body: { message: result.message },
       });
     }
+    // Ledgered as the ERP that sent it, so that ERP's reset puts it back (AB-16c).
+    const ledgerErpId = eventErpId(erps, erpId);
     if (beforePrice !== undefined && transformed.product.price !== undefined) {
       await recordProductWrite({
         after: Number(transformed.product.price),
         before: beforePrice,
+        erpId: ledgerErpId,
         field: "price",
         sku: transformed.product.sku,
       });
@@ -80,6 +84,7 @@ async function handle(params) {
       await recordProductWrite({
         after: transformed.product.name,
         before: beforeName,
+        erpId: ledgerErpId,
         field: "name",
         sku: transformed.product.sku,
       });

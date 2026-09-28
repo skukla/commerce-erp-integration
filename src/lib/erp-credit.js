@@ -6,7 +6,8 @@
  * `POST V1/company/setCustomAttributes` may replace the whole set (the research on credit
  * options, .rptc/research/erp-company-credit-options/, found GraphQL's documented behaviour
  * is replace; REST's is unverified), so the set is read, changed and written whole. Both writes
- * are ledgered with what Commerce had before, so detach puts them back.
+ * are ledgered with what Commerce had before and the ERP that made them, so detach puts them
+ * back, for every ERP or for one.
  */
 
 const FIELDS = Object.freeze([
@@ -69,6 +70,7 @@ export async function applyErpCredit(params, credit, deps) {
     after,
     before,
     companyId,
+    erpId,
     field: "customAttributes",
   });
   const total = totalLimit(after, deps.erps);
@@ -78,6 +80,7 @@ export async function applyErpCredit(params, credit, deps) {
     after: total,
     before: Number(record.credit_limit ?? 0),
     companyId,
+    erpId,
     extra: { creditId: record.id },
     field: "creditLimit",
   });
