@@ -1,0 +1,238 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta content="width=device-width, initial-scale=1" name="viewport">
+    <title>ERP Integration · Overview</title>
+    <link href="https://fonts.googleapis.com" rel="preconnect">
+    <link crossorigin href="https://fonts.gstatic.com" rel="preconnect">
+    <link
+      href="https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@400;600;700&display=swap"
+      rel="stylesheet"
+    >
+    <link href="mockups.css" rel="stylesheet">
+  </head>
+  <body data-page="overview">
+    <template id="band-actions">
+      <span class="band-note">Checked just now</span>
+      <button class="btn btn-secondary" type="button">Refresh</button>
+    </template>
+
+    <main class="page">
+      <div class="ov-top">
+        <form class="search" id="lookup">
+          <label for="q">Find an order, product or company</label>
+          <div class="search-row">
+            <input
+              autocomplete="off"
+              class="input"
+              id="q"
+              placeholder="Order number, SKU or company name"
+              type="search"
+            >
+            <button class="btn btn-secondary" type="submit">Find</button>
+          </div>
+          <div class="search-hint">
+            Try
+            <button data-try="3000000023" type="button">3000000023</button>,
+            <button data-try="accesspoint" type="button">accesspoint</button>
+            or
+            <button data-try="Kukla Studios" type="button">
+              Kukla Studios
+            </button>
+          </div>
+          <div class="search-miss" hidden id="search-miss"></div>
+        </form>
+        <section aria-labelledby="today-title" class="today">
+          <h2 id="today-title">Today</h2>
+          <div class="tiles">
+            <div class="tile">
+              <div class="n">5</div>
+              <div class="l">Orders sent</div>
+              <div class="split">
+                <i style="flex:3"></i><i style="flex:2"></i>
+              </div>
+            </div>
+            <div class="tile">
+              <div class="n">12</div>
+              <div class="l">Prices received</div>
+              <div class="split">
+                <i style="flex:7"></i><i style="flex:5"></i>
+              </div>
+            </div>
+            <div class="tile">
+              <div class="n">38</div>
+              <div class="l">Stock updates</div>
+              <div class="split">
+                <i style="flex:21"></i><i style="flex:17"></i>
+              </div>
+            </div>
+            <div class="tile">
+              <div class="n">2</div>
+              <div class="l">Credit changes</div>
+              <div class="split">
+                <i style="flex:2"></i><i style="flex:0"></i>
+              </div>
+            </div>
+          </div>
+          <div class="today-foot">
+            <span class="tiles-key"
+              ><span class="northwind">Northwind</span
+              ><span class="contoso">Contoso</span></span
+            >
+            <span
+              >Next price update <strong>3:05 PM</strong> · last ran 2:05 PM, no
+              changes</span
+            >
+          </div>
+        </section>
+      </div>
+
+      <div class="erp-cards">
+        <article class="erp-card northwind">
+          <div>
+            <h3>Northwind ERP</h3>
+            <div class="conn"><span class="dot"></span>Connected</div>
+          </div>
+          <div class="links">
+            <a data-keep-state href="settings.html">Settings</a>
+            <a data-keep-state href="activity.html">Activity</a>
+          </div>
+          <dl class="erp-facts">
+            <div>
+              <dt>Owns</dt>
+              <dd>
+                <a href="#elsewhere-in-admin">3 products</a>
+                · <a href="#elsewhere-in-admin">4 companies</a>
+              </dd>
+            </div>
+            <div>
+              <dt>Last update from it</dt>
+              <dd>2 minutes ago</dd>
+            </div>
+            <div>
+              <dt>Orders today</dt>
+              <dd>3</dd>
+            </div>
+          </dl>
+        </article>
+
+        <article class="erp-card contoso">
+          <div>
+            <h3>Contoso ERP</h3>
+            <div class="conn only-ok"><span class="dot"></span>Connected</div>
+            <div class="conn warn only-maint">
+              <span class="dot warn"></span>In maintenance until 15:55
+              <small>· orders wait and send when it’s back</small>
+            </div>
+          </div>
+          <div class="links">
+            <a data-keep-state href="settings.html">Settings</a>
+            <a data-keep-state href="activity.html">Activity</a>
+          </div>
+          <dl class="erp-facts">
+            <div>
+              <dt>Owns</dt>
+              <dd>
+                <a href="#elsewhere-in-admin">3 products</a>
+                · <a href="#elsewhere-in-admin">3 companies</a>
+              </dd>
+            </div>
+            <div>
+              <dt>Last update from it</dt>
+              <dd class="only-ok">9 minutes ago</dd>
+              <dd class="only-maint">21 minutes ago</dd>
+            </div>
+            <div>
+              <dt>Orders today</dt>
+              <dd>2</dd>
+            </div>
+          </dl>
+        </article>
+      </div>
+
+      <div class="ov-main">
+        <section aria-labelledby="attn-title" class="attention">
+          <div class="section-head">
+            <h2 id="attn-title">Needs attention</h2>
+            <span class="meta only-maint">2 items</span>
+          </div>
+
+          <div class="all-clear only-ok">
+            <div aria-hidden="true" class="tick">✓</div>
+            <div>
+              <strong>Nothing needs attention</strong>
+              <span
+                >Every order part reached its ERP, and every ERP update was
+                applied.</span
+              >
+            </div>
+          </div>
+
+          <table class="grid only-maint">
+            <thead>
+              <tr>
+                <th>What</th>
+                <th>ERP</th>
+                <th>Since</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="what">
+                  <strong>Order 3000000024: Contoso part held</strong>
+                  <span
+                    >Contoso is in maintenance. The part sends by itself at
+                    15:55.</span
+                  >
+                </td>
+                <td><span class="chip chip-erp contoso">Contoso ERP</span></td>
+                <td class="when">2:44 PM</td>
+                <td class="act">
+                  <button class="btn btn-secondary btn-small" type="button">
+                    Re-send
+                  </button>
+                  <button
+                    class="btn btn-link"
+                    data-open="order-3000000024"
+                    type="button"
+                  >
+                    View
+                  </button>
+                </td>
+              </tr>
+              <tr>
+                <td class="what">
+                  <strong>Price for Platinum Buyer not applied</strong>
+                  <span
+                    >No Commerce company is linked to Northwind customer
+                    100077.</span
+                  >
+                </td>
+                <td>
+                  <span class="chip chip-erp northwind">Northwind ERP</span>
+                </td>
+                <td class="when">2:30 PM</td>
+                <td class="act">
+                  <button class="btn btn-secondary btn-small" type="button">
+                    Re-send
+                  </button>
+                  <button
+                    class="btn btn-link"
+                    data-open="msg-platinum"
+                    type="button"
+                  >
+                    View
+                  </button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </section>
+      </div>
+    </main>
+
+    <script defer src="mockups.js"></script>
+  </body>
+</html>

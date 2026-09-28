@@ -1,0 +1,541 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta content="width=device-width, initial-scale=1" name="viewport">
+    <title>ERP Integration · Activity</title>
+    <link href="https://fonts.googleapis.com" rel="preconnect">
+    <link crossorigin href="https://fonts.gstatic.com" rel="preconnect">
+    <link
+      href="https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@400;600;700&display=swap"
+      rel="stylesheet"
+    >
+    <link href="mockups.css" rel="stylesheet">
+  </head>
+  <body data-page="activity">
+    <template id="band-actions">
+      <span class="band-note"
+        >Next price update <strong>3:05 PM</strong> · last ran 2:05 PM, no
+        changes</span
+      >
+      <button class="btn btn-secondary" type="button">Refresh</button>
+    </template>
+
+    <main class="page">
+      <div class="feed-tools">
+        <div aria-label="Filter activity" class="filters" role="toolbar">
+          <div class="filter-group">
+            <span>ERP</span>
+            <button
+              aria-pressed="true"
+              class="filter-chip"
+              data-group="erp"
+              data-value="all"
+              type="button"
+            >
+              All
+            </button>
+            <button
+              aria-pressed="false"
+              class="filter-chip northwind"
+              data-group="erp"
+              data-value="northwind"
+              type="button"
+            >
+              Northwind
+            </button>
+            <button
+              aria-pressed="false"
+              class="filter-chip contoso"
+              data-group="erp"
+              data-value="contoso"
+              type="button"
+            >
+              Contoso
+            </button>
+          </div>
+          <div class="filter-group">
+            <span>Type</span>
+            <button
+              aria-pressed="true"
+              class="filter-chip"
+              data-group="type"
+              data-value="all"
+              type="button"
+            >
+              All
+            </button>
+            <button
+              aria-pressed="false"
+              class="filter-chip"
+              data-group="type"
+              data-value="order"
+              type="button"
+            >
+              Order
+            </button>
+            <button
+              aria-pressed="false"
+              class="filter-chip"
+              data-group="type"
+              data-value="price"
+              type="button"
+            >
+              Price
+            </button>
+            <button
+              aria-pressed="false"
+              class="filter-chip"
+              data-group="type"
+              data-value="stock"
+              type="button"
+            >
+              Stock
+            </button>
+            <button
+              aria-pressed="false"
+              class="filter-chip"
+              data-group="type"
+              data-value="credit"
+              type="button"
+            >
+              Credit
+            </button>
+            <button
+              aria-pressed="false"
+              class="filter-chip"
+              data-group="type"
+              data-value="reset"
+              type="button"
+            >
+              Demo reset
+            </button>
+          </div>
+          <button
+            aria-pressed="false"
+            class="filter-chip problems"
+            data-group="problems"
+            type="button"
+          >
+            Problems only
+          </button>
+        </div>
+      </div>
+
+      <div class="feed">
+        <section class="day-group">
+          <h3 class="day">Today <span>Monday, September 28</span></h3>
+          <button
+            class="event"
+            data-erp="northwind"
+            data-open="sku-accesspoint"
+            data-problem="no"
+            data-type="price"
+            type="button"
+          >
+            <time>2:58 PM</time
+            ><span class="dir"
+              ><svg aria-hidden="true" viewBox="0 0 24 24">
+                <path d="M20 12H5m5-6-6 6 6 6" />
+              </svg
+              >From ERP</span
+            ><span class="chip chip-erp northwind">Northwind ERP</span
+            ><span class="chip chip-type">Price</span>
+            <span class="sentence"
+              >Kukla Studios now gets 10% off accesspoint</span
+            >
+            <span class="badge badge-ok">Applied</span
+            ><span aria-hidden="true" class="chev">›</span>
+          </button>
+          <button
+            class="event"
+            data-erp="contoso"
+            data-open="sku-proliantdl380"
+            data-problem="no"
+            data-type="stock"
+            type="button"
+          >
+            <time>2:51 PM</time
+            ><span class="dir"
+              ><svg aria-hidden="true" viewBox="0 0 24 24">
+                <path d="M20 12H5m5-6-6 6 6 6" />
+              </svg
+              >From ERP</span
+            ><span class="chip chip-erp contoso">Contoso ERP</span
+            ><span class="chip chip-type">Stock</span>
+            <span class="sentence"
+              >proliantdl380 stock is now 42<small
+                >Contoso Warehouse</small
+              ></span
+            >
+            <span class="badge badge-ok">Applied</span
+            ><span aria-hidden="true" class="chev">›</span>
+          </button>
+          <button
+            class="event"
+            data-erp="contoso"
+            data-only="maint"
+            data-open="order-3000000024"
+            data-problem="yes"
+            data-type="order"
+            type="button"
+          >
+            <time>2:44 PM</time
+            ><span class="dir"
+              ><svg aria-hidden="true" viewBox="0 0 24 24">
+                <path d="M4 12h15m-5-6 6 6-6 6" />
+              </svg
+              >To ERP</span
+            ><span class="chip chip-erp contoso">Contoso ERP</span
+            ><span class="chip chip-type">Order</span>
+            <span class="sentence"
+              >Order 3000000024: Contoso part waits for the ERP<small
+                >Contoso is in maintenance until 15:55</small
+              ></span
+            >
+            <span class="badge badge-warn">Held</span
+            ><span aria-hidden="true" class="chev">›</span>
+          </button>
+          <button
+            class="event"
+            data-erp="northwind"
+            data-only="maint"
+            data-open="order-3000000024"
+            data-problem="no"
+            data-type="order"
+            type="button"
+          >
+            <time>2:44 PM</time
+            ><span class="dir"
+              ><svg aria-hidden="true" viewBox="0 0 24 24">
+                <path d="M4 12h15m-5-6 6 6-6 6" />
+              </svg
+              >To ERP</span
+            ><span class="chip chip-erp northwind">Northwind ERP</span
+            ><span class="chip chip-type">Order</span>
+            <span class="sentence"
+              >Order 3000000024: Northwind part became ERP order
+              0000001014</span
+            >
+            <span class="badge badge-ok">Sent</span
+            ><span aria-hidden="true" class="chev">›</span>
+          </button>
+          <button
+            class="event"
+            data-erp="northwind"
+            data-open="credit-serversavvy"
+            data-problem="no"
+            data-type="credit"
+            type="button"
+          >
+            <time>2:40 PM</time
+            ><span class="dir"
+              ><svg aria-hidden="true" viewBox="0 0 24 24">
+                <path d="M20 12H5m5-6-6 6 6 6" />
+              </svg
+              >From ERP</span
+            ><span class="chip chip-erp northwind">Northwind ERP</span
+            ><span class="chip chip-type">Credit</span>
+            <span class="sentence"
+              >ServerSavvy Solutions credit limit raised to $25,000</span
+            >
+            <span class="badge badge-ok">Applied</span
+            ><span aria-hidden="true" class="chev">›</span>
+          </button>
+          <button
+            class="event"
+            data-erp="northwind"
+            data-only="maint"
+            data-open="msg-platinum"
+            data-problem="yes"
+            data-type="price"
+            type="button"
+          >
+            <time>2:30 PM</time
+            ><span class="dir"
+              ><svg aria-hidden="true" viewBox="0 0 24 24">
+                <path d="M20 12H5m5-6-6 6 6 6" />
+              </svg
+              >From ERP</span
+            ><span class="chip chip-erp northwind">Northwind ERP</span
+            ><span class="chip chip-type">Price</span>
+            <span class="sentence"
+              >Price for Platinum Buyer not applied<small
+                >No Commerce company is linked to Northwind customer
+                100077</small
+              ></span
+            >
+            <span class="badge badge-bad">Not applied</span
+            ><span aria-hidden="true" class="chev">›</span>
+          </button>
+          <button
+            class="event"
+            data-erp="contoso"
+            data-open="order-3000000023"
+            data-problem="no"
+            data-type="order"
+            type="button"
+          >
+            <time>1:12 PM</time
+            ><span class="dir"
+              ><svg aria-hidden="true" viewBox="0 0 24 24">
+                <path d="M20 12H5m5-6-6 6 6 6" />
+              </svg
+              >From ERP</span
+            ><span class="chip chip-erp contoso">Contoso ERP</span
+            ><span class="chip chip-type">Order</span>
+            <span class="sentence"
+              >Order 3000000023: Contoso shipped its part<small
+                >Shipment and tracking number added</small
+              ></span
+            >
+            <span class="badge badge-ok">Applied</span
+            ><span aria-hidden="true" class="chev">›</span>
+          </button>
+          <button
+            class="event"
+            data-erp="northwind"
+            data-open="order-3000000023"
+            data-problem="no"
+            data-type="order"
+            type="button"
+          >
+            <time>9:55 AM</time
+            ><span class="dir"
+              ><svg aria-hidden="true" viewBox="0 0 24 24">
+                <path d="M20 12H5m5-6-6 6 6 6" />
+              </svg
+              >From ERP</span
+            ><span class="chip chip-erp northwind">Northwind ERP</span
+            ><span class="chip chip-type">Order</span>
+            <span class="sentence"
+              >Order 3000000023: Northwind confirmed its part<small
+                >A note was added to the order</small
+              ></span
+            >
+            <span class="badge badge-ok">Applied</span
+            ><span aria-hidden="true" class="chev">›</span>
+          </button>
+          <button
+            class="event"
+            data-erp="northwind"
+            data-open="order-3000000023"
+            data-problem="no"
+            data-type="order"
+            type="button"
+          >
+            <time>9:54 AM</time
+            ><span class="dir"
+              ><svg aria-hidden="true" viewBox="0 0 24 24">
+                <path d="M4 12h15m-5-6 6 6-6 6" />
+              </svg
+              >To ERP</span
+            ><span class="chip chip-erp northwind">Northwind ERP</span
+            ><span class="chip chip-type">Order</span>
+            <span class="sentence"
+              >Order 3000000023: Northwind part became ERP order 0000001013<small
+                >Access Point × 1</small
+              ></span
+            >
+            <span class="badge badge-ok">Sent</span
+            ><span aria-hidden="true" class="chev">›</span>
+          </button>
+          <button
+            class="event"
+            data-erp="contoso"
+            data-open="order-3000000023"
+            data-problem="no"
+            data-type="order"
+            type="button"
+          >
+            <time>9:54 AM</time
+            ><span class="dir"
+              ><svg aria-hidden="true" viewBox="0 0 24 24">
+                <path d="M4 12h15m-5-6 6 6-6 6" />
+              </svg
+              >To ERP</span
+            ><span class="chip chip-erp contoso">Contoso ERP</span
+            ><span class="chip chip-type">Order</span>
+            <span class="sentence"
+              >Order 3000000023: Contoso part became ERP order 0000001002<small
+                >ProLiant DL380 × 1</small
+              ></span
+            >
+            <span class="badge badge-ok">Sent</span
+            ><span aria-hidden="true" class="chev">›</span>
+          </button>
+          <button
+            class="event"
+            data-erp="northwind"
+            data-open="order-3000000022"
+            data-problem="no"
+            data-type="order"
+            type="button"
+          >
+            <time>8:31 AM</time
+            ><span class="dir"
+              ><svg aria-hidden="true" viewBox="0 0 24 24">
+                <path d="M4 12h15m-5-6 6 6-6 6" />
+              </svg
+              >To ERP</span
+            ><span class="chip chip-erp northwind">Northwind ERP</span
+            ><span class="chip chip-type">Order</span>
+            <span class="sentence"
+              >Order 3000000022 canceled; Northwind closed 0000001012</span
+            >
+            <span class="badge badge-neutral">Canceled</span
+            ><span aria-hidden="true" class="chev">›</span>
+          </button>
+          <button
+            class="event"
+            data-erp="northwind"
+            data-open="order-3000000022"
+            data-problem="no"
+            data-type="order"
+            type="button"
+          >
+            <time>8:28 AM</time
+            ><span class="dir"
+              ><svg aria-hidden="true" viewBox="0 0 24 24">
+                <path d="M4 12h15m-5-6 6 6-6 6" />
+              </svg
+              >To ERP</span
+            ><span class="chip chip-erp northwind">Northwind ERP</span
+            ><span class="chip chip-type">Order</span>
+            <span class="sentence"
+              >Order 3000000022 became Northwind order 0000001012<small
+                >Platinum Buyer</small
+              ></span
+            >
+            <span class="badge badge-ok">Sent</span
+            ><span aria-hidden="true" class="chev">›</span>
+          </button>
+          <button
+            class="event is-reset"
+            data-erp="both"
+            data-open="reset"
+            data-problem="no"
+            data-type="reset"
+            type="button"
+          >
+            <time>8:00 AM</time
+            ><span class="dir"
+              ><svg aria-hidden="true" viewBox="0 0 24 24">
+                <path d="M4 12a8 8 0 1 0 2.4-5.7M4 4v5h5" />
+              </svg
+              >Demo Builder</span
+            ><span class="chip chip-erp both">Both ERPs</span
+            ><span class="chip chip-type">Reset</span>
+            <span class="sentence"
+              >Demo reset from Demo Builder<small
+                >Test orders closed, companies put back, prices and stock
+                reloaded</small
+              ></span
+            >
+            <span class="badge badge-neutral">Done</span
+            ><span aria-hidden="true" class="chev">›</span>
+          </button>
+        </section>
+        <section class="day-group">
+          <h3 class="day">Yesterday <span>Sunday, September 27</span></h3>
+          <button
+            class="event"
+            data-erp="northwind"
+            data-problem="no"
+            data-type="order"
+            type="button"
+          >
+            <time>11:37 PM</time
+            ><span class="dir"
+              ><svg aria-hidden="true" viewBox="0 0 24 24">
+                <path d="M4 12h15m-5-6 6 6-6 6" />
+              </svg
+              >To ERP</span
+            ><span class="chip chip-erp northwind">Northwind ERP</span
+            ><span class="chip chip-type">Order</span>
+            <span class="sentence"
+              >Order 3000000017 became Northwind order 0000001007<small
+                >Cart Probe</small
+              ></span
+            >
+            <span class="badge badge-ok">Sent</span
+            ><span aria-hidden="true" class="chev">›</span>
+          </button>
+          <button
+            class="event"
+            data-erp="northwind"
+            data-problem="no"
+            data-type="order"
+            type="button"
+          >
+            <time>10:58 PM</time
+            ><span class="dir"
+              ><svg aria-hidden="true" viewBox="0 0 24 24">
+                <path d="M4 12h15m-5-6 6 6-6 6" />
+              </svg
+              >To ERP</span
+            ><span class="chip chip-erp northwind">Northwind ERP</span
+            ><span class="chip chip-type">Order</span>
+            <span class="sentence"
+              >Order 3000000016 became Northwind order 0000001006<small
+                >POA Probe</small
+              ></span
+            >
+            <span class="badge badge-ok">Sent</span
+            ><span aria-hidden="true" class="chev">›</span>
+          </button>
+          <button
+            class="event"
+            data-erp="contoso"
+            data-open="sku-proliantdl380"
+            data-problem="no"
+            data-type="price"
+            type="button"
+          >
+            <time>6:00 PM</time
+            ><span class="dir"
+              ><svg aria-hidden="true" viewBox="0 0 24 24">
+                <path d="M20 12H5m5-6-6 6 6 6" />
+              </svg
+              >From ERP</span
+            ><span class="chip chip-erp contoso">Contoso ERP</span
+            ><span class="chip chip-type">Price</span>
+            <span class="sentence"
+              >ServerSavvy Solutions now gets 5% off proliantdl380</span
+            >
+            <span class="badge badge-ok">Applied</span
+            ><span aria-hidden="true" class="chev">›</span>
+          </button>
+          <button
+            class="event"
+            data-erp="northwind"
+            data-problem="no"
+            data-type="stock"
+            type="button"
+          >
+            <time>11:01 AM</time
+            ><span class="dir"
+              ><svg aria-hidden="true" viewBox="0 0 24 24">
+                <path d="M20 12H5m5-6-6 6 6 6" />
+              </svg
+              >From ERP</span
+            ><span class="chip chip-erp northwind">Northwind ERP</span
+            ><span class="chip chip-type">Stock</span>
+            <span class="sentence"
+              >accessmesh stock is now 989<small
+                >Northwind Warehouse</small
+              ></span
+            >
+            <span class="badge badge-ok">Applied</span
+            ><span aria-hidden="true" class="chev">›</span>
+          </button>
+        </section>
+      </div>
+      <p class="feed-empty" hidden id="feed-empty">
+        Nothing matches these filters.
+      </p>
+    </main>
+
+    <script defer src="mockups.js"></script>
+  </body>
+</html>

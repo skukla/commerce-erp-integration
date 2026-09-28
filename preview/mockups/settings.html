@@ -1,0 +1,388 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta content="width=device-width, initial-scale=1" name="viewport">
+    <title>ERP Integration · Settings</title>
+    <link href="https://fonts.googleapis.com" rel="preconnect">
+    <link crossorigin href="https://fonts.gstatic.com" rel="preconnect">
+    <link
+      href="https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@400;600;700&display=swap"
+      rel="stylesheet"
+    >
+    <link href="mockups.css" rel="stylesheet">
+  </head>
+  <body data-erp="all" data-page="settings" data-scope="default">
+    <template id="band-actions">
+      <span class="dirty-flag"
+        ><span class="dot warn"></span>Unsaved changes</span
+      >
+      <span class="saved-flag">Saved</span>
+      <button class="btn btn-primary" data-save type="button">
+        Save Config
+      </button>
+    </template>
+
+    <main class="page">
+      <div class="scope-bar">
+        <span>Settings for</span>
+        <fieldset aria-label="Settings for" class="segmented" data-key="erp">
+          <button aria-pressed="true" data-value="all" type="button">
+            All ERPs
+          </button>
+          <button
+            aria-pressed="false"
+            class="northwind"
+            data-value="northwind"
+            type="button"
+          >
+            <span class="dot"></span>Northwind ERP
+          </button>
+          <button
+            aria-pressed="false"
+            class="contoso"
+            data-value="contoso"
+            type="button"
+          >
+            <span class="dot"></span>Contoso ERP
+          </button>
+        </fieldset>
+        <span>on</span>
+        <fieldset aria-label="Applies to" class="segmented" data-key="scope">
+          <button aria-pressed="true" data-value="default" type="button">
+            Default
+          </button>
+          <button aria-pressed="false" data-value="website" type="button">
+            Bodea Website
+          </button>
+        </fieldset>
+        <span class="scope-hint default-only"
+          >Default applies to every website unless a website changes it.</span
+        >
+        <span class="scope-hint website-only"
+          >Untick <em>Use Default Value</em> to change a setting for this
+          website only.</span
+        >
+      </div>
+
+      <!-- ───────── All ERPs ───────── -->
+      <div class="settings-grid" data-for="all">
+        <section class="settings-card">
+          <h2>Orders</h2>
+
+          <div class="setting">
+            <div>
+              <div class="label">
+                Send orders to the ERP
+                <button
+                  aria-expanded="false"
+                  aria-label="More about sending orders"
+                  class="info"
+                  type="button"
+                >
+                  i
+                </button>
+              </div>
+              <p class="help">
+                Create each order in the ERP and bring its order number back.
+              </p>
+            </div>
+            <div class="control">
+              <label class="switch"
+                ><input checked type="checkbox"><span class="track"></span
+                ><span class="yn"></span><span class="sr-only">On</span></label
+              >
+              <label class="use-default"
+                ><input checked type="checkbox">
+                Use Default Value</label
+              >
+            </div>
+            <p class="more">
+              An order with products from both ERPs is split: each ERP gets only
+              its own lines, and each ERP order number is written onto the
+              Commerce order.
+            </p>
+          </div>
+
+          <div class="setting">
+            <div>
+              <div class="label">
+                Hold orders while the ERP is offline
+                <button
+                  aria-expanded="false"
+                  aria-label="More about holding orders"
+                  class="info"
+                  type="button"
+                >
+                  i
+                </button>
+              </div>
+              <p class="help">
+                Send them when it’s back, instead of dropping them.
+              </p>
+            </div>
+            <div class="control">
+              <label class="switch"
+                ><input checked type="checkbox"><span class="track"></span
+                ><span class="yn"></span><span class="sr-only">On</span></label
+              >
+              <label class="use-default"
+                ><input checked type="checkbox">
+                Use Default Value</label
+              >
+            </div>
+            <p class="more">
+              A held order is retried for up to a day. It shows under Needs
+              attention on the Overview until it goes through, and you can
+              re-send it yourself.
+            </p>
+          </div>
+
+          <div class="setting">
+            <div>
+              <div class="label">
+                Order status when the ERP confirms
+                <button
+                  aria-expanded="false"
+                  aria-label="More about the confirmed status"
+                  class="info"
+                  type="button"
+                >
+                  i
+                </button>
+              </div>
+              <p class="help">Leave empty to add a note only.</p>
+            </div>
+            <div class="control">
+              <select
+                aria-label="Order status when the ERP confirms"
+                class="select"
+              >
+                <option value="">Empty (note only)</option>
+                <option selected>Confirmed in ERP</option>
+                <option>Awaiting ERP review</option>
+              </select>
+              <label class="use-default"
+                ><input type="checkbox">
+                Use Default Value</label
+              >
+            </div>
+            <p class="more">
+              The list shows the statuses assigned to the Pending state in
+              Stores › Settings › Order Status. The order moves to Processing
+              only when it is invoiced or shipped, as Commerce always does.
+            </p>
+          </div>
+        </section>
+
+        <div style="display: grid; gap: 20px">
+          <section class="settings-card">
+            <h2>Prices</h2>
+            <div class="setting">
+              <div>
+                <div class="label">Update prices from the ERPs</div>
+                <p class="help">
+                  How often Commerce picks up each ERP’s prices.
+                </p>
+              </div>
+              <div class="control">
+                <select aria-label="Update prices from the ERPs" class="select">
+                  <option>Every 15 minutes</option>
+                  <option selected>Every hour</option>
+                  <option>Every day</option>
+                </select>
+                <span class="hint">Next run 3:05 PM</span>
+                <label class="use-default"
+                  ><input checked type="checkbox">
+                  Use Default Value</label
+                >
+              </div>
+            </div>
+          </section>
+
+          <section class="settings-card default-only">
+            <h2>Products</h2>
+            <div class="setting">
+              <div>
+                <div class="label">
+                  How products are split between ERPs
+                  <button
+                    aria-expanded="false"
+                    aria-label="More about splitting products"
+                    class="info"
+                    type="button"
+                  >
+                    i
+                  </button>
+                </div>
+                <p class="help">Each product belongs to exactly one ERP.</p>
+              </div>
+              <div class="control">
+                <select
+                  aria-label="How products are split between ERPs"
+                  class="select"
+                >
+                  <option selected>By inventory source</option>
+                  <option>By a product attribute</option>
+                  <option>All products to one ERP</option>
+                </select>
+              </div>
+              <p class="more">
+                By inventory source: a product belongs to the ERP whose
+                warehouse stocks it. Pick each ERP’s warehouses under that ERP’s
+                settings.
+              </p>
+              <div class="split-summary" style="grid-column: 1 / -1">
+                <div>
+                  <span class="chip chip-erp northwind">Northwind ERP</span
+                  ><a href="#elsewhere-in-admin">3 products</a>
+                </div>
+                <div>
+                  <span class="chip chip-erp contoso">Contoso ERP</span
+                  ><a href="#elsewhere-in-admin">3 products</a>
+                </div>
+              </div>
+            </div>
+          </section>
+        </div>
+      </div>
+
+      <!-- ───────── One ERP (same rows for each; values differ) ───────── -->
+      <div class="settings-grid" data-for="northwind" hidden>
+        <section class="settings-card">
+          <h2>Sales organisation</h2>
+          <div class="setting">
+            <div>
+              <div class="label">Sales organisation</div>
+              <p class="help">
+                The ERP’s code for this website’s sales, e.g. 1000.
+              </p>
+            </div>
+            <div class="control">
+              <input
+                aria-label="Sales organisation"
+                class="input default-only"
+                value="1000"
+              >
+              <input
+                aria-label="Sales organisation for Bodea Website"
+                class="input use-default-field"
+                value="1100"
+              >
+              <span class="hint use-default-field">Default is 1000</span>
+              <label class="use-default"
+                ><input type="checkbox">
+                Use Default Value</label
+              >
+            </div>
+          </div>
+          <div class="setting">
+            <div>
+              <div class="label">Sales organisation name</div>
+              <p class="help">
+                What the ERP calls it. Empty: the website’s name.
+              </p>
+            </div>
+            <div class="control">
+              <input
+                aria-label="Sales organisation name"
+                class="input"
+                placeholder="Bodea Website"
+              >
+              <label class="use-default"
+                ><input checked type="checkbox">
+                Use Default Value</label
+              >
+            </div>
+          </div>
+        </section>
+
+        <section class="settings-card">
+          <h2>Products</h2>
+          <div class="setting default-only">
+            <div>
+              <div class="label">Products this ERP owns</div>
+              <p class="help">The products stocked in these warehouses.</p>
+            </div>
+            <div class="control">
+              <div class="source-tags"><span>Northwind Warehouse</span></div>
+              <a href="#elsewhere-in-admin">Change warehouses</a>
+            </div>
+            <p class="owned" style="grid-column: 1 / -1">
+              Owns <a href="#elsewhere-in-admin">3 products</a>: accesspoint,
+              accessmesh, accessmeshpro
+            </p>
+          </div>
+          <p class="website-note">
+            Products are set once for every website. Switch to Default to change
+            them.
+          </p>
+        </section>
+      </div>
+
+      <div class="settings-grid" data-for="contoso" hidden>
+        <section class="settings-card">
+          <h2>Sales organisation</h2>
+          <div class="setting">
+            <div>
+              <div class="label">Sales organisation</div>
+              <p class="help">
+                The ERP’s code for this website’s sales, e.g. 1000.
+              </p>
+            </div>
+            <div class="control">
+              <input aria-label="Sales organisation" class="input" value="2000">
+              <label class="use-default"
+                ><input checked type="checkbox">
+                Use Default Value</label
+              >
+            </div>
+          </div>
+          <div class="setting">
+            <div>
+              <div class="label">Sales organisation name</div>
+              <p class="help">
+                What the ERP calls it. Empty: the website’s name.
+              </p>
+            </div>
+            <div class="control">
+              <input
+                aria-label="Sales organisation name"
+                class="input"
+                value="Bodea US"
+              >
+              <label class="use-default"
+                ><input checked type="checkbox">
+                Use Default Value</label
+              >
+            </div>
+          </div>
+        </section>
+
+        <section class="settings-card">
+          <h2>Products</h2>
+          <div class="setting default-only">
+            <div>
+              <div class="label">Products this ERP owns</div>
+              <p class="help">The products stocked in these warehouses.</p>
+            </div>
+            <div class="control">
+              <div class="source-tags"><span>Contoso Warehouse</span></div>
+              <a href="#elsewhere-in-admin">Change warehouses</a>
+            </div>
+            <p class="owned" style="grid-column: 1 / -1">
+              Owns <a href="#elsewhere-in-admin">3 products</a>, including
+              proliantdl380
+            </p>
+          </div>
+          <p class="website-note">
+            Products are set once for every website. Switch to Default to change
+            them.
+          </p>
+        </section>
+      </div>
+    </main>
+
+    <script defer src="mockups.js"></script>
+  </body>
+</html>
