@@ -37,7 +37,7 @@ async function main(params) {
     const transformedData = transformData(params.data);
     logger.debug(`Preprocess data: ${stringParameters(params)}`);
     const preProcessed = preProcess(params, transformedData);
-    logger.debug(`Start sending data: ${JSON.stringify(params)}`);
+    logger.debug(`Start sending data: ${stringParameters(params)}`);
     const result = await sendData(params, transformedData, preProcessed);
     if (!result.success) {
       logger.error(`Send data failed: ${result.message}`);
