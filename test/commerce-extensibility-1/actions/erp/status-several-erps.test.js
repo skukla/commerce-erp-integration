@@ -224,6 +224,34 @@ describe("Given two ERPs in the list", () => {
     ]);
   });
 
+  // The Admin page draws each ERP in its own color: the palette the SC gave the ERP (demo-erp's
+  // health `appearance`, lib/appearance.js there), so the page and the ERP's screen agree.
+  test("Then each listed ERP carries how it looks, when its health says, even in maintenance", async () => {
+    loadErps.mockResolvedValue(TWO);
+    const looks = {
+      "https://a.example": { logo: "cube", nav: "rail", palette: "teal" },
+      "https://b.example": { logo: "orbit", nav: "top", palette: "indigo" },
+    };
+    erp.health.mockImplementation((params) =>
+      Promise.resolve({
+        data: {
+          appearance: looks[params.ERP_BASE_URL],
+          maintenance:
+            params.ERP_BASE_URL === "https://b.example" ? MAINTENANCE : null,
+          ok: true,
+        },
+        ok: true,
+        status: 200,
+      }),
+    );
+    const res = await status.main({ ERP_BASE_URL: "https://a.example" });
+
+    expect(res.body.erps.map((e) => e.appearance)).toStrictEqual([
+      looks["https://a.example"],
+      looks["https://b.example"],
+    ]);
+  });
+
   test("Then an ERP list that cannot be read still answers the deployed ERP's health, with no list", async () => {
     loadErps.mockRejectedValue(new Error("State is down"));
     erp.health.mockResolvedValue({ data: { ok: true }, ok: true, status: 200 });

@@ -26,8 +26,11 @@ async function readList(params) {
  */
 const maintenanceReason = (data) => data?.maintenance?.message;
 
-/** What the Admin page's Overview shows per ERP, as far as its health gives it. */
-const FIGURES = ["counts", "lastImportAt", "lastWipeAt"];
+/**
+ * What the Admin page's Overview shows per ERP, as far as its health gives it: its figures, and
+ * how it looks (demo-erp's `appearance`, whose palette colors the ERP on the page).
+ */
+const FIGURES = ["appearance", "counts", "lastImportAt", "lastWipeAt"];
 
 function figuresOf(data) {
   return Object.fromEntries(
