@@ -98,12 +98,14 @@ export function OverviewSection({ api, erpName, erps, onError, status }) {
         <Lookup
           api={api}
           erpName={erpName}
+          erps={erps}
           lookup={PRODUCT}
           onError={onError}
         />
         <Lookup
           api={api}
           erpName={erpName}
+          erps={erps}
           lookup={COMPANY}
           onError={onError}
         />
