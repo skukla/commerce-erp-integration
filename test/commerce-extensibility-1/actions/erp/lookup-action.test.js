@@ -186,7 +186,7 @@ describe("Given a company to look up", () => {
       erp: "Fabrikam Retail (C000103)",
       label: "Name",
     });
-    expect(res.body.rows[7]).toStrictEqual({
+    expect(res.body.rows[8]).toStrictEqual({
       commerce: null,
       erp: "2000",
       label: "Sales organisations",

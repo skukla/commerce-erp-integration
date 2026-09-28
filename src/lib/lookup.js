@@ -5,20 +5,27 @@
  * A side that does not have the entity contributes null cells, never a guess.
  */
 
-/** Commerce company `status` values (B2B). */
-const COMPANY_STATUS = {
-  0: "pending",
-  1: "active",
-  2: "rejected",
-  3: "blocked",
+/**
+ * The website account: Commerce's company `status` (B2B), in the words the ERP's screen uses
+ * for its read-only copy. Active and Closed are the switch; pending and rejected are the
+ * company's approval, before the switch means anything.
+ */
+const WEBSITE_ACCOUNT = {
+  0: "Pending approval",
+  1: "Active",
+  2: "Rejected",
+  3: "Closed",
 };
 
-/** The ERP's blocking levels, in words. */
-const BLOCKING = {
-  all: "blocked for all business",
-  invoicing: "blocked for invoicing",
-  open: "open",
-  shipping: "blocked for shipping",
+/** The ERP's copy of the website account (contract version 5), in the same words. */
+const ERP_WEBSITE_ACCOUNT = { active: "Active", closed: "Closed" };
+
+/** The ERP's own credit block, in the words its screen uses. Commerce has no such switch. */
+const CREDIT_BLOCK = {
+  all: "Stop all",
+  invoicing: "Stop invoicing",
+  open: "None",
+  shipping: "Stop shipping",
 };
 
 const text = (value) =>
@@ -108,11 +115,21 @@ export function companyLookup({ commerce, companyId, credit, erp }) {
       label: "Name",
     },
     {
+      // Two separate switches (owner, 2026-09-28): the website account is Commerce's, copied
+      // into the ERP; the credit block is the ERP's own and Commerce never changes it.
       commerce: commerce
-        ? (COMPANY_STATUS[Number(commerce.status)] ?? String(commerce.status))
+        ? (WEBSITE_ACCOUNT[Number(commerce.status)] ?? String(commerce.status))
         : null,
-      erp: erp ? (BLOCKING[erp.blocking] ?? text(erp.blocking)) : null,
-      label: "Status",
+      // An ERP built before contract version 5 keeps no copy: an empty cell, not a guess.
+      erp: erp
+        ? (ERP_WEBSITE_ACCOUNT[erp.websiteAccount] ?? text(erp.websiteAccount))
+        : null,
+      label: "Website account",
+    },
+    {
+      commerce: null,
+      erp: erp ? (CREDIT_BLOCK[erp.blocking] ?? text(erp.blocking)) : null,
+      label: "Credit block",
     },
     {
       commerce: credit

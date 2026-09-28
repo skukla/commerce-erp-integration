@@ -28,7 +28,6 @@ export function partnersFrom(
         ? null
         : siteById.get(Number(c.websiteId));
     return {
-      blocked: Boolean(c.blocked),
       creditLimit: c.creditLimit ?? undefined,
       id: `C${c.id}`,
       legalAddress: c.legalAddress ?? null,
@@ -37,6 +36,9 @@ export function partnersFrom(
       resellerId: c.resellerId ?? null,
       salesOrgs: site ? [salesOrgByWebsite.get(site.id) ?? "1000"] : [],
       vatTaxId: c.vatTaxId ?? null,
+      // Commerce's company Active/Blocked switch, as the ERP's read-only website account
+      // (contract version 5). It never sets the ERP's own credit block.
+      websiteAccountClosed: Boolean(c.blocked),
     };
   });
 }

@@ -127,7 +127,6 @@ describe("Given companies turned into business partners", () => {
     ]);
     expect(rows).toEqual([
       {
-        blocked: false,
         creditLimit: 500,
         id: "C7",
         legalAddress: null,
@@ -136,6 +135,7 @@ describe("Given companies turned into business partners", () => {
         resellerId: null,
         salesOrgs: [],
         vatTaxId: null,
+        websiteAccountClosed: false,
       },
     ]);
   });

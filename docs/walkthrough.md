@@ -55,19 +55,22 @@ until it is sellable again. Commerce is not told; that is the ERP's decision.
 ### 3. Customers, and one customer (`#partners`, then a row, or `#partners?open=C000102`)
 
 The list: customer, name, sales organisations, payment terms, credit limit, **Exposure**,
-**Available**, blocking. The walk-in account (P000000) has no credit relationship and
+**Available**, credit block. The walk-in account (P000000) has no credit relationship and
 shows dashes.
 
 The customer document: identity (customer, name, partner type Sold-to, the sales
 organisations it is Sold-to in, payment terms), Legal identity (legal name, VAT / tax id, reseller id, legal
-address), Credit (limit, exposure, available, credit status, blocking, orders on credit
-hold, and a meter of how much of the limit is used), Open items (the uninvoiced orders the
+address), Credit (limit, exposure, available, credit status, **Credit block**, **Website
+account**, orders on credit hold, and a meter of how much of the limit is used), Open items (the uninvoiced orders the
 exposure is made of, adding up to it; switch to History for every order), Pricing (the
 rules agreed with this customer).
 
-Filled by Demo Builder: the company's name, legal identity, the credit limit (from company credit), whether it is blocked (Commerce's
-boolean arrives as the ERP's "blocked for all business"). The ERP's own: payment terms,
-the four blocking levels, exposure and available (never stored), the sales-organisation
+Filled by Demo Builder: the company's name, legal identity, the credit limit (from company credit), and the
+**Website account** (Active or Closed: "Set in Commerce. Closed stops all website orders."), a
+read-only copy of the company's Active/Blocked switch in Commerce. The ERP's own: payment terms,
+the **Credit block** (None, Stop shipping, Stop invoicing, Stop all: "Set here. Stops this ERP's
+orders only."), which nothing from Commerce ever changes, exposure and available (never stored),
+the sales-organisation
 memberships (widened by every order the customer places). The ERP holds no Commerce id: which
 Commerce company a customer is lives in the integration's key map.
 
@@ -131,13 +134,13 @@ company code.
 ### 7. A held order (`#orders?open=0000001007`)
 
 An order that arrived over the customer's limit is created and HELD, not refused. (An
-order from a customer the ERP blocks never reaches the ERP: it waits On Hold in Commerce, with
+order from a customer on the ERP's credit block never reaches the ERP: it waits On Hold in Commerce, with
 the reason in its history, and is sent when the ERP opens the customer again.) The header says On credit hold with the reason; Confirm is not
 offered; Release and Reject are. Release lets it proceed; Reject cancels it with the
 reason Credit rejected, which Commerce hears.
 
 What to say: raise exposure past the limit, place a second order in the storefront, and
-watch it arrive held. Or block the customer: the company stays active in Commerce, its open
+watch it arrive held. Or set the customer's credit block: the company stays active in Commerce, its open
 orders go On Hold, and the next order waits there until you open the customer again.
 
 ### 8. Event Journal (`#events`)
@@ -201,8 +204,9 @@ the warehouses the ERP knows.
 
 ### Customers → Companies → the company
 
-The credit limit follows the ERP's. Status stays Active when the ERP blocks the customer:
-the company's own flag is the group's decision, made here. The ERP's block holds that ERP's
+The credit limit follows the ERP's. Status stays Active when the ERP sets its credit block:
+the company's Active/Blocked switch is the website account, set only here and copied to each
+ERP read-only ("Closed" there). The ERP's credit block holds that ERP's
 orders of the company instead (On Hold, the reason in each order's history), and its next
 orders wait; when the ERP opens the customer again they are released and sent. A change made here reaches the ERP at once,
 by the company save event. The company's admin user's website is the website whose sales organisation the
@@ -235,7 +239,8 @@ One table per business concept. "Owner" is which side decides the field; the oth
 |---|---|---|
 | Business partner (sold-to): id, name | Company: id, name | Commerce; the join is the Commerce company id |
 | Customer group id | Customer group · shared catalog | Commerce |
-| Blocking level (open · shipping · invoicing · all) | Status (active / blocked) | Both: Commerce's boolean is the master on import; the ERP's level writes back as the boolean |
+| Credit block (None · Stop shipping · Stop invoicing · Stop all) | — | ERP only; Commerce never changes it. It holds that ERP's orders, never the company |
+| Website account (Active · Closed) | Status (active / blocked) | Commerce; copied to the ERP read-only. Closed stops all website orders |
 | Legal identity (legal name, VAT / tax id, reseller id, address) | The company's legal fields | Commerce |
 | Payment terms | — | ERP |
 | Sales organisations it is Sold-to in | The company admin's website | Derived: the website's sales organisation setting |

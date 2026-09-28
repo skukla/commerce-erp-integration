@@ -1,6 +1,6 @@
 {
   "name": "demo-erp",
-  "contractVersion": 4,
+  "contractVersion": 5,
   "description": "What the ERP promises its subscribers: the routes it serves, the shapes it accepts, and the events it publishes. The Commerce integration vendors this file and its tests fail when the two disagree.",
   "routes": {
     "health": ["GET"],
@@ -20,8 +20,8 @@
     "productTypes": ["simple", "configurable"],
     "variantAttribute": ["label", "value"],
     "warehouse": ["code", "name", "quantity"],
-    "partners": ["id", "name", "creditLimit", "blocked", "salesOrgs", "legalName", "vatTaxId", "resellerId", "legalAddress"],
-    "partnersNote": "version 3: the ERP holds no Commerce id (no commerceCompanyId, customerGroupId, emailDomain or website); which Commerce company is which customer is the integration's key map",
+    "partners": ["id", "name", "creditLimit", "websiteAccountClosed", "salesOrgs", "legalName", "vatTaxId", "resellerId", "legalAddress"],
+    "partnersNote": "version 3: the ERP holds no Commerce id (no commerceCompanyId, customerGroupId, emailDomain or website); which Commerce company is which customer is the integration's key map. version 5: websiteAccountClosed is Commerce's company Active/Blocked switch, stored as the ERP's read-only website account; it never changes the ERP's own credit block (blocking), which only the ERP sets. Either one stops an order. An import from an integration built before version 5 sends the same switch as blocked, read the same way",
     "legalAddress": ["street", "city", "region", "postcode", "countryId", "telephone"],
     "structure": ["websites"],
     "structureWebsite": ["code", "name", "salesOrg", "salesOrgName", "storeInfo"],

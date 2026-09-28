@@ -80,7 +80,13 @@ describe("Given the ERP contract", () => {
     // Demo Builder fills the ERP's products (its erpFillRows.ts); this app imports only a
     // company its event names (lib/company-sync.js) and a product's stock at every source.
     const partners = readFileSync("src/lib/company-sync.js", "utf8");
-    for (const key of ["creditLimit", "blocked", "id", "name", "salesOrgs"]) {
+    for (const key of [
+      "creditLimit",
+      "websiteAccountClosed",
+      "id",
+      "name",
+      "salesOrgs",
+    ]) {
       expect(contract.import.partners).toContain(key);
       expect(partners).toContain(`${key}:`);
     }

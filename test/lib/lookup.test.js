@@ -122,7 +122,8 @@ describe("Given a company asked of both systems", () => {
         erp: "Fabrikam Retail (C000103)",
         label: "Name",
       },
-      { commerce: "active", erp: "blocked for all business", label: "Status" },
+      { commerce: "Active", erp: null, label: "Website account" },
+      { commerce: null, erp: "Stop all", label: "Credit block" },
       { commerce: "25000 EUR", erp: "25000", label: "Credit limit" },
       {
         commerce: "balance -723",
@@ -141,24 +142,34 @@ describe("Given a company asked of both systems", () => {
     expect(answer.erpHash).toBe("#partners?open=C000103");
   });
 
-  test("Then a blocked Commerce company and a partner with no credit read plainly", () => {
+  test("Then a company closed on the website and a partner with no credit read plainly: two switches, never one", () => {
     const answer = companyLookup({
       commerce: { ...COMMERCE_COMPANY, status: 3 },
       companyId: "9",
       credit: null,
-      erp: { ...ERP_PARTNER, blocking: "open", credit: null },
+      erp: {
+        ...ERP_PARTNER,
+        blocking: "open",
+        credit: null,
+        websiteAccount: "closed",
+      },
     });
     expect(answer.rows[1]).toStrictEqual({
-      commerce: "blocked",
-      erp: "open",
-      label: "Status",
+      commerce: "Closed",
+      erp: "Closed",
+      label: "Website account",
     });
     expect(answer.rows[2]).toStrictEqual({
+      commerce: null,
+      erp: "None",
+      label: "Credit block",
+    });
+    expect(answer.rows[3]).toStrictEqual({
       commerce: null,
       erp: "25000",
       label: "Credit limit",
     });
-    expect(answer.rows[3]).toStrictEqual({
+    expect(answer.rows[4]).toStrictEqual({
       commerce: null,
       erp: null,
       label: "Credit position",
