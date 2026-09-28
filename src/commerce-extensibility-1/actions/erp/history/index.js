@@ -8,11 +8,13 @@ import AioLogger from "@adobe/aio-lib-core-logging";
 import openwhisk from "openwhisk";
 
 import { paramsForErp } from "#adapters/contract";
-import { getOrderByIncrementId } from "#lib/commerce";
+import { getCompany, getOrderByIncrementId } from "#lib/commerce";
 import { erp } from "#lib/erp";
 import { HANDLER_ACTIONS, readErpEvent } from "#lib/erp-event-history";
 import { loadErps } from "#lib/erps";
 import { readHistory, recordOrderOutcome } from "#lib/history";
+import { nameCompanies } from "#lib/history-names";
+import { commerceCompanyOf } from "#lib/key-map";
 import { orderSyncDeps } from "#lib/order-deps";
 import { readOrderParts } from "#lib/order-parts";
 import { retryOrderToErp } from "#lib/order-sync";
@@ -33,7 +35,8 @@ const TRACE_TIMEOUT_MS = 5000;
 /**
  * The Commerce Admin screen's history (lib/history.js).
  * GET ?failedOnly=true&ref=<order>&erp=<id>: the records, newest first; with several ERPs
- *   each names the ERPs it concerns (`erpIds`), and `erp` keeps one ERP's (historyOfErps).
+ *   each names the ERPs it concerns (`erpIds`), and `erp` keeps one ERP's (historyOfErps). A
+ *   company event names its Commerce company, `company: { id, name }` (lib/history-names.js).
  * GET ?scheduled=true: the scheduled runs, when each last ran and what it changed
  *   (lib/scheduled-runs.js).
  * POST { incrementId }: send that order to the ERP again, record it as an admin's retry,
@@ -88,16 +91,25 @@ async function main(params) {
       ...(params.ref ? { ref: String(params.ref) } : {}),
     };
     const erps = await loadErps(params);
-    if (erps.length <= 1) {
-      return ok({ body: { entries: await readHistory(filter) } });
-    }
+    const entries =
+      erps.length <= 1
+        ? await readHistory(filter)
+        : await historyOfErps(filter, erps, params.erp);
     return ok({
-      body: { entries: await historyOfErps(filter, erps, params.erp) },
+      body: { entries: await nameCompanies(entries, companyReaders(params)) },
     });
   } catch (error) {
     logger.error(`history failed: ${error.message}`);
     return internalServerError(error.message);
   }
+}
+
+/** The key map's pair for an ERP customer, and a Commerce company's name (lib/history-names.js). */
+function companyReaders(params) {
+  return {
+    companyOf: (partnerId, erpId) => commerceCompanyOf(partnerId, erpId),
+    nameOf: async (id) => (await getCompany(params, id))?.company_name,
+  };
 }
 
 /** How many records the page lists (lib/history.js keeps the same default). */

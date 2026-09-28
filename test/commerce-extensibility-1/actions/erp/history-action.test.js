@@ -17,10 +17,24 @@ vi.mock("#lib/scheduled-runs", () => ({
     { id: "prices", lastRun: { at: "T" } },
   ]),
 }));
+// Company events are named when the history is read (lib/history-names.js).
+vi.mock("#lib/key-map", () => ({
+  commerceCompanyOf: vi.fn(async (partnerId) =>
+    partnerId === "100042" ? "4" : null,
+  ),
+}));
+vi.mock("#lib/commerce", () => ({
+  getCompany: vi.fn(async (_params, id) => ({
+    company_name: "Kukla Studios",
+    id: Number(id),
+  })),
+  getOrderByIncrementId: vi.fn(),
+}));
 vi.mock("#lib/order-deps", () => ({
   orderSyncDeps: vi.fn((logger) => ({ logger, marker: "real deps" })),
 }));
 
+import { getCompany } from "#lib/commerce";
 import { readErpEvent } from "#lib/erp-event-history";
 import { readHistory, recordOrderOutcome } from "#lib/history";
 import { retryOrderToErp } from "#lib/order-sync";
@@ -60,6 +74,35 @@ describe("Given the history action", () => {
     expect(res.statusCode).toBe(200);
     expect(res.body).toStrictEqual({ entries: [HELD] });
     expect(readHistory).toHaveBeenCalledWith({ failedOnly: true, ref: "42" });
+  });
+
+  test("Then GET names the Commerce company an ERP customer's event is about, each company read once", async () => {
+    const credit = {
+      direction: "from-erp",
+      event: { data: { creditLimit: 25_000, partnerId: "100042" } },
+      eventId: "ev-1",
+      kind: "credit",
+      message: "customer 100042: credit limit 25000",
+      outcome: "applied",
+      ref: "100042",
+    };
+    readHistory.mockResolvedValueOnce([
+      credit,
+      { ...credit, eventId: "ev-2" },
+      HELD,
+    ]);
+
+    const res = await main({ __ow_method: "get" });
+
+    expect(res.body.entries.map((e) => e.company)).toStrictEqual([
+      { id: "4", name: "Kukla Studios" },
+      { id: "4", name: "Kukla Studios" },
+      undefined,
+    ]);
+    expect(getCompany).toHaveBeenCalledExactlyOnceWith(
+      expect.any(Object),
+      "4",
+    );
   });
 
   test("Then POST retries one order, records it as an admin's retry, and answers its record", async () => {
