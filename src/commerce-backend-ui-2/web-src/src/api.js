@@ -36,6 +36,9 @@ export function makeApi(ims, origin = window.location.origin) {
     return data;
   }
   return {
+    // The ERP list (erp/erps), and a save of one ERP's own settings at its defaults or at
+    // one website; `null` for a value means "use the integration's".
+    erps: () => call("erps"),
     history: (failedOnly) =>
       call(failedOnly ? "history?failedOnly=true" : "history"),
     // `{ sku }` or `{ company }`: one entity as both systems hold it (erp/lookup).
@@ -45,6 +48,8 @@ export function makeApi(ims, origin = window.location.origin) {
     moveStockSources: () => call("move-stock"),
     // `{ incrementId }` for an order, `{ eventId }` for an ERP event (history-view.js).
     retry: (target) => call("history", { body: target, method: "POST" }),
+    saveErpSettings: (id, website, values) =>
+      call("erps", { body: { id, values, website }, method: "PATCH" }),
     // The merchant's settings at one scope, and a save of only what changed. `null`
     // for a value means "use the wider scope's value" (erp/settings).
     saveSettings: (scope, values) =>

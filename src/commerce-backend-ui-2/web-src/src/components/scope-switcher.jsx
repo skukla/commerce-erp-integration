@@ -3,6 +3,7 @@
  * "Scope:" beside a list of Default Config and the websites, and, when the merchant has
  * changes not yet saved, Commerce's own question before switching ("All data that hasn't
  * been saved will be lost"). Store views are not offered (settings-view.js, websiteChoices).
+ * With `choices` and `label` it switches something else the same way (the ERP switcher).
  */
 import {
   AlertDialog,
@@ -15,13 +16,15 @@ import { useCallback, useState } from "react";
 import { websiteChoices } from "#web/settings-view.js";
 
 export function ScopeSwitcher({
+  choices: given,
   hasUnsavedChanges,
+  label = "Scope",
   onChange,
   scopeId,
   scopes,
 }) {
   const [asked, setAsked] = useState(null);
-  const choices = websiteChoices(scopes);
+  const choices = given ?? websiteChoices(scopes);
 
   const pick = useCallback(
     (key) => {
@@ -47,7 +50,7 @@ export function ScopeSwitcher({
     <>
       <Picker
         items={choices}
-        label="Scope"
+        label={label}
         labelPosition="side"
         onSelectionChange={pick}
         selectedKey={scopeId}>
@@ -60,10 +63,10 @@ export function ScopeSwitcher({
             onCancel={cancel}
             onPrimaryAction={confirm}
             primaryActionLabel="OK"
-            title="Scope switcher"
+            title={`${label} switcher`}
             variant="confirmation">
-            Please confirm scope switching. All data that hasn't been saved will
-            be lost.
+            Please confirm {label.toLowerCase()} switching. All data that hasn't
+            been saved will be lost.
           </AlertDialog>
         )}
       </DialogContainer>

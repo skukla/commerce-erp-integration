@@ -149,3 +149,114 @@ export function dressField(field, held, scopeLevel) {
     value: held ? held.value : field.default,
   };
 }
+
+/**
+ * The settings an ERP sets for itself, on its entry in the ERP list (the integration's
+ * src/lib/erp-settings.js PER_ERP_KEYS; a test keeps the two lists equal). The rest are the
+ * whole integration's.
+ */
+export const ERP_SETTING_NAMES = Object.freeze([
+  "structure_owns",
+  "structure_owns_sources",
+  "structure_owns_attribute",
+  "structure_order_prefix",
+  "structure_sales_org",
+  "structure_sales_org_name",
+]);
+
+/** The ERP settings that can differ per website. */
+const ERP_WEBSITE_NAMES = new Set([
+  "structure_sales_org",
+  "structure_sales_org_name",
+]);
+
+/**
+ * The ERP switcher's choices: none with one ERP (nothing to switch); with several, the
+ * integration's own settings (every ERP's defaults) and then each ERP by name.
+ * @param {object[]} entries the ERP list (erp/erps)
+ */
+export function erpChoices(entries) {
+  if (!entries || entries.length < 2) {
+    return [];
+  }
+  return [
+    { id: "", label: "Every ERP (the integration's settings)" },
+    ...entries.map((entry) => ({ id: entry.id, label: entry.name })),
+  ];
+}
+
+/** The groups an ERP edits at a scope: its own settings only, empty groups dropped. */
+export function erpGroupsAt(scopeLevel) {
+  const atWebsite = scopeLevel && scopeLevel !== "global";
+  return groupsAt(scopeLevel)
+    .map((group) => ({
+      ...group,
+      names: group.names.filter(
+        (name) =>
+          ERP_SETTING_NAMES.includes(name) &&
+          (!atWebsite || ERP_WEBSITE_NAMES.has(name)),
+      ),
+    }))
+    .filter((group) => group.names.length > 0);
+}
+
+/**
+ * The website code of a scope id from the scope tree, or undefined for Default Config (an
+ * ERP's per-website settings are kept by website code).
+ */
+export function websiteCodeOf(tree, scopeId) {
+  if (!scopeId) {
+    return;
+  }
+  let found;
+  const visit = (node) => {
+    if (node.id === scopeId) {
+      found = node.code;
+      return;
+    }
+    for (const child of node.children ?? []) {
+      visit(child);
+    }
+  };
+  for (const node of tree ?? []) {
+    visit(node);
+  }
+  return found;
+}
+
+/**
+ * One ERP's values at a scope: its own where its entry sets them (at the website, then its
+ * defaults), else the integration's as the page loaded them.
+ * @returns {Array<{ name: string, value: unknown, own: boolean }>}
+ */
+export function erpValues(entry, websiteCode, pageValues) {
+  const settings = entry?.settings ?? {};
+  const atWebsite = websiteCode ? (settings.websites?.[websiteCode] ?? {}) : {};
+  const integration = new Map(
+    (pageValues ?? []).map((value) => [value.name, value.value]),
+  );
+  return ERP_SETTING_NAMES.map((name) => {
+    const set = websiteCode ? atWebsite[name] : settings[name];
+    return set === undefined
+      ? { name, own: false, value: integration.get(name) }
+      : { name, own: true, value: set };
+  });
+}
+
+/**
+ * An ERP field as a control shows it: inherited (greyed, "Use Default" ticked) when the ERP
+ * does not set it, clearable back to the integration's value when it does.
+ */
+export function dressErpField(field, held) {
+  const own = Boolean(held?.own);
+  return {
+    clearable: own,
+    description: field.description,
+    inherited: !own,
+    label: field.label,
+    name: field.name,
+    ...(field.options ? { options: field.options } : {}),
+    type: field.type ?? "boolean",
+    value: held ? held.value : field.default,
+  };
+}

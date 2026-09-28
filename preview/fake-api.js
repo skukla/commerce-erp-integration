@@ -266,8 +266,51 @@ function fakeLookup(query) {
   });
 }
 
+/** Two ERPs, so the Settings section shows its ERP switcher; the second sets some of its own. */
+const ERPS = [
+  {
+    adapter: "demo-erp",
+    connection: { baseUrl: "https://northwind.example" },
+    id: "erp",
+    name: "Northwind ERP",
+  },
+  {
+    adapter: "demo-erp",
+    connection: { baseUrl: "https://contoso.example" },
+    id: "contoso",
+    name: "Contoso ERP",
+    settings: {
+      structure_order_prefix: "CON",
+      structure_owns: "attribute",
+      structure_owns_attribute: "erp_owner=contoso",
+      websites: { bodea: { structure_sales_org: "2000" } },
+    },
+  },
+];
+
+function saveErpSettings(id, website, changes) {
+  const entry = ERPS.find((candidate) => candidate.id === id);
+  const settings = { ...(entry.settings ?? {}) };
+  const target = website
+    ? { ...(settings.websites?.[website] ?? {}) }
+    : settings;
+  for (const [name, value] of Object.entries(changes)) {
+    if (value === null) {
+      delete target[name];
+    } else {
+      target[name] = value;
+    }
+  }
+  if (website) {
+    settings.websites = { ...(settings.websites ?? {}), [website]: target };
+  }
+  entry.settings = settings;
+  return Promise.resolve({ entry: { ...entry } });
+}
+
 export function fakeApi() {
   return {
+    erps: () => Promise.resolve({ entries: ERPS, stored: true }),
     history: (failedOnly) =>
       Promise.resolve({
         entries: failedOnly
@@ -278,6 +321,7 @@ export function fakeApi() {
       }),
     lookup: (query) => Promise.resolve(fakeLookup(query)),
     retry: () => Promise.resolve({ outcome: "sent" }),
+    saveErpSettings,
     saveSettings: (scope, changes) => {
       for (const [name, value] of Object.entries(changes)) {
         if (value === null) {
