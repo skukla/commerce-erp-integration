@@ -55,8 +55,9 @@ function combine(results) {
  * @param {object} params action params
  * @param {object} order the event's value (state, increment_id, _isNew)
  * @param {object} [deps] `{ erp, erps }` (test seam)
- * @returns {Promise<null | { outcome: string, statusCode: number, message: string }>}
- *   null with one ERP, for a new order, or for an order with no open part
+ * @returns {Promise<null | { outcome: string, statusCode: number, message: string,
+ *   erpIds: string[], orderRef: string }>} null with one ERP, for a new order, or for an order
+ *   with no open part; `erpIds` are the ERPs the change went to
  */
 export async function orderChangeToParts(params, order, deps = {}) {
   const erps = deps.erps ?? (await loadErps(params));
@@ -73,5 +74,13 @@ export async function orderChangeToParts(params, order, deps = {}) {
     // biome-ignore lint/performance/noAwaitInLoops: one ERP at a time, like the router
     results.push(await tellPart(params, order, part, client));
   }
-  return combine(results);
+  // For the Admin page's Activity: the ERPs this change went to, and the order.
+  const erpIds = open
+    .filter((_, index) => results[index].outcome !== "skipped")
+    .map(({ entry }) => entry.id);
+  return {
+    ...combine(results),
+    erpIds,
+    orderRef: String(order.increment_id),
+  };
 }

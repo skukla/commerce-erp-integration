@@ -1,6 +1,7 @@
 import {
   clearHistory,
   readHistory,
+  recordCommerceChange,
   recordOrderOutcome,
   recordReset,
   resetHistoryClient,
@@ -49,6 +50,29 @@ describe("Given the integration's history", () => {
     vi.setSystemTime(new Date("2026-09-22T10:00:00Z"));
   });
   afterEach(() => vi.useRealTimers());
+
+  // A shipment, invoice, hold or cancel made in Commerce Admin names the ERPs it went to (the
+  // order's parts) and the order, so its Activity row carries ERP chips and opens the trace.
+  test("Then a change made in Commerce keeps the ERPs it was told to and its order", async () => {
+    await recordCommerceChange(
+      "shipped",
+      { entity_id: 7, increment_id: "3000000011", order_id: 55 },
+      {
+        erpIds: ["erp", "contoso"],
+        message: "Commerce shipment 3000000011: told both ERPs.",
+        orderRef: "3000000021",
+        outcome: "sent",
+      },
+    );
+
+    const [entry] = await readHistory();
+    expect(entry).toMatchObject({
+      erpIds: ["erp", "contoso"],
+      kind: "shipped",
+      orderRef: "3000000021",
+      ref: "3000000011",
+    });
+  });
 
   test("Then an order's outcome is kept under its own key, for 14 days", async () => {
     await recordOrderOutcome(order("000000042"), {

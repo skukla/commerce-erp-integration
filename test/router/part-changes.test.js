@@ -70,6 +70,9 @@ describe("Given an order two ERPs share", () => {
   test("Then a cancel in Commerce reaches each ERP's own sales order, with its own credential", async () => {
     const result = await change("canceled");
     expect(result.outcome).toBe("sent");
+    // The Admin page's Activity names the ERPs told, and opens the order's trace.
+    expect(result.erpIds).toStrictEqual(BOTH.map((entry) => entry.id));
+    expect(result.orderRef).toBe(ORDER);
     expect(writes()).toEqual([
       {
         client: "integration-client",

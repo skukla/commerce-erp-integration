@@ -263,7 +263,12 @@ describe("Given Commerce ships or invoices lines of two ERPs' parts", () => {
       },
       { erp, erps: ERPS, getOrder: async () => ({ increment_id: ORDER }) },
     );
-    expect(res).toMatchObject({ outcome: "sent" });
+    // The Admin page's Activity names the ERPs told, and opens the order's trace.
+    expect(res).toMatchObject({
+      erpIds: ["brand-a", "brand-b"],
+      orderRef: ORDER,
+      outcome: "sent",
+    });
     expect(ship).toHaveBeenCalledTimes(2);
     const [aParams, aNumber, aBody] = ship.mock.calls[0];
     expect(aParams.ERP_BASE_URL).toBe("https://a.example");
@@ -278,7 +283,7 @@ describe("Given Commerce ships or invoices lines of two ERPs' parts", () => {
   test("Then an invoice covering one ERP's lines goes to that ERP only", async () => {
     const invoice = vi.fn(async () => ({ data: {}, ok: true, status: 200 }));
     const erp = { fromCommerce: { invoice, ship: vi.fn() } };
-    await fulfilmentFromCommerce(
+    const res = await fulfilmentFromCommerce(
       {},
       "invoice",
       {
@@ -288,6 +293,7 @@ describe("Given Commerce ships or invoices lines of two ERPs' parts", () => {
       },
       { erp, erps: ERPS, getOrder: async () => ({ increment_id: ORDER }) },
     );
+    expect(res.erpIds).toStrictEqual(["brand-b"]);
     expect(invoice).toHaveBeenCalledTimes(1);
     expect(invoice.mock.calls[0][1]).toBe("B-200");
   });

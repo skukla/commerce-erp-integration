@@ -67,10 +67,13 @@ export async function updateRecord(key, build, logger) {
 /**
  * A change made in Commerce that was told to the ERP (or not), for the Admin screen's
  * history: one record per Commerce document and kind, so a redelivery updates its own row.
- * A skipped change (not this ERP's, nothing to do) leaves no row.
+ * A skipped change (not this ERP's, nothing to do) leaves no row. With several ERPs the
+ * result names the ERPs it went to (`erpIds`, the order's parts) and the order (`orderRef`),
+ * which the record keeps, so the page's row names each ERP and opens the order's trace.
  * @param {string} kind shipped | invoiced | changed
  * @param {object} value the event's value (increment_id, entity_id, order_id)
- * @param {{ outcome: string, statusCode: number, message: string }} result
+ * @param {{ outcome: string, statusCode: number, message: string, erpIds?: string[],
+ *   orderRef?: string }} result
  */
 export async function recordCommerceChange(kind, value, result, options = {}) {
   if (result.outcome === "skipped") {
@@ -93,6 +96,8 @@ export async function recordCommerceChange(kind, value, result, options = {}) {
       message: result.message,
       outcome: result.outcome,
       ref,
+      ...(result.erpIds ? { erpIds: result.erpIds } : {}),
+      ...(result.orderRef ? { orderRef: String(result.orderRef) } : {}),
     }),
     options,
   );

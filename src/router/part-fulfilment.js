@@ -228,8 +228,9 @@ function tellErp(params, kind, doc, entry, part, lines, client) {
  * @param {"shipment"|"invoice"} kind what Commerce made
  * @param {object} doc the Commerce shipment or invoice (`order_id`, `entity_id`, `items[]`)
  * @param {object} [deps] `{ erp, erps, getOrder }` (test seam)
- * @returns {Promise<null | {outcome: string, statusCode: number, message: string}>}
- *   null with one ERP, or for an order that was never split (today's path handles it)
+ * @returns {Promise<null | {outcome: string, statusCode: number, message: string,
+ *   erpIds: string[], orderRef: string}>} null with one ERP, or for an order that was never
+ *   split (today's path handles it); `erpIds` are the ERPs told, `orderRef` the order
  */
 export async function fulfilmentFromCommerce(params, kind, doc, deps = {}) {
   const erps = deps.erps ?? (await loadErps(params));
@@ -263,18 +264,25 @@ export async function fulfilmentFromCommerce(params, kind, doc, deps = {}) {
     }
     // biome-ignore lint/performance/noAwaitInLoops: one ERP at a time, like the router
     const res = await tellErp(params, kind, doc, entry, part, lines, client);
-    told.push({ name: entry.name, ok: Boolean(res?.ok) });
+    told.push({ id: entry.id, name: entry.name, ok: Boolean(res?.ok) });
   }
   const failed = told.filter((t) => !t.ok).map((t) => t.name);
   const label = `Commerce ${kind} ${doc.increment_id ?? doc.entity_id}`;
+  // For the Admin page's Activity: the ERPs told, and the order, whose trace the row opens.
+  const named = {
+    erpIds: told.map((t) => t.id),
+    orderRef: String(order.increment_id),
+  };
   if (failed.length > 0) {
     return {
+      ...named,
       message: `${label}: ${failed.join(" and ")} did not take it; delivered again later.`,
       outcome: "held",
       statusCode: SERVER_UNAVAILABLE,
     };
   }
   return {
+    ...named,
     message: `${label}: told ${told.map((t) => t.name).join(" and ") || "no ERP"} about its lines.`,
     outcome: told.length > 0 ? "sent" : "skipped",
     statusCode: 200,

@@ -51,6 +51,17 @@ const STOCK = {
   ref: "",
 };
 
+// A shipment made in Commerce Admin, told to Contoso only (router/part-fulfilment.js).
+const SHIPPED = {
+  direction: "to-erp",
+  erpIds: ["contoso", "gone"],
+  kind: "shipped",
+  lastAt: "2026-09-28T07:00:00Z",
+  orderRef: "3000000022",
+  outcome: "sent",
+  ref: "3000000031",
+};
+
 beforeEach(async () => {
   resetOrderPartsClient(fakeState());
   resetErpsClient({ get: async () => ({ value: JSON.stringify(BOTH) }) });
@@ -75,6 +86,15 @@ describe("Given two ERPs", () => {
       ["3000000021", ["erp"]],
       ["SIGN-A2", ["contoso"]],
       ["", []],
+    ]);
+  });
+
+  test("Then a change made in Commerce names the listed ERPs it was told to, and shows under each", async () => {
+    readHistory.mockResolvedValue([SHIPPED]);
+    expect((await list()).map((e) => e.erpIds)).toEqual([["contoso"]]);
+    expect(await list({ erp: "erp" })).toEqual([]);
+    expect((await list({ erp: "contoso" })).map((e) => e.ref)).toEqual([
+      "3000000031",
     ]);
   });
 

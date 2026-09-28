@@ -120,8 +120,8 @@ const PAGE = 100;
  * order), and when `asked` names one ERP, only its records. An ERP event names its ERP (`erpId`,
  * contract version 4); an order's one record speaks for all its parts, so its ERPs are the
  * parts'. Derived when read, so records from before several ERPs are named too. A record that
- * names no ERP (a stock event's list of lines, a change Commerce made) has none, and is listed
- * only with every ERP's records. One ERP's records are chosen from the whole history, then cut.
+ * names no ERP (a stock event's list of lines, a change Commerce made before changes named their
+ * ERPs) has none, and is listed only with every ERP's records. One ERP's records are chosen from the whole history, then cut.
  */
 async function historyOfErps(filter, erps, asked) {
   const wanted = asked ? String(asked) : "";
@@ -148,6 +148,10 @@ async function erpIdsOf(entry, erps) {
   if (entry.kind === "reset") {
     // A reset concerns every ERP: it shows under each one's filter.
     return erps.map((e) => e.id);
+  }
+  if (Array.isArray(entry.erpIds)) {
+    // A change made in Commerce names the ERPs it went to (lib/history.js).
+    return erps.filter((e) => entry.erpIds.includes(e.id)).map((e) => e.id);
   }
   if (entry.kind !== "order") {
     return [];
