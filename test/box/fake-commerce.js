@@ -125,6 +125,28 @@ function seed() {
   };
 }
 
+/**
+ * Commerce's Order::canCancel(), for the states and quantities this fake keeps (Magento
+ * 2.4-develop Sales/Model/Order.php): not cancelled, on hold, in payment review, complete or
+ * closed, and some line still has a quantity to invoice.
+ */
+function canCancel(o) {
+  if (
+    ["canceled", "holded", "payment_review", "complete", "closed"].includes(
+      o.state,
+    )
+  ) {
+    return false;
+  }
+  return o.items.some(
+    (i) =>
+      Number(i.qty_ordered) -
+        Number(i.qty_invoiced ?? 0) -
+        Number(i.qty_canceled ?? 0) >
+      0,
+  );
+}
+
 const tierKey = (r) =>
   `${r.sku}|${r.customer_group}|${Number(r.quantity)}|${Number(r.website_id)}`;
 
@@ -133,6 +155,14 @@ export function createFakeCommerce() {
   let db = seed();
   const writes = [];
   const record = (kind, detail) => writes.push({ kind, ...detail });
+  // The order save events Commerce raised for the writes below, oldest first: the box delivers
+  // them to the order handlers the way I/O Events would.
+  const orderSaves = [];
+  const raiseOrderSave = (value) =>
+    orderSaves.push({
+      data: { value: { ...clone(value), _isNew: false } },
+      type: "observer.sales_order_save_commit_after",
+    });
   const order = (id) => {
     const o = db.orders.get(Number(id));
     if (!o) {
@@ -148,6 +178,8 @@ export function createFakeCommerce() {
     clearExtOrderId: async (_p, orderId) => {
       order(orderId).ext_order_id = "";
       record("clearExtOrderId", { orderId: String(orderId) });
+      // A sparse save: its event carries only the field written (measured 2026-09-25).
+      raiseOrderSave({ ext_order_id: "" });
       return {};
     },
     customerCompanyId: async (_p, customerId) => {
@@ -209,20 +241,33 @@ export function createFakeCommerce() {
     listVariantAttributes: async () => new Map(),
     listWebsites: async () => [{ code: "base", id: 1, name: "Main Website" }],
     orders: {
+      // As POST orders/{id}/cancel answers (Magento OrderService::cancelOrder): false, and
+      // nothing saved, when Order::canCancel() refuses.
       cancel: async (_p, orderId) => {
         const o = order(orderId);
+        if (!canCancel(o)) {
+          return false;
+        }
         o.state = "canceled";
         o.status = "canceled";
         record("cancel", { orderId: String(orderId) });
+        raiseOrderSave(o);
         return true;
       },
       comment: async (_p, orderId, comment, status) => {
         record("comment", { comment, orderId: String(orderId), status });
+        const o = order(orderId);
+        // Newest first, as GET orders/{id} answers status_histories.
+        o.status_histories = [
+          { comment, status },
+          ...(o.status_histories ?? []),
+        ];
         if (status) {
-          order(orderId).status = status;
+          o.status = status;
         }
         return {};
       },
+      get: async (_p, orderId) => clone(order(orderId)),
     },
     productAttributes: async (_p, sku) =>
       clone(db.products.get(sku)?.custom_attributes ?? {}),
@@ -274,6 +319,7 @@ export function createFakeCommerce() {
       o.state = "processing";
       o.status = "processing";
       record("unhold", { orderId: String(orderId) });
+      raiseOrderSave(o);
       return true;
     },
     warehousesOfSku: async (_p, sku) =>
@@ -380,6 +426,9 @@ export function createFakeCommerce() {
         state: 2,
       });
       o.state = "complete";
+      for (const item of o.items) {
+        item.qty_invoiced = item.qty_ordered;
+      }
       record("invoice", { invoiceId: id, orderId: String(orderId) });
       return id;
     },
@@ -520,10 +569,12 @@ export function createFakeCommerce() {
     events,
     lib,
     orderClient,
+    orderSaves,
     productClient,
     reset() {
       db = seed();
       writes.length = 0;
+      orderSaves.length = 0;
     },
     shipmentClient,
     stockClient,

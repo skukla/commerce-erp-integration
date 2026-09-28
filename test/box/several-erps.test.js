@@ -19,10 +19,18 @@ const box = await vi.hoisted(async () => {
   const b = { mode: "up" };
   // Every create-order request each ERP was sent, reached or not.
   const creates = { a: [], b: [] };
+  // Every request either ERP was sent: which ERP, the action, the method and the path.
+  const requests = [];
   const isCreate = (action, request) =>
     action === "orders" && request.method === "POST" && !request.path;
   const call = (action, request = {}) => {
     const toB = request.params?.ERP_BASE_URL === ERP_B_URL;
+    requests.push({
+      action,
+      method: request.method ?? "GET",
+      path: request.path ?? "",
+      to: toB ? "b" : "a",
+    });
     if (isCreate(action, request)) {
       creates[toB ? "b" : "a"].push(request.body.commerceIncrementId);
     }
@@ -45,6 +53,7 @@ const box = await vi.hoisted(async () => {
     erpA,
     erpB,
     erpClient: erpClientModule(call),
+    requests,
     settings: settingsModule(),
     state: fakeState(),
   };
@@ -61,9 +70,11 @@ vi.mock("#src/order/commerce-order-api-client", () => box.commerce.orderClient);
 import { erp } from "#lib/erp";
 import { replaceErps, resetErpsClient } from "#lib/erps";
 import * as keyMap from "#lib/key-map";
-import { readOrderParts } from "#lib/order-parts";
+import { listOrderPartsIds, readOrderParts } from "#lib/order-parts";
+import * as detachAction from "#src/erp/detach/index";
 import * as resendPartAction from "#src/erp/resend-part/index";
 import * as statusAction from "#src/erp/status/index";
+import * as orderChanged from "#src/order/commerce/changed/index";
 import * as orderCreated from "#src/order/commerce/created/index";
 
 import { fillErp } from "./fill-erp.js";
@@ -281,5 +292,149 @@ describe("Pair in a box: an order split between two ERPs, one of them away", () 
     expect(await erpOrdersFor(box.erpB)).toHaveLength(1);
     expect(await erpOrdersFor(box.erpA)).toHaveLength(1);
     expect(box.commerce.db.orders.get(ORDER_ID).status).toBe("pending");
+  });
+});
+
+/*
+ * A reset closes every order the ERPs hold before it wipes them (AB-16n, owner 2026-09-28). The
+ * box places three orders across the two ERPs, runs erp/detach with closeOrders as Demo Builder's
+ * reset does, and then delivers every order save Commerce raised for the close to BOTH order
+ * handlers, as I/O Events would: the cancellations must reach no ERP.
+ */
+describe("Pair in a box: a reset closes the orders the two ERPs hold", () => {
+  const DAY = "2026-09-28";
+  const CANCELLED = `Cancelled by the demo reset on ${DAY}.`;
+  const REMOVED = `The ERP documents for this order were removed by the demo reset on ${DAY}.`;
+  const SPLIT = 55;
+  const INVOICED = 56;
+  const HELD = 57;
+
+  /** Another order like 55, with only the lines of these SKUs. */
+  function addOrder(id, skus) {
+    const base = box.commerce.db.orders.get(SPLIT);
+    box.commerce.db.orders.set(id, {
+      ...structuredClone(base),
+      entity_id: id,
+      increment_id: `0000000${id}`,
+      items: structuredClone(base.items.filter((i) => skus.includes(i.sku))),
+    });
+  }
+
+  const placeOrder = (id) =>
+    orderCreated.main(box.commerce.events.orderSaved(id, { isNew: true }));
+  const notesOn = (id) =>
+    box.commerce.writes
+      .filter((w) => w.kind === "comment" && w.orderId === String(id))
+      .map((w) => w.comment);
+  const resetNotesOn = (id) =>
+    notesOn(id).filter((c) => c.includes("by the demo reset on"));
+  const closeAll = () =>
+    detachAction.main({ closeOrders: true, ERP_BASE_URL: ERP_A_URL });
+
+  /** Every order save Commerce raised since `from`, delivered to both order handlers. */
+  async function deliverOrderSaves(from) {
+    const answers = [];
+    for (const event of box.commerce.orderSaves.slice(from)) {
+      // biome-ignore lint/performance/noAwaitInLoops: events are delivered in order, as raised
+      const created = await orderCreated.main(structuredClone(event));
+      const changed = await orderChanged.main(structuredClone(event));
+      answers.push([statusOf(created), statusOf(changed)]);
+    }
+    return answers;
+  }
+
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date(`${DAY}T15:00:00Z`));
+  });
+  afterEach(() => vi.useRealTimers());
+
+  test("Then the open split order and the held order are cancelled with a note, the invoiced one only noted, no parts record is left, no ERP is sent anything, a second run changes nothing, and a fresh order routes to both ERPs", async () => {
+    // The split order: A1 to ERP A, B2 to ERP B.
+    expect(statusOf(await placeOrder(SPLIT))).toBe(200);
+    // ERP A's order alone, then invoiced in Commerce.
+    addOrder(INVOICED, ["A1"]);
+    expect(statusOf(await placeOrder(INVOICED))).toBe(200);
+    await box.commerce.adminInvoice(INVOICED);
+    // ERP B's order alone, put on hold in Commerce, which ERP B is told.
+    addOrder(HELD, ["B2"]);
+    expect(statusOf(await placeOrder(HELD))).toBe(200);
+    await box.commerce.adminHold(HELD);
+    expect(
+      statusOf(await orderChanged.main(box.commerce.events.orderSaved(HELD))),
+    ).toBe(200);
+    const [heldInB] = (await box.erpB.call("orders")).data.items.filter(
+      (o) => o.commerceOrderId === String(HELD),
+    );
+    expect(heldInB.creditStatus).toBe("held");
+    expect((await listOrderPartsIds()).sort()).toEqual([
+      "000000042",
+      "000000056",
+      "000000057",
+    ]);
+
+    const sentBefore = box.requests.length;
+    const savesBefore = box.commerce.orderSaves.length;
+    const res = await closeAll();
+
+    expect(res.statusCode).toBe(200);
+    expect(res.body.closed).toEqual({
+      alreadyClosed: 0,
+      cancelled: 2,
+      commented: 1,
+      failed: [],
+      partsRemoved: 3,
+    });
+    const orderOf = (id) => box.commerce.db.orders.get(id);
+    expect(orderOf(SPLIT).state).toBe("canceled");
+    expect(orderOf(HELD).state).toBe("canceled");
+    expect(orderOf(INVOICED).state).toBe("complete");
+    expect(resetNotesOn(SPLIT)).toEqual([CANCELLED]);
+    expect(resetNotesOn(HELD)).toEqual([CANCELLED]);
+    expect(resetNotesOn(INVOICED)).toEqual([REMOVED]);
+    expect(await listOrderPartsIds()).toEqual([]);
+
+    // The saves the close made: the release of the hold and the two cancels, at least.
+    expect(box.commerce.orderSaves.length - savesBefore).toBeGreaterThanOrEqual(
+      3,
+    );
+    const answers = await deliverOrderSaves(savesBefore);
+    expect(answers.every(([a, b]) => a < 500 && b < 500)).toBe(true);
+    // No ERP was asked to create, cancel, hold or release anything: the close and its events
+    // only read the ERPs' order lists and orders.
+    const since = box.requests.slice(sentBefore);
+    expect(since.filter((r) => r.method !== "GET")).toEqual([]);
+    expect(since.filter((r) => r.path.endsWith("/cancel"))).toEqual([]);
+    // Nor did the events bring a parts record back.
+    expect(await listOrderPartsIds()).toEqual([]);
+
+    // A second run, before the ERPs are wiped, cancels nothing and notes nothing again.
+    const notesBefore = box.commerce.writes.filter(
+      (w) => w.kind === "comment",
+    ).length;
+    const again = await closeAll();
+    expect(again.body.closed).toEqual({
+      alreadyClosed: 3,
+      cancelled: 0,
+      commented: 0,
+      failed: [],
+      partsRemoved: 0,
+    });
+    expect(box.commerce.writes.filter((w) => w.kind === "comment").length).toBe(
+      notesBefore,
+    );
+
+    // The reset wipes and refills both ERPs; a fresh split order then routes to both.
+    box.erpA.reset();
+    box.erpB.reset();
+    await twoErps();
+    box.creates.a.length = 0;
+    box.creates.b.length = 0;
+    addOrder(58, ["A1", "B2"]);
+    expect(statusOf(await placeOrder(58))).toBe(200);
+    expect(box.creates).toEqual({ a: ["000000058"], b: ["000000058"] });
+    const fresh = await readOrderParts("000000058");
+    expect(fresh.parts.erp.status).toBe("sent");
+    expect(fresh.parts["brand-b"].status).toBe("sent");
   });
 });
