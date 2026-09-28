@@ -53,3 +53,71 @@ describe("Given the ERP-list action", () => {
     expect(res.statusCode ?? res.error?.statusCode).toBe(400);
   });
 });
+
+describe("Given an ERP added with its own credential", () => {
+  const SECRET = "fake-test-secret-not-a-secret";
+  const CONTOSO = {
+    adapter: "demo-erp",
+    connection: {
+      auth: {
+        clientId: "contoso-client",
+        clientSecret: SECRET,
+        orgId: "ORG1@AdobeOrg",
+        scopes: ["AdobeID"],
+      },
+      baseUrl: "https://b.example/api/v1/web/demo-erp",
+    },
+    id: "demo-erp-2",
+    name: "Contoso ERP",
+  };
+
+  test("Then GET names the credential and never answers the secret", async () => {
+    await main(put({ entries: [ENTRY, CONTOSO] }));
+    const read = await main({ __ow_method: "get" });
+    expect(read.body.entries[1].connection.auth).toEqual({
+      clientId: "contoso-client",
+      hasSecret: true,
+      orgId: "ORG1@AdobeOrg",
+    });
+    expect(JSON.stringify(read)).not.toContain(SECRET);
+  });
+
+  test("Then PATCH answers the saved entry without the secret, and the credential is kept", async () => {
+    await main(put({ entries: [ENTRY, CONTOSO] }));
+    const res = await main({
+      __ow_body: JSON.stringify({ id: "demo-erp-2", values: {} }),
+      __ow_method: "patch",
+    });
+    expect(res.statusCode).toBe(200);
+    expect(JSON.stringify(res)).not.toContain(SECRET);
+    const read = await main({ __ow_method: "get" });
+    expect(read.body.entries[1].connection.auth.hasSecret).toBe(true);
+  });
+
+  test("Then a PUT without the credential keeps it, and auth: null clears it", async () => {
+    await main(put({ entries: [ENTRY, CONTOSO] }));
+    const bare = {
+      ...CONTOSO,
+      connection: { baseUrl: CONTOSO.connection.baseUrl },
+    };
+    await main(put({ entries: [ENTRY, bare] }));
+    let read = await main({ __ow_method: "get" });
+    expect(read.body.entries[1].connection.auth.hasSecret).toBe(true);
+    const cleared = { ...bare, connection: { ...bare.connection, auth: null } };
+    await main(put({ entries: [ENTRY, cleared] }));
+    read = await main({ __ow_method: "get" });
+    expect(read.body.entries[1].connection).toEqual({
+      baseUrl: CONTOSO.connection.baseUrl,
+    });
+  });
+
+  test("Then a malformed credential is refused and nothing is stored", async () => {
+    const bad = {
+      ...CONTOSO,
+      connection: { ...CONTOSO.connection, auth: { clientId: "c" } },
+    };
+    const res = await main(put({ entries: [ENTRY, bad] }));
+    expect(res.statusCode ?? res.error?.statusCode).toBe(400);
+    expect((await main({ __ow_method: "get" })).body.stored).toBe(false);
+  });
+});

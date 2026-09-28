@@ -15,6 +15,7 @@ import stateLib from "@adobe/aio-lib-state";
 
 import { assertAdapter } from "#adapters/contract";
 import * as demoErp from "#adapters/demo-erp/index";
+import { authToKeep, erpAuthProblem } from "#lib/erp-auth";
 import { applyErpSettingChanges, erpSettingsProblem } from "#lib/erp-settings";
 
 /** The adapter for each kind of ERP. A new kind is one line here. */
@@ -141,6 +142,10 @@ function entryProblem(entry, index) {
   if (!HTTPS.test(String(entry.connection?.baseUrl ?? ""))) {
     return `entry ${index}: connection.baseUrl must be the ERP's https address`;
   }
+  const auth = erpAuthProblem(entry.connection.auth);
+  if (auth) {
+    return `entry ${index}: ${auth}`;
+  }
   const settings = erpSettingsProblem(entry.settings);
   return settings ? `entry ${index}: ${settings}` : null;
 }
@@ -185,11 +190,16 @@ export function erpsProblem(entries) {
   return duplicateProblem(entries);
 }
 
-/** Replace the whole list (Demo Builder). Check it with erpsProblem first. */
+/**
+ * Replace the whole list (Demo Builder). Check it with erpsProblem first. An entry sent without
+ * `connection.auth` keeps the credential stored under its id; `auth: null` clears it
+ * (lib/erp-auth.js). An ERP left out of the list loses its credential with its entry.
+ */
 export async function replaceErps(entries) {
+  const stored = await readStoredErps();
   const clean = entries.map((e) => ({
     adapter: e.adapter,
-    connection: { baseUrl: e.connection.baseUrl },
+    connection: connectionToStore(e, stored),
     id: e.id,
     name: e.name.trim(),
     ...(e.settings && Object.keys(e.settings).length > 0
@@ -197,6 +207,13 @@ export async function replaceErps(entries) {
       : {}),
   }));
   await (await state()).put(KEY, JSON.stringify(clean), { ttl: TTL_SECONDS });
+}
+
+function connectionToStore(entry, stored) {
+  const auth = authToKeep(entry, stored);
+  return auth
+    ? { auth, baseUrl: entry.connection.baseUrl }
+    : { baseUrl: entry.connection.baseUrl };
 }
 
 /**

@@ -5,6 +5,7 @@ import {
 } from "@adobe/aio-commerce-sdk/core/responses";
 import AioLogger from "@adobe/aio-lib-core-logging";
 
+import { redactErp } from "#lib/erp-auth";
 import {
   erpsProblem,
   loadErps,
@@ -20,7 +21,11 @@ import { readPayload } from "#lib/webhook";
  *   it is the single ERP from the deployed settings).
  * PUT `{ entries: [{ id, name, adapter, connection: { baseUrl } }] }`: replace the whole list.
  *   Demo Builder sends it when an SC adds or removes an ERP. Answers how many ERPs it holds.
- *   An entry may carry `settings`, its own per-ERP settings (lib/erp-settings.js).
+ *   An entry may carry `settings`, its own per-ERP settings (lib/erp-settings.js), and
+ *   `connection.auth`, the credential of an ERP outside the integration's workspace
+ *   (lib/erp-auth.js). An entry sent without `auth` keeps the stored one; `auth: null` clears it.
+ *   No answer ever carries the secret: GET and PATCH name the credential as
+ *   `{ clientId, orgId, hasSecret }`.
  * PATCH `{ id, website?, values: { <per-ERP setting>: value | null } }`: save one ERP's own
  *   settings (the Admin page), at its defaults or at one website; `null` removes a value so the
  *   wider one applies. Answers the entry as saved.
@@ -31,7 +36,8 @@ async function main(params) {
   try {
     if (method === "get") {
       const stored = (await readStoredErps()).length > 0;
-      return ok({ body: { entries: await loadErps(params), stored } });
+      const entries = (await loadErps(params)).map(redactErp);
+      return ok({ body: { entries, stored } });
     }
     if (method === "put") {
       const { entries } = readPayload(params);
@@ -56,7 +62,7 @@ async function main(params) {
       logger.info(
         `ERP ${entry.id} settings saved${website ? ` at ${website}` : ""}`,
       );
-      return ok({ body: { entry } });
+      return ok({ body: { entry: redactErp(entry) } });
     }
     return badRequest(`erps does not answer ${method.toUpperCase()}`);
   } catch (error) {
