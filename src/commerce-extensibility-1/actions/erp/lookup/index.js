@@ -13,6 +13,7 @@ import {
   productAttributes,
   sourceCodesOf,
 } from "#lib/commerce";
+import { findCompaniesByName } from "#lib/commerce-admin-reads";
 import { erp } from "#lib/erp";
 import { loadErps } from "#lib/erps";
 import { erpCustomerOf } from "#lib/key-map";
@@ -23,6 +24,8 @@ import { ownersOf } from "#router/ownership";
 /** A SKU as Commerce allows it; anything else never reaches either system. */
 const SKU = /^[A-Za-z0-9 _./-]{1,64}$/u;
 const COMPANY_ID = /^\d{1,12}$/u;
+/** A part of a company's name: letters, digits, spaces and the punctuation names carry. */
+const COMPANY_NAME = /^[\p{L}\p{N} &.,'()-]{1,100}$/u;
 const NOT_FOUND = 404;
 const SERVER_ERROR = 500;
 /** Both sides are asked inside a page load, so the ERP waits no longer than this. */
@@ -156,7 +159,9 @@ async function lookupCompanyAcross(params, companyId, erps) {
 
 /**
  * GET lookup?sku=<sku> | ?company=<Commerce company id>: one entity as both systems hold
- * it, lined up row by row for the Mapping tab (lib/lookup.js). A side that does not have
+ * it, lined up row by row for the Admin page's side panel (lib/lookup.js).
+ * GET lookup?companyName=<part of a name>: the companies whose name holds it,
+ * `{ kind: "companies", matches: [{ id, name }] }`, for the page to look one up by id. A side that does not have
  * it answers with empty cells; that is the answer, not an error. With several ERPs a company
  * answers `{ kind, key, erps: [one lookup per ERP] }` and a SKU names its owning ERP; with one
  * ERP the answer is as it always was.
@@ -188,6 +193,18 @@ async function main(params) {
           erps.length > 1
             ? await lookupCompanyAcross(params, companyId, erps)
             : await lookupCompany(params, companyId),
+      });
+    }
+    if (params.companyName !== undefined) {
+      const name = String(params.companyName).trim();
+      if (!COMPANY_NAME.test(name)) {
+        return badRequest("Name the company to find by a part of its name.");
+      }
+      return ok({
+        body: {
+          kind: "companies",
+          matches: await findCompaniesByName(params, name),
+        },
       });
     }
     return badRequest("Name a sku or a company to look up.");

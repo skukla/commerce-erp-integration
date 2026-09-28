@@ -15,6 +15,9 @@ vi.mock("#lib/commerce", () => ({
   getProduct: vi.fn(),
   sourceCodesOf: vi.fn(async () => []),
 }));
+vi.mock("#lib/commerce-admin-reads", () => ({
+  findCompaniesByName: vi.fn(async () => []),
+}));
 
 import { readFileSync } from "node:fs";
 
@@ -24,6 +27,7 @@ import {
   getProduct,
   sourceCodesOf,
 } from "#lib/commerce";
+import { findCompaniesByName } from "#lib/commerce-admin-reads";
 import { erp } from "#lib/erp";
 import { pairCustomer, resetKeyMapClient } from "#lib/key-map";
 import * as lookup from "#src/erp/lookup/index";
@@ -211,5 +215,25 @@ describe("Given a company to look up", () => {
     expect(config).toMatch(LOOKUP_CONFIG);
     const res = await lookup.main(PARAMS);
     expect(res.error.statusCode).toBe(400);
+  });
+});
+
+describe("Given a company name to find", () => {
+  test("Then Commerce is searched by the name, and the matches are answered for the page to pick", async () => {
+    const matches = [{ id: "4", name: "Kukla Studios" }];
+    findCompaniesByName.mockResolvedValueOnce(matches);
+    const res = await lookup.main({ ...PARAMS, companyName: "Kukla Studios" });
+    expect(res.statusCode).toBe(200);
+    expect(res.body).toStrictEqual({ kind: "companies", matches });
+    expect(findCompaniesByName).toHaveBeenCalledWith(
+      expect.any(Object),
+      "Kukla Studios",
+    );
+  });
+
+  test("Then a name with characters no company name has is refused before Commerce is asked", async () => {
+    const res = await lookup.main({ ...PARAMS, companyName: "<script>" });
+    expect(res.error.statusCode).toBe(400);
+    expect(findCompaniesByName).not.toHaveBeenCalled();
   });
 });
