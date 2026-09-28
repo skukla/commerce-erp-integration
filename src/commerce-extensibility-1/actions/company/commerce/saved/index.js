@@ -5,6 +5,7 @@ import {
 } from "@adobe/aio-commerce-sdk/core/responses";
 import AioLogger from "@adobe/aio-lib-core-logging";
 
+import { paramsForErp } from "#adapters/contract";
 import { listWebsites, readCompanyRow } from "#lib/commerce";
 import { COMMERCE_EVENTS, originOf } from "#lib/commerce-events";
 import { companyToErp } from "#lib/company-sync";
@@ -58,16 +59,12 @@ async function main(params) {
   }
 }
 
-/** The params an ERP is called with: its own address when there are several. */
+/** The params an ERP is called with: its own address and credential when there are several. */
 function paramsFor(params, entry, count) {
   if (count === 1 && entry.id === SINGLE_ERP_ID) {
     return params;
   }
-  return {
-    ...params,
-    ERP_BASE_URL: entry.connection?.baseUrl ?? params.ERP_BASE_URL,
-    ERP_DISPLAY_NAME: entry.name,
-  };
+  return paramsForErp(params, entry);
 }
 
 export { main };

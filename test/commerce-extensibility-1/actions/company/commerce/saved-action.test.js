@@ -82,6 +82,36 @@ describe("Given two ERPs in the stored list", () => {
     expect(await erpCustomerOf("21", "brand-b")).toBe("C21");
   });
 
+  test("Then an ERP with its own credential is sent the company signed with that credential", async () => {
+    await replaceErps([
+      {
+        adapter: "demo-erp",
+        connection: { baseUrl: "https://a.example" },
+        id: "erp",
+        name: "A ERP",
+      },
+      {
+        adapter: "demo-erp",
+        connection: {
+          auth: {
+            clientId: "brand-b-client",
+            clientSecret: "fake-test-secret-not-a-secret",
+            orgId: "ORG1@AdobeOrg",
+            scopes: ["AdobeID"],
+          },
+          baseUrl: "https://b.example",
+        },
+        id: "brand-b",
+        name: "B ERP",
+      },
+    ]);
+    await main({ ...EVENT, AIO_COMMERCE_AUTH_IMS_CLIENT_ID: "own-client" });
+    const clients = erp.importRecords.mock.calls.map(
+      ([p]) => p.AIO_COMMERCE_AUTH_IMS_CLIENT_ID,
+    );
+    expect(clients).toEqual(["own-client", "brand-b-client"]);
+  });
+
   test("Then one ERP refusing fails the event, so it is delivered again", async () => {
     await replaceErps([
       {
