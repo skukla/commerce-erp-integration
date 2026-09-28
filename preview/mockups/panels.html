@@ -1,84 +1,86 @@
-<!-- Side-panel contents shared by Overview (search) and Activity (row click).
-     Each template fills the slide-in panel: slots kicker/title/sub/foot go to the
-     panel's head and footer, everything else into its body. -->
-
+<!-- Side-panel contents shared by Overview and Activity (generated; each shows only what the integration's code answers). -->
 <template data-panel="order-3000000023">
   <span data-slot="kicker">Order trace</span>
   <span data-slot="title">Order 3000000023</span>
-  <span data-slot="sub"
-    >Placed today at 9:54 AM by <strong>Kukla Studios</strong> on Bodea Website
-    · $1,859.00</span
-  >
+  <span data-slot="sub">Placed today at 9:54 AM on Bodea Website</span>
+  <p class="headline">
+    Order 3000000023 is in 2 parts, pending in Commerce. Northwind ERP order
+    0000001013: confirmed there. Contoso ERP order 0000001002: invoiced there.
+  </p>
   <dl class="trace-summary">
     <div>
       <dt>In Commerce</dt>
       <dd>Pending</dd>
     </div>
     <div>
-      <dt>Split across</dt>
-      <dd>2 ERPs</dd>
+      <dt>Northwind ERP</dt>
+      <dd>0000001013 · confirmed</dd>
     </div>
     <div>
-      <dt>ERP orders</dt>
-      <dd>2 of 2 created</dd>
+      <dt>Contoso ERP</dt>
+      <dd>0000001002 · invoiced</dd>
     </div>
   </dl>
-  <section class="lane northwind">
-    <div class="lane-head">
-      <h3>Northwind ERP part</h3>
-      <span class="lane-meta"
-        >Access Point × 1 · ERP order <strong>0000001013</strong></span
-      >
-    </div>
-    <ol class="steps">
-      <li>
-        <time>9:54 AM</time><span class="what">Sent to Northwind ERP</span>
-      </li>
-      <li>
-        <time>9:54 AM</time
-        ><span class="what"
-          >Northwind created order 0000001013<span class="detail"
-            >Its number was written back onto the Commerce order</span
-          ></span
-        >
-      </li>
-      <li>
-        <time>9:55 AM</time
-        ><span class="what"
-          >Northwind confirmed the order<span class="detail"
-            >A note was added to the order’s history</span
-          ></span
-        >
-      </li>
-      <li class="is-next">
-        <time>—</time><span class="what">Waiting for Northwind to ship</span>
-      </li>
-    </ol>
-  </section>
-  <section class="lane contoso">
-    <div class="lane-head">
-      <h3>Contoso ERP part</h3>
-      <span class="lane-meta"
-        >ProLiant DL380 × 1 · ERP order <strong>0000001002</strong></span
-      >
-    </div>
-    <ol class="steps">
-      <li><time>9:54 AM</time><span class="what">Sent to Contoso ERP</span></li>
-      <li>
-        <time>9:54 AM</time
-        ><span class="what">Contoso created order 0000001002</span>
-      </li>
-      <li>
-        <time>1:12 PM</time
-        ><span class="what"
-          >Contoso shipped it<span class="detail"
-            >Shipment and tracking number 1Z999AA10123456784 added in
-            Commerce</span
-          ></span
-        >
-      </li>
-    </ol>
-  </section>
+  <ol class="steps">
+    <li>
+      <time>9:54 AM</time><span class="what">Order 3000000023 placed</span
+      ><span class="where">Commerce</span>
+    </li>
+    <li>
+      <time>9:54 AM</time><span class="what">Sent to Northwind ERP</span
+      ><span class="where">Integration</span>
+    </li>
+    <li>
+      <time>9:54 AM</time><span class="what">Sent to Contoso ERP</span
+      ><span class="where">Integration</span>
+    </li>
+    <li>
+      <time>9:54 AM</time
+      ><span class="what">Northwind ERP created sales order 0000001013</span
+      ><span class="where">ERP</span>
+    </li>
+    <li>
+      <time>9:54 AM</time
+      ><span class="what">Contoso ERP created sales order 0000001002</span
+      ><span class="where">ERP</span>
+    </li>
+    <li>
+      <time>9:58 AM</time><span class="what">Northwind ERP confirmed it</span
+      ><span class="where">ERP</span>
+    </li>
+    <li>
+      <time>9:58 AM</time
+      ><span class="what"
+        >Status from Northwind ERP applied to Commerce<span class="detail"
+          >order 3000000023: confirmed</span
+        ></span
+      ><span class="where">Integration</span>
+    </li>
+    <li>
+      <time>1:12 PM</time><span class="what">Contoso ERP shipped it</span
+      ><span class="where">ERP</span>
+    </li>
+    <li>
+      <time>1:12 PM</time
+      ><span class="what"
+        >Shipment from Contoso ERP applied to Commerce<span class="detail"
+          >order 3000000023: shipped</span
+        ></span
+      ><span class="where">Integration</span>
+    </li>
+    <li>
+      <time>1:20 PM</time><span class="what">Contoso ERP invoiced it</span
+      ><span class="where">ERP</span>
+    </li>
+    <li>
+      <time>1:20 PM</time
+      ><span class="what"
+        >Invoice from Contoso ERP applied to Commerce<span class="detail"
+          >order 3000000023: invoiced</span
+        ></span
+      ><span class="where">Integration</span>
+    </li>
+  </ol>
   <div data-slot="foot">
     <a class="btn btn-secondary" href="#elsewhere-in-admin"
       >Open order in Sales</a
@@ -89,64 +91,144 @@
 <template data-panel="order-3000000024">
   <span data-slot="kicker">Order trace</span>
   <span data-slot="title">Order 3000000024</span>
-  <span data-slot="sub"
-    >Placed today at 2:44 PM by <strong>ServerSavvy Solutions</strong> on Bodea
-    Website · $3,320.00</span
-  >
+  <span data-slot="sub">Placed today at 2:44 PM on Bodea B2B</span>
+  <p class="headline">
+    Order 3000000024 is in 2 parts, pending in Commerce. Northwind ERP order
+    0000001014: created there. Contoso ERP: its part waits (held).
+  </p>
   <dl class="trace-summary">
     <div>
       <dt>In Commerce</dt>
       <dd>Pending</dd>
     </div>
     <div>
-      <dt>Split across</dt>
-      <dd>2 ERPs</dd>
+      <dt>Northwind ERP</dt>
+      <dd>0000001014 · created</dd>
     </div>
     <div>
-      <dt>ERP orders</dt>
-      <dd>1 of 2 created</dd>
+      <dt>Contoso ERP</dt>
+      <dd>Waiting</dd>
     </div>
   </dl>
-  <section class="lane contoso">
-    <div class="lane-head">
-      <h3>Contoso ERP part</h3>
-      <span class="badge badge-warn">Held</span>
+  <ol class="steps">
+    <li>
+      <time>2:44 PM</time><span class="what">Order 3000000024 placed</span
+      ><span class="where">Commerce</span>
+    </li>
+    <li>
+      <time>2:44 PM</time><span class="what">Sent to Northwind ERP</span
+      ><span class="where">Integration</span>
+    </li>
+    <li>
+      <time>2:44 PM</time
+      ><span class="what">Northwind ERP created sales order 0000001014</span
+      ><span class="where">ERP</span>
+    </li>
+    <li class="is-warn">
+      <time>2:52 PM</time
+      ><span class="what"
+        >Waiting for Contoso ERP<span class="detail"
+          >Commerce order 3000000024 is waiting for the ERP (Contoso ERP is in
+          maintenance until 15:55).</span
+        ><span class="step-extra"
+          >3 tries · sent again by itself for up to a day
+          <button class="btn btn-secondary btn-small" type="button">
+            Re-send this part
+          </button></span
+        ></span
+      ><span class="where">Integration</span>
+    </li>
+  </ol>
+  <div data-slot="foot">
+    <a class="btn btn-secondary" href="#elsewhere-in-admin"
+      >Open order in Sales</a
+    >
+  </div>
+</template>
+
+<template data-panel="order-3000000025">
+  <span data-slot="kicker">Order trace</span>
+  <span data-slot="title">Order 3000000025</span>
+  <span data-slot="sub">Placed today at 2:10 PM on Bodea Website</span>
+  <p class="headline">Order 3000000025 has not reached the ERPs.</p>
+  <dl class="trace-summary">
+    <div>
+      <dt>In Commerce</dt>
+      <dd>Pending</dd>
     </div>
-    <ol class="steps">
-      <li class="is-warn">
-        <time>2:44 PM</time
-        ><span class="what"
-          >Not sent: Contoso ERP is in maintenance<span class="detail"
-            >Held, not dropped. It goes by itself when Contoso is back at
-            15:55.</span
-          ></span
-        >
-      </li>
-    </ol>
-    <div class="lane-action">
-      <button class="btn btn-secondary btn-small" type="button">
-        Re-send now
-      </button>
-      <span class="band-note">Only useful if Contoso is back early.</span>
+    <div>
+      <dt>Northwind ERP</dt>
+      <dd>Not taken</dd>
     </div>
-  </section>
-  <section class="lane northwind">
-    <div class="lane-head">
-      <h3>Northwind ERP part</h3>
-      <span class="lane-meta"
-        >Access Point × 2 · ERP order <strong>0000001014</strong></span
-      >
+    <div>
+      <dt>Contoso ERP</dt>
+      <dd>No part</dd>
     </div>
-    <ol class="steps">
-      <li>
-        <time>2:44 PM</time><span class="what">Sent to Northwind ERP</span>
-      </li>
-      <li>
-        <time>2:44 PM</time
-        ><span class="what">Northwind created order 0000001014</span>
-      </li>
-    </ol>
-  </section>
+  </dl>
+  <ol class="steps">
+    <li>
+      <time>2:10 PM</time><span class="what">Order 3000000025 placed</span
+      ><span class="where">Commerce</span>
+    </li>
+    <li class="is-bad">
+      <time>2:10 PM</time
+      ><span class="what"
+        >Refused by Northwind ERP<span class="detail"
+          >Commerce order 3000000025 was refused by the ERP: accesspoint
+          quantity 0 is not allowed</span
+        ><span class="step-extra"
+          ><button class="btn btn-secondary btn-small" type="button">
+            Retry
+          </button></span
+        ></span
+      ><span class="where">Integration</span>
+    </li>
+  </ol>
+  <div data-slot="foot">
+    <a class="btn btn-secondary" href="#elsewhere-in-admin"
+      >Open order in Sales</a
+    >
+  </div>
+</template>
+
+<template data-panel="order-3000000026">
+  <span data-slot="kicker">Order trace</span>
+  <span data-slot="title">Order 3000000026</span>
+  <span data-slot="sub">Placed today at 2:49 PM on Bodea Website</span>
+  <p class="headline">Order 3000000026 has not reached the ERPs.</p>
+  <dl class="trace-summary">
+    <div>
+      <dt>In Commerce</dt>
+      <dd>Pending</dd>
+    </div>
+    <div>
+      <dt>Northwind ERP</dt>
+      <dd>No part</dd>
+    </div>
+    <div>
+      <dt>Contoso ERP</dt>
+      <dd>Sending</dd>
+    </div>
+  </dl>
+  <ol class="steps">
+    <li>
+      <time>2:49 PM</time><span class="what">Order 3000000026 placed</span
+      ><span class="where">Commerce</span>
+    </li>
+    <li class="is-warn">
+      <time>2:49 PM</time
+      ><span class="what"
+        >Sending to Contoso ERP<span class="detail"
+          >Commerce order 3000000026 is being sent to Contoso ERP.</span
+        ><span class="step-extra"
+          >Still sending after 2 minutes, so it did not finish
+          <button class="btn btn-secondary btn-small" type="button">
+            Retry
+          </button></span
+        ></span
+      ><span class="where">Integration</span>
+    </li>
+  </ol>
   <div data-slot="foot">
     <a class="btn btn-secondary" href="#elsewhere-in-admin"
       >Open order in Sales</a
@@ -157,51 +239,123 @@
 <template data-panel="order-3000000022">
   <span data-slot="kicker">Order trace</span>
   <span data-slot="title">Order 3000000022</span>
-  <span data-slot="sub"
-    >Placed today at 8:28 AM by <strong>Platinum Buyer</strong> on Bodea Website
-    · $1,859.00</span
-  >
+  <span data-slot="sub">Placed today at 8:28 AM on Bodea Website</span>
+  <p class="headline">
+    Order 3000000022 is Northwind ERP order 0000001012: canceled there, canceled
+    in Commerce.
+  </p>
   <dl class="trace-summary">
     <div>
       <dt>In Commerce</dt>
       <dd>Canceled</dd>
     </div>
     <div>
-      <dt>Went to</dt>
-      <dd>Northwind ERP</dd>
+      <dt>Northwind ERP</dt>
+      <dd>0000001012 · canceled</dd>
     </div>
     <div>
-      <dt>ERP order</dt>
-      <dd>Closed</dd>
+      <dt>Contoso ERP</dt>
+      <dd>No part</dd>
     </div>
   </dl>
-  <section class="lane northwind">
-    <div class="lane-head">
-      <h3>Northwind ERP</h3>
-      <span class="lane-meta">ERP order <strong>0000001012</strong></span>
+  <ol class="steps">
+    <li>
+      <time>8:28 AM</time><span class="what">Order 3000000022 placed</span
+      ><span class="where">Commerce</span>
+    </li>
+    <li>
+      <time>8:28 AM</time><span class="what">Sent to Northwind ERP</span
+      ><span class="where">Integration</span>
+    </li>
+    <li>
+      <time>8:28 AM</time
+      ><span class="what">Northwind ERP created sales order 0000001012</span
+      ><span class="where">ERP</span>
+    </li>
+    <li>
+      <time>8:31 AM</time
+      ><span class="what"
+        >Sent to Northwind ERP<span class="detail"
+          >Commerce order 3000000022: canceled on sales order 0000001012</span
+        ></span
+      ><span class="where">Integration</span>
+    </li>
+    <li>
+      <time>8:31 AM</time><span class="what">Northwind ERP canceled it</span
+      ><span class="where">ERP</span>
+    </li>
+  </ol>
+  <div data-slot="foot">
+    <a class="btn btn-secondary" href="#elsewhere-in-admin"
+      >Open order in Sales</a
+    >
+  </div>
+</template>
+
+<template data-panel="order-3000000021">
+  <span data-slot="kicker">Order trace</span>
+  <span data-slot="title">Order 3000000021</span>
+  <span data-slot="sub">Placed yesterday at 6:17 AM on Bodea Website</span>
+  <p class="headline">
+    Order 3000000021 is Northwind ERP order 0000001011: invoiced there, complete
+    in Commerce.
+  </p>
+  <dl class="trace-summary">
+    <div>
+      <dt>In Commerce</dt>
+      <dd>Complete</dd>
     </div>
-    <ol class="steps">
-      <li>
-        <time>8:28 AM</time><span class="what">Sent to Northwind ERP</span>
-      </li>
-      <li>
-        <time>8:28 AM</time
-        ><span class="what">Northwind created order 0000001012</span>
-      </li>
-      <li>
-        <time>8:31 AM</time
-        ><span class="what"
-          >Canceled in Commerce<span class="detail"
-            >The cancellation was sent to Northwind</span
-          ></span
-        >
-      </li>
-      <li>
-        <time>8:31 AM</time
-        ><span class="what">Northwind closed order 0000001012</span>
-      </li>
-    </ol>
-  </section>
+    <div>
+      <dt>Northwind ERP</dt>
+      <dd>0000001011 · invoiced</dd>
+    </div>
+    <div>
+      <dt>Contoso ERP</dt>
+      <dd>No part</dd>
+    </div>
+  </dl>
+  <ol class="steps">
+    <li>
+      <time>Sep 27, 6:17 AM</time
+      ><span class="what">Order 3000000021 placed</span
+      ><span class="where">Commerce</span>
+    </li>
+    <li>
+      <time>Sep 27, 6:17 AM</time><span class="what">Sent to Northwind ERP</span
+      ><span class="where">Integration</span>
+    </li>
+    <li>
+      <time>Sep 27, 6:17 AM</time
+      ><span class="what">Northwind ERP created sales order 0000001011</span
+      ><span class="where">ERP</span>
+    </li>
+    <li>
+      <time>11:02 AM</time
+      ><span class="what"
+        >Sent to Northwind ERP<span class="detail"
+          >Commerce order 3000000021: shipment recorded on sales order
+          0000001011</span
+        ></span
+      ><span class="where">Integration</span>
+    </li>
+    <li>
+      <time>11:02 AM</time><span class="what">Northwind ERP shipped it</span
+      ><span class="where">ERP</span>
+    </li>
+    <li>
+      <time>11:05 AM</time
+      ><span class="what"
+        >Sent to Northwind ERP<span class="detail"
+          >Commerce order 3000000021: invoice recorded on sales order
+          0000001011</span
+        ></span
+      ><span class="where">Integration</span>
+    </li>
+    <li>
+      <time>11:05 AM</time><span class="what">Northwind ERP invoiced it</span
+      ><span class="where">ERP</span>
+    </li>
+  </ol>
   <div data-slot="foot">
     <a class="btn btn-secondary" href="#elsewhere-in-admin"
       >Open order in Sales</a
@@ -211,53 +365,60 @@
 
 <template data-panel="sku-accesspoint">
   <span data-slot="kicker">Product · side by side</span>
-  <span data-slot="title">Access Point</span>
+  <span data-slot="title">accesspoint</span>
   <span data-slot="sub"
-    >SKU <strong>accesspoint</strong> · owned by
-    <span class="chip chip-erp northwind">Northwind ERP</span></span
+    >Owned by <span class="chip chip-erp northwind">Northwind ERP</span></span
   >
   <table class="compare">
     <thead>
       <tr>
-        <th></th>
+        <th>accesspoint</th>
         <th>Commerce</th>
         <th>Northwind ERP</th>
-        <th class="agree"></th>
       </tr>
     </thead>
     <tbody>
       <tr>
         <th>Name</th>
         <td>Access Point</td>
-        <td>ACCESS POINT</td>
-        <td class="agree" title="Same">✓</td>
+        <td>Access Point</td>
       </tr>
       <tr>
-        <th>List price</th>
-        <td>$199.00</td>
-        <td>199.00 USD</td>
-        <td class="agree" title="Same">✓</td>
+        <th>Type</th>
+        <td>simple</td>
+        <td>goods · each</td>
       </tr>
       <tr>
-        <th>Kukla Studios price</th>
-        <td>$179.10</td>
-        <td>10% off list</td>
-        <td class="agree" title="Same">✓</td>
+        <th>Price</th>
+        <td>199.00</td>
+        <td>199.00</td>
+      </tr>
+      <tr>
+        <th>Status</th>
+        <td>enabled</td>
+        <td>released</td>
       </tr>
       <tr>
         <th>Stock</th>
-        <td>989 at Northwind Warehouse</td>
-        <td>989</td>
-        <td class="agree" title="Same">✓</td>
+        <td>in sources northwind_warehouse</td>
+        <td>northwind_warehouse 989</td>
       </tr>
       <tr>
-        <th>Last change from the ERP</th>
-        <td colspan="3">Today at 2:58 PM: Kukla Studios 10% off</td>
+        <th>Availability</th>
+        <td class="empty">—</td>
+        <td>989 on hand · 2 committed · 987 available</td>
+      </tr>
+      <tr class="link-row">
+        <th>In Northwind ERP</th>
+        <td class="empty"></td>
+        <td><a href="#elsewhere-in-erp">Open its product screen</a></td>
       </tr>
     </tbody>
   </table>
-  <p class="note">
-    Asked both systems just now. Commerce and Northwind agree on everything.
+  <p class="note">Northwind ERP owns this product.</p>
+  <p class="note only-maint">
+    Its last price, 189, is not applied yet: Commerce did not answer. It is
+    delivered again by itself.
   </p>
   <div data-slot="foot">
     <a class="btn btn-secondary" href="#elsewhere-in-admin"
@@ -268,53 +429,105 @@
 
 <template data-panel="sku-proliantdl380">
   <span data-slot="kicker">Product · side by side</span>
-  <span data-slot="title">ProLiant DL380</span>
+  <span data-slot="title">proliantdl380</span>
   <span data-slot="sub"
-    >SKU <strong>proliantdl380</strong> · owned by
-    <span class="chip chip-erp contoso">Contoso ERP</span></span
+    >Owned by <span class="chip chip-erp contoso">Contoso ERP</span></span
   >
-  <table class="compare">
-    <thead>
-      <tr>
-        <th></th>
-        <th>Commerce</th>
-        <th>Contoso ERP</th>
-        <th class="agree"></th>
-      </tr>
-    </thead>
-    <tbody>
-      <tr>
-        <th>Name</th>
-        <td>ProLiant DL380</td>
-        <td>ProLiant DL380 Gen11</td>
-        <td class="agree differ" title="Different">≠</td>
-      </tr>
-      <tr>
-        <th>List price</th>
-        <td>$1,660.00</td>
-        <td>1,660.00 USD</td>
-        <td class="agree" title="Same">✓</td>
-      </tr>
-      <tr>
-        <th>Stock</th>
-        <td>42 at Contoso Warehouse</td>
-        <td>42</td>
-        <td class="agree" title="Same">✓</td>
-      </tr>
-      <tr>
-        <th>Last change from the ERP</th>
-        <td colspan="3">Today at 2:51 PM: stock set to 42</td>
-      </tr>
-    </tbody>
-  </table>
-  <p class="note only-ok">
-    The names differ on purpose: Commerce keeps its own product name. Prices and
-    stock agree.
-  </p>
-  <p class="note only-maint">
-    <strong>Contoso is in maintenance.</strong>
-    Its column is its last answer, from 2:41 PM.
-  </p>
+  <div class="only-ok">
+    <table class="compare">
+      <thead>
+        <tr>
+          <th>proliantdl380</th>
+          <th>Commerce</th>
+          <th>Contoso ERP</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <th>Name</th>
+          <td>ProLiant DL380</td>
+          <td>ProLiant DL380 Gen11</td>
+        </tr>
+        <tr>
+          <th>Type</th>
+          <td>simple</td>
+          <td>goods · each</td>
+        </tr>
+        <tr>
+          <th>Price</th>
+          <td>1660.00</td>
+          <td>1660.00</td>
+        </tr>
+        <tr>
+          <th>Status</th>
+          <td>enabled</td>
+          <td>released</td>
+        </tr>
+        <tr>
+          <th>Stock</th>
+          <td>in sources contoso_warehouse</td>
+          <td>contoso_warehouse 42</td>
+        </tr>
+        <tr>
+          <th>Availability</th>
+          <td class="empty">—</td>
+          <td>42 on hand · 1 committed · 41 available</td>
+        </tr>
+        <tr class="link-row">
+          <th>In Contoso ERP</th>
+          <td class="empty"></td>
+          <td><a href="#elsewhere-in-erp">Open its product screen</a></td>
+        </tr>
+      </tbody>
+    </table>
+    <p class="note">Contoso ERP owns this product.</p>
+  </div>
+  <div class="only-maint">
+    <table class="compare">
+      <thead>
+        <tr>
+          <th>proliantdl380</th>
+          <th>Commerce</th>
+          <th>Contoso ERP · not found</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <th>Name</th>
+          <td>ProLiant DL380</td>
+          <td class="empty">—</td>
+        </tr>
+        <tr>
+          <th>Type</th>
+          <td>simple</td>
+          <td class="empty">—</td>
+        </tr>
+        <tr>
+          <th>Price</th>
+          <td>1660.00</td>
+          <td class="empty">—</td>
+        </tr>
+        <tr>
+          <th>Status</th>
+          <td>enabled</td>
+          <td class="empty">—</td>
+        </tr>
+        <tr>
+          <th>Stock</th>
+          <td>in sources contoso_warehouse</td>
+          <td class="empty">—</td>
+        </tr>
+        <tr>
+          <th>Availability</th>
+          <td class="empty">—</td>
+          <td class="empty">—</td>
+        </tr>
+      </tbody>
+    </table>
+    <p class="note">
+      Contoso ERP owns this product. It is in maintenance, so it gave no answer.
+    </p>
+  </div>
   <div data-slot="foot">
     <a class="btn btn-secondary" href="#elsewhere-in-admin"
       >Open product in Catalog</a
@@ -325,11 +538,11 @@
 <template data-panel="company-kukla">
   <span data-slot="kicker">Company · side by side</span>
   <span data-slot="title">Kukla Studios</span>
-  <span data-slot="sub">A customer of both ERPs</span>
+  <span data-slot="sub">Commerce company 4</span>
   <table class="compare">
     <thead>
       <tr>
-        <th></th>
+        <th>Company 4</th>
         <th>Commerce</th>
         <th>Northwind ERP</th>
         <th>Contoso ERP</th>
@@ -337,28 +550,64 @@
     </thead>
     <tbody>
       <tr>
-        <th>ERP customer number</th>
-        <td>—</td>
-        <td>100042</td>
-        <td>C-2231</td>
+        <th>Name</th>
+        <td>Kukla Studios</td>
+        <td>Kukla Studios (100042)</td>
+        <td>Kukla Studios (C-2231)</td>
+      </tr>
+      <tr>
+        <th>Website account</th>
+        <td>Active</td>
+        <td>Active</td>
+        <td>Active</td>
+      </tr>
+      <tr>
+        <th>Credit block</th>
+        <td class="empty">—</td>
+        <td>None</td>
+        <td>None</td>
       </tr>
       <tr>
         <th>Credit limit</th>
-        <td>$50,000.00</td>
-        <td>50,000 USD</td>
-        <td>—</td>
+        <td>50000 USD</td>
+        <td>50000</td>
+        <td>20000</td>
+      </tr>
+      <tr>
+        <th>Credit position</th>
+        <td>balance -1859</td>
+        <td>exposure 199 · available 49801</td>
+        <td>exposure 1660 · available 18340</td>
+      </tr>
+      <tr>
+        <th>Legal name</th>
+        <td>Kukla Studios LLC</td>
+        <td>Kukla Studios LLC</td>
+        <td>Kukla Studios LLC</td>
+      </tr>
+      <tr>
+        <th>VAT / tax id</th>
+        <td>US-84-1234567</td>
+        <td>US-84-1234567</td>
+        <td>US-84-1234567</td>
       </tr>
       <tr>
         <th>Payment terms</th>
-        <td>Net 30</td>
+        <td class="empty">—</td>
         <td>Net 30</td>
         <td>Net 30</td>
       </tr>
       <tr>
-        <th>Special prices</th>
-        <td>1</td>
-        <td>10% off accesspoint</td>
-        <td>None</td>
+        <th>Sales organizations</th>
+        <td class="empty">—</td>
+        <td>1000</td>
+        <td>2000</td>
+      </tr>
+      <tr class="link-row">
+        <th>In the ERP</th>
+        <td class="empty"></td>
+        <td><a href="#elsewhere-in-erp">Open its partner screen</a></td>
+        <td><a href="#elsewhere-in-erp">Open its partner screen</a></td>
       </tr>
     </tbody>
   </table>
@@ -367,106 +616,300 @@
   </div>
 </template>
 
-<template data-panel="credit-serversavvy">
-  <span data-slot="kicker">Credit change</span>
+<template data-panel="company-serversavvy">
+  <span data-slot="kicker">Company · side by side</span>
   <span data-slot="title">ServerSavvy Solutions</span>
-  <span data-slot="sub"
-    >From <span class="chip chip-erp northwind">Northwind ERP</span> today at
-    2:40 PM</span
-  >
+  <span data-slot="sub">Commerce company 2</span>
   <table class="compare">
     <thead>
       <tr>
-        <th></th>
-        <th>Before</th>
-        <th>Now</th>
+        <th>Company 2</th>
+        <th>Commerce</th>
+        <th>Northwind ERP</th>
+        <th>Contoso ERP</th>
       </tr>
     </thead>
     <tbody>
+      <tr>
+        <th>Name</th>
+        <td>ServerSavvy Solutions</td>
+        <td>ServerSavvy Solutions (100051)</td>
+        <td>ServerSavvy Solutions (C-2240)</td>
+      </tr>
+      <tr>
+        <th>Website account</th>
+        <td>Active</td>
+        <td>Active</td>
+        <td>Active</td>
+      </tr>
+      <tr>
+        <th>Credit block</th>
+        <td class="empty">—</td>
+        <td>None</td>
+        <td>None</td>
+      </tr>
       <tr>
         <th>Credit limit</th>
-        <td>$15,000.00</td>
-        <td>$25,000.00</td>
+        <td>25000 USD</td>
+        <td>25000</td>
+        <td>15000</td>
       </tr>
       <tr>
-        <th>Outstanding</th>
-        <td>$4,210.00</td>
-        <td>$4,210.00</td>
-      </tr>
-    </tbody>
-  </table>
-  <p class="note">Applied to the company’s credit in Commerce straight away.</p>
-</template>
-
-<template data-panel="msg-platinum">
-  <span data-slot="kicker">ERP message not applied</span>
-  <span data-slot="title">Price for Platinum Buyer</span>
-  <span data-slot="sub"
-    >From <span class="chip chip-erp northwind">Northwind ERP</span> today at
-    2:30 PM</span
-  >
-  <table class="compare">
-    <thead>
-      <tr>
-        <th></th>
-        <th>What Northwind sent</th>
-      </tr>
-    </thead>
-    <tbody>
-      <tr>
-        <th>Customer</th>
-        <td>Northwind customer 100077</td>
+        <th>Credit position</th>
+        <td>balance -4210</td>
+        <td>exposure 4210 · available 20790</td>
+        <td>exposure 0 · available 15000</td>
       </tr>
       <tr>
-        <th>Product</th>
-        <td>accesspoint</td>
+        <th>Legal name</th>
+        <td>ServerSavvy Solutions Inc.</td>
+        <td>ServerSavvy Solutions Inc.</td>
+        <td>ServerSavvy Solutions Inc.</td>
       </tr>
       <tr>
-        <th>Price</th>
-        <td>15% off list</td>
+        <th>VAT / tax id</th>
+        <td class="empty">—</td>
+        <td class="empty">—</td>
+        <td class="empty">—</td>
+      </tr>
+      <tr>
+        <th>Payment terms</th>
+        <td class="empty">—</td>
+        <td>Net 45</td>
+        <td>Net 30</td>
+      </tr>
+      <tr>
+        <th>Sales organizations</th>
+        <td class="empty">—</td>
+        <td>1000</td>
+        <td>2000</td>
+      </tr>
+      <tr class="link-row">
+        <th>In the ERP</th>
+        <td class="empty"></td>
+        <td><a href="#elsewhere-in-erp">Open its partner screen</a></td>
+        <td><a href="#elsewhere-in-erp">Open its partner screen</a></td>
       </tr>
     </tbody>
   </table>
   <p class="note">
-    <strong>Why it was not applied:</strong>
-    no Commerce company is linked to Northwind customer 100077. Link Platinum
-    Buyer to it, then apply the message again.
+    Credit limit 25,000 came from Northwind ERP today at 2:40 PM.
   </p>
   <div data-slot="foot">
-    <a class="btn btn-secondary" href="#elsewhere-in-admin"
-      >Open Platinum Buyer</a
-    >
-    <button class="btn btn-secondary" type="button">Apply again</button>
+    <a class="btn btn-secondary" href="#elsewhere-in-admin">Open company</a>
+  </div>
+</template>
+
+<template data-panel="company-platinum">
+  <span data-slot="kicker">Company · side by side</span>
+  <span data-slot="title">Platinum Buyer</span>
+  <span data-slot="sub">Commerce company 3</span>
+  <table class="compare">
+    <thead>
+      <tr>
+        <th>Company 3</th>
+        <th>Commerce</th>
+        <th>Northwind ERP</th>
+        <th>Contoso ERP</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <th>Name</th>
+        <td>Platinum Buyer</td>
+        <td>Platinum Buyer (100063)</td>
+        <td>Platinum Buyer (C-2252)</td>
+      </tr>
+      <tr>
+        <th>Website account</th>
+        <td>Active</td>
+        <td>Active</td>
+        <td>Active</td>
+      </tr>
+      <tr>
+        <th>Credit block</th>
+        <td class="empty">—</td>
+        <td>Stop all</td>
+        <td>None</td>
+      </tr>
+      <tr>
+        <th>Credit limit</th>
+        <td>10000 USD</td>
+        <td>10000</td>
+        <td>10000</td>
+      </tr>
+      <tr>
+        <th>Credit position</th>
+        <td>balance -9900</td>
+        <td>exposure 9900 · available 100</td>
+        <td>exposure 0 · available 10000</td>
+      </tr>
+      <tr>
+        <th>Legal name</th>
+        <td>Platinum Buyer Corp.</td>
+        <td>Platinum Buyer Corp.</td>
+        <td>Platinum Buyer Corp.</td>
+      </tr>
+      <tr>
+        <th>VAT / tax id</th>
+        <td class="empty">—</td>
+        <td class="empty">—</td>
+        <td class="empty">—</td>
+      </tr>
+      <tr>
+        <th>Payment terms</th>
+        <td class="empty">—</td>
+        <td>Net 30</td>
+        <td>Net 30</td>
+      </tr>
+      <tr>
+        <th>Sales organizations</th>
+        <td class="empty">—</td>
+        <td>1000</td>
+        <td>2000</td>
+      </tr>
+      <tr class="link-row">
+        <th>In the ERP</th>
+        <td class="empty"></td>
+        <td><a href="#elsewhere-in-erp">Open its partner screen</a></td>
+        <td><a href="#elsewhere-in-erp">Open its partner screen</a></td>
+      </tr>
+    </tbody>
+  </table>
+  <p class="note">
+    Northwind ERP blocks this company. Its Northwind lines wait until the block
+    lifts; the unblock sends them.
+  </p>
+  <div data-slot="foot">
+    <a class="btn btn-secondary" href="#elsewhere-in-admin">Open company</a>
+  </div>
+</template>
+
+<template data-panel="msg-100077">
+  <span data-slot="kicker">ERP update · refused by Commerce</span>
+  <span data-slot="title">Customer prices for 100077</span>
+  <span data-slot="sub"
+    >From <span class="chip chip-erp northwind">Northwind ERP</span> today at
+    2:22 PM</span
+  >
+  <table class="compare">
+    <thead>
+      <tr>
+        <th></th>
+        <th>What Northwind ERP sent</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <th>Kind</th>
+        <td>Customer prices (contract)</td>
+      </tr>
+      <tr>
+        <th>Northwind customer</th>
+        <td>100077</td>
+      </tr>
+      <tr>
+        <th>Price lines</th>
+        <td>1</td>
+      </tr>
+      <tr>
+        <th>Result</th>
+        <td>
+          Refused by Commerce: no Commerce company is linked to Northwind
+          customer 100077
+        </td>
+      </tr>
+    </tbody>
+  </table>
+  <p class="note">
+    Refused updates are not delivered again by themselves. Fix the cause, then
+    Retry.
+  </p>
+  <div data-slot="foot">
+    <button class="btn btn-secondary" type="button">Retry</button>
   </div>
 </template>
 
 <template data-panel="reset">
   <span data-slot="kicker">Demo reset</span>
   <span data-slot="title">Reset from Demo Builder</span>
-  <span data-slot="sub">Today at 8:00 AM · both ERPs</span>
-  <ol class="steps">
-    <li>
-      <time>8:00 AM</time
-      ><span class="what"
-        >Test orders closed in both ERPs<span class="detail"
-          >21 orders</span
-        ></span
-      >
-    </li>
-    <li>
-      <time>8:00 AM</time
-      ><span class="what"
-        >Companies put back as they were<span class="detail"
-          >Credit limits and special prices restored for 3 companies</span
-        ></span
-      >
-    </li>
-    <li>
-      <time>8:01 AM</time
-      ><span class="what">Prices and stock loaded fresh from each ERP</span>
-    </li>
-  </ol>
-  <p class="note">
-    Everything above this line in Activity happened after the reset.
+  <span data-slot="sub">Yesterday at 5:40 PM · every ERP</span>
+  <p class="headline">
+    Demo reset on 2026-09-27: 21 orders canceled, 3 noted as closed, the ERPs’
+    changes in Commerce undone. The activity before it was cleared.
   </p>
+  <p class="note">
+    A reset clears Activity and the scheduled-run records and leaves this one
+    line. Nothing can be retried from it.
+  </p>
+</template>
+
+<template data-panel="scheduled-prices">
+  <span data-slot="kicker">Scheduled run</span>
+  <span data-slot="title">Price publish</span>
+  <span data-slot="sub">Every hour at five past</span>
+  <table class="compare">
+    <thead>
+      <tr>
+        <th></th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <th>What it does</th>
+        <td>
+          Copies each ERP’s customer prices in force into Commerce’s shared
+          catalogs
+        </td>
+      </tr>
+      <tr>
+        <th>Last run</th>
+        <td>Today 2:05 PM: nothing changed, 14 unchanged.</td>
+      </tr>
+      <tr>
+        <th>Last change</th>
+        <td>Today 1:05 PM: 2 written.</td>
+      </tr>
+      <tr>
+        <th>Next run</th>
+        <td>3:05 PM</td>
+      </tr>
+    </tbody>
+  </table>
+  <p class="note only-maint">
+    A run that fails reads, for example: “Today 2:05 PM: failed, Contoso ERP
+    answered 503.”
+  </p>
+</template>
+
+<template data-panel="move-stock">
+  <span data-slot="kicker">Move stock between warehouses</span>
+  <span data-slot="title">2 products selected</span>
+  <span data-slot="sub">From Catalog › Products › Actions</span>
+  <p class="headline">
+    2 products selected. The move is made in Commerce and sent at once to the
+    ERP that owns each product (Northwind ERP or Contoso ERP).
+  </p>
+  <div class="move-form">
+    <label
+      >From
+      <select class="select">
+        <option>east_warehouse</option>
+      </select></label
+    ><label
+      >To
+      <select class="select">
+        <option>northwind_warehouse</option>
+      </select></label
+    ><label>Quantity <input class="input" placeholder="All of it"></label>
+  </div>
+  <div class="move-result">
+    <strong>Done.</strong>
+    2 products moved. Northwind ERP has the new quantities of 2 products
+    (accessmesh, accessmeshpro).
+  </div>
+  <div data-slot="foot">
+    <button class="btn btn-secondary" type="button">Move</button>
+  </div>
 </template>

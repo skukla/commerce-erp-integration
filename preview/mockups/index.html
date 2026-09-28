@@ -18,24 +18,129 @@
         Clickable mockups of the redesigned ERP Integration page inside Commerce
         Admin. Static data only. On each page, the purple
         <strong>Mockup</strong>
-        switch in the bottom-right corner shows the page with Contoso ERP in
-        maintenance.
+        switch in the bottom-right corner shows the page with problems: Contoso
+        ERP in maintenance, and orders and ERP updates that did not get through.
       </p>
       <div class="index-list">
         <a href="overview.html"
           ><strong>Overview</strong>Is it working, and does anything need me?
-          One card per ERP, what needs attention, today’s traffic, and one
-          search box.</a
+          One card per ERP, what needs attention, today’s counts, and one search
+          box.</a
         >
         <a href="activity.html"
-          ><strong>Activity</strong>One feed, newest first, grouped by day.
-          Filter by ERP, type or problems; click a row to see the order’s
-          trace.</a
+          ><strong>Activity</strong>Everything that crossed, newest first,
+          grouped by day. Filter by ERP, type or problems; click a row for the
+          order’s trace or a side-by-side lookup.</a
         >
         <a href="settings.html"
-          ><strong>Settings</strong>Pick All ERPs or one ERP, and Default or
-          Bodea Website. Only the settings that apply there are shown.</a
+          ><strong>Settings</strong>Pick All ERPs or one ERP, and Default Config
+          or a website. Only the settings that apply there are shown.</a
         >
+      </div>
+
+      <div class="index-cols">
+        <section>
+          <h2>What’s covered (the integration already has this data)</h2>
+          <ul>
+            <li>
+              Every setting the integration defines: sending orders, holding
+              them while an ERP is offline, the status when an ERP confirms,
+              sales organization and its name, which products each ERP owns
+              (all, inventory sources, or a product attribute), the sources, the
+              attribute, and the order-number prefix. Each is shown where it
+              applies: for all ERPs or per ERP, at Default Config or per
+              website.
+            </li>
+            <li>
+              Each ERP’s name, ID (what products’ <code>erp_owner</code> holds),
+              kind, address, and whether it has its own credential. Never the
+              secret.
+            </li>
+            <li>
+              Each ERP’s health: connected, or not reachable and why (for
+              example a maintenance window); its products, business partners and
+              sales orders; updates waiting to send; when Demo Builder last
+              filled and emptied it.
+            </li>
+            <li>
+              Every kind of Activity record, with its result: orders sent;
+              shipments, invoices, holds and cancellations made in Commerce and
+              sent to the ERP; and, from the ERP, order status, shipment,
+              invoice, cancel, credit hold, credit limit, company block, price,
+              stock and customer prices. Results: Sent, Applied, Sending,
+              Waiting for the ERP, Not sent, Not applied yet, Refused by
+              Commerce, Done. Also the Demo reset line, with tries and Retry.
+            </li>
+            <li>
+              The order trace: placed, each part sent or waiting (and why), what
+              each ERP did, each ERP update applied or not, and Retry or
+              Re-send.
+            </li>
+            <li>
+              The product and company side-by-side lookups, with every row the
+              lookup returns.
+            </li>
+            <li>
+              The scheduled price publish (last run, last change, next run) and
+              the Move stock result.
+            </li>
+            <li>
+              Needs attention, “last update from it” and today’s counts. The
+              page works these out from the Activity records it already reads
+              (up to 100 records, kept 14 days).
+            </li>
+          </ul>
+        </section>
+        <section>
+          <h2>Needs new data or a change</h2>
+          <ul>
+            <li>
+              <strong
+                >Order status when the ERP confirms, as a dropdown.</strong
+              >
+              Today it is typed in. A dropdown needs the list of Commerce
+              statuses assigned to the Pending state.
+            </li>
+            <li>
+              <strong>Searching companies by name.</strong>
+              The lookup takes the Commerce company id. The mockup accepts
+              “Kukla Studios” too, but a name search would need a new company
+              search.
+            </li>
+            <li>
+              <strong>Company names in Activity rows.</strong>
+              ERP records hold the company or customer id (“company 4: credit
+              limit 25000”). The mockup shows names; the page would have to look
+              each one up.
+            </li>
+            <li>
+              <strong>Which ERP a change made in Commerce went to.</strong>
+              Shipments, invoices, holds and cancellations made in Commerce
+              Admin are recorded without naming the ERP. So they show “ERP not
+              named” and appear only under All ERPs.
+            </li>
+            <li>
+              <strong
+                >Products and company changes sent from Commerce to the
+                ERP.</strong
+              >
+              These are sent, but not recorded in Activity, so they are not
+              shown.
+            </li>
+            <li>
+              <strong>Today’s counts split per ERP.</strong>
+              Stock records that list several lines do not name an ERP, so a
+              per-ERP split would miss them. The counts are shown for all ERPs
+              only.
+            </li>
+            <li>
+              <strong>Settings wording.</strong>
+              The integration’s own labels and help text say “organisation” and
+              “cancelled”. The mockup uses American English; the code would
+              change to match.
+            </li>
+          </ul>
+        </section>
       </div>
     </main>
     <script defer src="mockups.js"></script>

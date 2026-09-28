@@ -1,5 +1,5 @@
 /*
- * Mockup behaviour, shared by the three pages.
+ * Mockup behavior, shared by the three pages.
  * Draws the Admin chrome (rail + header), the page's status band and tabs,
  * the mockup-only state switch and the slide-in side panel, then wires the
  * page's own interactions. Static data only; nothing leaves the browser.
@@ -7,7 +7,7 @@
 const LEADING_HASH = /^#/;
 
 (() => {
-  const STATES = { maint: "Contoso in maintenance", ok: "All good" };
+  const STATES = { maint: "Problems (Contoso in maintenance)", ok: "All good" };
   // Display order (object keys get sorted by the formatter).
   const STATE_ORDER = ["ok", "maint"];
   const RAIL_ORDER = [
@@ -107,7 +107,7 @@ const LEADING_HASH = /^#/;
         <span class="state"><span class="dot"></span>Connected</span></span>
       <span class="erp-status contoso"><strong>Contoso ERP</strong>
         <span class="state only-ok"><span class="dot"></span>Connected</span>
-        <span class="state only-maint"><span class="dot warn"></span>In maintenance until 15:55</span></span>`;
+        <span class="state only-maint"><span class="dot warn"></span>Not reachable · in maintenance until 15:55</span></span>`;
   }
 
   function tabsHtml(page) {
@@ -121,7 +121,7 @@ const LEADING_HASH = /^#/;
         const current = id === page ? ' aria-current="page"' : "";
         const count =
           id === "overview"
-            ? '<span class="tab-count only-maint">2</span>'
+            ? '<span class="tab-count only-maint">4</span>'
             : "";
         return `<a href="${id}.html" data-keep-state${current}>${label}${count}</a>`;
       })
@@ -240,13 +240,23 @@ const LEADING_HASH = /^#/;
   }
 
   // ── Overview: one search box that opens a trace or a lookup ──
+  // What the search can open: an order trace, a product lookup (by SKU) or a company lookup
+  // (by Commerce company id; by name only with new data, see index.html).
   const LOOKUPS = {
+    2: "company-serversavvy",
+    3: "company-platinum",
+    4: "company-kukla",
+    3000000021: "order-3000000021",
     3000000022: "order-3000000022",
     3000000023: "order-3000000023",
     3000000024: "order-3000000024",
+    3000000025: "order-3000000025",
+    3000000026: "order-3000000026",
     accesspoint: "sku-accesspoint",
     "kukla studios": "company-kukla",
+    "platinum buyer": "company-platinum",
     proliantdl380: "sku-proliantdl380",
+    "serversavvy solutions": "company-serversavvy",
   };
 
   function wireSearch() {
@@ -295,10 +305,10 @@ const LEADING_HASH = /^#/;
         let shown = 0;
         for (const row of day.querySelectorAll(".event")) {
           const onlyIn = row.dataset.only;
+          // A record that names no ERP shows only under All ERPs (erp/history).
           const erpOk =
             filters.erp === "all" ||
-            row.dataset.erp === filters.erp ||
-            row.dataset.erp === "both";
+            row.dataset.erp.split(" ").includes(filters.erp);
           const typeOk =
             filters.type === "all" || row.dataset.type === filters.type;
           const probOk = !filters.problems || row.dataset.problem === "yes";
@@ -339,32 +349,89 @@ const LEADING_HASH = /^#/;
     apply();
   }
 
-  // ── Settings: who and where, ⓘ help, Use Default, dirty flag ──
+  // ── Settings: which ERP and which website, values per scope, Use Default, dirty flag ──
+  // Each field carries data-vals: { default, <website code>, fallback }. null = not set
+  // here, so the wider value shows, grayed out, with its box ticked.
+  const readVals = (el) => JSON.parse(el.dataset.vals);
+
+  function resolve(vals, scope) {
+    const here = scope === "default" ? vals.default : vals[scope];
+    if (here !== null && here !== undefined) {
+      return { inherited: false, value: here };
+    }
+    const wider = scope === "default" ? undefined : vals.default;
+    return {
+      inherited: true,
+      value: wider ?? vals.fallback ?? "",
+    };
+  }
+
+  function showValue(field, value) {
+    if (field.type === "checkbox") {
+      field.checked = Boolean(value);
+    } else {
+      field.value = value;
+    }
+  }
+
+  function fillFields(scope) {
+    for (const field of document.querySelectorAll("[data-vals]")) {
+      const { inherited, value } = resolve(readVals(field), scope);
+      showValue(field, value);
+      const box = field.closest(".control").querySelector(".use-default input");
+      if (!box) {
+        continue;
+      }
+      const perErp = field.closest("[data-for]").dataset.for !== "all";
+      box.checked = inherited;
+      box.closest(".use-default").hidden = scope === "default" && !perErp;
+      box.nextElementSibling.textContent =
+        scope === "default" ? "Same as All ERPs" : "Use Default Value";
+    }
+  }
+
+  function syncLocks() {
+    for (const box of document.querySelectorAll(".use-default input")) {
+      const locked = box.checked && !box.closest(".use-default").hidden;
+      for (const f of box
+        .closest(".control")
+        .querySelectorAll("[data-field]")) {
+        f.disabled = locked;
+      }
+    }
+    for (const select of document.querySelectorAll(
+      '[data-field="structure_owns"]',
+    )) {
+      const grid = select.closest("[data-for]");
+      for (const row of grid.querySelectorAll("[data-owns-mode]")) {
+        row.hidden = row.dataset.ownsMode !== select.value;
+      }
+    }
+  }
+
   function wireSettings() {
-    const bar = document.querySelector(".scope-bar");
-    if (!bar) {
+    const erpSelect = document.getElementById("for-erp");
+    const siteSelect = document.getElementById("for-website");
+    if (!(erpSelect && siteSelect)) {
       return;
     }
-    const applyFor = () => {
-      const { erp } = document.body.dataset;
-      for (const el of document.querySelectorAll("[data-for]")) {
-        el.hidden = !el.dataset.for.split(" ").includes(erp);
-      }
-    };
-    for (const seg of bar.querySelectorAll(".segmented")) {
-      seg.addEventListener("click", (e) => {
-        const b = e.target.closest("button");
-        if (!b) {
-          return;
-        }
-        for (const x of seg.querySelectorAll("button")) {
-          x.setAttribute("aria-pressed", String(x === b));
-        }
-        document.body.dataset[seg.dataset.key] = b.dataset.value;
-        applyFor();
-        syncDefaults();
-      });
+    const asked = new URLSearchParams(location.search).get("erp");
+    if (asked && erpSelect.querySelector(`option[value="${asked}"]`)) {
+      erpSelect.value = asked;
     }
+    const apply = () => {
+      const erp = erpSelect.value;
+      const site = siteSelect.value;
+      document.body.dataset.erp = erp;
+      document.body.dataset.scope = site === "default" ? "default" : "website";
+      for (const el of document.querySelectorAll("[data-for]")) {
+        el.hidden = el.dataset.for !== erp;
+      }
+      fillFields(site);
+      syncLocks();
+    };
+    erpSelect.addEventListener("change", apply);
+    siteSelect.addEventListener("change", apply);
     for (const info of document.querySelectorAll(".info")) {
       info.addEventListener("click", () => {
         const row = info.closest(".setting");
@@ -375,32 +442,17 @@ const LEADING_HASH = /^#/;
         );
       });
     }
-    // "Use Default Value" only exists on a website; there a ticked box locks the field.
-    const syncDefaults = () => {
-      const onWebsite = document.body.dataset.scope === "website";
-      for (const box of document.querySelectorAll(".use-default input")) {
-        const control = box.closest(".control");
-        for (const f of control.querySelectorAll("input, select")) {
-          if (f !== box) {
-            f.disabled = onWebsite && box.checked;
-          }
-        }
-      }
-    };
-    document.addEventListener("change", (e) => {
-      if (e.target.closest(".use-default")) {
-        syncDefaults();
-      }
-    });
-    const markDirty = (e) => {
+    const main = document.querySelector("main");
+    const onEdit = (e) => {
       if (e.target.closest(".scope-bar")) {
         return;
       }
+      syncLocks();
       document.body.classList.add("is-dirty");
       document.body.classList.remove("just-saved");
     };
-    document.querySelector("main").addEventListener("input", markDirty);
-    document.querySelector("main").addEventListener("change", markDirty);
+    main.addEventListener("input", onEdit);
+    main.addEventListener("change", onEdit);
     document.addEventListener("click", (e) => {
       if (!e.target.closest("[data-save]")) {
         return;
@@ -408,8 +460,7 @@ const LEADING_HASH = /^#/;
       document.body.classList.remove("is-dirty");
       document.body.classList.add("just-saved");
     });
-    applyFor();
-    syncDefaults();
+    apply();
   }
 
   // Side-panel contents are shared by Overview and Activity, so they live in one file.

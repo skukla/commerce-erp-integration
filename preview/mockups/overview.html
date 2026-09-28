@@ -27,7 +27,7 @@
               autocomplete="off"
               class="input"
               id="q"
-              placeholder="Order number, SKU or company name"
+              placeholder="Order number, SKU or Commerce company id"
               type="search"
             >
             <button class="btn btn-secondary" type="submit">Find</button>
@@ -37,53 +37,46 @@
             <button data-try="3000000023" type="button">3000000023</button>,
             <button data-try="accesspoint" type="button">accesspoint</button>
             or
-            <button data-try="Kukla Studios" type="button">
-              Kukla Studios
-            </button>
+            <button data-try="4" type="button">company 4</button>
+            (Kukla Studios)
           </div>
           <div class="search-miss" hidden id="search-miss"></div>
         </form>
+
         <section aria-labelledby="today-title" class="today">
-          <h2 id="today-title">Today</h2>
+          <h2 id="today-title">
+            Today <span class="h-note">counted from Activity</span>
+          </h2>
           <div class="tiles">
             <div class="tile">
-              <div class="n">5</div>
-              <div class="l">Orders sent</div>
-              <div class="split">
-                <i style="flex:3"></i><i style="flex:2"></i>
-              </div>
-            </div>
-            <div class="tile">
-              <div class="n">12</div>
-              <div class="l">Prices received</div>
-              <div class="split">
-                <i style="flex:7"></i><i style="flex:5"></i>
-              </div>
-            </div>
-            <div class="tile">
-              <div class="n">38</div>
-              <div class="l">Stock updates</div>
-              <div class="split">
-                <i style="flex:21"></i><i style="flex:17"></i>
-              </div>
-            </div>
-            <div class="tile">
               <div class="n">2</div>
-              <div class="l">Credit changes</div>
-              <div class="split">
-                <i style="flex:2"></i><i style="flex:0"></i>
+              <div class="l">Orders sent</div>
+            </div>
+            <div class="tile">
+              <div class="n">9</div>
+              <div class="l">ERP updates applied</div>
+            </div>
+            <div class="tile">
+              <div class="n">4</div>
+              <div class="l">Commerce changes sent</div>
+            </div>
+            <div class="tile">
+              <div class="n">
+                <span class="only-ok">0</span
+                ><span class="only-maint is-bad">4</span>
               </div>
+              <div class="l">Did not get through</div>
             </div>
           </div>
           <div class="today-foot">
-            <span class="tiles-key"
-              ><span class="northwind">Northwind</span
-              ><span class="contoso">Contoso</span></span
+            <button
+              class="band-link"
+              data-open="scheduled-prices"
+              type="button"
             >
-            <span
-              >Next price update <strong>3:05 PM</strong> · last ran 2:05 PM, no
-              changes</span
-            >
+              Next price publish <strong>3:05 PM</strong> · last ran 2:05 PM,
+              nothing changed
+            </button>
           </div>
         </section>
       </div>
@@ -95,26 +88,26 @@
             <div class="conn"><span class="dot"></span>Connected</div>
           </div>
           <div class="links">
-            <a data-keep-state href="settings.html">Settings</a>
+            <a data-keep-state href="settings.html?erp=northwind">Settings</a>
             <a data-keep-state href="activity.html">Activity</a>
           </div>
           <dl class="erp-facts">
             <div>
-              <dt>Owns</dt>
-              <dd>
-                <a href="#elsewhere-in-admin">3 products</a>
-                · <a href="#elsewhere-in-admin">4 companies</a>
-              </dd>
+              <dt>In the ERP</dt>
+              <dd>3 products · 5 business partners · 3 sales orders</dd>
             </div>
             <div>
               <dt>Last update from it</dt>
               <dd>2 minutes ago</dd>
             </div>
             <div>
-              <dt>Orders today</dt>
-              <dd>3</dd>
+              <dt>Updates waiting to send</dt>
+              <dd>0</dd>
             </div>
           </dl>
+          <p class="erp-foot">
+            Filled by Demo Builder today at 2:06 PM · emptied at 2:04 PM
+          </p>
         </article>
 
         <article class="erp-card contoso">
@@ -122,21 +115,18 @@
             <h3>Contoso ERP</h3>
             <div class="conn only-ok"><span class="dot"></span>Connected</div>
             <div class="conn warn only-maint">
-              <span class="dot warn"></span>In maintenance until 15:55
-              <small>· orders wait and send when it’s back</small>
+              <span class="dot warn"></span>Not reachable. In maintenance until
+              15:55.
             </div>
           </div>
           <div class="links">
-            <a data-keep-state href="settings.html">Settings</a>
+            <a data-keep-state href="settings.html?erp=contoso">Settings</a>
             <a data-keep-state href="activity.html">Activity</a>
           </div>
           <dl class="erp-facts">
             <div>
-              <dt>Owns</dt>
-              <dd>
-                <a href="#elsewhere-in-admin">3 products</a>
-                · <a href="#elsewhere-in-admin">3 companies</a>
-              </dd>
+              <dt>In the ERP</dt>
+              <dd>3 products · 5 business partners · 2 sales orders</dd>
             </div>
             <div>
               <dt>Last update from it</dt>
@@ -144,93 +134,146 @@
               <dd class="only-maint">21 minutes ago</dd>
             </div>
             <div>
-              <dt>Orders today</dt>
-              <dd>2</dd>
+              <dt>Updates waiting to send</dt>
+              <dd class="only-ok">0</dd>
+              <dd class="only-maint">4</dd>
             </div>
           </dl>
+          <p class="erp-foot">
+            Filled by Demo Builder today at 2:06 PM · emptied at 2:06 PM
+          </p>
         </article>
       </div>
 
-      <div class="ov-main">
-        <section aria-labelledby="attn-title" class="attention">
-          <div class="section-head">
-            <h2 id="attn-title">Needs attention</h2>
-            <span class="meta only-maint">2 items</span>
-          </div>
+      <section aria-labelledby="attn-title" class="attention">
+        <div class="section-head">
+          <h2 id="attn-title">Needs attention</h2>
+          <span class="meta only-maint"
+            >4 items · each is sent again by itself for up to a day, except what
+            Commerce refused</span
+          >
+        </div>
 
-          <div class="all-clear only-ok">
-            <div aria-hidden="true" class="tick">✓</div>
-            <div>
-              <strong>Nothing needs attention</strong>
-              <span
-                >Every order part reached its ERP, and every ERP update was
-                applied.</span
-              >
-            </div>
+        <div class="all-clear only-ok">
+          <div aria-hidden="true" class="tick">✓</div>
+          <div>
+            <strong>Nothing needs attention</strong>
+            <span
+              >Every order reached its ERP, and every ERP update was
+              applied.</span
+            >
           </div>
+        </div>
 
-          <table class="grid only-maint">
-            <thead>
-              <tr>
-                <th>What</th>
-                <th>ERP</th>
-                <th>Since</th>
-                <th>Action</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td class="what">
-                  <strong>Order 3000000024: Contoso part held</strong>
-                  <span
-                    >Contoso is in maintenance. The part sends by itself at
-                    15:55.</span
-                  >
-                </td>
-                <td><span class="chip chip-erp contoso">Contoso ERP</span></td>
-                <td class="when">2:44 PM</td>
-                <td class="act">
-                  <button class="btn btn-secondary btn-small" type="button">
-                    Re-send
-                  </button>
-                  <button
-                    class="btn btn-link"
-                    data-open="order-3000000024"
-                    type="button"
-                  >
-                    View
-                  </button>
-                </td>
-              </tr>
-              <tr>
-                <td class="what">
-                  <strong>Price for Platinum Buyer not applied</strong>
-                  <span
-                    >No Commerce company is linked to Northwind customer
-                    100077.</span
-                  >
-                </td>
-                <td>
-                  <span class="chip chip-erp northwind">Northwind ERP</span>
-                </td>
-                <td class="when">2:30 PM</td>
-                <td class="act">
-                  <button class="btn btn-secondary btn-small" type="button">
-                    Re-send
-                  </button>
-                  <button
-                    class="btn btn-link"
-                    data-open="msg-platinum"
-                    type="button"
-                  >
-                    View
-                  </button>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </section>
-      </div>
+        <table class="grid only-maint">
+          <thead>
+            <tr>
+              <th>What</th>
+              <th>ERP</th>
+              <th>Result</th>
+              <th>Since</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="what">
+                <strong>Order 3000000024: Contoso ERP’s part is waiting</strong>
+                <span>Contoso ERP is in maintenance until 15:55 · 3 tries</span>
+              </td>
+              <td><span class="chip chip-erp contoso">Contoso</span></td>
+              <td><span class="badge badge-warn">Waiting for the ERP</span></td>
+              <td class="when">2:44 PM</td>
+              <td class="act">
+                <button class="btn btn-secondary btn-small" type="button">
+                  Retry
+                </button>
+                <button
+                  class="btn btn-link"
+                  data-open="order-3000000024"
+                  type="button"
+                >
+                  View
+                </button>
+              </td>
+            </tr>
+            <tr>
+              <td class="what">
+                <strong>accesspoint: price 189 not applied yet</strong>
+                <span>Commerce did not answer · 2 tries</span>
+              </td>
+              <td><span class="chip chip-erp northwind">Northwind</span></td>
+              <td><span class="badge badge-bad">Not applied yet</span></td>
+              <td class="when">2:30 PM</td>
+              <td class="act">
+                <button class="btn btn-secondary btn-small" type="button">
+                  Retry
+                </button>
+                <button
+                  class="btn btn-link"
+                  data-open="sku-accesspoint"
+                  type="button"
+                >
+                  View
+                </button>
+              </td>
+            </tr>
+            <tr>
+              <td class="what">
+                <strong>Customer prices for Northwind customer 100077</strong>
+                <span>No Commerce company is linked to that customer</span>
+              </td>
+              <td><span class="chip chip-erp northwind">Northwind</span></td>
+              <td><span class="badge badge-bad">Refused by Commerce</span></td>
+              <td class="when">2:22 PM</td>
+              <td class="act">
+                <button class="btn btn-secondary btn-small" type="button">
+                  Retry
+                </button>
+                <button
+                  class="btn btn-link"
+                  data-open="msg-100077"
+                  type="button"
+                >
+                  View
+                </button>
+              </td>
+            </tr>
+            <tr>
+              <td class="what">
+                <strong>Order 3000000025 was refused by Northwind ERP</strong>
+                <span>accesspoint quantity 0 is not allowed</span>
+              </td>
+              <td><span class="chip chip-erp northwind">Northwind</span></td>
+              <td><span class="badge badge-bad">Not sent</span></td>
+              <td class="when">2:10 PM</td>
+              <td class="act">
+                <button class="btn btn-secondary btn-small" type="button">
+                  Retry
+                </button>
+                <button
+                  class="btn btn-link"
+                  data-open="order-3000000025"
+                  type="button"
+                >
+                  View
+                </button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section aria-labelledby="tools-title" class="tools">
+        <h2 id="tools-title">Also in the integration</h2>
+        <p>
+          <button class="btn btn-link" data-open="move-stock" type="button">
+            Move stock between warehouses
+          </button>
+          starts from Catalog › Products › Actions. It moves stock in Commerce
+          and tells each product’s ERP at once.
+        </p>
+      </section>
     </main>
 
     <script defer src="mockups.js"></script>

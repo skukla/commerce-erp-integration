@@ -14,10 +14,14 @@
   </head>
   <body data-page="activity">
     <template id="band-actions">
-      <span class="band-note"
-        >Next price update <strong>3:05 PM</strong> · last ran 2:05 PM, no
-        changes</span
+      <button
+        class="band-note band-link"
+        data-open="scheduled-prices"
+        type="button"
       >
+        Next price publish <strong>3:05 PM</strong> · last ran 2:05 PM, nothing
+        changed
+      </button>
       <button class="btn btn-secondary" type="button">Refresh</button>
     </template>
 
@@ -33,7 +37,7 @@
               data-value="all"
               type="button"
             >
-              All
+              All ERPs
             </button>
             <button
               aria-pressed="false"
@@ -69,19 +73,19 @@
               aria-pressed="false"
               class="filter-chip"
               data-group="type"
-              data-value="order"
+              data-value="orders"
               type="button"
             >
-              Order
+              Orders
             </button>
             <button
               aria-pressed="false"
               class="filter-chip"
               data-group="type"
-              data-value="price"
+              data-value="prices"
               type="button"
             >
-              Price
+              Prices
             </button>
             <button
               aria-pressed="false"
@@ -96,10 +100,10 @@
               aria-pressed="false"
               class="filter-chip"
               data-group="type"
-              data-value="credit"
+              data-value="companies"
               type="button"
             >
-              Credit
+              Companies
             </button>
             <button
               aria-pressed="false"
@@ -130,7 +134,7 @@
             data-erp="northwind"
             data-open="sku-accesspoint"
             data-problem="no"
-            data-type="price"
+            data-type="prices"
             type="button"
           >
             <time>2:58 PM</time
@@ -139,12 +143,16 @@
                 <path d="M20 12H5m5-6-6 6 6 6" />
               </svg
               >From ERP</span
-            ><span class="chip chip-erp northwind">Northwind ERP</span
-            ><span class="chip chip-type">Price</span>
+            ><span class="chips"
+              ><span class="chip chip-erp northwind">Northwind</span></span
+            ><span class="chip chip-type">Customer prices</span>
             <span class="sentence"
-              >Kukla Studios now gets 10% off accesspoint</span
+              >Kukla Studios: 1 customer price in force<small
+                >10% off accesspoint</small
+              ></span
             >
-            <span class="badge badge-ok">Applied</span
+            <span class="result"
+              ><span class="badge badge-ok">Applied</span></span
             ><span aria-hidden="true" class="chev">›</span>
           </button>
           <button
@@ -161,48 +169,51 @@
                 <path d="M20 12H5m5-6-6 6 6 6" />
               </svg
               >From ERP</span
-            ><span class="chip chip-erp contoso">Contoso ERP</span
+            ><span class="chips"
+              ><span class="chip chip-erp contoso">Contoso</span></span
             ><span class="chip chip-type">Stock</span>
             <span class="sentence"
-              >proliantdl380 stock is now 42<small
-                >Contoso Warehouse</small
-              ></span
+              >proliantdl380 at contoso_warehouse: 42 in stock</span
             >
-            <span class="badge badge-ok">Applied</span
+            <span class="result"
+              ><span class="badge badge-ok">Applied</span></span
             ><span aria-hidden="true" class="chev">›</span>
           </button>
           <button
             class="event"
             data-erp="contoso"
             data-only="maint"
-            data-open="order-3000000024"
+            data-open="order-3000000026"
             data-problem="yes"
-            data-type="order"
+            data-type="orders"
             type="button"
           >
-            <time>2:44 PM</time
+            <time>2:49 PM</time
             ><span class="dir"
               ><svg aria-hidden="true" viewBox="0 0 24 24">
                 <path d="M4 12h15m-5-6 6 6-6 6" />
               </svg
               >To ERP</span
-            ><span class="chip chip-erp contoso">Contoso ERP</span
+            ><span class="chips"
+              ><span class="chip chip-erp contoso">Contoso</span></span
             ><span class="chip chip-type">Order</span>
             <span class="sentence"
-              >Order 3000000024: Contoso part waits for the ERP<small
-                >Contoso is in maintenance until 15:55</small
+              >Order 3000000026 is being sent to Contoso ERP<small
+                >Still sending after 2 minutes, so Retry is offered</small
               ></span
             >
-            <span class="badge badge-warn">Held</span
+            <span class="result"
+              ><span class="badge badge-warn">Sending</span
+              ><span class="retry-hint">Retry</span></span
             ><span aria-hidden="true" class="chev">›</span>
           </button>
           <button
             class="event"
-            data-erp="northwind"
+            data-erp="northwind contoso"
             data-only="maint"
             data-open="order-3000000024"
-            data-problem="no"
-            data-type="order"
+            data-problem="yes"
+            data-type="orders"
             type="button"
           >
             <time>2:44 PM</time
@@ -211,21 +222,27 @@
                 <path d="M4 12h15m-5-6 6 6-6 6" />
               </svg
               >To ERP</span
-            ><span class="chip chip-erp northwind">Northwind ERP</span
+            ><span class="chips"
+              ><span class="chip chip-erp northwind">Northwind</span
+              ><span class="chip chip-erp contoso">Contoso</span></span
             ><span class="chip chip-type">Order</span>
             <span class="sentence"
-              >Order 3000000024: Northwind part became ERP order
-              0000001014</span
+              >Order 3000000024: Northwind ERP took its part as sales order
+              0000001014. Contoso ERP’s part is waiting<small
+                >Contoso ERP is in maintenance until 15:55 · 3 tries</small
+              ></span
             >
-            <span class="badge badge-ok">Sent</span
+            <span class="result"
+              ><span class="badge badge-warn">Waiting for the ERP</span
+              ><span class="retry-hint">Retry</span></span
             ><span aria-hidden="true" class="chev">›</span>
           </button>
           <button
             class="event"
             data-erp="northwind"
-            data-open="credit-serversavvy"
+            data-open="company-serversavvy"
             data-problem="no"
-            data-type="credit"
+            data-type="companies"
             type="button"
           >
             <time>2:40 PM</time
@@ -234,21 +251,50 @@
                 <path d="M20 12H5m5-6-6 6 6 6" />
               </svg
               >From ERP</span
-            ><span class="chip chip-erp northwind">Northwind ERP</span
+            ><span class="chips"
+              ><span class="chip chip-erp northwind">Northwind</span></span
             ><span class="chip chip-type">Credit</span>
             <span class="sentence"
-              >ServerSavvy Solutions credit limit raised to $25,000</span
+              >ServerSavvy Solutions: credit limit 25,000</span
             >
-            <span class="badge badge-ok">Applied</span
+            <span class="result"
+              ><span class="badge badge-ok">Applied</span></span
+            ><span aria-hidden="true" class="chev">›</span>
+          </button>
+          <button
+            class="event"
+            data-erp="northwind"
+            data-open="company-platinum"
+            data-problem="no"
+            data-type="companies"
+            type="button"
+          >
+            <time>2:36 PM</time
+            ><span class="dir"
+              ><svg aria-hidden="true" viewBox="0 0 24 24">
+                <path d="M20 12H5m5-6-6 6 6 6" />
+              </svg
+              >From ERP</span
+            ><span class="chips"
+              ><span class="chip chip-erp northwind">Northwind</span></span
+            ><span class="chip chip-type">Company block</span>
+            <span class="sentence"
+              >Platinum Buyer: blocked<small
+                >Its new order lines wait until Northwind ERP lifts the
+                block</small
+              ></span
+            >
+            <span class="result"
+              ><span class="badge badge-ok">Applied</span></span
             ><span aria-hidden="true" class="chev">›</span>
           </button>
           <button
             class="event"
             data-erp="northwind"
             data-only="maint"
-            data-open="msg-platinum"
+            data-open="sku-accesspoint"
             data-problem="yes"
-            data-type="price"
+            data-type="prices"
             type="button"
           >
             <time>2:30 PM</time
@@ -257,15 +303,75 @@
                 <path d="M20 12H5m5-6-6 6 6 6" />
               </svg
               >From ERP</span
-            ><span class="chip chip-erp northwind">Northwind ERP</span
+            ><span class="chips"
+              ><span class="chip chip-erp northwind">Northwind</span></span
             ><span class="chip chip-type">Price</span>
             <span class="sentence"
-              >Price for Platinum Buyer not applied<small
-                >No Commerce company is linked to Northwind customer
-                100077</small
+              >accesspoint: price 189, not applied: Commerce did not answer<small
+                >Delivered again by itself for up to a day · 2 tries</small
               ></span
             >
-            <span class="badge badge-bad">Not applied</span
+            <span class="result"
+              ><span class="badge badge-bad">Not applied yet</span
+              ><span class="retry-hint">Retry</span></span
+            ><span aria-hidden="true" class="chev">›</span>
+          </button>
+          <button
+            class="event"
+            data-erp="northwind"
+            data-only="maint"
+            data-open="msg-100077"
+            data-problem="yes"
+            data-type="prices"
+            type="button"
+          >
+            <time>2:22 PM</time
+            ><span class="dir"
+              ><svg aria-hidden="true" viewBox="0 0 24 24">
+                <path d="M20 12H5m5-6-6 6 6 6" />
+              </svg
+              >From ERP</span
+            ><span class="chips"
+              ><span class="chip chip-erp northwind">Northwind</span></span
+            ><span class="chip chip-type">Customer prices</span>
+            <span class="sentence"
+              >Northwind customer 100077: 1 price line in force, refused by
+              Commerce<small
+                >No Commerce company is linked to that customer</small
+              ></span
+            >
+            <span class="result"
+              ><span class="badge badge-bad">Refused by Commerce</span
+              ><span class="retry-hint">Retry</span></span
+            ><span aria-hidden="true" class="chev">›</span>
+          </button>
+          <button
+            class="event"
+            data-erp="northwind"
+            data-only="maint"
+            data-open="order-3000000025"
+            data-problem="yes"
+            data-type="orders"
+            type="button"
+          >
+            <time>2:10 PM</time
+            ><span class="dir"
+              ><svg aria-hidden="true" viewBox="0 0 24 24">
+                <path d="M4 12h15m-5-6 6 6-6 6" />
+              </svg
+              >To ERP</span
+            ><span class="chips"
+              ><span class="chip chip-erp northwind">Northwind</span></span
+            ><span class="chip chip-type">Order</span>
+            <span class="sentence"
+              >Order 3000000025 was refused by the ERP<small
+                >Northwind ERP answered: accesspoint quantity 0 is not
+                allowed</small
+              ></span
+            >
+            <span class="result"
+              ><span class="badge badge-bad">Not sent</span
+              ><span class="retry-hint">Retry</span></span
             ><span aria-hidden="true" class="chev">›</span>
           </button>
           <button
@@ -273,7 +379,29 @@
             data-erp="contoso"
             data-open="order-3000000023"
             data-problem="no"
-            data-type="order"
+            data-type="orders"
+            type="button"
+          >
+            <time>1:20 PM</time
+            ><span class="dir"
+              ><svg aria-hidden="true" viewBox="0 0 24 24">
+                <path d="M20 12H5m5-6-6 6 6 6" />
+              </svg
+              >From ERP</span
+            ><span class="chips"
+              ><span class="chip chip-erp contoso">Contoso</span></span
+            ><span class="chip chip-type">Invoice</span>
+            <span class="sentence">Order 3000000023: invoiced</span>
+            <span class="result"
+              ><span class="badge badge-ok">Applied</span></span
+            ><span aria-hidden="true" class="chev">›</span>
+          </button>
+          <button
+            class="event"
+            data-erp="contoso"
+            data-open="order-3000000023"
+            data-problem="no"
+            data-type="orders"
             type="button"
           >
             <time>1:12 PM</time
@@ -282,14 +410,96 @@
                 <path d="M20 12H5m5-6-6 6 6 6" />
               </svg
               >From ERP</span
-            ><span class="chip chip-erp contoso">Contoso ERP</span
-            ><span class="chip chip-type">Order</span>
+            ><span class="chips"
+              ><span class="chip chip-erp contoso">Contoso</span></span
+            ><span class="chip chip-type">Shipment</span>
+            <span class="sentence">Order 3000000023: shipped</span>
+            <span class="result"
+              ><span class="badge badge-ok">Applied</span></span
+            ><span aria-hidden="true" class="chev">›</span>
+          </button>
+          <button
+            class="event"
+            data-erp="none"
+            data-open="order-3000000021"
+            data-problem="no"
+            data-type="orders"
+            type="button"
+          >
+            <time>11:05 AM</time
+            ><span class="dir"
+              ><svg aria-hidden="true" viewBox="0 0 24 24">
+                <path d="M4 12h15m-5-6 6 6-6 6" />
+              </svg
+              >To ERP</span
+            ><span class="chips"
+              ><span
+                class="chip chip-unnamed"
+                title="The record does not say which ERP"
+                >ERP not named</span
+              ></span
+            ><span class="chip chip-type">Invoice</span>
             <span class="sentence"
-              >Order 3000000023: Contoso shipped its part<small
-                >Shipment and tracking number added</small
+              >Commerce order 3000000021: invoice recorded on sales order
+              0000001011<small>Invoiced in Commerce Admin</small></span
+            >
+            <span class="result"><span class="badge badge-ok">Sent</span></span
+            ><span aria-hidden="true" class="chev">›</span>
+          </button>
+          <button
+            class="event"
+            data-erp="none"
+            data-open="order-3000000021"
+            data-problem="no"
+            data-type="orders"
+            type="button"
+          >
+            <time>11:02 AM</time
+            ><span class="dir"
+              ><svg aria-hidden="true" viewBox="0 0 24 24">
+                <path d="M4 12h15m-5-6 6 6-6 6" />
+              </svg
+              >To ERP</span
+            ><span class="chips"
+              ><span
+                class="chip chip-unnamed"
+                title="The record does not say which ERP"
+                >ERP not named</span
+              ></span
+            ><span class="chip chip-type">Shipment</span>
+            <span class="sentence"
+              >Commerce order 3000000021: shipment recorded on sales order
+              0000001011<small>Shipped in Commerce Admin</small></span
+            >
+            <span class="result"><span class="badge badge-ok">Sent</span></span
+            ><span aria-hidden="true" class="chev">›</span>
+          </button>
+          <button
+            class="event"
+            data-erp="none"
+            data-problem="no"
+            data-type="orders"
+            type="button"
+          >
+            <time>10:15 AM</time
+            ><span class="dir"
+              ><svg aria-hidden="true" viewBox="0 0 24 24">
+                <path d="M4 12h15m-5-6 6 6-6 6" />
+              </svg
+              >To ERP</span
+            ><span class="chips"
+              ><span
+                class="chip chip-unnamed"
+                title="The record does not say which ERP"
+                >ERP not named</span
+              ></span
+            ><span class="chip chip-type">Order change</span>
+            <span class="sentence"
+              >Commerce order 3000000020: held on sales order 0000001010<small
+                >Put on hold in Commerce Admin</small
               ></span
             >
-            <span class="badge badge-ok">Applied</span
+            <span class="result"><span class="badge badge-ok">Sent</span></span
             ><span aria-hidden="true" class="chev">›</span>
           </button>
           <button
@@ -297,31 +507,33 @@
             data-erp="northwind"
             data-open="order-3000000023"
             data-problem="no"
-            data-type="order"
+            data-type="orders"
             type="button"
           >
-            <time>9:55 AM</time
+            <time>9:58 AM</time
             ><span class="dir"
               ><svg aria-hidden="true" viewBox="0 0 24 24">
                 <path d="M20 12H5m5-6-6 6 6 6" />
               </svg
               >From ERP</span
-            ><span class="chip chip-erp northwind">Northwind ERP</span
-            ><span class="chip chip-type">Order</span>
+            ><span class="chips"
+              ><span class="chip chip-erp northwind">Northwind</span></span
+            ><span class="chip chip-type">Order status</span>
             <span class="sentence"
-              >Order 3000000023: Northwind confirmed its part<small
+              >Order 3000000023: confirmed<small
                 >A note was added to the order</small
               ></span
             >
-            <span class="badge badge-ok">Applied</span
+            <span class="result"
+              ><span class="badge badge-ok">Applied</span></span
             ><span aria-hidden="true" class="chev">›</span>
           </button>
           <button
             class="event"
-            data-erp="northwind"
+            data-erp="northwind contoso"
             data-open="order-3000000023"
             data-problem="no"
-            data-type="order"
+            data-type="orders"
             type="button"
           >
             <time>9:54 AM</time
@@ -330,46 +542,66 @@
                 <path d="M4 12h15m-5-6 6 6-6 6" />
               </svg
               >To ERP</span
-            ><span class="chip chip-erp northwind">Northwind ERP</span
+            ><span class="chips"
+              ><span class="chip chip-erp northwind">Northwind</span
+              ><span class="chip chip-erp contoso">Contoso</span></span
             ><span class="chip chip-type">Order</span>
             <span class="sentence"
-              >Order 3000000023: Northwind part became ERP order 0000001013<small
-                >Access Point × 1</small
-              ></span
+              >Order 3000000023: Northwind ERP took its part as sales order
+              0000001013. Contoso ERP took its part as sales order
+              0000001002</span
             >
-            <span class="badge badge-ok">Sent</span
-            ><span aria-hidden="true" class="chev">›</span>
-          </button>
-          <button
-            class="event"
-            data-erp="contoso"
-            data-open="order-3000000023"
-            data-problem="no"
-            data-type="order"
-            type="button"
-          >
-            <time>9:54 AM</time
-            ><span class="dir"
-              ><svg aria-hidden="true" viewBox="0 0 24 24">
-                <path d="M4 12h15m-5-6 6 6-6 6" />
-              </svg
-              >To ERP</span
-            ><span class="chip chip-erp contoso">Contoso ERP</span
-            ><span class="chip chip-type">Order</span>
-            <span class="sentence"
-              >Order 3000000023: Contoso part became ERP order 0000001002<small
-                >ProLiant DL380 × 1</small
-              ></span
-            >
-            <span class="badge badge-ok">Sent</span
+            <span class="result"><span class="badge badge-ok">Sent</span></span
             ><span aria-hidden="true" class="chev">›</span>
           </button>
           <button
             class="event"
             data-erp="northwind"
+            data-problem="no"
+            data-type="orders"
+            type="button"
+          >
+            <time>9:40 AM</time
+            ><span class="dir"
+              ><svg aria-hidden="true" viewBox="0 0 24 24">
+                <path d="M20 12H5m5-6-6 6 6 6" />
+              </svg
+              >From ERP</span
+            ><span class="chips"
+              ><span class="chip chip-erp northwind">Northwind</span></span
+            ><span class="chip chip-type">Credit hold</span>
+            <span class="sentence">Order 3000000019: credit hold released</span>
+            <span class="result"
+              ><span class="badge badge-ok">Applied</span></span
+            ><span aria-hidden="true" class="chev">›</span>
+          </button>
+          <button
+            class="event"
+            data-erp="northwind"
+            data-problem="no"
+            data-type="orders"
+            type="button"
+          >
+            <time>9:12 AM</time
+            ><span class="dir"
+              ><svg aria-hidden="true" viewBox="0 0 24 24">
+                <path d="M20 12H5m5-6-6 6 6 6" />
+              </svg
+              >From ERP</span
+            ><span class="chips"
+              ><span class="chip chip-erp northwind">Northwind</span></span
+            ><span class="chip chip-type">Credit hold</span>
+            <span class="sentence">Order 3000000019: on credit hold</span>
+            <span class="result"
+              ><span class="badge badge-ok">Applied</span></span
+            ><span aria-hidden="true" class="chev">›</span>
+          </button>
+          <button
+            class="event"
+            data-erp="none"
             data-open="order-3000000022"
             data-problem="no"
-            data-type="order"
+            data-type="orders"
             type="button"
           >
             <time>8:31 AM</time
@@ -378,12 +610,19 @@
                 <path d="M4 12h15m-5-6 6 6-6 6" />
               </svg
               >To ERP</span
-            ><span class="chip chip-erp northwind">Northwind ERP</span
-            ><span class="chip chip-type">Order</span>
+            ><span class="chips"
+              ><span
+                class="chip chip-unnamed"
+                title="The record does not say which ERP"
+                >ERP not named</span
+              ></span
+            ><span class="chip chip-type">Order change</span>
             <span class="sentence"
-              >Order 3000000022 canceled; Northwind closed 0000001012</span
+              >Commerce order 3000000022: canceled on sales order 0000001012<small
+                >Canceled in Commerce Admin</small
+              ></span
             >
-            <span class="badge badge-neutral">Canceled</span
+            <span class="result"><span class="badge badge-ok">Sent</span></span
             ><span aria-hidden="true" class="chev">›</span>
           </button>
           <button
@@ -391,7 +630,7 @@
             data-erp="northwind"
             data-open="order-3000000022"
             data-problem="no"
-            data-type="order"
+            data-type="orders"
             type="button"
           >
             <time>8:28 AM</time
@@ -400,39 +639,13 @@
                 <path d="M4 12h15m-5-6 6 6-6 6" />
               </svg
               >To ERP</span
-            ><span class="chip chip-erp northwind">Northwind ERP</span
+            ><span class="chips"
+              ><span class="chip chip-erp northwind">Northwind</span></span
             ><span class="chip chip-type">Order</span>
             <span class="sentence"
-              >Order 3000000022 became Northwind order 0000001012<small
-                >Platinum Buyer</small
-              ></span
+              >Order 3000000022 is ERP sales order 0000001012</span
             >
-            <span class="badge badge-ok">Sent</span
-            ><span aria-hidden="true" class="chev">›</span>
-          </button>
-          <button
-            class="event is-reset"
-            data-erp="both"
-            data-open="reset"
-            data-problem="no"
-            data-type="reset"
-            type="button"
-          >
-            <time>8:00 AM</time
-            ><span class="dir"
-              ><svg aria-hidden="true" viewBox="0 0 24 24">
-                <path d="M4 12a8 8 0 1 0 2.4-5.7M4 4v5h5" />
-              </svg
-              >Demo Builder</span
-            ><span class="chip chip-erp both">Both ERPs</span
-            ><span class="chip chip-type">Reset</span>
-            <span class="sentence"
-              >Demo reset from Demo Builder<small
-                >Test orders closed, companies put back, prices and stock
-                reloaded</small
-              ></span
-            >
-            <span class="badge badge-neutral">Done</span
+            <span class="result"><span class="badge badge-ok">Sent</span></span
             ><span aria-hidden="true" class="chev">›</span>
           </button>
         </section>
@@ -442,7 +655,7 @@
             class="event"
             data-erp="northwind"
             data-problem="no"
-            data-type="order"
+            data-type="orders"
             type="button"
           >
             <time>11:37 PM</time
@@ -451,37 +664,38 @@
                 <path d="M4 12h15m-5-6 6 6-6 6" />
               </svg
               >To ERP</span
-            ><span class="chip chip-erp northwind">Northwind ERP</span
+            ><span class="chips"
+              ><span class="chip chip-erp northwind">Northwind</span></span
             ><span class="chip chip-type">Order</span>
             <span class="sentence"
-              >Order 3000000017 became Northwind order 0000001007<small
-                >Cart Probe</small
-              ></span
+              >Order 3000000017 is ERP sales order 0000001007</span
             >
-            <span class="badge badge-ok">Sent</span
+            <span class="result"><span class="badge badge-ok">Sent</span></span
             ><span aria-hidden="true" class="chev">›</span>
           </button>
           <button
             class="event"
-            data-erp="northwind"
+            data-erp="contoso"
             data-problem="no"
-            data-type="order"
+            data-type="orders"
             type="button"
           >
-            <time>10:58 PM</time
+            <time>9:02 PM</time
             ><span class="dir"
               ><svg aria-hidden="true" viewBox="0 0 24 24">
-                <path d="M4 12h15m-5-6 6 6-6 6" />
+                <path d="M20 12H5m5-6-6 6 6 6" />
               </svg
-              >To ERP</span
-            ><span class="chip chip-erp northwind">Northwind ERP</span
-            ><span class="chip chip-type">Order</span>
+              >From ERP</span
+            ><span class="chips"
+              ><span class="chip chip-erp contoso">Contoso</span></span
+            ><span class="chip chip-type">Cancel</span>
             <span class="sentence"
-              >Order 3000000016 became Northwind order 0000001006<small
-                >POA Probe</small
+              >Order 3000000018: canceled<small
+                >Contoso ERP canceled its sales order 0000001001</small
               ></span
             >
-            <span class="badge badge-ok">Sent</span
+            <span class="result"
+              ><span class="badge badge-ok">Applied</span></span
             ><span aria-hidden="true" class="chev">›</span>
           </button>
           <button
@@ -489,7 +703,7 @@
             data-erp="contoso"
             data-open="sku-proliantdl380"
             data-problem="no"
-            data-type="price"
+            data-type="prices"
             type="button"
           >
             <time>6:00 PM</time
@@ -498,39 +712,46 @@
                 <path d="M20 12H5m5-6-6 6 6 6" />
               </svg
               >From ERP</span
-            ><span class="chip chip-erp contoso">Contoso ERP</span
+            ><span class="chips"
+              ><span class="chip chip-erp contoso">Contoso</span></span
             ><span class="chip chip-type">Price</span>
-            <span class="sentence"
-              >ServerSavvy Solutions now gets 5% off proliantdl380</span
-            >
-            <span class="badge badge-ok">Applied</span
+            <span class="sentence">proliantdl380: price 1,660</span>
+            <span class="result"
+              ><span class="badge badge-ok">Applied</span></span
             ><span aria-hidden="true" class="chev">›</span>
           </button>
           <button
-            class="event"
-            data-erp="northwind"
+            class="event is-reset"
+            data-erp="northwind contoso"
+            data-open="reset"
             data-problem="no"
-            data-type="stock"
+            data-type="reset"
             type="button"
           >
-            <time>11:01 AM</time
+            <time>5:40 PM</time
             ><span class="dir"
               ><svg aria-hidden="true" viewBox="0 0 24 24">
-                <path d="M20 12H5m5-6-6 6 6 6" />
+                <path d="M4 12a8 8 0 1 0 2.4-5.7M4 4v5h5" />
               </svg
-              >From ERP</span
-            ><span class="chip chip-erp northwind">Northwind ERP</span
-            ><span class="chip chip-type">Stock</span>
+              >Demo Builder</span
+            ><span class="chips"
+              ><span class="chip chip-erp both">Both ERPs</span></span
+            ><span class="chip chip-type">Demo reset</span>
             <span class="sentence"
-              >accessmesh stock is now 989<small
-                >Northwind Warehouse</small
-              ></span
+              >Demo reset on 2026-09-27: 21 orders canceled, 3 noted as closed,
+              the ERPs’ changes in Commerce undone. The activity before it was
+              cleared.</span
             >
-            <span class="badge badge-ok">Applied</span
+            <span class="result"
+              ><span class="badge badge-neutral">Done</span></span
             ><span aria-hidden="true" class="chev">›</span>
           </button>
         </section>
       </div>
+      <p class="feed-end">
+        Nothing earlier: a demo reset clears the activity before it. Records are
+        kept 14 days.
+      </p>
       <p class="feed-empty" hidden id="feed-empty">
         Nothing matches these filters.
       </p>

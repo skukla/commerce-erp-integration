@@ -12,7 +12,12 @@
     >
     <link href="mockups.css" rel="stylesheet">
   </head>
-  <body data-erp="all" data-page="settings" data-scope="default">
+  <body
+    data-erp="all"
+    data-page="settings"
+    data-scope="default"
+    data-website="default"
+  >
     <template id="band-actions">
       <span class="dirty-flag"
         ><span class="dot warn"></span>Unsaved changes</span
@@ -25,39 +30,21 @@
 
     <main class="page">
       <div class="scope-bar">
-        <span>Settings for</span>
-        <fieldset aria-label="Settings for" class="segmented" data-key="erp">
-          <button aria-pressed="true" data-value="all" type="button">
-            All ERPs
-          </button>
-          <button
-            aria-pressed="false"
-            class="northwind"
-            data-value="northwind"
-            type="button"
-          >
-            <span class="dot"></span>Northwind ERP
-          </button>
-          <button
-            aria-pressed="false"
-            class="contoso"
-            data-value="contoso"
-            type="button"
-          >
-            <span class="dot"></span>Contoso ERP
-          </button>
-        </fieldset>
-        <span>on</span>
-        <fieldset aria-label="Applies to" class="segmented" data-key="scope">
-          <button aria-pressed="true" data-value="default" type="button">
-            Default
-          </button>
-          <button aria-pressed="false" data-value="website" type="button">
-            Bodea Website
-          </button>
-        </fieldset>
+        <label for="for-erp">Settings for</label>
+        <select class="select scope-select" id="for-erp">
+          <option value="all">All ERPs</option>
+          <option value="northwind">Northwind ERP</option>
+          <option value="contoso">Contoso ERP</option>
+        </select>
+        <label for="for-website">on</label>
+        <select class="select scope-select" id="for-website">
+          <option value="default">Default Config</option>
+          <option value="bodea_website">Bodea Website</option>
+          <option value="bodea_b2b">Bodea B2B</option>
+        </select>
         <span class="scope-hint default-only"
-          >Default applies to every website unless a website changes it.</span
+          >Default Config applies to every website unless a website changes
+          it.</span
         >
         <span class="scope-hint website-only"
           >Untick <em>Use Default Value</em> to change a setting for this
@@ -65,18 +52,16 @@
         >
       </div>
 
-      <!-- ───────── All ERPs ───────── -->
       <div class="settings-grid" data-for="all">
-        <section class="settings-card">
+        <section class="settings-card ">
           <h2>Orders</h2>
-
           <div class="setting">
             <div>
               <div class="label">
                 Send orders to the ERP
                 <button
                   aria-expanded="false"
-                  aria-label="More about sending orders"
+                  aria-label="More about send orders to the erp"
                   class="info"
                   type="button"
                 >
@@ -89,28 +74,30 @@
             </div>
             <div class="control">
               <label class="switch"
-                ><input checked type="checkbox"><span class="track"></span
-                ><span class="yn"></span><span class="sr-only">On</span></label
-              >
-              <label class="use-default"
-                ><input checked type="checkbox">
-                Use Default Value</label
+                ><input
+                  data-field="orders_send"
+                  data-vals='{"default": true, "bodea_website": null, "bodea_b2b": null}'
+                  type="checkbox"
+                ><span class="track"></span><span class="yn"></span
+                ><span class="sr-only">On</span></label
+              ><label class="use-default"
+                ><input type="checkbox">
+                <span class="ud-label">Use Default Value</span></label
               >
             </div>
             <p class="more">
-              An order with products from both ERPs is split: each ERP gets only
-              its own lines, and each ERP order number is written onto the
-              Commerce order.
+              Orders placed on this website are created in the ERP, and the
+              ERP’s order number is written back. With several ERPs, an order is
+              split: each ERP gets only the lines for the products it owns.
             </p>
           </div>
-
           <div class="setting">
             <div>
               <div class="label">
                 Hold orders while the ERP is offline
                 <button
                   aria-expanded="false"
-                  aria-label="More about holding orders"
+                  aria-label="More about hold orders while the erp is offline"
                   class="info"
                   type="button"
                 >
@@ -123,28 +110,30 @@
             </div>
             <div class="control">
               <label class="switch"
-                ><input checked type="checkbox"><span class="track"></span
-                ><span class="yn"></span><span class="sr-only">On</span></label
-              >
-              <label class="use-default"
-                ><input checked type="checkbox">
-                Use Default Value</label
+                ><input
+                  data-field="orders_hold_offline"
+                  data-vals='{"default": true, "bodea_website": null, "bodea_b2b": false}'
+                  type="checkbox"
+                ><span class="track"></span><span class="yn"></span
+                ><span class="sr-only">On</span></label
+              ><label class="use-default"
+                ><input type="checkbox">
+                <span class="ud-label">Use Default Value</span></label
               >
             </div>
             <p class="more">
-              A held order is retried for up to a day. It shows under Needs
-              attention on the Overview until it goes through, and you can
-              re-send it yourself.
+              An order placed while the ERP is offline is sent when the ERP is
+              back (tried again for up to a day). When off, such an order is not
+              sent.
             </p>
           </div>
-
           <div class="setting">
             <div>
               <div class="label">
                 Order status when the ERP confirms
                 <button
                   aria-expanded="false"
-                  aria-label="More about the confirmed status"
+                  aria-label="More about order status when the erp confirms"
                   class="info"
                   type="button"
                 >
@@ -155,231 +144,654 @@
             </div>
             <div class="control">
               <select
-                aria-label="Order status when the ERP confirms"
+                aria-label="orders_confirm_status"
                 class="select"
+                data-field="orders_confirm_status"
+                data-vals='{"default": "", "bodea_website": null, "bodea_b2b": "erp_confirmed"}'
               >
                 <option value="">Empty (note only)</option>
-                <option selected>Confirmed in ERP</option>
-                <option>Awaiting ERP review</option>
-              </select>
-              <label class="use-default"
+                <option value="erp_confirmed">
+                  Confirmed in ERP (erp_confirmed)
+                </option>
+                <option value="erp_review">
+                  Awaiting ERP review (erp_review)
+                </option>
+              </select><label class="use-default"
                 ><input type="checkbox">
-                Use Default Value</label
+                <span class="ud-label">Use Default Value</span></label
               >
             </div>
             <p class="more">
-              The list shows the statuses assigned to the Pending state in
-              Stores › Settings › Order Status. The order moves to Processing
-              only when it is invoiced or shipped, as Commerce always does.
+              A status to set on the Commerce order when the ERP confirms it.
+              Create it at Stores › Settings › Order Status and assign it to the
+              Pending state (not as its default). No status can move an order to
+              Processing; Commerce does that itself when the order is invoiced
+              or shipped.
             </p>
           </div>
         </section>
-
-        <div style="display: grid; gap: 20px">
-          <section class="settings-card">
-            <h2>Prices</h2>
-            <div class="setting">
-              <div>
-                <div class="label">Update prices from the ERPs</div>
-                <p class="help">
-                  How often Commerce picks up each ERP’s prices.
-                </p>
-              </div>
-              <div class="control">
-                <select aria-label="Update prices from the ERPs" class="select">
-                  <option>Every 15 minutes</option>
-                  <option selected>Every hour</option>
-                  <option>Every day</option>
-                </select>
-                <span class="hint">Next run 3:05 PM</span>
-                <label class="use-default"
-                  ><input checked type="checkbox">
-                  Use Default Value</label
-                >
-              </div>
-            </div>
-          </section>
-
-          <section class="settings-card default-only">
-            <h2>Products</h2>
+        <div class="col">
+          <section class="settings-card ">
+            <h2>Sales organization</h2>
+            <p class="card-note">
+              Every ERP uses these unless it sets its own.
+            </p>
             <div class="setting">
               <div>
                 <div class="label">
-                  How products are split between ERPs
+                  Sales organization
                   <button
                     aria-expanded="false"
-                    aria-label="More about splitting products"
+                    aria-label="More about sales organization"
                     class="info"
                     type="button"
                   >
                     i
                   </button>
                 </div>
-                <p class="help">Each product belongs to exactly one ERP.</p>
+                <p class="help">
+                  The ERP’s code for this website’s sales, e.g. 1000.
+                </p>
+              </div>
+              <div class="control">
+                <input
+                  aria-label="structure_sales_org"
+                  class="input"
+                  data-field="structure_sales_org"
+                  data-vals='{"default": "1000", "bodea_website": null, "bodea_b2b": "1100"}'
+                ><label class="use-default"
+                  ><input type="checkbox">
+                  <span class="ud-label">Use Default Value</span></label
+                >
+              </div>
+              <p class="more">
+                Four letters or digits, like an SAP sales organization. Orders
+                from this website carry it. An ERP that sets its own uses that
+                instead.
+              </p>
+            </div>
+            <div class="setting">
+              <div>
+                <div class="label">
+                  Sales organization name
+                  <button
+                    aria-expanded="false"
+                    aria-label="More about sales organization name"
+                    class="info"
+                    type="button"
+                  >
+                    i
+                  </button>
+                </div>
+                <p class="help">
+                  What the ERP calls it. Empty: the website’s name.
+                </p>
+              </div>
+              <div class="control">
+                <input
+                  aria-label="structure_sales_org_name"
+                  class="input"
+                  data-field="structure_sales_org_name"
+                  data-vals='{"default": "", "bodea_website": null, "bodea_b2b": "Bodea B2B Sales"}'
+                  placeholder="The website’s name"
+                ><label class="use-default"
+                  ><input type="checkbox">
+                  <span class="ud-label">Use Default Value</span></label
+                >
+              </div>
+              <p class="more">
+                What the ERP calls that sales organization. When empty, the ERP
+                prints the website’s name.
+              </p>
+            </div>
+          </section>
+        </div>
+        <section class="settings-card default-only erp-list-card">
+          <h2>ERPs <small>set by Demo Builder</small></h2>
+          <table class="compare erp-list">
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>ID</th>
+                <th>Kind</th>
+                <th>Address</th>
+                <th>Credential</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>
+                  <span class="chip chip-erp northwind">Northwind ERP</span>
+                </td>
+                <td><code>northwind</code></td>
+                <td>Demo ERP</td>
+                <td class="addr">
+                  https://northwind-erp.example.adobeioruntime.net
+                </td>
+                <td>The integration’s own</td>
+              </tr>
+              <tr>
+                <td><span class="chip chip-erp contoso">Contoso ERP</span></td>
+                <td><code>contoso</code></td>
+                <td>Demo ERP</td>
+                <td class="addr">
+                  https://contoso-erp.example.adobeioruntime.net
+                </td>
+                <td>Its own · client id 7c1e…42af · secret stored</td>
+              </tr>
+            </tbody>
+          </table>
+          <p class="card-note">
+            The ID never changes: it is what a product’s
+            <code>erp_owner</code>
+            attribute holds. Demo Builder adds and removes ERPs; a secret is
+            never shown.
+          </p>
+        </section>
+      </div>
+
+      <div class="settings-grid" data-for="northwind" hidden>
+        <div class="col">
+          <section class="settings-card ">
+            <h2>Sales organization</h2>
+            <div class="setting">
+              <div>
+                <div class="label">
+                  Sales organization
+                  <button
+                    aria-expanded="false"
+                    aria-label="More about sales organization"
+                    class="info"
+                    type="button"
+                  >
+                    i
+                  </button>
+                </div>
+                <p class="help">
+                  The ERP’s code for this website’s sales, e.g. 1000.
+                </p>
+              </div>
+              <div class="control">
+                <input
+                  aria-label="structure_sales_org"
+                  class="input"
+                  data-field="structure_sales_org"
+                  data-vals='{"default": null, "bodea_website": null, "bodea_b2b": "1100", "fallback": "1000"}'
+                ><label class="use-default"
+                  ><input type="checkbox">
+                  <span class="ud-label">Use Default Value</span></label
+                >
+              </div>
+              <p class="more">
+                Four letters or digits, like an SAP sales organization. Orders
+                from this website to this ERP carry it.
+              </p>
+            </div>
+            <div class="setting">
+              <div>
+                <div class="label">
+                  Sales organization name
+                  <button
+                    aria-expanded="false"
+                    aria-label="More about sales organization name"
+                    class="info"
+                    type="button"
+                  >
+                    i
+                  </button>
+                </div>
+                <p class="help">
+                  What the ERP calls it. Empty: the website’s name.
+                </p>
+              </div>
+              <div class="control">
+                <input
+                  aria-label="structure_sales_org_name"
+                  class="input"
+                  data-field="structure_sales_org_name"
+                  data-vals='{"default": null, "bodea_website": null, "bodea_b2b": null, "fallback": ""}'
+                  placeholder="The website’s name"
+                ><label class="use-default"
+                  ><input type="checkbox">
+                  <span class="ud-label">Use Default Value</span></label
+                >
+              </div>
+              <p class="more">
+                What this ERP calls that sales organization. When empty, the ERP
+                prints the website’s name.
+              </p>
+            </div>
+          </section>
+          <section class="settings-card">
+            <h2>Connection <small>set by Demo Builder</small></h2>
+            <dl class="facts">
+              <div>
+                <dt>Name</dt>
+                <dd>Northwind ERP</dd>
+              </div>
+              <div>
+                <dt>ID</dt>
+                <dd>
+                  <code>northwind</code>
+                  · on products’ <code>erp_owner</code>
+                </dd>
+              </div>
+              <div>
+                <dt>Kind</dt>
+                <dd>Demo ERP</dd>
+              </div>
+              <div>
+                <dt>Address</dt>
+                <dd>
+                  <span class="addr"
+                    >https://northwind-erp.example.adobeioruntime.net</span
+                  >
+                </dd>
+              </div>
+              <div>
+                <dt>Credential</dt>
+                <dd>The integration’s own</dd>
+              </div>
+            </dl>
+            <p class="card-note">
+              A secret is never shown. Demo Builder changes these when it adds
+              or removes an ERP.
+            </p>
+          </section>
+        </div>
+        <div class="col">
+          <section class="settings-card default-only">
+            <h2>Products and order numbers</h2>
+            <div class="setting">
+              <div>
+                <div class="label">
+                  Products this ERP owns
+                  <button
+                    aria-expanded="false"
+                    aria-label="More about products this erp owns"
+                    class="info"
+                    type="button"
+                  >
+                    i
+                  </button>
+                </div>
+                <p class="help">Which products this ERP sells and ships.</p>
               </div>
               <div class="control">
                 <select
-                  aria-label="How products are split between ERPs"
+                  aria-label="structure_owns"
                   class="select"
+                  data-field="structure_owns"
+                  data-vals='{"default": "sources", "fallback": "attribute"}'
                 >
-                  <option selected>By inventory source</option>
-                  <option>By a product attribute</option>
-                  <option>All products to one ERP</option>
+                  <option value="">Not set: erp_owner is northwind</option>
+                  <option value="all">All products</option>
+                  <option value="sources">
+                    Products in these inventory sources
+                  </option>
+                  <option value="attribute">
+                    Products whose attribute names this ERP
+                  </option>
                 </select>
               </div>
               <p class="more">
-                By inventory source: a product belongs to the ERP whose
-                warehouse stocks it. Pick each ERP’s warehouses under that ERP’s
-                settings.
+                All products: every product (one ERP only). Inventory sources:
+                the products stocked in the sources named below. Attribute: the
+                products whose attribute names this ERP. When not set: products
+                whose <code>erp_owner</code> is <code>northwind</code>.
               </p>
-              <div class="split-summary" style="grid-column: 1 / -1">
-                <div>
-                  <span class="chip chip-erp northwind">Northwind ERP</span
-                  ><a href="#elsewhere-in-admin">3 products</a>
-                </div>
-                <div>
-                  <span class="chip chip-erp contoso">Contoso ERP</span
-                  ><a href="#elsewhere-in-admin">3 products</a>
-                </div>
-              </div>
             </div>
+            <div class="setting" data-owns-mode="sources">
+              <div>
+                <div class="label">
+                  Inventory sources
+                  <button
+                    aria-expanded="false"
+                    aria-label="More about inventory sources"
+                    class="info"
+                    type="button"
+                  >
+                    i
+                  </button>
+                </div>
+                <p class="help">Source codes, comma-separated.</p>
+              </div>
+              <div class="control">
+                <input
+                  aria-label="structure_owns_sources"
+                  class="input"
+                  data-field="structure_owns_sources"
+                  data-vals='{"default": "northwind_warehouse", "fallback": ""}'
+                  placeholder="northwind_warehouse"
+                >
+              </div>
+              <p class="more">
+                The inventory source codes this ERP ships from, as default,
+                east. Used with “Products in these inventory sources”.
+              </p>
+            </div>
+            <div class="setting" data-owns-mode="attribute">
+              <div>
+                <div class="label">
+                  Product attribute
+                  <button
+                    aria-expanded="false"
+                    aria-label="More about product attribute"
+                    class="info"
+                    type="button"
+                  >
+                    i
+                  </button>
+                </div>
+                <p class="help">
+                  An attribute and value, as erp_owner=northwind.
+                </p>
+              </div>
+              <div class="control">
+                <input
+                  aria-label="structure_owns_attribute"
+                  class="input"
+                  data-field="structure_owns_attribute"
+                  data-vals='{"default": "", "fallback": ""}'
+                  placeholder="erp_owner=northwind"
+                >
+              </div>
+              <p class="more">
+                A product attribute and the value that names this ERP. Used with
+                “Products whose attribute names this ERP”.
+              </p>
+            </div>
+            <div class="setting">
+              <div>
+                <div class="label">
+                  Prefix on ERP order numbers
+                  <button
+                    aria-expanded="false"
+                    aria-label="More about prefix on erp order numbers"
+                    class="info"
+                    type="button"
+                  >
+                    i
+                  </button>
+                </div>
+                <p class="help">Shown in Commerce as NORT-0000001013.</p>
+              </div>
+              <div class="control">
+                <input
+                  aria-label="structure_order_prefix"
+                  class="input"
+                  data-field="structure_order_prefix"
+                  data-vals='{"default": null, "fallback": ""}'
+                  placeholder="NORT (from the name)"
+                >
+              </div>
+              <p class="more">
+                Put in front of the ERP order number written onto Commerce
+                orders, so two ERPs on one store tell their orders apart. One to
+                six capital letters or digits. Empty: the first four letters of
+                the ERP’s name (NORT).
+              </p>
+            </div>
+          </section>
+          <section class="settings-card website-note">
+            <p class="card-note">
+              Products and order numbers are set once for every website. Switch
+              to Default Config to change them.
+            </p>
           </section>
         </div>
       </div>
 
-      <!-- ───────── One ERP (same rows for each; values differ) ───────── -->
-      <div class="settings-grid" data-for="northwind" hidden>
-        <section class="settings-card">
-          <h2>Sales organisation</h2>
-          <div class="setting">
-            <div>
-              <div class="label">Sales organisation</div>
-              <p class="help">
-                The ERP’s code for this website’s sales, e.g. 1000.
-              </p>
-            </div>
-            <div class="control">
-              <input
-                aria-label="Sales organisation"
-                class="input default-only"
-                value="1000"
-              >
-              <input
-                aria-label="Sales organisation for Bodea Website"
-                class="input use-default-field"
-                value="1100"
-              >
-              <span class="hint use-default-field">Default is 1000</span>
-              <label class="use-default"
-                ><input type="checkbox">
-                Use Default Value</label
-              >
-            </div>
-          </div>
-          <div class="setting">
-            <div>
-              <div class="label">Sales organisation name</div>
-              <p class="help">
-                What the ERP calls it. Empty: the website’s name.
-              </p>
-            </div>
-            <div class="control">
-              <input
-                aria-label="Sales organisation name"
-                class="input"
-                placeholder="Bodea Website"
-              >
-              <label class="use-default"
-                ><input checked type="checkbox">
-                Use Default Value</label
-              >
-            </div>
-          </div>
-        </section>
-
-        <section class="settings-card">
-          <h2>Products</h2>
-          <div class="setting default-only">
-            <div>
-              <div class="label">Products this ERP owns</div>
-              <p class="help">The products stocked in these warehouses.</p>
-            </div>
-            <div class="control">
-              <div class="source-tags"><span>Northwind Warehouse</span></div>
-              <a href="#elsewhere-in-admin">Change warehouses</a>
-            </div>
-            <p class="owned" style="grid-column: 1 / -1">
-              Owns <a href="#elsewhere-in-admin">3 products</a>: accesspoint,
-              accessmesh, accessmeshpro
-            </p>
-          </div>
-          <p class="website-note">
-            Products are set once for every website. Switch to Default to change
-            them.
-          </p>
-        </section>
-      </div>
-
       <div class="settings-grid" data-for="contoso" hidden>
-        <section class="settings-card">
-          <h2>Sales organisation</h2>
-          <div class="setting">
-            <div>
-              <div class="label">Sales organisation</div>
-              <p class="help">
-                The ERP’s code for this website’s sales, e.g. 1000.
+        <div class="col">
+          <section class="settings-card ">
+            <h2>Sales organization</h2>
+            <div class="setting">
+              <div>
+                <div class="label">
+                  Sales organization
+                  <button
+                    aria-expanded="false"
+                    aria-label="More about sales organization"
+                    class="info"
+                    type="button"
+                  >
+                    i
+                  </button>
+                </div>
+                <p class="help">
+                  The ERP’s code for this website’s sales, e.g. 1000.
+                </p>
+              </div>
+              <div class="control">
+                <input
+                  aria-label="structure_sales_org"
+                  class="input"
+                  data-field="structure_sales_org"
+                  data-vals='{"default": "2000", "bodea_website": null, "bodea_b2b": null, "fallback": "1000"}'
+                ><label class="use-default"
+                  ><input type="checkbox">
+                  <span class="ud-label">Use Default Value</span></label
+                >
+              </div>
+              <p class="more">
+                Four letters or digits, like an SAP sales organization. Orders
+                from this website to this ERP carry it.
               </p>
             </div>
-            <div class="control">
-              <input aria-label="Sales organisation" class="input" value="2000">
-              <label class="use-default"
-                ><input checked type="checkbox">
-                Use Default Value</label
-              >
-            </div>
-          </div>
-          <div class="setting">
-            <div>
-              <div class="label">Sales organisation name</div>
-              <p class="help">
-                What the ERP calls it. Empty: the website’s name.
+            <div class="setting">
+              <div>
+                <div class="label">
+                  Sales organization name
+                  <button
+                    aria-expanded="false"
+                    aria-label="More about sales organization name"
+                    class="info"
+                    type="button"
+                  >
+                    i
+                  </button>
+                </div>
+                <p class="help">
+                  What the ERP calls it. Empty: the website’s name.
+                </p>
+              </div>
+              <div class="control">
+                <input
+                  aria-label="structure_sales_org_name"
+                  class="input"
+                  data-field="structure_sales_org_name"
+                  data-vals='{"default": "Contoso US Sales", "bodea_website": null, "bodea_b2b": null, "fallback": ""}'
+                  placeholder="The website’s name"
+                ><label class="use-default"
+                  ><input type="checkbox">
+                  <span class="ud-label">Use Default Value</span></label
+                >
+              </div>
+              <p class="more">
+                What this ERP calls that sales organization. When empty, the ERP
+                prints the website’s name.
               </p>
             </div>
-            <div class="control">
-              <input
-                aria-label="Sales organisation name"
-                class="input"
-                value="Bodea US"
-              >
-              <label class="use-default"
-                ><input checked type="checkbox">
-                Use Default Value</label
-              >
-            </div>
-          </div>
-        </section>
-
-        <section class="settings-card">
-          <h2>Products</h2>
-          <div class="setting default-only">
-            <div>
-              <div class="label">Products this ERP owns</div>
-              <p class="help">The products stocked in these warehouses.</p>
-            </div>
-            <div class="control">
-              <div class="source-tags"><span>Contoso Warehouse</span></div>
-              <a href="#elsewhere-in-admin">Change warehouses</a>
-            </div>
-            <p class="owned" style="grid-column: 1 / -1">
-              Owns <a href="#elsewhere-in-admin">3 products</a>, including
-              proliantdl380
+          </section>
+          <section class="settings-card">
+            <h2>Connection <small>set by Demo Builder</small></h2>
+            <dl class="facts">
+              <div>
+                <dt>Name</dt>
+                <dd>Contoso ERP</dd>
+              </div>
+              <div>
+                <dt>ID</dt>
+                <dd>
+                  <code>contoso</code>
+                  · on products’ <code>erp_owner</code>
+                </dd>
+              </div>
+              <div>
+                <dt>Kind</dt>
+                <dd>Demo ERP</dd>
+              </div>
+              <div>
+                <dt>Address</dt>
+                <dd>
+                  <span class="addr"
+                    >https://contoso-erp.example.adobeioruntime.net</span
+                  >
+                </dd>
+              </div>
+              <div>
+                <dt>Credential</dt>
+                <dd>Its own · client id 7c1e…42af · secret stored</dd>
+              </div>
+            </dl>
+            <p class="card-note">
+              A secret is never shown. Demo Builder changes these when it adds
+              or removes an ERP.
             </p>
-          </div>
-          <p class="website-note">
-            Products are set once for every website. Switch to Default to change
-            them.
-          </p>
-        </section>
+          </section>
+        </div>
+        <div class="col">
+          <section class="settings-card default-only">
+            <h2>Products and order numbers</h2>
+            <div class="setting">
+              <div>
+                <div class="label">
+                  Products this ERP owns
+                  <button
+                    aria-expanded="false"
+                    aria-label="More about products this erp owns"
+                    class="info"
+                    type="button"
+                  >
+                    i
+                  </button>
+                </div>
+                <p class="help">Which products this ERP sells and ships.</p>
+              </div>
+              <div class="control">
+                <select
+                  aria-label="structure_owns"
+                  class="select"
+                  data-field="structure_owns"
+                  data-vals='{"default": "", "fallback": ""}'
+                >
+                  <option value="">Not set: erp_owner is contoso</option>
+                  <option value="all">All products</option>
+                  <option value="sources">
+                    Products in these inventory sources
+                  </option>
+                  <option value="attribute">
+                    Products whose attribute names this ERP
+                  </option>
+                </select>
+              </div>
+              <p class="more">
+                All products: every product (one ERP only). Inventory sources:
+                the products stocked in the sources named below. Attribute: the
+                products whose attribute names this ERP. When not set: products
+                whose <code>erp_owner</code> is <code>contoso</code>.
+              </p>
+            </div>
+            <div class="setting" data-owns-mode="sources">
+              <div>
+                <div class="label">
+                  Inventory sources
+                  <button
+                    aria-expanded="false"
+                    aria-label="More about inventory sources"
+                    class="info"
+                    type="button"
+                  >
+                    i
+                  </button>
+                </div>
+                <p class="help">Source codes, comma-separated.</p>
+              </div>
+              <div class="control">
+                <input
+                  aria-label="structure_owns_sources"
+                  class="input"
+                  data-field="structure_owns_sources"
+                  data-vals='{"default": "", "fallback": ""}'
+                  placeholder="contoso_warehouse"
+                >
+              </div>
+              <p class="more">
+                The inventory source codes this ERP ships from, as default,
+                east. Used with “Products in these inventory sources”.
+              </p>
+            </div>
+            <div class="setting" data-owns-mode="attribute">
+              <div>
+                <div class="label">
+                  Product attribute
+                  <button
+                    aria-expanded="false"
+                    aria-label="More about product attribute"
+                    class="info"
+                    type="button"
+                  >
+                    i
+                  </button>
+                </div>
+                <p class="help">
+                  An attribute and value, as erp_owner=contoso.
+                </p>
+              </div>
+              <div class="control">
+                <input
+                  aria-label="structure_owns_attribute"
+                  class="input"
+                  data-field="structure_owns_attribute"
+                  data-vals='{"default": "", "fallback": ""}'
+                  placeholder="erp_owner=contoso"
+                >
+              </div>
+              <p class="more">
+                A product attribute and the value that names this ERP. Used with
+                “Products whose attribute names this ERP”.
+              </p>
+            </div>
+            <div class="setting">
+              <div>
+                <div class="label">
+                  Prefix on ERP order numbers
+                  <button
+                    aria-expanded="false"
+                    aria-label="More about prefix on erp order numbers"
+                    class="info"
+                    type="button"
+                  >
+                    i
+                  </button>
+                </div>
+                <p class="help">Shown in Commerce as CONT-0000001013.</p>
+              </div>
+              <div class="control">
+                <input
+                  aria-label="structure_order_prefix"
+                  class="input"
+                  data-field="structure_order_prefix"
+                  data-vals='{"default": null, "fallback": ""}'
+                  placeholder="CONT (from the name)"
+                >
+              </div>
+              <p class="more">
+                Put in front of the ERP order number written onto Commerce
+                orders, so two ERPs on one store tell their orders apart. One to
+                six capital letters or digits. Empty: the first four letters of
+                the ERP’s name (CONT).
+              </p>
+            </div>
+          </section>
+          <section class="settings-card website-note">
+            <p class="card-note">
+              Products and order numbers are set once for every website. Switch
+              to Default Config to change them.
+            </p>
+          </section>
+        </div>
       </div>
     </main>
 
