@@ -51,10 +51,16 @@ function step(at, where, what, crossing) {
   };
 }
 
-/** What a Retry of this crossing sends: an ERP event by its id, an order by its number. */
+/**
+ * What a Retry of this crossing sends: an ERP event by its id, an order by its number, and one
+ * part of a split order by its number and its ERP (the page's "Re-send this part").
+ */
 function retryFor(crossing) {
-  return crossing.eventId
-    ? { eventId: crossing.eventId }
+  if (crossing.eventId) {
+    return { eventId: crossing.eventId };
+  }
+  return crossing.erpId
+    ? { erpId: crossing.erpId, incrementId: crossing.ref }
     : { incrementId: crossing.ref };
 }
 
@@ -97,6 +103,7 @@ function partWhat(part) {
 function partSteps(crossing, parts) {
   return parts.map((part) =>
     step(crossing.lastAt, "integration", partWhat(part), {
+      ...(part.erpId ? { erpId: part.erpId } : {}),
       message: part.message,
       outcome: part.status,
       ref: crossing.ref,
@@ -145,8 +152,9 @@ function erpSteps(erpOrder, erpName) {
  *   did not answer); `erpOrder` is then the first that answered
  * @param {Record<string, string>} [input.erpNames] - with several ERPs, each ERP's name by id, so
  *   an ERP event that came back names its ERP
- * @param {Array<{erpName: string, status: string, message?: string, refused?: boolean}>} [input.parts] -
- *   with several ERPs, the order's parts in list order: the order's send is then one step per part
+ * @param {Array<{erpName: string, erpId?: string, status: string, message?: string,
+ *   refused?: boolean}>} [input.parts] - with several ERPs, the order's parts in list order: the
+ *   order's send is then one step per part, a waiting part retried as itself by its `erpId`
  * @returns {{summary: object, steps: object[]}} the summary, and the steps oldest first
  */
 export function buildOrderTrace({

@@ -165,6 +165,35 @@ describe("Given an order two ERPs share", () => {
     ]);
   });
 
+  // The Admin page's trace offers "Re-send this part" on a part that waits (erp/resend-part),
+  // so the part's step names its ERP in its retry.
+  test("Then a part that waits is retried as that part, by its ERP", async () => {
+    await writeOrderParts(ORDER, {
+      parts: {
+        contoso: { message: "Contoso ERP is down.", status: "held" },
+        erp: { erpNumber: "0000001000", status: "sent" },
+      },
+    });
+    readHistory.mockResolvedValueOnce([
+      {
+        attempts: 3,
+        direction: "to-erp",
+        kind: "order",
+        lastAt: "2026-09-28T09:00:05Z",
+        message: "Contoso ERP is down.",
+        outcome: "held",
+        ref: ORDER,
+      },
+    ]);
+    const waiting = (await trace()).steps.find(
+      (s) => s.what === "Waiting for Contoso ERP",
+    );
+    expect(waiting.retry).toStrictEqual({
+      erpId: "contoso",
+      incrementId: ORDER,
+    });
+  });
+
   test("Then an ERP event that came back names the ERP it came from", async () => {
     await writeOrderParts(ORDER, {
       parts: { contoso: { erpNumber: "0000002000", status: "sent" } },

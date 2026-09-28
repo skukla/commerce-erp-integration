@@ -291,7 +291,11 @@ async function traceAcrossErps(params, erps, incrementId, logger) {
 function partsOf(record, erps) {
   return erps
     .filter((entry) => record.parts[entry.id])
-    .map((entry) => ({ ...record.parts[entry.id], erpName: entry.name }));
+    .map((entry) => ({
+      ...record.parts[entry.id],
+      erpId: entry.id,
+      erpName: entry.name,
+    }));
 }
 
 /** The ERP's number for the order carrying this reference, or undefined. Never throws. */
