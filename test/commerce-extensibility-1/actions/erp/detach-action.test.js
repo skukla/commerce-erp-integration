@@ -16,6 +16,7 @@ vi.mock("#lib/erps", () => ({ loadErps: vi.fn() }));
 
 import { detach } from "#lib/detach";
 import { loadErps } from "#lib/erps";
+import * as orderParts from "#lib/order-parts";
 import * as action from "#src/erp/detach/index";
 
 const entry = (id) => ({
@@ -53,6 +54,39 @@ describe("Given the detach action", () => {
     const res = await action.main({});
     expect(res.statusCode).toBe(200);
     expect(res.body).not.toHaveProperty("erp");
+    expect(detach).toHaveBeenCalledWith({}, expect.anything());
+  });
+});
+
+/*
+ * erp/detach with closeOrders (AB-16n): the reset closes every order the ERPs hold before it wipes
+ * them. It is a whole-reset act, so it cannot be asked of one ERP; a caller that asks for both is
+ * refused in words rather than having one of the two silently dropped.
+ */
+describe("Given the detach action asked to close the orders", () => {
+  test.each([[true], ["true"]])(
+    "Then closeOrders %j reaches detach as true, with the per-order records",
+    async (value) => {
+      const res = await action.main({ closeOrders: value });
+      expect(res.statusCode).toBe(200);
+      expect(detach).toHaveBeenCalledWith(
+        { closeOrders: true },
+        expect.objectContaining({ erps: ERPS, orderParts }),
+      );
+    },
+  );
+
+  test("Then closeOrders with one ERP is refused in words, and nothing is undone", async () => {
+    const res = await action.main({ closeOrders: true, erp: "contoso" });
+    expect(res.error.statusCode).toBe(400);
+    expect(res.error.body.message).toBe(
+      "closeOrders closes every order all the ERPs hold, so it cannot be asked for one ERP (erp=contoso); ask for one or the other",
+    );
+    expect(detach).not.toHaveBeenCalled();
+  });
+
+  test("Then without closeOrders detach is asked exactly as before", async () => {
+    await action.main({ closeOrders: false });
     expect(detach).toHaveBeenCalledWith({}, expect.anything());
   });
 });

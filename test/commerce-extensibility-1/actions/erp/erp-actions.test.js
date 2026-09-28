@@ -34,6 +34,13 @@ describe("Given the status action", () => {
     const res = await status.main({});
     expect(res.body.detachesPerErp).toBe(true);
   });
+  // AB-16n: a deployment from before it ignores detach's `closeOrders` and leaves every order
+  // open, so Demo Builder asks this before a reset that means to close them.
+  test("Then it says detach can close the orders on a reset", async () => {
+    erp.health.mockResolvedValue({ data: {}, ok: true, status: 200 });
+    const res = await status.main({});
+    expect(res.body.closesOrdersOnReset).toBe(true);
+  });
   test("Then an unreachable ERP is reported, not thrown", async () => {
     erp.health.mockRejectedValue(new Error("ERP_BASE_URL is not set"));
     const res = await status.main({});
