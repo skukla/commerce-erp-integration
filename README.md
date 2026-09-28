@@ -19,7 +19,7 @@ Commerce order follow.
 | Direction | How | Where |
 |---|---|---|
 | Order → ERP | the order save event (`observer.sales_order_save_commit_after`), as Adobe's integration starter kit does it: a new order is created in the ERP, carrying the sales organisation its website's *Structure* setting names, and the ERP number is written back as `ext_order_id` with the pair's prefix in front (`ACME-0000001042`), with a note on the order. Under an ownership mode other than *All products*, an order with no line this ERP owns is skipped with a history entry saying why. While the ERP cannot take it, the website's *Hold orders while the ERP is offline* setting decides: on, I/O Events delivers again for up to a day; off, the order is not sent | `order-commerce/created` |
-| Contract prices → shared catalogs | each ERP's contract prices in force become tier prices for the customer group of the company's custom shared catalog: a price line a fixed price, a discount line a percentage, at the line's minimum quantity, on every website (where Commerce's own catalog pricing stores them). Only the SKUs that ERP owns, for the company the key map pairs with its customer; applied as a replace against what that ERP wrote before, and ledgered, so detach takes them back. A company with no custom shared catalog of its own gets none, reported as skipped. The cart, the listing and the product page all price from Commerce: no ERP is asked on a cart change, and a discount limit is the ERP's to enforce on the order (AB-26z, 2026-09-28) | `src/lib/contract-prices.js`, `src/lib/commerce-tier-prices.js` |
+| Contract prices → shared catalogs | each ERP's contract prices in force become tier prices for the customer group of the company's custom shared catalog: a price line a fixed price, a discount line a percentage, at the line's minimum quantity, on every website (where Commerce's own catalog pricing stores them). Only the SKUs that ERP owns, for the company the key map pairs with its customer; applied as a replace against what that ERP wrote before, and ledgered, so detach takes them back. A company with no custom shared catalog of its own gets none, reported as skipped. The ERP's customer prices event applies one customer's set at once; `erp/prices` (POST `{ erpId? }`) publishes every customer's set from `GET contracts/in-force`. Demo Builder runs it after a fill, and running it again follows prices whose dates start or end, which raise no event. The cart, the listing and the product page all price from Commerce: no ERP is asked on a cart change, and a discount limit is the ERP's to enforce on the order (AB-26z, 2026-09-28) | `erp/prices`, `company-backoffice/contract-updated`, `src/lib/contract-prices.js` |
 | Products and companies → ERP | product created/updated and stock item events keep the ERP's products in step, each sending the product's stock at every inventory source; a company save sends that company as a business partner. Commerce raises no event for a quantity changed at a source outside the product page (its own Transfer, Import or a REST write), so moving stock between the ERP's warehouses goes through this app's **Move stock** mass action on the product grid, which tells the ERP at once | `product-commerce/*`, `stock-commerce/updated`, `company-commerce/saved`, `erp/move-stock` |
 | Filling the ERP | removed from this app (2026-09-27). Demo Builder fills the ERP from Commerce itself: after the add, inside its Reset records (this app's `erp/detach`, then the ERP's `admin/wipe`, then the fill), and as Load demo data. It asks this app for the resolved settings per website (`erp/settings?websites=`). The mirror, its worker, the reset action and the every-minute partner and stock refresh are gone | Demo Builder |
 | ERP → Commerce | the ERP publishes its events to the ingestion webhook; they are published to Adobe I/O Events and the handlers apply them: price and name → product, stock → source item, credit limit → company (ledgered), credit block → holds that ERP's orders of the company (never the company's own Active/Blocked switch, which reaches the ERP as its read-only website account), order status → comment / shipment / invoice / cancel | `ingestion/webhook`, `*-backoffice/*` |
@@ -36,10 +36,10 @@ in order histories, shipments, invoices and cancellations. ORDERS are the stated
 Commerce has no API to delete one, so the ERP's number is cleared from it instead. Any new
 ERP → Commerce write has to answer the same question before it ships: can Commerce undo it,
 and if so, where is it ledgered?
-| Settings | per website or store view, kept by App Management's business configuration: send orders, hold orders while offline, a status on confirm; and the **Structure** group below. On the Admin screen each one sits on the card of the entity it joins (the **Mapping** tab, below) | `erp/settings`, `src/lib/settings.js` |
+| Settings | per website or store view, kept by App Management's business configuration: send orders, hold orders while offline, a status on confirm; and the **Structure** group below. Edited in the Admin page's **Settings** section | `erp/settings`, `src/lib/settings.js` |
 | Structure | the business-structure mapping, owned by Commerce because the merchant's structure is: per website, the ERP sales organisation that sells through it (`structure_sales_org`, four letters or digits, default `1000`) and its name; per pair at Default Config, the prefix on ERP order numbers (`structure_order_prefix`, blank derives it from the ERP's name) and which products belong to this ERP (`structure_owns`: all · the products stocked in named inventory sources · the products whose attribute names this ERP, with `structure_owns_sources` / `structure_owns_attribute`). Text settings are validated on save (`src/lib/settings.js` `TEXT_RULES`). Demo Builder's fill and the product and stock events filter by ownership; the order carries the sales organisation | `app.commerce.config.ts`, `src/lib/structure.js` |
 | History and Retry | what crossed and how it ended, kept 14 days in App Builder State. One record per order sent to the ERP — sent, waiting for the ERP, or not sent (`src/lib/history.js`) — and one per ERP event applied to Commerce — applied, not applied yet, or refused — under the event's own id, recorded by wrapping each ERP event handler (`src/lib/erp-event-history.js`). Each counts its tries. From the Admin screen a person can send an order again (the same send, as new; the website's settings still apply) or hand a saved ERP event to its handler again | `erp/history` |
-| Commerce Admin screen | System → the ERP's name (`ERP_DISPLAY_NAME`, else "ERP integration"; Admin UI SDK). **Mapping**: one card per business concept the two systems share (buying organization, selling organization, sellable item, price, inventory position, credit, order, payment, fulfilment source), Commerce's records on the left, the ERP's on the right, the arrow saying which side owns each piece, the join in a sentence with the setting that makes it editable on the card, the card's other switches, the ERP's live figures and what has crossed each way; the Buying organization and Sellable item cards look up one company id or SKU as both systems hold it (`erp/lookup`). The settings are the mapping (`src/commerce-backend-ui-2/web-src/src/mapping-view.js`). **Status & sync**: health, counts, one order followed end to end, what crossed each way with a Retry on anything that did not get through | `src/commerce-backend-ui-2` |
+| Commerce Admin screen | Apps → the ERP's name → Integration (`ERP_DISPLAY_NAME`, else "ERP integration"; Admin UI SDK). Three sections: **Overview** (whether the ERP answers, what it holds, a company or SKU looked up in both systems with `erp/lookup`, the record controls), **Activity** (what crossed each way, with Retry, and one order followed end to end) and **Settings** (the settings above, per scope and, with several ERPs, per ERP). The Mapping view, one card per concept the two systems share, was removed from the page in ec40ca5 and is planned again (AB-26m) | `src/commerce-backend-ui-2` |
 
 No webhook: no ERP is asked while a buyer shops, so an ERP that is slow or away never breaks a
 cart. Orders are never held up at checkout: they reach the ERP after they are saved.
@@ -59,7 +59,7 @@ components against stand-in data (`preview/`) and serves it on 8978. It is the r
 the real components and the real build pipeline — only the answers are made up — so the
 layout can be checked without a Commerce Admin, a sign-in or a deployed app. Build it with
 Parcel, not another bundler: Spectrum's styles come from a build-time macro, and without it
-everything renders unstyled. `?tab=status` opens the other tab.
+everything renders unstyled. `?section=activity` or `?section=settings` opens that section.
 
 **Two ERPs on one Commerce.** Commerce knows an App Management app by its `metadata.id`, and
 the library names the app's webhooks and events from it. Demo Builder deploys a second copy
@@ -107,6 +107,7 @@ cron does not run), and where to look when one does not arrive: [`docs/eventing.
 | `be-observer.sales_order_hold` | `order-backoffice/hold` | asks the ERP `GET orders/{number}` first (rule M2); `GET orders/{id}`, `POST orders/{id}/hold` or `/unhold`, `POST orders/{id}/comments` |
 | `be-observer.company_credit_update` | `company-backoffice/credit-updated` | `GET companyCredits/company/{id}`, `PUT companyCredits/{id}` (ledgered) |
 | `be-observer.company_status_update` | `company-backoffice/status-updated` | `GET company/{id}`, `PUT company/{id}` (ledgered) |
+| `be-observer.company_contract_update` | `company-backoffice/contract-updated` | one customer's prices in force as tier prices: `GET company/{id}`, `GET sharedCatalog`, `GET customerGroups/{id}`, `POST products/tier-prices-information`, `POST products/tier-prices`, `POST products/tier-prices-delete` (ledgered) |
 
 **This app → Commerce, on its own** (the events above, move stock, detach): for a product or
 stock event, `GET inventory/source-items` for that SKU and `GET inventory/sources` (source names,
@@ -121,7 +122,7 @@ and `POST products/tier-prices-information`, and write `POST products/tier-price
 with a sparse `POST orders` (entity id + the one field) on every order the ERP numbered.
 
 **This app → the ERP**: `GET health`, `GET/PATCH settings`,
-`POST admin/import`, `POST orders`, `GET orders`, `GET orders/{number}`,
+`POST admin/import`, `GET contracts/in-force` (`erp/prices`), `POST orders`, `GET orders`, `GET orders/{number}`,
 `GET products/{sku}`, `GET partners`, `GET partners/{id}` (the Admin page's look-up), `DELETE products/{sku}`.
 
 **The pin.** [`contract/erp-contract.json`](contract/erp-contract.json) is the ERP's own
@@ -139,7 +140,7 @@ Two things Commerce needs that no API does:
    an order the ERP confirmed looks the same as one it never saw, unless it has a status of its
    own. In Admin: **Stores > Settings > Order Status**, create `erp_confirmed` ("Confirmed in
    ERP"), assign it to **Pending** (not as the default), then pick it for "Order status when the
-   ERP confirms" on this app's **Mapping** tab. Without it the confirmation is a note only.
+   ERP confirms" in this app's **Settings** section. Without it the confirmation is a note only.
 2. **A shared catalog of its own for each company that gets its own prices.** The ERP's
    contract prices are written as tier prices for the customer group of the company's custom
    shared catalog, so companies that share a group would share prices, and a company on the
@@ -165,7 +166,7 @@ run that teaches something new adds a row there in the same commit as the fix.
 **Giving the demo.** [`docs/walkthrough.md`](docs/walkthrough.md) walks the ERP screen by screen
 along the twenty-minute path, then Commerce from the other side, and closes with one table per
 business concept saying which screen on each side holds it and what joins them (the printable
-twin of the Admin page's Mapping tab).
+twin of the planned Mapping view, AB-26m).
 
 ## Inputs
 
