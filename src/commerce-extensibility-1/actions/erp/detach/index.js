@@ -8,6 +8,7 @@ import * as commerce from "#lib/commerce";
 import * as tierPrices from "#lib/commerce-tier-prices";
 import { detach } from "#lib/detach";
 import { erp } from "#lib/erp";
+import { loadErps } from "#lib/erps";
 import * as ledger from "#lib/ledger";
 
 /**
@@ -20,7 +21,15 @@ import * as ledger from "#lib/ledger";
 async function main(params) {
   const logger = AioLogger("erp-detach", { level: params.LOG_LEVEL || "info" });
   try {
-    const result = await detach(params, { commerce, erp, ledger, tierPrices });
+    // Every listed ERP's orders: detach undoes what the integration wrote for all of them.
+    const erps = await loadErps(params);
+    const result = await detach(params, {
+      commerce,
+      erp,
+      erps,
+      ledger,
+      tierPrices,
+    });
     logger.info(
       `detach: reverted ${result.reverted.reverted} Commerce change(s), cleared ${result.orders.cleared} order number(s)`,
     );

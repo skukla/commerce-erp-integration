@@ -12,9 +12,10 @@
  * no API to delete one, so the ERP's number is cleared instead — and an order the ERP
  * still holds for credit is taken off hold, since a hold is a state Commerce can undo.
  */
+import { paramsForErp } from "#adapters/contract";
 
 /**
- * @param {object} deps `{ commerce: { clearExtOrderId, unholdIfHeld, setCompanyCreditLimit, setCompanyStatus, setProductName, setProductPrice, setStock }, erp: { listOrders }, ledger: { revertLedger }, tierPrices: { revertTierPrice } }`
+ * @param {object} deps `{ erps?, commerce: { clearExtOrderId, unholdIfHeld, setCompanyCreditLimit, setCompanyStatus, setProductName, setProductPrice, setStock }, erp: { listOrders }, ledger: { revertLedger }, tierPrices: { revertTierPrice } }`
  * @returns {Promise<{ reverted: object, orders: { cleared: number, failed: object[] }, holds: { released: number, failed: object[] } }>}
  */
 export async function detach(params, deps) {
@@ -37,27 +38,59 @@ export async function detach(params, deps) {
   });
   const orders = { cleared: 0, failed: [] };
   const holds = { failed: [], released: 0 };
-  const listed = await erp.listOrders(params);
-  if (!listed.ok) {
-    orders.failed.push({
-      error: `ERP orders answered ${listed.status}`,
-      orderId: "*",
+  const cleared = new Set();
+  for (const target of erpTargets(params, deps.erps)) {
+    // biome-ignore lint/performance/noAwaitInLoops: one ERP at a time, few ERPs
+    const listed = await erp.listOrders(target.params);
+    if (!listed.ok) {
+      orders.failed.push({
+        error: `${target.label} orders answered ${listed.status}`,
+        orderId: "*",
+      });
+      continue;
+    }
+    await undoOrders(params, listed.data.items ?? [], commerce, {
+      cleared,
+      holds,
+      orders,
     });
-    return { holds, orders, reverted };
   }
-  for (const order of listed.data.items ?? []) {
+  return { holds, orders, reverted };
+}
+
+/**
+ * The ERPs whose orders detach reads. It undoes what the integration wrote for every ERP it
+ * serves, so with several ERPs each is read at its own address with its own credential; with one,
+ * the integration's own params, as before.
+ */
+function erpTargets(params, erps) {
+  if (!erps || erps.length <= 1) {
+    return [{ label: "ERP", params }];
+  }
+  return erps.map((entry) => ({
+    label: entry.name,
+    params: paramsForErp(params, entry),
+  }));
+}
+
+/** Clear each order's ERP number once, and take off hold what the ERP holds for credit. */
+async function undoOrders(params, items, commerce, { cleared, holds, orders }) {
+  for (const order of items) {
     if (!order.commerceOrderId) {
       continue;
     }
-    try {
-      // biome-ignore lint/performance/noAwaitInLoops: one order at a time, in order
-      await commerce.clearExtOrderId(params, order.commerceOrderId);
-      orders.cleared += 1;
-    } catch (error) {
-      orders.failed.push({
-        error: error.message,
-        orderId: order.commerceOrderId,
-      });
+    if (!cleared.has(order.commerceOrderId)) {
+      cleared.add(order.commerceOrderId);
+      try {
+        // biome-ignore lint/performance/noAwaitInLoops: one order at a time, in order
+        await commerce.clearExtOrderId(params, order.commerceOrderId);
+        orders.cleared += 1;
+      } catch (error) {
+        orders.failed.push({
+          error: error.message,
+          orderId: order.commerceOrderId,
+        });
+      }
     }
     if (order.creditStatus !== "held") {
       continue;
@@ -73,5 +106,4 @@ export async function detach(params, deps) {
       });
     }
   }
-  return { holds, orders, reverted };
 }
