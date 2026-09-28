@@ -178,10 +178,10 @@ prices:
   annotations:
     require-adobe-auth: true
     final: true
-# The same publish once a day, started by the erp-prices-daily-timer alarm (ext.config.yaml),
+# The same publish every hour, started by the erp-prices-hourly-timer alarm (ext.config.yaml),
 # so a price line's start or end date takes effect. Not web: a timer carries no sign-in.
-prices-daily:
-  function: ./prices-daily/index.js
+prices-scheduled:
+  function: ./prices-scheduled/index.js
   web: 'no'
   runtime: nodejs:24
   limits:

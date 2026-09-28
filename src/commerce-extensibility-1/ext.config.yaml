@@ -60,18 +60,22 @@ runtimeManifest:
       actions:
         $include: ./actions/erp/actions.config.yaml
       # The ERP raises no event when a price line's start or end date arrives, so every ERP's
-      # prices in force are published again each day, at 00:10 UTC (erp/prices-daily). The
-      # alarm feed with a cron schedule: /whisk.system/alarms/alarm. No maxTriggers: it
-      # would stop the schedule after that many runs.
+      # prices in force are published again every hour, at five past (erp/prices-scheduled).
+      # Hourly, not daily: I/O Runtime evaluates cron in UTC only and ignores any timezone
+      # (developer.adobe.com/app-builder/docs/resources/cron-jobs/lesson3), so one daily run
+      # lands a dated price hours away from its day somewhere; hourly makes it take effect
+      # within the hour. The publish is a replace that writes only changes. The alarm feed
+      # with a cron schedule: /whisk.system/alarms/alarm. No maxTriggers: it would stop the
+      # schedule after that many runs.
       triggers:
-        erp-prices-daily-timer:
+        erp-prices-hourly-timer:
           feed: /whisk.system/alarms/alarm
           inputs:
-            cron: "10 0 * * *"
+            cron: "5 * * * *"
       rules:
-        erp-prices-daily-on-timer:
-          trigger: erp-prices-daily-timer
-          action: prices-daily
+        erp-prices-hourly-on-timer:
+          trigger: erp-prices-hourly-timer
+          action: prices-scheduled
 
     # This package definition is auto-generated. Do not remove or manually edit.
     app-management:

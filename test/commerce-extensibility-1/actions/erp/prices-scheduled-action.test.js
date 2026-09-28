@@ -1,8 +1,9 @@
 /*
- * erp/prices-daily: the action a daily alarm trigger starts (ext.config.yaml, shortly after
- * midnight UTC). The ERP raises no event when a price line's start or end date arrives, so
- * this is what makes the date take effect: every ERP's prices in force are published again,
- * as erp/prices does. A publish is a replace, so a second run the same day changes nothing.
+ * erp/prices-scheduled: the action an hourly alarm trigger starts (ext.config.yaml, five past
+ * each hour; Runtime reads cron in UTC only). The ERP raises no event when a price line's
+ * start or end date arrives, so this is what makes the date take effect, within the hour:
+ * every ERP's prices in force are published again, as erp/prices does. A publish is a
+ * replace that writes only changes, so the runs in between change nothing.
  * The trigger carries no Adobe sign-in and no HTTP method; the handler is tested, not the
  * trigger.
  */
@@ -21,7 +22,7 @@ vi.mock("#lib/contract-prices", async (importOriginal) => ({
 import { publishErpPrices } from "#lib/contract-prices";
 import { erp } from "#lib/erp";
 import { loadErps } from "#lib/erps";
-import { main } from "#src/erp/prices-daily/index";
+import { main } from "#src/erp/prices-scheduled/index";
 
 const ERP = (id, baseUrl) => ({
   adapter: "demo-erp",
@@ -46,10 +47,10 @@ beforeEach(() => {
 });
 afterEach(() => vi.clearAllMocks());
 
-describe("Given the daily alarm", () => {
+describe("Given the hourly alarm", () => {
   test("Then every ERP's prices in force are published, with the trigger's payload and no method", async () => {
     const res = await main({
-      triggerName: "/ns/erp-prices-daily-timer",
+      triggerName: "/ns/erp-prices-hourly-timer",
       type: "scheduled",
     });
     expect(res.statusCode).toBe(200);
@@ -77,27 +78,27 @@ describe("Given the daily alarm", () => {
 });
 
 const MAX_TRIGGERS_KEY = /^\s*maxTriggers:/mu;
-const DAILY_NOT_WEB =
-  /prices-daily:\n {2}function: \.\/prices-daily\/index\.js\n {2}web: 'no'/u;
+const SCHEDULED_NOT_WEB =
+  /prices-scheduled:\n {2}function: \.\/prices-scheduled\/index\.js\n {2}web: 'no'/u;
 
 describe("Given the schedule as deployed", () => {
   // Read as text: the trigger itself is Runtime's, but a rule naming a missing action, a
   // web action a timer cannot call, or a maxTriggers that ends the schedule would fail
   // silently after deploy.
-  test("Then a daily alarm shortly after midnight UTC starts the non-web erp/prices-daily", () => {
+  test("Then an hourly alarm, five past each hour, starts the non-web erp/prices-scheduled", () => {
     const ext = readFileSync(
       "src/commerce-extensibility-1/ext.config.yaml",
       "utf8",
     );
     expect(ext).toContain("feed: /whisk.system/alarms/alarm");
-    expect(ext).toContain('cron: "10 0 * * *"');
-    expect(ext).toContain("trigger: erp-prices-daily-timer");
-    expect(ext).toContain("action: prices-daily");
+    expect(ext).toContain('cron: "5 * * * *"');
+    expect(ext).toContain("trigger: erp-prices-hourly-timer");
+    expect(ext).toContain("action: prices-scheduled");
     expect(ext).not.toMatch(MAX_TRIGGERS_KEY);
     const actions = readFileSync(
       "src/commerce-extensibility-1/actions/erp/actions.config.yaml",
       "utf8",
     );
-    expect(actions).toMatch(DAILY_NOT_WEB);
+    expect(actions).toMatch(SCHEDULED_NOT_WEB);
   });
 });
