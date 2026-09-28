@@ -143,6 +143,17 @@ export const erp = {
       path: "/import",
       timeoutMs: 60_000,
     }),
+  /**
+   * Today's contract prices in force (contract version 6): `{ items: [{ partnerId, lines }] }`
+   * for every customer with a line, or exactly one customer's with `partnerId`.
+   */
+  inForce: (params, partnerId, timeoutMs) =>
+    erpRequest(params, "contracts", {
+      path: partnerId
+        ? `/in-force?partnerId=${encodeURIComponent(partnerId)}`
+        : "/in-force",
+      timeoutMs,
+    }),
   listOrders: (params) => erpRequest(params, "orders"),
   /** One sales order by its ERP number, with the ERP's own status history. */
   order: (params, number, timeoutMs) =>

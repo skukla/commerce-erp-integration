@@ -157,3 +157,24 @@ resend-part:
   annotations:
     require-adobe-auth: true
     final: true
+# ERP contract prices into the companies' shared catalogs (AB-26z): Demo Builder calls it
+# after a fill; running it again follows prices whose dates start or end.
+prices:
+  function: ./prices/index.js
+  web: 'yes'
+  runtime: nodejs:24
+  limits:
+    timeout: 300000
+  inputs:
+    LOG_LEVEL: $LOG_LEVEL
+    AIO_COMMERCE_AUTH_IMS_CLIENT_ID: $AIO_COMMERCE_AUTH_IMS_CLIENT_ID
+    AIO_COMMERCE_AUTH_IMS_CLIENT_SECRETS: $AIO_COMMERCE_AUTH_IMS_CLIENT_SECRETS
+    AIO_COMMERCE_AUTH_IMS_TECHNICAL_ACCOUNT_ID: $AIO_COMMERCE_AUTH_IMS_TECHNICAL_ACCOUNT_ID
+    AIO_COMMERCE_AUTH_IMS_TECHNICAL_ACCOUNT_EMAIL: $AIO_COMMERCE_AUTH_IMS_TECHNICAL_ACCOUNT_EMAIL
+    AIO_COMMERCE_AUTH_IMS_ORG_ID: $AIO_COMMERCE_AUTH_IMS_ORG_ID
+    AIO_COMMERCE_AUTH_IMS_SCOPES: $AIO_COMMERCE_AUTH_IMS_SCOPES
+    ERP_BASE_URL: $ERP_BASE_URL
+    ERP_DISPLAY_NAME: $ERP_DISPLAY_NAME
+  annotations:
+    require-adobe-auth: true
+    final: true
