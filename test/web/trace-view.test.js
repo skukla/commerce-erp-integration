@@ -112,4 +112,58 @@ describe("Given one order's trace", () => {
         "Order 000000042 is Northwind ERP order 0000001042: confirmed there.",
     );
   });
+
+  // Several ERPs: one order in parts, so no one ERP's name or number can answer for it.
+  test("Then a split order's headline names each ERP's part, and the one still waiting", () => {
+    expect(
+      traceHeadline(
+        {
+          commerceStatus: "processing",
+          erpNumber: "0000001000",
+          erpStatus: "created",
+          erps: [
+            {
+              name: "Northwind ERP",
+              number: "0000001000",
+              part: "sent",
+              status: "created",
+            },
+            { name: "Contoso ERP", number: null, part: "held", status: null },
+          ],
+          incrementId: "3000000022",
+          reachedErp: true,
+        },
+        "Northwind ERP",
+      ),
+    ).toBe(
+      "Order 3000000022 is in 2 parts, processing in Commerce. " +
+        "Northwind ERP order 0000001000: created there. " +
+        "Contoso ERP: its part waits (held).",
+    );
+  });
+
+  test("Then a part whose ERP did not answer is not said to be missing", () => {
+    expect(
+      traceHeadline(
+        {
+          erps: [
+            { name: "Northwind ERP", number: "1", part: "sent", status: null },
+            {
+              name: "Contoso ERP",
+              number: "2",
+              part: "sent",
+              status: "shipped",
+            },
+          ],
+          incrementId: "42",
+          reachedErp: true,
+        },
+        "Northwind ERP",
+      ),
+    ).toBe(
+      "Order 42 is in 2 parts. " +
+        "Northwind ERP order 1: Northwind ERP did not answer for it. " +
+        "Contoso ERP order 2: shipped there.",
+    );
+  });
 });

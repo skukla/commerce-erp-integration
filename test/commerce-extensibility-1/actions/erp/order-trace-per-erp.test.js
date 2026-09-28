@@ -22,6 +22,7 @@ vi.mock("#lib/commerce", () => ({ getOrderByIncrementId: vi.fn() }));
 import { getOrderByIncrementId } from "#lib/commerce";
 import { resetErpTokenCache } from "#lib/erp";
 import { resetErpsClient } from "#lib/erps";
+import { readHistory } from "#lib/history";
 import { resetOrderPartsClient, writeOrderParts } from "#lib/order-parts";
 import { main } from "#src/erp/history/index";
 
@@ -91,8 +92,18 @@ describe("Given an order two ERPs share", () => {
       "Contoso ERP created sales order 0000002000",
     ]);
     expect(result.summary.erps).toEqual([
-      { name: "Northwind ERP", number: "0000001000", status: "created" },
-      { name: "Contoso ERP", number: "0000002000", status: "created" },
+      {
+        name: "Northwind ERP",
+        number: "0000001000",
+        part: "sent",
+        status: "created",
+      },
+      {
+        name: "Contoso ERP",
+        number: "0000002000",
+        part: "sent",
+        status: "created",
+      },
     ]);
     expect(result.summary.reachedErp).toBe(true);
   });
@@ -106,5 +117,51 @@ describe("Given an order two ERPs share", () => {
       ["contoso-client", `${B}/0000002000`],
     ]);
     expect(result.summary.erpNumber).toBe("0000002000");
+  });
+
+  // Bodea 2026-09-28, order 3000000022: Northwind took its part, Contoso's waited. The one
+  // send step read "Waiting for Northwind ERP" while its detail named Contoso: the label took
+  // the name of the ERPs holding a sales order (only Northwind), not the ERP that waited.
+  test("Then the send is one step per part, each naming its own ERP and why it waits", async () => {
+    const waits =
+      "Contoso ERP blocks this company; its lines wait until it lifts the block.";
+    await writeOrderParts(ORDER, {
+      parts: {
+        contoso: { message: waits, status: "held" },
+        erp: {
+          erpNumber: "0000001000",
+          message: "Order sent to Northwind ERP as 0000001000.",
+          status: "sent",
+        },
+      },
+    });
+    readHistory.mockResolvedValueOnce([
+      {
+        attempts: 1,
+        direction: "to-erp",
+        firstAt: "2026-09-28T09:00:05Z",
+        kind: "order",
+        lastAt: "2026-09-28T09:00:05Z",
+        message: `Order sent to Northwind ERP as 0000001000. ${waits}`,
+        outcome: "held",
+        ref: ORDER,
+      },
+    ]);
+    const sends = (await trace()).steps
+      .filter((s) => s.where === "integration")
+      .map((s) => ({ detail: s.detail, what: s.what }));
+    expect(sends).toEqual([
+      {
+        detail: "Order sent to Northwind ERP as 0000001000.",
+        what: "Sent to Northwind ERP",
+      },
+      { detail: waits, what: "Waiting for Contoso ERP" },
+    ]);
+    expect(
+      (await trace()).summary.erps.map(({ name, part }) => [name, part]),
+    ).toEqual([
+      ["Northwind ERP", "sent"],
+      ["Contoso ERP", "held"],
+    ]);
   });
 });

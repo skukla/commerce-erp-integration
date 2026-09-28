@@ -11,6 +11,13 @@ const WHERE = {
   integration: "Integration",
 };
 
+/** How a part not yet with its ERP stands, by its status (lib/order-parts.js). */
+const PART_WAITS = {
+  failed: "was not taken (failed)",
+  held: "waits (held)",
+  sending: "is being sent",
+};
+
 /** The outcomes that mean a step did not get through (lib/history.js keeps the same set). */
 const NOT_THROUGH = new Set(["held", "dropped", "failed", "refused"]);
 
@@ -49,7 +56,32 @@ export function traceHeadline(summary, erpName) {
     summary.commerceAnswered === false
       ? "Commerce did not answer, so its part of this order is missing. "
       : "";
-  return missing + erpHeadline(summary, erpName);
+  const erps = summary.erps ?? [];
+  return (
+    missing +
+    (erps.length > 1
+      ? partsHeadline(summary, erps)
+      : erpHeadline(summary, erpName))
+  );
+}
+
+/** What each ERP's part says, with several ERPs: one sentence per part, in list order. */
+function partsHeadline(summary, erps) {
+  const inCommerce = summary.commerceStatus
+    ? `, ${summary.commerceStatus} in Commerce`
+    : "";
+  const each = erps.map((side) => {
+    if (!side.number) {
+      return `${side.name}: its part ${PART_WAITS[side.part] ?? `is ${side.part}`}.`;
+    }
+    return side.status
+      ? `${side.name} order ${side.number}: ${side.status} there.`
+      : `${side.name} order ${side.number}: ${side.name} did not answer for it.`;
+  });
+  return [
+    `Order ${summary.incrementId} is in ${erps.length} parts${inCommerce}.`,
+    ...each,
+  ].join(" ");
 }
 
 /** What the ERP half says about the order. */

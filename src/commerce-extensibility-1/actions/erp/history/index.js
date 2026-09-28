@@ -14,6 +14,7 @@ import { HANDLER_ACTIONS, readErpEvent } from "#lib/erp-event-history";
 import { loadErps } from "#lib/erps";
 import { readHistory, recordOrderOutcome } from "#lib/history";
 import { orderSyncDeps } from "#lib/order-deps";
+import { readOrderParts } from "#lib/order-parts";
 import { retryOrderToErp } from "#lib/order-sync";
 import { buildOrderTrace } from "#lib/order-trace";
 import { splitExtOrderId } from "#lib/structure";
@@ -178,7 +179,10 @@ function askForOrder(erpParams, erpNumber, logger) {
  * for its own sales order, at its own address with its own credential (AB-16h).
  */
 async function traceAcrossErps(params, erps, incrementId, logger) {
-  const side = await readCommerceSide(params, incrementId, logger);
+  const [side, record] = await Promise.all([
+    readCommerceSide(params, incrementId, logger),
+    readOrderParts(incrementId),
+  ]);
   const holders = await orderHolders(params, erps, {
     byReference: (erpParams) =>
       erpNumberByReference(erpParams, incrementId, logger),
@@ -205,7 +209,15 @@ async function traceAcrossErps(params, erps, incrementId, logger) {
     erpName: holders.map(({ entry }) => entry.name).join(" and ") || "the ERPs",
     erpOrders,
     incrementId,
+    parts: partsOf(record, erps),
   });
+}
+
+/** The order's parts in list order, each with its ERP's name (for one send step per part). */
+function partsOf(record, erps) {
+  return erps
+    .filter((entry) => record.parts[entry.id])
+    .map((entry) => ({ ...record.parts[entry.id], erpName: entry.name }));
 }
 
 /** The ERP's number for the order carrying this reference, or undefined. Never throws. */

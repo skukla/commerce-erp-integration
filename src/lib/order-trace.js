@@ -75,6 +75,35 @@ function sendStep(crossing, erpName) {
   );
 }
 
+/** How one part's send reads, by the part's status (lib/order-parts.js). */
+function partWhat(part) {
+  const name = part.erpName;
+  if (part.status === "failed") {
+    return part.refused ? `Refused by ${name}` : `Not taken by ${name}`;
+  }
+  const what = {
+    cancelled: `Cancelled by ${name}`,
+    held: `Waiting for ${name}`,
+    sending: `Sending to ${name}`,
+  };
+  return what[part.status] ?? `Sent to ${name}`;
+}
+
+/**
+ * With several ERPs, the order's send as one step per part, each naming its own ERP and saying
+ * why it waits: the order's one history record speaks for every part at once, so its words
+ * cannot name the ERP a part waits for (Bodea 2026-09-28, order 3000000022).
+ */
+function partSteps(crossing, parts) {
+  return parts.map((part) =>
+    step(crossing.lastAt, "integration", partWhat(part), {
+      message: part.message,
+      outcome: part.status,
+      ref: crossing.ref,
+    }),
+  );
+}
+
 /** One ERP event coming back, as one step — applied to Commerce, or not. */
 function returnStep(crossing) {
   const subject = CROSSING_SUBJECT[crossing.kind] ?? "Update";
@@ -110,6 +139,8 @@ function erpSteps(erpOrder, erpName) {
  * @param {Array<{erpName: string, erpOrder: object|null, number: string}>} [input.erpOrders] -
  *   with several ERPs, each ERP holding a part of the order and its sales order (null when it
  *   did not answer); `erpOrder` is then the first that answered
+ * @param {Array<{erpName: string, status: string, message?: string, refused?: boolean}>} [input.parts] -
+ *   with several ERPs, the order's parts in list order: the order's send is then one step per part
  * @returns {{summary: object, steps: object[]}} the summary, and the steps oldest first
  */
 export function buildOrderTrace({
@@ -120,6 +151,7 @@ export function buildOrderTrace({
   erpOrder: oneErpOrder,
   erpOrders,
   incrementId,
+  parts,
 }) {
   const sides = erpOrders ?? [{ erpName, erpOrder: oneErpOrder }];
   const erpOrder = sides.find((side) => side.erpOrder)?.erpOrder ?? null;
@@ -134,11 +166,13 @@ export function buildOrderTrace({
     );
   }
   for (const crossing of crossings ?? []) {
-    steps.push(
-      crossing.direction === "to-erp"
-        ? sendStep(crossing, erpName)
-        : returnStep(crossing),
-    );
+    if (crossing.direction !== "to-erp") {
+      steps.push(returnStep(crossing));
+    } else if (crossing.kind === "order" && parts?.length > 0) {
+      steps.push(...partSteps(crossing, parts));
+    } else {
+      steps.push(sendStep(crossing, erpName));
+    }
   }
   for (const side of sides) {
     steps.push(...erpSteps(side.erpOrder, side.erpName));
@@ -161,9 +195,31 @@ export function buildOrderTrace({
         commerceOrder?.increment_id ??
         (commerceUnavailable ? (incrementId ?? null) : null),
       reachedErp: Boolean(erpOrder),
-      ...(erpOrders ? { erps: erpOrders.map(erpSummary) } : {}),
+      ...erpsSummary(erpOrders, parts),
     },
   };
+}
+
+/**
+ * With several ERPs, each ERP's side of the order: every part in list order when the parts are
+ * known (so a part no ERP has taken yet is named too, with its status as `part`), else each ERP
+ * holding the order.
+ */
+function erpsSummary(erpOrders, parts) {
+  if (parts?.length > 0) {
+    return {
+      erps: parts.map((part) => {
+        const side = erpOrders?.find((s) => s.erpName === part.erpName);
+        return {
+          ...erpSummary(side ?? { erpName: part.erpName }),
+          number:
+            side?.erpOrder?.number ?? side?.number ?? part.erpNumber ?? null,
+          part: part.status,
+        };
+      }),
+    };
+  }
+  return erpOrders ? { erps: erpOrders.map(erpSummary) } : {};
 }
 
 /** One ERP's side of a split order, for the summary. */
