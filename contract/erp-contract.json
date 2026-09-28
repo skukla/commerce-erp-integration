@@ -1,6 +1,6 @@
 {
   "name": "demo-erp",
-  "contractVersion": 3,
+  "contractVersion": 4,
   "description": "What the ERP promises its subscribers: the routes it serves, the shapes it accepts, and the events it publishes. The Commerce integration vendors this file and its tests fail when the two disagree.",
   "routes": {
     "health": ["GET"],
@@ -66,6 +66,7 @@
   "delivery": {
     "webhookPath": "/api/v1/web/ingestion/webhook",
     "body": { "data": ["uid", "event", "value"] },
-    "maxAttempts": 10
+    "maxAttempts": 10,
+    "erpId": "version 4: every delivered event's value carries erpId, the id the integration's ERP list gives this ERP (set at deploy as ERP_ID), when the ERP was deployed with one. An event without erpId is the single ERP's. The integration matches an order message to that ERP's part and a customer message to that ERP's key-map pairs"
   }
 }

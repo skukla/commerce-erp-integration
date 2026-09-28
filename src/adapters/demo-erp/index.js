@@ -21,6 +21,7 @@ export function sendPart(params, part, deps) {
     ERP_DISPLAY_NAME: part.erp.name,
   };
   return sendOrderToErp(ownParams, { ...part.order, items: part.lines }, deps, {
+    erpId: part.erp.id,
     shared: true,
   });
 }

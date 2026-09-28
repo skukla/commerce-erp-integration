@@ -9,13 +9,16 @@ import { listWebsites, readCompanyRow } from "#lib/commerce";
 import { COMMERCE_EVENTS, originOf } from "#lib/commerce-events";
 import { companyToErp } from "#lib/company-sync";
 import { erp } from "#lib/erp";
+import { loadErps, SINGLE_ERP_ID } from "#lib/erps";
 import { erpCustomerOf, pairCustomer } from "#lib/key-map";
 import { websiteSettings } from "#lib/settings";
 
 /**
- * observer.company_save_commit_after: a company created or changed in Commerce becomes the
- * ERP's business partner (lib/company-sync.js). A failure answers 500 so I/O Events
- * delivers the event again.
+ * observer.company_save_commit_after: a company created or changed in Commerce becomes a
+ * business partner in every ERP the integration serves (lib/company-sync.js), paired per ERP
+ * in the key map (a company buying from several brands is a customer in each brand's ERP).
+ * A failure answers 500 so I/O Events delivers the event again; an ERP that already has the
+ * company is updated, not duplicated.
  */
 async function main(params) {
   const logger = AioLogger("company-commerce-saved", {
@@ -27,24 +30,44 @@ async function main(params) {
     return badRequest("the company event carries no company id");
   }
   try {
-    const partner = await companyToErp(
-      params,
-      companyId,
-      originOf(COMMERCE_EVENTS.companySaved, params),
-      {
-        erpCustomerOf,
-        importRecords: erp.importRecords,
-        listWebsites,
-        pairCustomer,
-        readCompanyRow,
-        websiteSettings: (code) => websiteSettings(code, logger),
-      },
+    const erps = await loadErps(params);
+    const partners = [];
+    for (const entry of erps) {
+      // biome-ignore lint/performance/noAwaitInLoops: one ERP at a time, each paired as it lands
+      const partner = await companyToErp(
+        paramsFor(params, entry, erps.length),
+        companyId,
+        originOf(COMMERCE_EVENTS.companySaved, params),
+        {
+          erpCustomerOf: (id) => erpCustomerOf(id, entry.id),
+          importRecords: erp.importRecords,
+          listWebsites,
+          pairCustomer: (id, number) => pairCustomer(id, number, entry.id),
+          readCompanyRow,
+          websiteSettings: (code) => websiteSettings(code, logger),
+        },
+      );
+      partners.push(`${partner.id} in ${entry.name}`);
+    }
+    return ok(
+      `Company ${companyId} is business partner ${partners.join(", ")}`,
     );
-    return ok(`Company ${companyId} is business partner ${partner.id}`);
   } catch (error) {
     logger.error(`company ${companyId} not sent: ${error.message}`);
     return internalServerError(error.message);
   }
+}
+
+/** The params an ERP is called with: its own address when there are several. */
+function paramsFor(params, entry, count) {
+  if (count === 1 && entry.id === SINGLE_ERP_ID) {
+    return params;
+  }
+  return {
+    ...params,
+    ERP_BASE_URL: entry.connection?.baseUrl ?? params.ERP_BASE_URL,
+    ERP_DISPLAY_NAME: entry.name,
+  };
 }
 
 export { main };

@@ -110,3 +110,14 @@ keymap:
   annotations:
     require-adobe-auth: true
     final: true
+erps:
+  function: ./erps/index.js
+  web: 'yes'
+  runtime: nodejs:24
+  inputs:
+    LOG_LEVEL: $LOG_LEVEL
+    ERP_BASE_URL: $ERP_BASE_URL
+    ERP_DISPLAY_NAME: $ERP_DISPLAY_NAME
+  annotations:
+    require-adobe-auth: true
+    final: true

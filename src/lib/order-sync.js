@@ -104,12 +104,15 @@ async function hasOwnedLine(params, order, settings, deps) {
  * back to its other hints, and a wrong company is worse than the walk-in partner.
  */
 /** The ERP customer the key map pairs with the buyer's company, or null (not paired, or unreadable). */
-async function erpCustomerFor(commerceCompanyId, order, deps) {
+async function erpCustomerFor(commerceCompanyId, order, deps, erpId) {
   if (!deps.erpCustomerOf || commerceCompanyId === null) {
     return null;
   }
   try {
-    return await deps.erpCustomerOf(commerceCompanyId);
+    // A part names its own ERP (several ERPs): the company is a customer in each of them.
+    return await (erpId
+      ? deps.erpCustomerOf(commerceCompanyId, erpId)
+      : deps.erpCustomerOf(commerceCompanyId));
   } catch (error) {
     deps.logger?.warn(
       `order ${order.increment_id}: key map not read: ${error.message}`,
@@ -247,7 +250,8 @@ async function partTaken(params, found, label, erpName, number, deps) {
  * @param {object} params action params (ERP and Commerce credentials)
  * @param {object} order the event's `data.value`
  * @param {object} deps `{ erp, findOrder, setExtOrderId, addNote, settingsFor, ownsSku?, recordProgress?, logger }`
- * @param {{ shared?: boolean }} [options] `shared`: this is one ERP's part of an order several
+ * @param {{ shared?: boolean, erpId?: string }} [options] `erpId`: the ERP this part goes to,
+ *   whose customer the buyer is (several ERPs). `shared`: this is one ERP's part of an order several
  *   ERPs share (src/router/route-order.js). The router already chose its lines, and the
  *   order's one ERP number field is not this part's to read or write.
  * @returns {Promise<{ outcome: "sent"|"skipped"|"held"|"dropped"|"failed", statusCode: number, message: string, erpNumber?: string }>}
@@ -261,7 +265,12 @@ export async function sendOrderToErp(params, order, deps, options = {}) {
   const { found, label, settings } = ready;
 
   const commerceCompanyId = await companyOf(params, order, deps);
-  const partnerId = await erpCustomerFor(commerceCompanyId, order, deps);
+  const partnerId = await erpCustomerFor(
+    commerceCompanyId,
+    order,
+    deps,
+    options.erpId,
+  );
   const erpName = params?.ERP_DISPLAY_NAME || "the ERP";
   // Say the handover has started BEFORE the ERP is called (D8, 2026-09-25): a run that dies
   // after the ERP took the order used to leave no record at all, so the Admin screen said

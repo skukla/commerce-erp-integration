@@ -165,10 +165,25 @@ async function routeToSeveral(params, order, deps, erps) {
  * @param {object} params action params
  * @param {object} order the Commerce order the event carries
  * @param {object} deps the collaborators the adapters send with (lib/order-deps.js)
- * @param {import("#adapters/contract").ErpEntry[]} [erps] the ERP list
+ * @param {import("#adapters/contract").ErpEntry[]} [erps] the ERP list; else the one
+ *   `deps.loadErps` answers, else the single ERP from the settings
  * @returns {Promise<import("#adapters/contract").PartOutcome>}
  */
-export function routeOrder(params, order, deps, erps = listErps(params)) {
+export function routeOrder(params, order, deps, erps) {
+  if (erps) {
+    return routeOver(params, order, deps, erps);
+  }
+  // The stored list (Demo Builder writes it, slice B3a), when the collaborators can load it;
+  // a list that cannot be read fails the delivery rather than routing to the wrong ERP.
+  if (deps?.loadErps) {
+    return deps
+      .loadErps(params)
+      .then((list) => routeOver(params, order, deps, list));
+  }
+  return routeOver(params, order, deps, listErps(params));
+}
+
+function routeOver(params, order, deps, erps) {
   const [first] = erps;
   if (erps.length === 1 || !order?.increment_id) {
     // One ERP, or the save that only wrote an ERP number back: exactly today's send.

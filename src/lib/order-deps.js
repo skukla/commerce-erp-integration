@@ -13,6 +13,7 @@ import {
   sourceCodesOf,
 } from "#lib/commerce";
 import { erp } from "#lib/erp";
+import { loadErps } from "#lib/erps";
 import { recordOrderOutcome } from "#lib/history";
 import { erpCustomerOf } from "#lib/key-map";
 import { settingsFor } from "#lib/settings";
@@ -31,6 +32,7 @@ export function orderSyncDeps(logger) {
     erpCustomerOf,
     findOrder: findOrderByIncrementId,
     getOrder: getOrderByIncrementId,
+    loadErps,
     logger,
     ownsSku: (p, sku, settings) =>
       ownsSku(p, sku, settings, { productAttributes, sourceCodesOf }),

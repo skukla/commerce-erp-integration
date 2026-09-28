@@ -8,7 +8,7 @@
  * With one ERP there are no parts: nothing is read or recorded, and the handlers act on the
  * whole order exactly as before routing existed.
  */
-import { adapterFor, erpById, listErps } from "#lib/erps";
+import { adapterFor, erpById, loadErps } from "#lib/erps";
 import { readOrderParts, writeOrderParts } from "#lib/order-parts";
 import { applyCombinedStatus } from "#router/combined-status";
 import { addComment } from "#src/order/commerce-order-api-client";
@@ -34,16 +34,12 @@ export function findPart(record, { erpId, erpNumber }) {
  * @param {object} params action params
  * @param {"hold"|"cancel"|"invoice"|"shipment"|"order-status"} type the message's kind
  * @param {object} data the message's data
- * @param {object[]} [erps] the ERP list
+ * @param {object[]} [erpsGiven] the ERP list; else the stored one (lib/erps.js loadErps)
  * @returns {Promise<null | { matched: false, reason: string } | { matched: true, erp: object, part: object, record: object, outcome: object }>}
  *   null with one ERP (the caller acts on the whole order)
  */
-export async function recordPartMessage(
-  params,
-  type,
-  data,
-  erps = listErps(params),
-) {
+export async function recordPartMessage(params, type, data, erpsGiven) {
+  const erps = erpsGiven ?? (await loadErps(params));
   if (erps.length <= 1) {
     return null;
   }
