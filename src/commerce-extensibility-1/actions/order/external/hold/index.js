@@ -8,15 +8,9 @@ import AioLogger from "@adobe/aio-lib-core-logging";
 import { erp } from "#lib/erp";
 import { recordingErpEvent } from "#lib/erp-event-history";
 import { stringParameters } from "#lib/utils";
-import {
-  addComment,
-  getOrder,
-  holdOrder,
-  unholdOrder,
-} from "#src/order/commerce-order-api-client";
-
-/** Commerce's state word for an order On Hold. */
-const HOLDED = "holded";
+import { setWholeOrderHold } from "#router/combined-status";
+import { handlePartMessage } from "#router/part-outcomes";
+import { addComment } from "#src/order/commerce-order-api-client";
 
 /**
  * be-observer.sales_order_hold: the ERP created a sales order and held it for credit
@@ -27,6 +21,10 @@ const HOLDED = "holded";
  * Before writing, the handler asks ITS OWN ERP whether it holds the order (rule M2 of
  * the multi-ERP review): an event about an order this ERP does not know, or one whose
  * credit status disagrees with the event, is refused rather than applied.
+ *
+ * With several ERPs the hold is one ERP's part: the router records it and writes the
+ * combined status (router/combined-status.js), so one ERP's release never lifts another's
+ * hold. The per-ERP M2 check needs the event to name its ERP (slice B3).
  */
 /**
  * The event's fields the handler needs, or the refusal for what is missing.
@@ -69,15 +67,8 @@ async function ownErpDisagrees(params, event) {
 
 /** Put the order On Hold or take it off, then say so in its history. Idempotent on redelivery. */
 async function apply(params, event) {
-  const order = await getOrder(params, event.orderId);
-  const onHold = order?.state === HOLDED;
   const erpNote = ` (ERP sales order ${event.erpNumber})`;
-  if (event.held && !onHold) {
-    await holdOrder(params, event.orderId);
-  }
-  if (!event.held && onHold) {
-    await unholdOrder(params, event.orderId);
-  }
+  await setWholeOrderHold(params, event.orderId, event.held);
   const reason =
     typeof event.reason === "string" && event.reason ? `: ${event.reason}` : "";
   await addComment(params, event.orderId, {
@@ -103,6 +94,15 @@ async function handle(params) {
     return badRequest(refusal);
   }
   try {
+    const part = await handlePartMessage(
+      params,
+      "hold",
+      params.data,
+      event.orderId,
+    );
+    if (part) {
+      return part.matched ? ok(part.message) : badRequest(part.reason);
+    }
     const disagreement = await ownErpDisagrees(params, event);
     if (disagreement) {
       return badRequest(disagreement);

@@ -8,6 +8,8 @@ import AioLogger from "@adobe/aio-lib-core-logging";
 
 import { recordingErpEvent } from "#lib/erp-event-history";
 import { stringParameters } from "#lib/utils";
+import { applyCombinedStatus } from "#router/combined-status";
+import { recordPartMessage } from "#router/part-outcomes";
 
 import { postProcess } from "./post.js";
 import { preProcess } from "./pre.js";
@@ -48,6 +50,11 @@ async function handle(params) {
     }
     logger.debug(`Postprocess data: ${stringParameters(params)}`);
     postProcess(params, transformed, preProcessed, result);
+    // Several ERPs: the message is one ERP's part; record it and write the combined status.
+    const part = await recordPartMessage(params, "shipment", params.data);
+    if (part?.matched) {
+      await applyCombinedStatus(params, Number(params.data.id), part.record);
+    }
     logger.debug("Process finished successfully");
     return ok("Shipment created successfully");
   } catch (error) {

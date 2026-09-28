@@ -7,6 +7,7 @@ import AioLogger from "@adobe/aio-lib-core-logging";
 
 import { recordingErpEvent } from "#lib/erp-event-history";
 import { stringParameters } from "#lib/utils";
+import { handlePartMessage } from "#router/part-outcomes";
 import {
   addComment,
   cancelOrder,
@@ -28,6 +29,9 @@ const REFUSED =
  * does not fail when that happens, so the order is read back: if it is not cancelled, it is
  * put On Hold for staff and its history says so, instead of claiming a cancel that did not
  * happen. It answers success either way; retrying would not change Commerce's mind.
+ *
+ * With several ERPs a cancel is one ERP's part: the router records it and holds the order for
+ * staff (router/combined-status.js); the Commerce order is never cancelled automatically.
  */
 async function handle(params) {
   const logger = AioLogger("order-external-cancelled", {
@@ -40,6 +44,15 @@ async function handle(params) {
     return badRequest("the event carries no orderId");
   }
   try {
+    const part = await handlePartMessage(
+      params,
+      "cancel",
+      params.data,
+      orderId,
+    );
+    if (part) {
+      return part.matched ? ok(part.message) : badRequest(part.reason);
+    }
     // Commerce cannot cancel an order On Hold: a rejected credit hold comes off hold first.
     const order = await getOrder(params, orderId);
     if (order?.state === "holded") {

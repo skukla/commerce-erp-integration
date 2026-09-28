@@ -25,12 +25,43 @@ export function sendPart(params, part, deps) {
   });
 }
 
+/** The demo ERP's order messages, as the part outcome each one means. */
+const OUTCOMES = Object.freeze({
+  cancel: () => ["cancelled", "cancelled in the ERP"],
+  hold: (data) =>
+    data.held
+      ? ["held", "on credit hold in the ERP"]
+      : ["sent", "credit hold released in the ERP"],
+  invoice: () => ["invoiced", "invoiced in the ERP"],
+  "order-status": (data) =>
+    data.status === "cancelled"
+      ? ["cancelled", "cancelled in the ERP"]
+      : [
+          String(data.status || "sent"),
+          `${data.status || "updated"} in the ERP`,
+        ],
+  shipment: () => ["shipped", "shipped by the ERP"],
+});
+
 /**
  * @type {import("../contract.js").ReadOutcome}
- * Not used yet. The demo ERP's messages (order updated, hold, cancel, shipment, invoice) are
- * handled by the starter kit's actions under actions/<entity>/external/, and moving them here
- * would change behaviour. Phase B slice B2 routes them through this function.
+ * One of the demo ERP's order messages (the starter kit's actions under
+ * actions/order/external/ receive them) as the outcome of this ERP's part. Every message
+ * carries the ERP's sales order number (demo-erp lib/orders.js orderEventPayload).
  */
-export function readOutcome() {
-  return null;
+export function readOutcome(event) {
+  const read = OUTCOMES[event?.type];
+  if (!read) {
+    return null;
+  }
+  const data = event.data ?? {};
+  const [outcome, words] = read(data);
+  const reason =
+    typeof data.reason === "string" && data.reason ? `: ${data.reason}` : "";
+  return {
+    erpNumber: data.erpNumber,
+    message: `ERP sales order ${data.erpNumber} ${words}${reason}.`,
+    outcome,
+    statusCode: 200,
+  };
 }

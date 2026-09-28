@@ -7,9 +7,16 @@ import AioLogger from "@adobe/aio-lib-core-logging";
 
 import { recordingErpEvent } from "#lib/erp-event-history";
 import { stringParameters } from "#lib/utils";
+import { handlePartMessage } from "#router/part-outcomes";
 import { addComment, invoiceOrder } from "#src/order/commerce-order-api-client";
 
-/** be-observer.sales_order_invoice_create: invoice the Commerce order the ERP invoiced. */
+/**
+ * be-observer.sales_order_invoice_create: invoice the Commerce order the ERP invoiced.
+ *
+ * With several ERPs the invoice is one ERP's part: the router records it, and the whole order
+ * is NOT invoiced (that would bill the other ERPs' lines). The partial invoice for the part's
+ * own lines is Phase B slice B4.
+ */
 async function handle(params) {
   const logger = AioLogger("order-external-invoice-created", {
     level: params.LOG_LEVEL || "info",
@@ -21,6 +28,15 @@ async function handle(params) {
     return badRequest("the event carries no orderId");
   }
   try {
+    const part = await handlePartMessage(
+      params,
+      "invoice",
+      params.data,
+      orderId,
+    );
+    if (part) {
+      return part.matched ? ok(part.message) : badRequest(part.reason);
+    }
     await invoiceOrder(params, orderId);
     const erp = params.data.erpNumber
       ? ` (ERP sales order ${params.data.erpNumber})`
