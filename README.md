@@ -173,7 +173,7 @@ twin of the planned Mapping view, AB-26m).
 |---|---|
 | `ERP_BASE_URL` | the ERP's web-action base (`…/api/v1/web/demo-erp`); Demo Builder writes it from the ERP component's deployed URLs |
 | `ERP_DISPLAY_NAME` | what the ERP is called in comments and on the Admin screen |
-| `AIO_COMMERCE_AUTH_IMS_*` | the server-to-server credential the deploy injects; it authenticates calls to Commerce and to the ERP (the ERP's actions are `require-adobe-auth`) |
+| `AIO_COMMERCE_AUTH_IMS_*` | the server-to-server credential the deploy injects; it authenticates calls to Commerce and to the ERP in the integration's own workspace (the ERP's actions are `require-adobe-auth`). An ERP in another workspace is called with its own credential, from the ERP list |
 
 ## Code layout
 
@@ -203,6 +203,8 @@ design, v1). Adobe's starter-kit actions stay where the kit puts them
 | The ERP list | `src/lib/erps.js`, `erp/erps` | One entry per ERP: an `id` that never changes (the key for everything), a `name` for people, its adapter kind, and its connection. Demo Builder stores the list in App Builder State when an SC adds or removes an ERP (`PUT erp/erps`, checked: unique ids and names, a known adapter kind, an https address). With nothing stored, the list is one ERP, id `erp`, from the deployed settings, so a single-ERP install works exactly as before. Each ERP names itself on the events it sends (`erpId`, contract version 4) when it was deployed with an `ERP_ID` |
 
 A company buying from several ERPs is a customer in each: the key map pairs it once per ERP (`erpId` on each entry; an entry without it is the single ERP's), a company saved in Commerce goes to every ERP, and each ERP's part of an order names the buyer by that ERP's customer number.
+
+Each ERP outside the integration's workspace is signed in to with its own server-to-server credential: an ERP's actions are `require-adobe-auth`, which accepts machine calls only from its own workspace's technical account. Demo Builder hands the credential over with the ERP's list entry when it adds the ERP (`connection.auth`: `clientId`, `clientSecret`, `orgId`, `scopes`, and optionally the technical account), and every call to that ERP is signed with it (`paramsForErp`, `src/lib/erp-auth.js`). The first ERP, in the integration's own workspace, has none and uses the integration's credential. The credential is kept in the ERP list in App Builder State and never returned: `GET erp/erps` and every other answer show only `{ clientId, orgId, hasSecret }`. A `PUT erp/erps` that leaves an ERP's `auth` out keeps the stored one, and `auth: null` clears it. Removing the ERP from the list removes its credential; deleting its workspace revokes it.
 
 Adding an ERP of a kind already built is one line in the ERP list. Adding a new kind is one
 adapter folder (copy `example/`) plus that line. The router, the storefront and the other
