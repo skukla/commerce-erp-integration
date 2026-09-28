@@ -21,6 +21,13 @@ vi.mock("#src/product/external/updated/sender", () => ({
 vi.mock("#src/stock/external/updated/sender", () => ({
   sendData: vi.fn(async () => ({ success: true })),
 }));
+vi.mock("#src/order/commerce-order-api-client", () => ({
+  addComment: vi.fn(async () => undefined),
+}));
+vi.mock("#router/combined-status", () => ({
+  applyCombinedStatus: vi.fn(async () => ({ action: "none" })),
+  setWholeOrderHold: vi.fn(async () => undefined),
+}));
 vi.mock("#lib/commerce", () => ({
   productAttributes: vi.fn(async (_params, sku) => ({
     erp_owner: sku.startsWith("C") ? "contoso" : "erp",
@@ -30,11 +37,14 @@ vi.mock("#lib/commerce", () => ({
 
 import { resetErpTokenCache } from "#lib/erp";
 import { resetErpsClient } from "#lib/erps";
+import { resetOrderPartsClient, writeOrderParts } from "#lib/order-parts";
+import { main as orderHold } from "#src/order/external/hold/index";
 import { main as productUpdated } from "#src/product/external/updated/index";
 import { sendData as productSent } from "#src/product/external/updated/sender";
 import { main as stockUpdated } from "#src/stock/external/updated/index";
 import { sendData as stockSent } from "#src/stock/external/updated/sender";
 
+import { fakeState } from "../../../box/state.js";
 import { BOTH, CONTOSO, erpFetch, OWN } from "../../../lib/per-erp-harness.js";
 
 const PRODUCT = {
@@ -152,6 +162,41 @@ describe("Given a stock event and one ERP", () => {
       {
         client: "integration-client",
         url: "https://a.example/api/v1/web/demo-erp/products/C1",
+      },
+    ]);
+  });
+});
+
+describe("Given a hold event", () => {
+  const HOLD = {
+    erpNumber: "0000001000",
+    held: true,
+    incrementId: "42",
+    orderId: 5,
+  };
+
+  test("Then with two ERPs it is recorded on its ERP's part, and no ERP is read with the wrong params", async () => {
+    stored(BOTH);
+    resetOrderPartsClient(fakeState());
+    await writeOrderParts("42", {
+      parts: { contoso: { erpNumber: "0000001000", status: "sent" } },
+    });
+    const res = await orderHold({
+      ...OWN,
+      data: { ...HOLD, erpId: "contoso" },
+    });
+    expect(res.statusCode).toBe(200);
+    expect(erp.calls).toEqual([]);
+  });
+
+  test("Then with one ERP the ERP is asked about its own order, as before (rule M2)", async () => {
+    erp = erpFetch(() => ({ body: { creditStatus: "held" } }));
+    vi.stubGlobal("fetch", erp.fetch);
+    await orderHold({ ...OWN, data: HOLD });
+    expect(reads()).toEqual([
+      {
+        client: "integration-client",
+        url: "https://a.example/api/v1/web/demo-erp/orders/0000001000",
       },
     ]);
   });
