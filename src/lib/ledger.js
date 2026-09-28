@@ -1,6 +1,7 @@
 /*
  * The ledger of what this integration changed ON COMMERCE: the credit limits and blocks
- * the ERP decided on companies, and the prices and stock it decided on products.
+ * the ERP decided on companies, the prices and stock it decided on products, and the
+ * contract prices it wrote into companies' shared catalogs (tier prices).
  *
  * Commerce is the permanent system in a demo and the ERP is transient (owner,
  * 2026-09-23), so anything the ERP writes into Commerce that Commerce can undo must be
@@ -127,6 +128,63 @@ export function recordProductWrite({ sku, field, before, after, extra = {} }) {
   return recordWrite({ after, before, extra, field, id: sku, kind: "product" });
 }
 
+/** The row a tier price entry stands for: one per SKU, customer group, quantity, website. */
+const sameTierRow = (a, b) =>
+  a.kind === "tierPrice" &&
+  a.id === String(b.sku ?? b.id) &&
+  a.customerGroup === b.customerGroup &&
+  Number(a.quantity) === Number(b.quantity) &&
+  Number(a.websiteId) === Number(b.websiteId);
+
+/**
+ * Record a tier price the ERP wrote into a company's shared catalog (AB-26z). The row is
+ * Commerce's; the entry also names who it was written for (`erpId`, `partnerId`,
+ * `companyId`), so a later publish replaces only that ERP's rows for that customer. The
+ * first entry for a row keeps its `before` (`null`: the row did not exist).
+ *
+ * @param {object} write `{ sku, customerGroup, quantity, websiteId, erpId, partnerId,
+ *   companyId, before: null | { price, priceType }, after: { price, priceType } }`
+ */
+export async function recordTierPriceWrite({ sku, before, after, ...row }) {
+  const entries = (await readLedger()).map(asEntry);
+  const existing = entries.find((e) => sameTierRow(e, { ...row, sku }));
+  if (existing) {
+    Object.assign(existing, row, { after, at: new Date().toISOString() });
+  } else {
+    entries.push({
+      ...row,
+      after,
+      at: new Date().toISOString(),
+      before,
+      field: "tierPrice",
+      id: String(sku),
+      kind: "tierPrice",
+    });
+  }
+  await writeLedger(entries);
+}
+
+/**
+ * The tier prices one ERP wrote, for one customer or for all of them.
+ * @param {{ erpId: string, partnerId?: string }} who
+ */
+export async function tierPriceEntries({ erpId, partnerId }) {
+  return (await readLedger())
+    .map(asEntry)
+    .filter(
+      (e) =>
+        e.kind === "tierPrice" &&
+        e.erpId === erpId &&
+        (partnerId === undefined || e.partnerId === partnerId),
+    );
+}
+
+/** Drop one tier price's entry, once its row has been put back. */
+export async function forgetTierPrice(entry) {
+  const entries = (await readLedger()).map(asEntry);
+  await writeLedger(entries.filter((e) => !sameTierRow(e, entry)));
+}
+
 /** Empty the ledger (after a successful revert). */
 export async function clearLedger() {
   await (await state()).delete(KEY);
@@ -138,6 +196,9 @@ export async function clearLedger() {
  * leave a change in Commerce that nothing else will ever undo.
  */
 function revertOne(entry, writers) {
+  if (entry.kind === "tierPrice") {
+    return writers.tierPrice(entry);
+  }
   if (entry.kind === "product") {
     if (entry.field === "stock") {
       return writers.stock(entry.id, entry.source, entry.before);
@@ -160,12 +221,14 @@ function revertOne(entry, writers) {
 @param {object} writers one per thing the ERP can change:
  *   `{ creditLimit(companyId, creditId, before), status(companyId, before),
  *      customAttributes(companyId, before) (the per-ERP credit attributes),
- *      name(sku, before), price(sku, before), stock(sku, source, before) }`
+ *      name(sku, before), price(sku, before), stock(sku, source, before),
+ *      tierPrice(entry) (delete the row written, or put back the price it held) }`
  * @returns {Promise<{ reverted: number, failed: {id, field, error}[] }>}
  */
 export async function revertLedger(writers) {
   const entries = (await readLedger()).map(asEntry);
   const failed = [];
+  const kept = [];
   let reverted = 0;
   for (const entry of entries) {
     try {
@@ -174,16 +237,15 @@ export async function revertLedger(writers) {
       reverted += 1;
     } catch (error) {
       failed.push({ error: error.message, field: entry.field, id: entry.id });
+      // The entry itself, not every entry sharing its id and field: two tier prices of
+      // one SKU (two groups, two quantities) are two rows, and only the failed one stays.
+      kept.push(entry);
     }
   }
   if (failed.length === 0) {
     await clearLedger();
   } else {
-    await writeLedger(
-      entries.filter((e) =>
-        failed.some((f) => f.id === e.id && f.field === e.field),
-      ),
-    );
+    await writeLedger(kept);
   }
   return { failed, reverted };
 }

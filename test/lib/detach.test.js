@@ -145,3 +145,23 @@ describe("Given detach", () => {
     expect(commerce.setStock).toHaveBeenCalledWith({ p: 1 }, "A1", 10, "east");
   });
 });
+
+// AB-26z: contract prices written into shared catalogs are ledgered tier prices; detach
+// hands each one to the tier-price writer, which deletes it or restores the old price.
+describe("Given ledgered tier prices", () => {
+  test("Then detach reverts each through the tier-price writer", async () => {
+    const entry = { customerGroup: "G", id: "A1", kind: "tierPrice" };
+    const tierPrices = { revertTierPrice: vi.fn(async () => undefined) };
+    const ledger = {
+      revertLedger: vi.fn(async (writers) => {
+        await writers.tierPrice(entry);
+        return { failed: [], reverted: 1 };
+      }),
+    };
+    const erp = {
+      listOrders: vi.fn(async () => ({ data: { items: [] }, ok: true })),
+    };
+    await detach({ p: 1 }, { commerce: {}, erp, ledger, tierPrices });
+    expect(tierPrices.revertTierPrice).toHaveBeenCalledWith({ p: 1 }, entry);
+  });
+});

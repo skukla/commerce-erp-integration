@@ -1,0 +1,15 @@
+{
+  "_captured": {
+    "from": "Bodea sandbox (Adobe Commerce as a Cloud Service)",
+    "on": "2026-09-28",
+    "request": "GET customerGroups/19",
+    "note": "The group code (the company's name) replaced; everything else as answered."
+  },
+  "body": {
+    "id": 19,
+    "code": "Example Studios",
+    "tax_class_id": 3,
+    "tax_class_name": "Retail Customer",
+    "extension_attributes": { "uid": "MTk=" }
+  }
+}
