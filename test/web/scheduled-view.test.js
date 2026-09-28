@@ -1,5 +1,9 @@
 /* What the Activity section says about each scheduled run (erp/history?scheduled=true). */
-import { scheduledRunRows } from "#web/scheduled-view.js";
+import {
+  nextPublish,
+  publishLine,
+  scheduledRunRows,
+} from "#web/scheduled-view.js";
 
 const run = (lastRun, lastChange = null) => ({
   id: "prices",
@@ -50,5 +54,41 @@ describe("Given the scheduled runs", () => {
         lastRun: "Has not run yet.",
       }),
     ]);
+  });
+});
+
+describe("Given the band's one line about the price publish", () => {
+  const now = new Date("2026-09-28T14:40:00Z");
+
+  test("Then the next run is the next five past the hour, in UTC", () => {
+    expect(nextPublish(now).toISOString()).toBe("2026-09-28T15:05:00.000Z");
+    expect(nextPublish(new Date("2026-09-28T14:03:00Z")).toISOString()).toBe(
+      "2026-09-28T14:05:00.000Z",
+    );
+    expect(nextPublish(new Date("2026-09-28T14:05:00Z")).toISOString()).toBe(
+      "2026-09-28T15:05:00.000Z",
+    );
+  });
+
+  test("Then it says when it next runs and how the last run went", () => {
+    const quiet = {
+      at: "2026-09-28T14:05:00Z",
+      failed: 0,
+      removed: 0,
+      unchanged: 14,
+      written: 0,
+    };
+    expect(publishLine([run(quiet)], now, (t) => `[${t}]`)).toStrictEqual({
+      last: "last ran [2026-09-28T14:05:00Z], nothing changed",
+      next: "[2026-09-28T15:05:00.000Z]",
+    });
+    expect(publishLine([], now, (t) => t).last).toBe("has not run yet");
+    expect(
+      publishLine(
+        [run({ at: "T", error: "Contoso ERP answered 503" })],
+        now,
+        (t) => t,
+      ).last,
+    ).toBe("last ran T, failed, Contoso ERP answered 503");
   });
 });

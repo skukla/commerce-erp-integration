@@ -1,11 +1,11 @@
 /*
- * The settings' scopes, groups and saves: the scopes a merchant can switch between, which
- * settings each scope can set, how one field shows at a scope, and what a Save sends.
+ * The settings' scopes, cards and saves: the scopes a merchant can switch between, which card
+ * holds each setting, how one field shows at a scope, and what a Save sends.
  */
 import appConfig from "#app.commerce.config";
 import {
   dressField,
-  groupsAt,
+  groupNames,
   pendingChanges,
   SETTING_GROUPS,
   settingsPath,
@@ -38,6 +38,20 @@ describe("Given a save", () => {
         orders_hold_offline: null,
       },
     );
+  });
+
+  // An ERP's value it does not set (settings-view erpValues `own: false`) has nothing to clear.
+  test("Then clearing what an ERP does not set is no change", () => {
+    const erpValues = [
+      { name: "structure_owns", own: false, value: "all" },
+      { name: "structure_order_prefix", own: true, value: "CON" },
+    ];
+    expect(
+      pendingChanges(erpValues, {
+        structure_order_prefix: null,
+        structure_owns: null,
+      }),
+    ).toStrictEqual({ structure_order_prefix: null });
   });
 });
 
@@ -94,8 +108,8 @@ const FIELD = {
   type: "boolean",
 };
 
-describe("Given the settings the section shows", () => {
-  test("Then every setting the app declares is in exactly one group, so none is left off the page", () => {
+describe("Given the settings the Settings tab shows", () => {
+  test("Then every setting the app declares is in exactly one card, so none is left off the page", () => {
     const declared = appConfig.businessConfig.schema
       .map((field) => field.name)
       .sort();
@@ -104,12 +118,12 @@ describe("Given the settings the section shows", () => {
     expect(new Set(grouped).size).toBe(grouped.length);
   });
 
-  test("Then Default Config edits every group and a website only the website's", () => {
-    expect(groupsAt("global")).toStrictEqual(SETTING_GROUPS);
-    expect(groupsAt("website").map((g) => g.legend)).toStrictEqual([
-      "Orders",
-      "Sales organization",
+  test("Then each card's settings are its group's, in order", () => {
+    expect(groupNames("salesOrg")).toStrictEqual([
+      "structure_sales_org",
+      "structure_sales_org_name",
     ]);
+    expect(groupNames("nothing")).toStrictEqual([]);
   });
 });
 

@@ -1,5 +1,9 @@
 /* What the "Follow an order" section says: the headline, and one row per step. */
-import { traceHeadline, traceRow } from "#web/trace-view.js";
+import {
+  traceHeadline,
+  traceRow,
+  traceSummary,
+} from "#web/trace-view.js";
 
 describe("Given one order's trace", () => {
   test("Then the headline answers where the order is, on both sides", () => {
@@ -66,7 +70,9 @@ describe("Given one order's trace", () => {
       detail: "",
       failed: false,
       key: "1-2026-09-20T09:00:25Z",
+      resend: null,
       retry: null,
+      tone: "ok",
       tries: "",
       what: "Sent to Northwind ERP",
       where: "Integration",
@@ -89,9 +95,33 @@ describe("Given one order's trace", () => {
 
     expect(row).toMatchObject({
       failed: true,
+      resend: null,
       retry: { incrementId: "000000042" },
+      tone: "warn",
       tries: "4 tries",
     });
+  });
+
+  // A split order's waiting part is re-sent as that part (erp/resend-part), not the whole order.
+  test("Then a part that waits offers Re-send this part, by its ERP", () => {
+    const row = traceRow(
+      {
+        at: "2026-09-28T14:52:00Z",
+        outcome: "held",
+        retry: { erpId: "contoso", incrementId: "3000000024" },
+        what: "Waiting for Contoso ERP",
+        where: "integration",
+      },
+      2,
+    );
+    expect(row).toMatchObject({
+      resend: { erpId: "contoso", incrementId: "3000000024" },
+      retry: null,
+    });
+    expect(
+      traceRow({ at: "T", outcome: "refused", what: "x", where: "erp" }, 0)
+        .tone,
+    ).toBe("bad");
   });
 
   test("Then a Commerce that did not answer is said first, and the ERP half still stands", () => {
@@ -165,5 +195,55 @@ describe("Given one order's trace", () => {
         "Northwind ERP order 1: Northwind ERP did not answer for it. " +
         "Contoso ERP order 2: shipped there.",
     );
+  });
+});
+
+describe("Given the trace's summary line", () => {
+  test("Then it is Commerce's status, then each ERP's part", () => {
+    expect(
+      traceSummary({
+        commerceStatus: "pending",
+        erps: [
+          {
+            name: "Northwind ERP",
+            number: "0000001013",
+            part: "sent",
+            status: "confirmed",
+          },
+          { name: "Contoso ERP", number: null, part: "held", status: null },
+          { name: "Third ERP", number: null, part: "failed", status: null },
+        ],
+        incrementId: "3000000023",
+      }),
+    ).toStrictEqual([
+      { label: "In Commerce", value: "Pending" },
+      { label: "Northwind ERP", value: "0000001013 · confirmed" },
+      { label: "Contoso ERP", value: "Waiting" },
+      { label: "Third ERP", value: "Not taken" },
+    ]);
+  });
+
+  test("Then with one ERP it is Commerce beside that ERP", () => {
+    expect(
+      traceSummary(
+        {
+          commerceStatus: "canceled",
+          erpNumber: "0000001012",
+          erpStatus: "cancelled",
+          incrementId: "3000000022",
+          reachedErp: true,
+        },
+        "Northwind ERP",
+      ),
+    ).toStrictEqual([
+      { label: "In Commerce", value: "Canceled" },
+      { label: "Northwind ERP", value: "0000001012 · canceled" },
+    ]);
+    expect(
+      traceSummary({ incrementId: "1", reachedErp: false }, "Northwind ERP"),
+    ).toStrictEqual([
+      { label: "In Commerce", value: "–" },
+      { label: "Northwind ERP", value: "Not reached" },
+    ]);
   });
 });

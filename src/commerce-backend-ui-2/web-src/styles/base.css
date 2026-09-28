@@ -1,0 +1,531 @@
+/* biome-ignore-all lint/style/noDescendingSpecificity: each component is scoped by its own class; the flagged pairs never match the same element */
+/* The page's tokens, its frame (band and tabs) and the controls every tab shares. */
+:root {
+  /* Admin surfaces and type */
+  --page-bg: #fff;
+  --band-bg: #f8f8f8;
+  --line: #e3e3e3;
+  --line-strong: #adadad;
+  --text: #303030;
+  --text-strong: #1a1a1a;
+  --text-muted: #6b6b6b;
+  --link: #007bdb;
+  --table-head: #1a1a1a;
+  --row-alt: #f5f5f5;
+  --row-hover: #e5f7fe;
+  --focus: rgba(0, 123, 219, 0.45);
+
+  /* Admin buttons */
+  --primary: #eb5202;
+  --primary-hover: #ba4000;
+  --secondary-bg: #e3e3e3;
+  --secondary-border: #adadad;
+  --secondary-text: #514943;
+
+  /* States (Admin message colors) */
+  --ok: #1d7a3e;
+  --ok-bg: #e5f2e8;
+  --warn: #8a4d00;
+  --warn-bg: #fff3c4;
+  --warn-dot: #e59400;
+  --bad: #b3261e;
+  --bad-bg: #fbe7e5;
+  --neutral-bg: #eeeeee;
+
+  /* An ERP's own color; each ERP element sets --erp and --erp-tint (erpStyle). */
+  --erp: #6b6b6b;
+  --erp-tint: #eeeeee;
+
+  --radius: 4px;
+  --font:
+    adobe-clean-spectrum-vf, adobe-clean, "Source Sans 3", "Helvetica Neue",
+    Arial, sans-serif;
+  color-scheme: light;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+[hidden] {
+  display: none !important;
+}
+
+html,
+body {
+  margin: 0;
+  background: var(--page-bg);
+}
+
+body {
+  font-family: var(--font);
+  font-size: 14px;
+  line-height: 1.43;
+  color: var(--text);
+}
+
+a {
+  color: var(--link);
+  text-decoration: none;
+}
+a:hover {
+  text-decoration: underline;
+}
+
+button,
+input,
+select {
+  font-family: inherit;
+}
+
+:focus-visible {
+  outline: 2px solid var(--link);
+  outline-offset: 2px;
+}
+
+code {
+  padding: 0 4px;
+  font-family: ui-monospace, Menlo, Consolas, monospace;
+  font-size: 12px;
+  background: #f3f3f3;
+  border-radius: 2px;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  white-space: nowrap;
+  clip-path: inset(50%);
+}
+
+/* ─────────────── The frame: status band, tabs, content ─────────────── */
+
+.erp-page {
+  min-height: 100vh;
+  padding: 0 24px 32px;
+  font-family: var(--font);
+}
+
+/* Native page-actions band: gray, full width, sticky like the Admin's. */
+.band {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 72px;
+  padding: 14px 24px;
+  background: var(--band-bg);
+}
+.band-erps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.band-actions {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+.band-note {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+.band-note strong,
+.band-link strong {
+  color: var(--text-strong);
+}
+.band-link {
+  padding: 0;
+  font-family: inherit;
+  font-size: 13px;
+  color: var(--text-muted);
+  text-align: left;
+  cursor: pointer;
+  background: none;
+  border: 0;
+}
+.band-link:hover {
+  color: var(--link);
+  text-decoration: underline;
+}
+
+/* An ERP status chip: the ERP's color, its name, and whether it answers. */
+.erp-status {
+  display: inline-flex;
+  gap: 10px;
+  align-items: center;
+  height: 36px;
+  padding: 0 14px 0 0;
+  overflow: hidden;
+  font-size: 14px;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+}
+.erp-status::before {
+  align-self: stretch;
+  width: 6px;
+  content: "";
+  background: var(--erp);
+}
+.erp-status strong {
+  font-weight: 600;
+  color: var(--text-strong);
+}
+.erp-status .state {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+  color: var(--text-muted);
+}
+
+.dot {
+  display: inline-block;
+  flex: none;
+  width: 8px;
+  height: 8px;
+  background: var(--ok);
+  border-radius: 50%;
+}
+.dot.warn {
+  background: var(--warn-dot);
+}
+.dot.bad {
+  background: var(--bad);
+}
+
+/* Horizontal tabs, Admin-style: plain labels, the active one underlined. */
+.tabs {
+  display: flex;
+  gap: 4px;
+  margin: 8px 0 24px;
+  border-bottom: 1px solid var(--line);
+}
+.tabs button {
+  padding: 12px 18px 10px;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-muted);
+  cursor: pointer;
+  background: none;
+  border: 0;
+  border-bottom: 3px solid transparent;
+}
+.tabs button:hover {
+  color: var(--text-strong);
+}
+.tabs button[aria-current="page"] {
+  color: var(--text-strong);
+  border-bottom-color: var(--primary);
+}
+.tab-count {
+  display: inline-block;
+  min-width: 20px;
+  padding: 0 6px;
+  margin-left: 6px;
+  font-size: 12px;
+  line-height: 20px;
+  color: #fff;
+  text-align: center;
+  background: var(--bad);
+  border-radius: 10px;
+}
+
+/* ───────────────────────── Buttons and fields ───────────────────────── */
+
+.btn {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+  justify-content: center;
+  height: 34px;
+  padding: 0 16px;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1;
+  white-space: nowrap;
+  cursor: pointer;
+  border: 1px solid transparent;
+  border-radius: 0;
+}
+.btn:disabled {
+  cursor: default;
+  opacity: 0.55;
+}
+.btn-primary {
+  height: 44px;
+  padding: 0 22px;
+  font-size: 16px;
+  color: #fff;
+  background: var(--primary);
+  border-color: var(--primary);
+}
+.btn-primary:hover:not(:disabled) {
+  background: var(--primary-hover);
+}
+.btn-secondary {
+  color: var(--secondary-text);
+  background: var(--secondary-bg);
+  border-color: var(--secondary-border);
+}
+.btn-secondary:hover:not(:disabled) {
+  background: #d6d6d6;
+}
+.btn-small {
+  height: 28px;
+  padding: 0 12px;
+  font-size: 13px;
+}
+.btn-link {
+  height: auto;
+  padding: 0;
+  font-weight: 400;
+  color: var(--link);
+  background: none;
+  border: 0;
+}
+.btn-link:hover {
+  text-decoration: underline;
+}
+
+.input,
+.select {
+  height: 34px;
+  padding: 0 10px;
+  font-family: inherit;
+  font-size: 14px;
+  color: var(--text-strong);
+  background: #fff;
+  border: 1px solid var(--line-strong);
+  border-radius: 1px;
+}
+.input:focus,
+.select:focus {
+  outline: 0;
+  border-color: var(--link);
+  box-shadow: 0 0 0 2px rgba(0, 123, 219, 0.2);
+}
+.input:disabled,
+.select:disabled {
+  color: var(--text-muted);
+  background: #f3f3f3;
+  border-color: var(--line);
+}
+
+/* ───────────────────────── Chips and badges ───────────────────────── */
+
+.chip {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+  height: 24px;
+  padding: 0 10px;
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+  border-radius: 12px;
+}
+.chip-erp {
+  color: var(--erp);
+  background: var(--erp-tint);
+}
+.chip-erp::before {
+  width: 7px;
+  height: 7px;
+  content: "";
+  background: var(--erp);
+  border-radius: 50%;
+}
+.chip-type {
+  font-weight: 400;
+  color: var(--text);
+  background: #fff;
+  border: 1px solid var(--line-strong);
+}
+.chip-unnamed {
+  font-style: italic;
+  font-weight: 400;
+  color: var(--text-muted);
+  background: #f3f3f3;
+}
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.badge {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+  height: 24px;
+  padding: 0 10px;
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+  border-radius: 2px;
+}
+.badge-ok {
+  color: var(--ok);
+  background: var(--ok-bg);
+}
+.badge-warn {
+  color: var(--warn);
+  background: var(--warn-bg);
+}
+.badge-bad {
+  color: var(--bad);
+  background: var(--bad-bg);
+}
+.badge-neutral {
+  color: var(--text-muted);
+  background: var(--neutral-bg);
+}
+
+/* ───────────────────────── Tables and sections ───────────────────────── */
+
+.section-head {
+  display: flex;
+  gap: 12px;
+  align-items: baseline;
+  justify-content: space-between;
+  margin: 0 0 12px;
+}
+.section-head h2 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text-strong);
+}
+.section-head .meta {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+/* Commerce Admin's data grid: black heads, dashed column rules, striped rows. */
+.grid {
+  width: 100%;
+  font-size: 14px;
+  border-collapse: collapse;
+}
+.grid th {
+  padding: 11px 12px;
+  font-weight: 700;
+  color: #fff;
+  text-align: left;
+  white-space: nowrap;
+  background: var(--table-head);
+  border-left: 1px solid #444;
+}
+.grid th:first-child {
+  border-left: 0;
+}
+.grid td {
+  padding: 12px;
+  vertical-align: middle;
+  border-left: 1px dashed #d6d6d6;
+}
+.grid td:first-child {
+  border-left: 0;
+}
+.grid tbody tr:nth-child(even) td {
+  background: var(--row-alt);
+}
+
+/* A record side by side in each system. */
+.compare {
+  width: 100%;
+  border-collapse: collapse;
+}
+.compare th,
+.compare td {
+  padding: 10px 12px;
+  text-align: left;
+  vertical-align: top;
+  border-bottom: 1px solid var(--line);
+}
+.compare thead th {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-muted);
+  border-bottom: 2px solid var(--text-strong);
+}
+.compare tbody th {
+  width: 24%;
+  font-weight: 400;
+  color: var(--text-muted);
+}
+.compare td {
+  font-weight: 600;
+  color: var(--text-strong);
+}
+.compare td.empty {
+  font-weight: 400;
+  color: #b0b0b0;
+}
+.compare .link-row td {
+  font-weight: 400;
+}
+
+.note {
+  margin-top: 18px;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+/* A message across the page: something went wrong, or it worked. */
+.alert {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  justify-content: space-between;
+  padding: 12px 16px;
+  margin: 0 0 16px;
+  color: var(--text-strong);
+  border-left: 3px solid;
+}
+.alert-bad {
+  background: var(--bad-bg);
+  border-color: var(--bad);
+}
+.alert-ok {
+  background: var(--ok-bg);
+  border-color: var(--ok);
+}
+.alert-warn {
+  background: var(--warn-bg);
+  border-color: var(--warn-dot);
+}
+.alert strong {
+  display: block;
+}
+
+/* Waiting for the page's first answers. */
+.spinner {
+  width: 32px;
+  height: 32px;
+  border: 3px solid var(--line);
+  border-top-color: var(--primary);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .spinner {
+    animation-duration: 3s;
+  }
+}
+.erp-loading {
+  display: grid;
+  place-items: center;
+  min-height: 240px;
+}

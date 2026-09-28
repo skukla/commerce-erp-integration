@@ -9,23 +9,30 @@ import {
   useIms,
   useMassActionContext,
 } from "@adobe/aio-commerce-lib-admin-ui/web";
-import {
-  Button,
-  ButtonGroup,
-  Heading,
-  InlineAlert,
-  NumberField,
-  Picker,
-  PickerItem,
-  ProgressCircle,
-  Radio,
-  RadioGroup,
-  Text,
-} from "@react-spectrum/s2";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { makeApi } from "#web/api.js";
+import { Alert, Spinner } from "#web/components/controls.jsx";
 import { movedSummary, moveIntro, plural } from "#web/move-stock-view.js";
+
+function SourcePick({ id, label, onChange, sources, value }) {
+  return (
+    <label htmlFor={id}>
+      {label}
+      <select
+        className="select"
+        id={id}
+        onChange={(event) => onChange(event.target.value)}
+        value={value ?? ""}>
+        {sources.map((s) => (
+          <option key={s.code} value={s.code}>
+            {s.name}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+}
 
 /** The form, once the sources are read. */
 function MoveForm({ busy, onMove, productCount, sources }) {
@@ -33,53 +40,73 @@ function MoveForm({ busy, onMove, productCount, sources }) {
   const [to, setTo] = useState(sources[1]?.code ?? null);
   const [amount, setAmount] = useState("all");
   const [quantity, setQuantity] = useState(1);
-  const ready = from && to && from !== to;
+  const ready = from && to && from !== to && (amount === "all" || quantity >= 1);
   const submit = useCallback(
-    () => onMove({ from, quantity: amount === "some" ? quantity : null, to }),
+    (event) => {
+      event.preventDefault();
+      onMove({ from, quantity: amount === "some" ? quantity : null, to });
+    },
     [amount, from, onMove, quantity, to],
   );
   return (
-    <div className="erp-move-form">
-      <Picker label="From" onSelectionChange={setFrom} selectedKey={from}>
-        {sources.map((s) => (
-          <PickerItem id={s.code} key={s.code}>
-            {s.name}
-          </PickerItem>
-        ))}
-      </Picker>
-      <Picker label="To" onSelectionChange={setTo} selectedKey={to}>
-        {sources.map((s) => (
-          <PickerItem id={s.code} key={s.code}>
-            {s.name}
-          </PickerItem>
-        ))}
-      </Picker>
-      <RadioGroup label="How much" onChange={setAmount} value={amount}>
-        <Radio value="all">
+    <form className="move-form" onSubmit={submit}>
+      <SourcePick
+        id="move-from"
+        label="From"
+        onChange={setFrom}
+        sources={sources}
+        value={from}
+      />
+      <SourcePick
+        id="move-to"
+        label="To"
+        onChange={setTo}
+        sources={sources}
+        value={to}
+      />
+      <fieldset>
+        <legend>How much</legend>
+        <label className="radio">
+          <input
+            checked={amount === "all"}
+            name="amount"
+            onChange={() => setAmount("all")}
+            type="radio"
+          />
           All of it (the origin is taken off the product)
-        </Radio>
-        <Radio value="some">A quantity of each product</Radio>
-      </RadioGroup>
+        </label>
+        <label className="radio">
+          <input
+            checked={amount === "some"}
+            name="amount"
+            onChange={() => setAmount("some")}
+            type="radio"
+          />
+          A quantity of each product
+        </label>
+      </fieldset>
       {amount === "some" && (
-        <NumberField
-          label="Quantity of each product"
-          minValue={1}
-          onChange={setQuantity}
-          step={1}
-          value={quantity}
-        />
+        <label htmlFor="move-quantity">
+          Quantity of each product
+          <input
+            className="input"
+            id="move-quantity"
+            min={1}
+            onChange={(event) => setQuantity(Number(event.target.value))}
+            step={1}
+            type="number"
+            value={quantity}
+          />
+        </label>
       )}
-      {from && from === to && <Text>Choose two different warehouses.</Text>}
-      <ButtonGroup>
-        <Button
-          isDisabled={!ready}
-          isPending={busy}
-          onPress={submit}
-          variant="accent">
-          Move {plural(productCount, "product", "products")}
-        </Button>
-      </ButtonGroup>
-    </div>
+      {from && from === to && <p>Choose two different warehouses.</p>}
+      <button
+        className="btn btn-secondary"
+        disabled={!ready || busy}
+        type="submit">
+        {busy ? "Moving" : `Move ${plural(productCount, "product", "products")}`}
+      </button>
+    </form>
   );
 }
 
@@ -129,26 +156,20 @@ export function MoveStockPage() {
   const trouble = imsError?.message ?? selectionError?.message ?? error;
   if (!(sources || trouble)) {
     return (
-      <main className="erp-loading">
-        <ProgressCircle aria-label="Loading" isIndeterminate />
-      </main>
+      <div className="erp-loading">
+        <Spinner label="Loading" />
+      </div>
     );
   }
   return (
-    <main>
+    <main className="erp-subpage">
       {/* Commerce's own header already carries the action's title. */}
-      <Text>{moveIntro(productIds.length, erpName, erpNames)}</Text>
-      {trouble && (
-        <InlineAlert variant="negative">
-          <Heading>The stock was not moved</Heading>
-          <Text>{trouble}</Text>
-        </InlineAlert>
-      )}
+      <p>{moveIntro(productIds.length, erpName, erpNames)}</p>
+      {trouble && <Alert title="The stock was not moved">{trouble}</Alert>}
       {done !== null && (
-        <InlineAlert variant="positive">
-          <Heading>Moved</Heading>
-          <Text>{movedSummary(done, erpName)}</Text>
-        </InlineAlert>
+        <div className="move-result" role="status">
+          <strong>Done.</strong> {movedSummary(done, erpName)}
+        </div>
       )}
       {sources && done === null && (
         <MoveForm
@@ -158,11 +179,11 @@ export function MoveStockPage() {
           sources={sources}
         />
       )}
-      <ButtonGroup>
-        <Button onPress={back} variant="secondary">
+      <div className="actions">
+        <button className="btn btn-secondary" onClick={back} type="button">
           Back to products
-        </Button>
-      </ButtonGroup>
+        </button>
+      </div>
     </main>
   );
 }

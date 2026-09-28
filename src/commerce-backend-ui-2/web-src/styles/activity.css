@@ -1,0 +1,166 @@
+/* biome-ignore-all lint/style/noDescendingSpecificity: each component is scoped by its own class; the flagged pairs never match the same element */
+/* The Activity feed: the filter chips, then one row per record, grouped by day. */
+.feed-tools {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 28px;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 18px;
+}
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 22px;
+  align-items: center;
+}
+.filter-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+.filter-group > span {
+  margin-right: 4px;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+.filter-chip {
+  height: 32px;
+  padding: 0 14px;
+  font-size: 14px;
+  color: var(--text);
+  cursor: pointer;
+  background: #fff;
+  border: 1px solid var(--line-strong);
+  border-radius: 16px;
+}
+.filter-chip:hover {
+  border-color: var(--text);
+}
+.filter-chip[aria-pressed="true"] {
+  color: #fff;
+  background: var(--text-strong);
+  border-color: var(--text-strong);
+}
+.filter-chip.is-erp[aria-pressed="true"] {
+  background: var(--erp);
+  border-color: var(--erp);
+}
+.filter-chip.problems[aria-pressed="true"] {
+  background: var(--bad);
+  border-color: var(--bad);
+}
+
+.day {
+  position: sticky;
+  top: 72px;
+  z-index: 5;
+  display: flex;
+  gap: 10px;
+  align-items: baseline;
+  padding: 16px 0 8px;
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-strong);
+  background: #fff;
+  border-bottom: 2px solid var(--text-strong);
+}
+.day span {
+  font-size: 13px;
+  font-weight: 400;
+  color: var(--text-muted);
+}
+.event {
+  display: grid;
+  grid-template-columns: 70px 100px 170px 112px minmax(0, 1fr) 172px 12px;
+  gap: 14px;
+  align-items: center;
+  width: 100%;
+  padding: 11px 8px;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  background: #fff;
+  border: 0;
+  border-bottom: 1px solid var(--line);
+}
+.event:hover {
+  background: var(--row-hover);
+}
+.event > .chip,
+.event > .badge {
+  justify-self: start;
+}
+.event time {
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-muted);
+}
+.event .dir {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  font-size: 13px;
+  color: var(--text);
+  white-space: nowrap;
+}
+.event .dir svg {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+}
+.event .sentence {
+  overflow-wrap: anywhere;
+  color: var(--text-strong);
+}
+.event .sentence small {
+  display: block;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+.event .chev {
+  color: var(--text-muted);
+}
+.event.is-reset {
+  background: #fafafa;
+}
+.event.is-reset .sentence {
+  font-style: italic;
+}
+.event.is-problem {
+  box-shadow: inset 3px 0 0 var(--warn-dot);
+}
+.result {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  align-items: flex-start;
+}
+.retry-hint {
+  font-size: 12px;
+  color: var(--link);
+}
+.feed-end,
+.feed-empty {
+  margin: 14px 0 0;
+  font-size: 13px;
+  color: var(--text-muted);
+  text-align: center;
+}
+.feed-empty {
+  padding: 40px 0;
+  font-size: 14px;
+}
+
+@media (max-width: 1360px) {
+  .event {
+    grid-template-columns: 64px 96px 156px 104px minmax(0, 1fr) 160px 10px;
+    gap: 10px;
+  }
+}

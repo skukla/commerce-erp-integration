@@ -23,7 +23,12 @@ export function pendingChanges(values, edits) {
   const changes = {};
   for (const [name, next] of Object.entries(edits ?? {})) {
     const held = byName.get(name);
-    if (next === null || !held || held.value !== next) {
+    if (next === null) {
+      // An ERP's value it does not set (`own: false`) has nothing to clear.
+      if (held?.own !== false) {
+        changes[name] = null;
+      }
+    } else if (!held || held.value !== next) {
       changes[name] = next;
     }
   }
@@ -86,24 +91,25 @@ export function settingsPath(scope, { refresh = false } = {}) {
 }
 
 /**
- * The settings in the order the section shows them. `scope` is where a setting can be set:
- * `website` settings can be set per website (and inherit Default Config), `global` ones only
- * at Default Config, because the integration reads them there (the order-number prefix and
- * which products this ERP owns are the pair's, not a website's).
+ * The settings in the order the Settings tab's cards show them (components/settings-cards.jsx),
+ * each card by its id. `scope` is where a setting can be set: `website` settings can be set per
+ * website (and inherit Default Config), `global` ones only at Default Config, because the
+ * integration reads them there (the order-number prefix and which products an ERP owns are the
+ * pair's, not a website's).
  */
 export const SETTING_GROUPS = Object.freeze([
   {
-    legend: "Orders",
+    id: "orders",
     names: ["orders_send", "orders_hold_offline", "orders_confirm_status"],
     scope: "website",
   },
   {
-    legend: "Sales organization",
+    id: "salesOrg",
     names: ["structure_sales_org", "structure_sales_org_name"],
     scope: "website",
   },
   {
-    legend: "Products and order numbers",
+    id: "products",
     names: [
       "structure_owns",
       "structure_owns_sources",
@@ -114,13 +120,9 @@ export const SETTING_GROUPS = Object.freeze([
   },
 ]);
 
-/** The groups a scope can edit: every group at Default Config, website groups at a website. */
-export function groupsAt(scopeLevel) {
-  const atDefault = !scopeLevel || scopeLevel === "global";
-  return SETTING_GROUPS.filter(
-    (group) => atDefault || group.scope === "website",
-  );
-}
+/** A card's settings, by the card's id. */
+export const groupNames = (id) =>
+  SETTING_GROUPS.find((group) => group.id === id)?.names ?? [];
 
 /**
  * One setting field as a control shows it: its value at this scope, whether the value is
@@ -159,41 +161,11 @@ export const ERP_SETTING_NAMES = Object.freeze([
   "structure_sales_org_name",
 ]);
 
-/** The ERP settings that can differ per website. */
-const ERP_WEBSITE_NAMES = new Set([
+/** The ERP settings that can differ per website (the "Use Default" box's settings). */
+export const ERP_WEBSITE_NAMES = new Set([
   "structure_sales_org",
   "structure_sales_org_name",
 ]);
-
-/**
- * The ERP switcher's choices: none with one ERP (nothing to switch); with several, the
- * integration's own settings (every ERP's defaults) and then each ERP by name.
- * @param {object[]} entries the ERP list (erp/erps)
- */
-export function erpChoices(entries) {
-  if (!entries || entries.length < 2) {
-    return [];
-  }
-  return [
-    { id: "", label: "Every ERP (the integration's settings)" },
-    ...entries.map((entry) => ({ id: entry.id, label: entry.name })),
-  ];
-}
-
-/** The groups an ERP edits at a scope: its own settings only, empty groups dropped. */
-export function erpGroupsAt(scopeLevel) {
-  const atWebsite = scopeLevel && scopeLevel !== "global";
-  return groupsAt(scopeLevel)
-    .map((group) => ({
-      ...group,
-      names: group.names.filter(
-        (name) =>
-          ERP_SETTING_NAMES.includes(name) &&
-          (!atWebsite || ERP_WEBSITE_NAMES.has(name)),
-      ),
-    }))
-    .filter((group) => group.names.length > 0);
-}
 
 /**
  * The website code of a scope id from the scope tree, or undefined for Default Config (an
@@ -220,8 +192,10 @@ export function websiteCodeOf(tree, scopeId) {
 }
 
 /**
- * One ERP's values at a scope: its own where its entry sets them (at the website, then its
- * defaults), else the integration's as the page loaded them.
+ * One ERP's values at a scope: its own where its entry sets them at this scope; else, at a
+ * website, its own default; else the integration's as the page loaded them. That is the order
+ * the integration reads them in (lib/erp-settings.js withErpSettings). `own` is whether this
+ * scope sets it (the "Use Default Value" / "Same as All ERPs" box, unticked).
  * @returns {Array<{ name: string, value: unknown, own: boolean }>}
  */
 export function erpValues(entry, websiteCode, pageValues) {
@@ -232,9 +206,15 @@ export function erpValues(entry, websiteCode, pageValues) {
   );
   return ERP_SETTING_NAMES.map((name) => {
     const set = websiteCode ? atWebsite[name] : settings[name];
-    return set === undefined
-      ? { name, own: false, value: integration.get(name) }
-      : { name, own: true, value: set };
+    if (set !== undefined) {
+      return { name, own: true, value: set };
+    }
+    const wider = websiteCode ? settings[name] : undefined;
+    return {
+      name,
+      own: false,
+      value: wider === undefined ? integration.get(name) : wider,
+    };
   });
 }
 

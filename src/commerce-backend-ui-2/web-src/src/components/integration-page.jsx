@@ -1,170 +1,209 @@
 /*
- * The integration's page, as it looks once everything it shows has loaded (MainPage waits
- * for that, so nothing half-drawn is ever on screen). Commerce's own header already names the
- * ERP, so the page opens with whether the ERP answers (with several ERPs, each by name), then
- * a short list of sections: what the integration holds, what has crossed, and what a merchant
- * chooses. Everything arrives as props, so the page renders against stand-in data in the
- * local preview too.
+ * The integration's page, as it looks once everything it shows has loaded (MainPage waits for
+ * that, so nothing half-drawn is ever on screen): the band with each ERP, the tabs Overview ·
+ * Activity · Settings, and the side panel. Everything arrives as props, so the page renders
+ * against stand-in data in the local preview too.
  */
-import {
-  Heading,
-  InlineAlert,
-  ProgressCircle,
-  StatusLight,
-  Text,
-} from "@react-spectrum/s2";
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
-import { ActivitySection } from "#web/components/activity-section.jsx";
-import { OverviewSection } from "#web/components/overview-section.jsx";
-import { SettingsSection } from "#web/components/settings-section.jsx";
-import { erpStatusLine } from "#web/overview-view.js";
+import { ActivityTab } from "#web/components/activity-tab.jsx";
+import { Alert, Spinner } from "#web/components/controls.jsx";
+import { OverviewTab } from "#web/components/overview-tab.jsx";
+import { PageFrame } from "#web/components/page-frame.jsx";
+import { PanelContent } from "#web/components/panel-content.jsx";
+import { SettingsTab } from "#web/components/settings-tab.jsx";
+import { needsAttention } from "#web/history-view.js";
+import { erpColors, listedErps } from "#web/overview-view.js";
+import { publishLine } from "#web/scheduled-view.js";
+import { ago, clockTime } from "#web/time-view.js";
 
-const SECTIONS = [
-  { id: "overview", label: "Overview" },
-  { id: "activity", label: "Activity" },
-  { id: "settings", label: "Settings" },
-];
+const TICK_MS = 30 * 1000;
 
 /** What shows until everything the page needs has arrived: one spinner, nothing half-drawn. */
 export function PageLoading() {
   return (
-    <main className="erp-loading">
-      <ProgressCircle aria-label="Loading the integration" isIndeterminate />
-    </main>
+    <div className="erp-loading">
+      <Spinner label="Loading the integration" />
+    </div>
   );
 }
 
-function NavItem({ current, onSelect, section }) {
-  const select = useCallback(
-    () => onSelect(section.id),
-    [onSelect, section.id],
-  );
+/** The time now, moved on every half minute so "2 minutes ago" stays true. */
+function useNow() {
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => {
+    const timer = setInterval(() => setNow(new Date()), TICK_MS);
+    return () => clearInterval(timer);
+  }, []);
+  return now;
+}
+
+/** The page's own answers, read again on Refresh and after a Retry. */
+function usePageData(api, initial, onError) {
+  const [data, setData] = useState(() => ({ ...initial, loadedAt: new Date() }));
+  const [busy, setBusy] = useState(false);
+  const readActivity = useCallback(async () => {
+    try {
+      const [history, scheduled] = await Promise.all([
+        api.history(false),
+        api.scheduled(),
+      ]);
+      setData((current) => ({
+        ...current,
+        history: history.entries ?? [],
+        runs: scheduled.scheduled ?? [],
+      }));
+    } catch (e) {
+      onError(`Activity could not be read: ${e.message}`);
+    }
+  }, [api, onError]);
+  const refresh = useCallback(async () => {
+    setBusy(true);
+    try {
+      const status = await api.status();
+      setData((current) => ({ ...current, loadedAt: new Date(), status }));
+      await readActivity();
+    } catch (e) {
+      onError(`The integration could not be read: ${e.message}`);
+    }
+    setBusy(false);
+  }, [api, onError, readActivity]);
+  return { ...data, busy, readActivity, refresh };
+}
+
+function RefreshButton({ busy, onRefresh }) {
   return (
     <button
-      aria-current={current ? "page" : undefined}
-      className="erp-nav-item"
-      onClick={select}
+      className="btn btn-secondary"
+      disabled={busy}
+      onClick={onRefresh}
       type="button">
-      {section.label}
+      {busy ? "Refreshing" : "Refresh"}
     </button>
   );
 }
 
-/** One ERP: whether it answers, and what crosses. Unchanged since before several ERPs. */
-function OneErpStatus({ erp, erpName }) {
-  return (
-    <div className="erp-status">
-      <StatusLight variant={erp.reachable ? "positive" : "negative"}>
-        {erp.reachable
-          ? `Connected to ${erpName}`
-          : `${erpName} does not answer`}
-      </StatusLight>
-      <Text>
-        Orders go to {erpName}; its prices, stock, credit and order progress
-        come back to Commerce as they change.
-      </Text>
-    </div>
-  );
-}
-
-/** Several ERPs (erp/status `erps`): each by name, whether it can be used, and why not. */
-function SeveralErpsStatus({ erps }) {
-  return (
-    <div className="erp-status">
-      {erps.map((entry) => {
-        const line = erpStatusLine(entry);
-        return (
-          <StatusLight
-            key={entry.id}
-            variant={line.reachable ? "positive" : "negative"}>
-            {line.text}
-          </StatusLight>
-        );
-      })}
-      <Text>
-        Each order line goes to the ERP that owns its product; each ERP's
-        prices, stock, credit and order progress come back to Commerce as they
-        change.
-      </Text>
-    </div>
-  );
-}
-
+/**
+ * @param {object} props
+ * @param {{ status: object, settingsPage: object, history: object[], runs: object[] }}
+ *   props.initial what MainPage read before drawing anything
+ * @param {string|null} props.error a message to show under the tabs
+ * @param {(message: string|null) => void} props.onError
+ */
 export function IntegrationPage({
   api,
   error,
-  initialSection = "overview",
+  initial,
+  initialTab = "overview",
   onError,
-  scopes,
-  scopesNote,
-  settingsPage,
-  status,
 }) {
-  const [section, setSection] = useState(initialSection);
-  const erp = status?.erp ?? {};
-  const erpName = erp.displayName || "the ERP";
-  // Several ERPs: the list erp/status gives, which every section names its ERPs from.
-  const erps = (status?.erps?.length ?? 0) > 1 ? status.erps : null;
+  const data = usePageData(api, initial, onError);
+  const now = useNow();
+  const [tab, setTab] = useState(initialTab);
+  const [picked, setPicked] = useState({ activity: "", settings: "" });
+  const [panel, setPanel] = useState(null);
+  // Default Config's settings as last saved, so the tab shows them when it is opened again.
+  const [settingsPage, setSettingsPage] = useState(initial.settingsPage);
+  const erpInfo = useMemo(() => {
+    const erps = listedErps(data.status);
+    return { colors: erpColors(erps), erps, several: erps.length > 1 };
+  }, [data.status]);
+
+  const show = useCallback((tabId, erpId) => {
+    setPicked((current) => ({ ...current, [tabId]: erpId }));
+    setTab(tabId);
+  }, []);
+  const choose = useCallback((tabId) => {
+    setPicked({ activity: "", settings: "" });
+    setTab(tabId);
+  }, []);
+  const closePanel = useCallback(() => setPanel(null), []);
+  const dismiss = useCallback(() => onError(null), [onError]);
+
+  const attention = needsAttention(data.history, { erps: erpInfo.erps, now }).length;
+  const frame = (actions, children) => (
+    <PageFrame
+      actions={actions}
+      attention={attention}
+      erpInfo={erpInfo}
+      notice={
+        error && (
+          <Alert onDismiss={dismiss} title="Something went wrong">
+            {error}
+          </Alert>
+        )
+      }
+      onTab={choose}
+      tab={tab}>
+      {children}
+    </PageFrame>
+  );
+  const refresh = <RefreshButton busy={data.busy} onRefresh={data.refresh} />;
+  const publish = publishLine(data.runs, now, (iso) => clockTime(iso));
+  const shared = { api, erpInfo, now, onError, onOpen: setPanel };
+  let body;
+  if (tab === "settings") {
+    body = (
+      <SettingsTab
+        api={api}
+        erpInfo={erpInfo}
+        frame={frame}
+        initialErp={picked.settings}
+        initialPage={settingsPage}
+        key={picked.settings}
+        onError={onError}
+        onSavedDefault={setSettingsPage}
+        scopes={settingsPage.scopes}
+        scopesNote={settingsPage.scopesNote ?? null}
+      />
+    );
+  } else if (tab === "activity") {
+    body = frame(
+      <>
+        <button
+          className="band-link"
+          onClick={() => setPanel({ kind: "scheduled" })}
+          type="button">
+          Next price publish <strong>{publish.next}</strong> · {publish.last}
+        </button>
+        {refresh}
+      </>,
+      <ActivityTab
+        {...shared}
+        history={data.history}
+        initialErp={picked.activity}
+        key={picked.activity}
+      />,
+    );
+  } else {
+    body = frame(
+      <>
+        <span className="band-note">
+          Checked {ago(data.loadedAt.toISOString(), now)}
+        </span>
+        {refresh}
+      </>,
+      <OverviewTab
+        {...shared}
+        history={data.history}
+        onChanged={data.readActivity}
+        onShow={show}
+        runs={data.runs}
+      />,
+    );
+  }
   return (
-    <div className="erp-page">
-      {erps ? (
-        <SeveralErpsStatus erps={erps} />
-      ) : (
-        <OneErpStatus erp={erp} erpName={erpName} />
+    <>
+      {body}
+      {panel && (
+        <PanelContent
+          {...shared}
+          onChanged={data.readActivity}
+          onClose={closePanel}
+          panel={panel}
+          runs={data.runs}
+        />
       )}
-      {error && (
-        <InlineAlert variant="negative">
-          <Heading>Something went wrong</Heading>
-          <Text>{error}</Text>
-        </InlineAlert>
-      )}
-      <div className="erp-body">
-        <nav aria-label="Sections" className="erp-nav">
-          {SECTIONS.map((s) => (
-            <NavItem
-              current={s.id === section}
-              key={s.id}
-              onSelect={setSection}
-              section={s}
-            />
-          ))}
-        </nav>
-        <main className="erp-main">
-          {section === "overview" && (
-            <OverviewSection
-              api={api}
-              erpName={erpName}
-              erps={erps}
-              onError={onError}
-              status={status}
-            />
-          )}
-          {section === "activity" && (
-            <ActivitySection
-              api={api}
-              erpName={erpName}
-              erps={erps}
-              onError={onError}
-            />
-          )}
-          {section === "settings" && (
-            <>
-              {scopesNote && (
-                <InlineAlert variant="notice">
-                  <Text>{scopesNote}</Text>
-                </InlineAlert>
-              )}
-              <SettingsSection
-                api={api}
-                initialPage={settingsPage}
-                onError={onError}
-                scopes={scopes}
-              />
-            </>
-          )}
-        </main>
-      </div>
-    </div>
+    </>
   );
 }

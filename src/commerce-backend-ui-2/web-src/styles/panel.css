@@ -1,0 +1,211 @@
+/* biome-ignore-all lint/style/noDescendingSpecificity: each component is scoped by its own class; the flagged pairs never match the same element */
+/* The side panel (Admin slide-in) and what it holds: an order's trace, a record side by side. */
+.scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  background: rgba(0, 0, 0, 0.35);
+}
+.panel {
+  position: fixed;
+  inset: 0 0 0 auto;
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  width: min(760px, 92vw);
+  background: #fff;
+  box-shadow: -6px 0 24px rgba(0, 0, 0, 0.18);
+  animation: slide-in 0.22s ease;
+}
+@keyframes slide-in {
+  from {
+    transform: translateX(100%);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .panel {
+    animation: none;
+  }
+}
+.panel-head {
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+  justify-content: space-between;
+  padding: 24px 28px 18px;
+  border-bottom: 1px solid var(--line);
+}
+.panel-kicker {
+  margin: 0 0 2px;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+.panel-head h2 {
+  margin: 0;
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--text-strong);
+}
+.panel-sub {
+  margin: 6px 0 0;
+  color: var(--text-muted);
+}
+.panel-close {
+  flex: none;
+  width: 34px;
+  height: 34px;
+  font-size: 22px;
+  line-height: 1;
+  color: var(--text);
+  cursor: pointer;
+  background: none;
+  border: 0;
+  border-radius: 50%;
+}
+.panel-close:hover {
+  background: var(--band-bg);
+}
+.panel-body {
+  flex: 1;
+  padding: 22px 28px 32px;
+  overflow-y: auto;
+}
+.panel-foot {
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+  padding: 14px 28px;
+  background: var(--band-bg);
+  border-top: 1px solid var(--line);
+}
+.panel-wait {
+  display: grid;
+  place-items: center;
+  min-height: 160px;
+}
+
+.headline {
+  margin: 0 0 16px;
+  font-size: 15px;
+  color: var(--text-strong);
+}
+
+/* Order trace: the summary line, then one step per line, oldest first. */
+.trace-summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 1px;
+  margin: 0 0 22px;
+  background: var(--line);
+  border: 1px solid var(--line);
+}
+.trace-summary div {
+  padding: 10px 14px;
+  background: #fff;
+}
+.trace-summary dt {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+.trace-summary dd {
+  margin: 2px 0 0;
+  font-weight: 600;
+  color: var(--text-strong);
+}
+.steps {
+  padding: 14px 16px 6px;
+  margin: 0;
+  list-style: none;
+}
+.steps li {
+  position: relative;
+  display: grid;
+  grid-template-columns: 108px minmax(0, 1fr) 80px;
+  gap: 12px;
+  padding: 0 0 14px 20px;
+}
+.steps li::before {
+  position: absolute;
+  top: 6px;
+  left: 0;
+  width: 9px;
+  height: 9px;
+  content: "";
+  background: var(--ok);
+  border-radius: 50%;
+}
+.steps li::after {
+  position: absolute;
+  top: 17px;
+  bottom: 0;
+  left: 4px;
+  width: 1px;
+  content: "";
+  background: var(--line);
+}
+.steps li:last-child::after {
+  display: none;
+}
+.steps li.is-warn::before {
+  background: var(--warn-dot);
+}
+.steps li.is-bad::before {
+  background: var(--bad);
+}
+.steps time {
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-muted);
+}
+.steps .what {
+  color: var(--text-strong);
+}
+.steps .detail {
+  display: block;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+.steps .where {
+  font-size: 12px;
+  color: var(--text-muted);
+  text-align: right;
+}
+.step-extra {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  margin-top: 6px;
+  font-size: 13px;
+  color: var(--warn);
+}
+.steps li.is-bad .step-extra {
+  color: var(--bad);
+}
+
+/* The companies a name search found, to pick one. */
+.matches {
+  display: grid;
+  gap: 8px;
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+.matches button {
+  width: 100%;
+  padding: 12px 14px;
+  font-size: 15px;
+  color: var(--text-strong);
+  text-align: left;
+  cursor: pointer;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+.matches button:hover {
+  background: var(--row-hover);
+}
+.matches small {
+  margin-left: 8px;
+  color: var(--text-muted);
+}

@@ -5,12 +5,13 @@
  * screen's Retry of the whole order). Everything arrives as props, so the local preview
  * renders it against stand-in data too.
  */
-import { Button, Heading, InlineAlert, Text } from "@react-spectrum/s2";
 import { useCallback, useState } from "react";
+
+import { Alert } from "#web/components/controls.jsx";
 
 /** A part's status in the words of the table. */
 const STATUS_WORDS = Object.freeze({
-  cancelled: "Cancelled in the ERP",
+  cancelled: "Canceled in the ERP",
   dropped: "Not sent",
   failed: "Failed",
   held: "Held",
@@ -24,13 +25,13 @@ const STATUS_WORDS = Object.freeze({
 function ResendButton({ onResend, resending, row }) {
   const onPress = useCallback(() => onResend(row), [onResend, row]);
   return (
-    <Button
-      isDisabled={resending !== null}
-      isPending={resending === row.erpId}
-      onPress={onPress}
-      variant="primary">
-      Re-send
-    </Button>
+    <button
+      className="btn btn-secondary btn-small"
+      disabled={resending !== null}
+      onClick={onPress}
+      type="button">
+      {resending === row.erpId ? "Re-sending" : "Re-send"}
+    </button>
   );
 }
 
@@ -44,7 +45,7 @@ function PartRow({ onResend, resending, row }) {
       <td>
         {row.waitsFor ?? ""}
         {row.warnings.map((warning) => (
-          <div className="erp-part-warning" key={warning}>
+          <div className="part-warning" key={warning}>
             Setup: {warning}
           </div>
         ))}
@@ -63,21 +64,20 @@ function Unplaced({ conflicts, unrouted }) {
     return null;
   }
   return (
-    <InlineAlert variant="notice">
-      <Heading>Lines no part holds</Heading>
+    <Alert title="Lines no part holds" tone="warn">
       {unrouted.length > 0 && (
-        <Text>
+        <p>
           {unrouted.join(", ")}: no ERP owns these products, so they were not
           sent. Set their owning ERP and place them again.
-        </Text>
+        </p>
       )}
       {conflicts.map((c) => (
-        <Text key={c.sku}>
+        <p key={c.sku}>
           {c.sku} is claimed by {c.erps.join(" and ")}, so neither was sent it.
           Fix the setup.
-        </Text>
+        </p>
       ))}
-    </InlineAlert>
+    </Alert>
   );
 }
 
@@ -103,20 +103,16 @@ export function OrderParts({ api, onError, onReload, page }) {
   );
   return (
     <section className="erp-order-parts">
-      <Text>
+      <p className="headline">
         Order {page.incrementId}
         {page.summary ? `: ${page.summary}.` : "."}
-      </Text>
-      {answer && (
-        <InlineAlert variant="informative">
-          <Text>{answer}</Text>
-        </InlineAlert>
-      )}
+      </p>
+      {answer && <Alert tone="ok">{answer}</Alert>}
       <Unplaced conflicts={page.conflicts} unrouted={page.unrouted} />
       {page.rows.length === 0 ? (
-        <Text>No ERP has a part of this order.</Text>
+        <p>No ERP has a part of this order.</p>
       ) : (
-        <table className="erp-history-table">
+        <table className="grid">
           <thead>
             <tr>
               <th>ERP</th>

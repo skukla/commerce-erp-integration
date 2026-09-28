@@ -1,7 +1,8 @@
 /*
- * What the "Follow an order" section says about one order, kept apart from the React that
- * renders it (as history-view.js is). The action does the gathering; this decides the
- * words: where each step happened, and whether it is a failure the page offers to retry.
+ * What the side panel's order trace says about one order, kept apart from the React that
+ * renders it (as history-view.js is). The action does the gathering; this decides the words:
+ * the headline, the summary line, where each step happened, and whether it is a failure the
+ * page offers to retry (the whole order) or to re-send (one part of a split order).
  */
 
 /** Where a step happened, as the page labels it. */
@@ -20,6 +21,8 @@ const PART_WAITS = {
 
 /** The outcomes that mean a step did not get through (lib/history.js keeps the same set). */
 const NOT_THROUGH = new Set(["held", "dropped", "failed", "refused"]);
+/** A step still waiting, rather than refused. */
+const WAITING = new Set(["held", "sending"]);
 
 /**
  * One step as a row: when, where, what, and — when it did not get through — the retry.
@@ -29,16 +32,78 @@ const NOT_THROUGH = new Set(["held", "dropped", "failed", "refused"]);
  * @returns {object} the row
  */
 export function traceRow(step, index) {
+  const failed = NOT_THROUGH.has(step.outcome);
+  // A part of a split order names its ERP: it is re-sent as that part (erp/resend-part).
+  const resend = step.retry?.erpId ? step.retry : null;
+  let tone = "ok";
+  if (WAITING.has(step.outcome)) {
+    tone = "warn";
+  } else if (failed) {
+    tone = "bad";
+  }
   return {
     at: step.at,
     detail: step.detail ?? "",
-    failed: NOT_THROUGH.has(step.outcome),
+    failed,
     key: `${index}-${step.at}`,
-    retry: step.retry ?? null,
+    resend,
+    retry: resend ? null : (step.retry ?? null),
+    tone,
     tries: step.tries ? `${step.tries} tries` : "",
     what: step.what,
     where: WHERE[step.where] ?? step.where,
   };
+}
+
+/** How a part not yet with its ERP stands, in the summary line. */
+const PART_SHORT = {
+  dropped: "Not sent",
+  failed: "Not taken",
+  held: "Waiting",
+  sending: "Sending",
+};
+
+/** A status as the summary shows it: capitalized, in American spelling. */
+function statusWord(status) {
+  const word = status === "cancelled" ? "canceled" : String(status);
+  return word.charAt(0).toUpperCase() + word.slice(1);
+}
+
+/** One ERP's side: its number and status there, or where its part stands. */
+function sideValue(number, status, part) {
+  if (number) {
+    return status
+      ? `${number} · ${statusWord(status).toLowerCase()}`
+      : String(number);
+  }
+  return PART_SHORT[part] ?? "Not reached";
+}
+
+/**
+ * The trace's summary line: Commerce's status, then each ERP's side.
+ * @param {object} summary the trace summary
+ * @param {string} [erpName] with one ERP, what it is called
+ * @returns {Array<{ label: string, value: string }>}
+ */
+export function traceSummary(summary, erpName) {
+  const commerce = {
+    label: "In Commerce",
+    value: summary?.commerceStatus ? statusWord(summary.commerceStatus) : "–",
+  };
+  const sides = summary?.erps ?? [
+    {
+      name: erpName,
+      number: summary?.reachedErp ? summary.erpNumber : null,
+      status: summary?.erpStatus,
+    },
+  ];
+  return [
+    commerce,
+    ...sides.map((side) => ({
+      label: side.name,
+      value: sideValue(side.number, side.status, side.part),
+    })),
+  ];
 }
 
 /**

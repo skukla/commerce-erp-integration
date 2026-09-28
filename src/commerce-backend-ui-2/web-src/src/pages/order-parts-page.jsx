@@ -8,17 +8,10 @@ import {
   useIms,
   useOrderViewButtonContext,
 } from "@adobe/aio-commerce-lib-admin-ui/web";
-import {
-  Button,
-  ButtonGroup,
-  Heading,
-  InlineAlert,
-  ProgressCircle,
-  Text,
-} from "@react-spectrum/s2";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { makeApi } from "#web/api.js";
+import { Alert, Spinner } from "#web/components/controls.jsx";
 import { OrderParts } from "#web/components/order-parts.jsx";
 
 export function OrderPartsPage() {
@@ -48,27 +41,22 @@ export function OrderPartsPage() {
   const trouble = imsError?.message ?? contextError?.message ?? error;
   if (!(page || trouble)) {
     return (
-      <main className="erp-loading">
-        <ProgressCircle aria-label="Loading" isIndeterminate />
-      </main>
+      <div className="erp-loading">
+        <Spinner label="Loading" />
+      </div>
     );
   }
   return (
-    <main>
-      {trouble && (
-        <InlineAlert variant="negative">
-          <Heading>Something went wrong</Heading>
-          <Text>{trouble}</Text>
-        </InlineAlert>
-      )}
+    <main className="erp-subpage">
+      {trouble && <Alert title="Something went wrong">{trouble}</Alert>}
       {page && (
         <OrderParts api={api} onError={setError} onReload={load} page={page} />
       )}
-      <ButtonGroup>
-        <Button onPress={back} variant="secondary">
+      <div className="actions">
+        <button className="btn btn-secondary" onClick={back} type="button">
           Back to the order
-        </Button>
-      </ButtonGroup>
+        </button>
+      </div>
     </main>
   );
 }

@@ -1,102 +1,44 @@
-import { companyLookup, productLookup } from "#lib/lookup";
+/*
+ * Stand-in answers for the Admin page's actions, in the shapes the actions really return
+ * (erp/status, erp/settings, erp/erps, erp/history, erp/lookup, erp/order-parts — see each
+ * action). The preview renders the real components against these, so the page can be looked
+ * at without a Commerce Admin, a sign-in, or a deployed app. The records are fake-records.js's
+ * and the traces and look-ups fake-lookups.js's.
+ */
+import appConfig from "#app.commerce.config";
 import { orderPartsPage } from "#lib/order-parts-view";
 
 import { BODEA_SCOPE_TREE } from "../test/web/fixtures/bodea-scope-tree.js";
 import {
-  lookupAcross,
-  SCHEDULED,
-  STATUS_ERPS,
-  TRACE_SEVERAL,
-  withErpIds,
-} from "./fake-several-erps.js";
+  fakeCompany,
+  fakeCompanyNames,
+  fakeProduct,
+  fakeTrace,
+  fakeTraceOneErp,
+} from "./fake-lookups.js";
+import {
+  ERP_ENTRIES,
+  historyRecords,
+  scheduledRuns,
+  statusErps,
+} from "./fake-records.js";
 
-/*
- * Stand-in answers for the Admin page's actions, in the shapes the actions really return
- * (erp/status, erp/settings, erp/history, erp/lookup, erp/order-parts — see each action). The preview renders the real
- * components against these, so the layout can be looked at without a Commerce Admin, a
- * sign-in, or a deployed app.
- */
-const SETTINGS_FIELDS = [
-  {
-    default: true,
-    description:
-      "Orders placed on this website are created in the ERP, and the ERP's order number is written back.",
-    label: "Send orders to the ERP",
-    name: "orders_send",
-    type: "boolean",
-  },
-  {
-    default: true,
-    description:
-      "An order placed while the ERP is offline is sent when the ERP is back (retried for up to a day). When off, such an order is not sent.",
-    label: "Hold orders while the ERP is offline",
-    name: "orders_hold_offline",
-    type: "boolean",
-  },
-  {
-    default: "",
-    description:
-      "A status code to set on the Commerce order when the ERP confirms it, created at Stores → Settings → Order Status and assigned to the Pending state (not as its default), for example erp_confirmed. Blank: a note only. No status can move an order to Processing; Commerce does that itself when the order is invoiced or shipped.",
-    label: "Order status when the ERP confirms",
-    name: "orders_confirm_status",
-    type: "text",
-  },
-  {
-    default: "1000",
-    description:
-      "The ERP sales organisation that sells through this website (four letters or digits, like an SAP sales org). Orders from this website carry it.",
-    label: "ERP sales organisation for this website",
-    name: "structure_sales_org",
-    type: "text",
-  },
-  {
-    default: "",
-    description:
-      "What the ERP calls that sales organisation. Blank: the ERP prints the website's name.",
-    label: "Sales organisation name",
-    name: "structure_sales_org_name",
-    type: "text",
-  },
-  {
-    default: "",
-    description:
-      "Put in front of the ERP order number written onto Commerce orders, as ACME-0000001042, so two ERPs on one store tell their orders apart. Blank: the first four letters of the ERP's name. Set at Default Config.",
-    label: "Prefix on ERP order numbers in Commerce",
-    name: "structure_order_prefix",
-    type: "text",
-  },
-  {
-    default: "all",
-    description:
-      "Which products belong to this ERP. All: every product (one ERP). Inventory sources: the products stocked in the sources named below. Attribute: the products whose attribute names this ERP. Set at Default Config.",
-    label: "Which products belong to this ERP",
-    name: "structure_owns",
-    options: [
-      { label: "All products", value: "all" },
-      {
-        label: "Products in the inventory sources named below",
-        value: "sources",
-      },
-      { label: "Products whose attribute names this ERP", value: "attribute" },
-    ],
-    type: "list",
-  },
-  {
-    default: "",
-    description:
-      "Comma-separated inventory source codes this ERP ships from (used with Inventory sources above).",
-    label: "Inventory sources this ERP ships from",
-    name: "structure_owns_sources",
-    type: "text",
-  },
-  {
-    default: "",
-    description:
-      "A product attribute and value that names this ERP, as erp_owner=ACME (used with Attribute above).",
-    label: "Product attribute that names this ERP",
-    name: "structure_owns_attribute",
-    type: "text",
-  },
+/** The settings the app declares, as erp/settings lists them (lib/settings.js settingsPage). */
+const SETTINGS_FIELDS = appConfig.businessConfig.schema.map(
+  ({ default: value, description, label, name, options, type }) => ({
+    default: value,
+    description,
+    label,
+    name,
+    ...(options ? { options } : {}),
+    type,
+  }),
+);
+
+/** The Pending statuses Commerce answers (GET order-statuses, lib/commerce-admin-reads.js). */
+const CONFIRM_STATUSES = [
+  { label: "Awaiting ERP review", value: "erp_review" },
+  { label: "Confirmed in ERP", value: "erp_confirmed" },
 ];
 
 // The tree lib-config builds, in its own shape (test/web/fixtures/bodea-scope-tree.js).
@@ -116,169 +58,37 @@ function scopeNode(id, nodes = SCOPES) {
   return null;
 }
 
-const HISTORY = [
-  {
-    attempts: 1,
-    direction: "to-erp",
-    kind: "order",
-    lastAt: "2026-09-22T14:05:00Z",
-    message: "order 000000048 is ERP sales order 0000001071.",
-    outcome: "sent",
-    ref: "000000048",
-  },
-  {
-    attempts: 3,
-    direction: "to-erp",
-    kind: "order",
-    lastAt: "2026-09-22T13:40:00Z",
-    message: "order 000000047 is waiting for Northwind ERP.",
-    outcome: "held",
-    ref: "000000047",
-  },
-  {
-    attempts: 1,
-    direction: "from-erp",
-    eventId: "ev-77",
-    kind: "shipment",
-    lastAt: "2026-09-22T13:10:00Z",
-    message: "order 000000046: shipped",
-    outcome: "applied",
-    ref: "000000046",
-  },
-  {
-    attempts: 2,
-    direction: "from-erp",
-    eventId: "ev-76",
-    kind: "credit",
-    lastAt: "2026-09-22T12:55:00Z",
-    message: "company 7: credit limit 50000 — not applied: company not found",
-    outcome: "refused",
-    ref: "7",
-  },
-  {
-    attempts: 1,
-    direction: "from-erp",
-    eventId: "ev-75",
-    kind: "price",
-    lastAt: "2026-09-22T12:30:00Z",
-    message: "SKU CS-ROUTER-11: price 199",
-    outcome: "applied",
-    ref: "CS-ROUTER-11",
-  },
-];
+/** Values the preview's saves set, by `<scope>:<name>`; a website's own sales organization. */
+const values = new Map([["website-bodea:structure_sales_org", "1100"]]);
 
-const TRACE = {
-  steps: [
-    {
-      at: "2026-09-22T13:38:00Z",
-      what: "Order 000000047 placed",
-      where: "commerce",
-    },
-    {
-      at: "2026-09-22T13:40:00Z",
-      detail: "order 000000047 is waiting for Northwind ERP.",
-      outcome: "held",
-      retry: { incrementId: "000000047" },
-      tries: 3,
-      what: "Waiting for Northwind ERP",
-      where: "integration",
-    },
-  ],
-  summary: {
-    commerceStatus: "pending",
-    erpNumber: null,
-    erpStatus: null,
-    incrementId: "000000047",
-    reachedErp: false,
-  },
-};
-
-const values = new Map();
-
-/* The look-up, arranged by the real module from stand-in records: the shapes stay honest. */
-const LOOKUP_PRODUCT = {
-  commerce: {
-    name: "Wireless router",
-    price: 199,
-    sku: "CS-ROUTER-11",
-    status: 1,
-    type_id: "simple",
-  },
-  erp: {
-    available: 37,
-    committed: 5,
-    listPrice: 199,
-    name: "Wireless router",
-    salesStatus: "sellable",
-    sku: "CS-ROUTER-11",
-    stock: 42,
-    type: "simple",
-    unit: "EA",
-    warehouses: [{ code: "default", quantity: 42 }],
-  },
-};
-const LOOKUP_COMPANY = {
-  commerce: {
-    company_name: "Contoso Supply",
-    id: 7,
-    legal_name: "Contoso Supply Inc.",
-    status: 1,
-    vat_tax_id: "US 91-7654321",
-  },
-  credit: { balance: -1200, credit_limit: 120_000, currency_code: "USD" },
-  erp: {
-    blocking: "open",
-    commerceCompanyId: "7",
-    credit: { available: 118_800, exposure: 1200, limit: 120_000 },
-    creditLimit: 120_000,
-    id: "C000102",
-    legalName: "Contoso Supply Inc.",
-    name: "Contoso Supply",
-    paymentTerms: "NET60",
-    salesOrgs: ["1000", "2000"],
-    vatTaxId: "US 91-7654321",
-  },
-};
-function fakeLookup(query) {
-  if (query.sku !== undefined) {
-    const known = query.sku === LOOKUP_PRODUCT.commerce.sku;
-    return productLookup({
-      commerce: known ? LOOKUP_PRODUCT.commerce : null,
-      erp: known ? LOOKUP_PRODUCT.erp : null,
-      sku: query.sku,
-      sourceCodes: known ? ["default"] : [],
-    });
-  }
-  const known = String(query.company) === "7";
-  return companyLookup({
-    commerce: known ? LOOKUP_COMPANY.commerce : null,
-    companyId: String(query.company),
-    credit: known ? LOOKUP_COMPANY.credit : null,
-    erp: known ? LOOKUP_COMPANY.erp : null,
-  });
+function settingsPage(scope, { oneErp }) {
+  const node = scopeNode(scope);
+  const level = node?.level ?? "global";
+  return {
+    confirmStatuses: CONFIRM_STATUSES,
+    fields: SETTINGS_FIELDS,
+    scope: scope ?? "global",
+    scopes: SCOPES,
+    values: SETTINGS_FIELDS.map((field) => {
+      const held = values.get(`${scope}:${field.name}`);
+      if (held !== undefined) {
+        return {
+          name: field.name,
+          origin: { code: node?.code ?? "global", level },
+          value: held,
+        };
+      }
+      const atDefault = values.get(`undefined:${field.name}`);
+      const byDefault =
+        oneErp && field.name === "structure_owns" ? "all" : field.default;
+      return {
+        name: field.name,
+        origin: { code: "global", level: "global" },
+        value: atDefault ?? byDefault,
+      };
+    }),
+  };
 }
-
-/** Two ERPs, so the Settings section shows its ERP switcher; the second sets some of its own. */
-const ERPS = [
-  {
-    adapter: "demo-erp",
-    connection: { baseUrl: "https://northwind.example" },
-    id: "erp",
-    name: "Northwind ERP",
-  },
-  {
-    adapter: "demo-erp",
-    connection: { baseUrl: "https://contoso.example" },
-    id: "contoso",
-    name: "Contoso ERP",
-    settings: {
-      structure_order_prefix: "CON",
-      structure_owns: "attribute",
-      structure_owns_attribute: "erp_owner=contoso",
-      websites: { bodea: { structure_sales_org: "2000" } },
-    },
-  },
-];
 
 /*
  * One routed order's parts, as the router records them (lib/order-parts.js): Northwind has its
@@ -286,7 +96,7 @@ const ERPS = [
  * The page's rows are made by the real erp/order-parts view (lib/order-parts-view.js).
  */
 const ORDER_PARTS = {
-  companyId: "7",
+  companyId: "3",
   conflicts: [],
   parts: {
     contoso: {
@@ -294,17 +104,17 @@ const ORDER_PARTS = {
       itemIds: [3],
       message:
         "Contoso ERP blocks this company; its lines wait until it lifts the block.",
-      skus: ["SIGN-A2"],
+      skus: ["proliantdl380"],
       status: "held",
     },
     erp: {
       erpNumber: "NORT-0000001042",
       itemIds: [1, 2],
       message: "Order sent to Northwind ERP as NORT-0000001042.",
-      skus: ["CAB-RED"],
+      skus: ["accesspoint"],
       status: "sent",
       warnings: [
-        "CAB's variants belong to different ERPs (erp: CAB-RED; contoso: CAB-BLUE); fix the setup.",
+        "ACCESS's variants belong to different ERPs (erp: accesspoint; contoso: accesspoint-pro); fix the setup.",
       ],
     },
   },
@@ -313,29 +123,31 @@ const ORDER_PARTS = {
 
 function orderParts() {
   return Promise.resolve({
-    incrementId: "000000042",
-    orderId: 55,
-    ...orderPartsPage({ erps: ERPS, record: ORDER_PARTS }),
+    incrementId: "3000000027",
+    orderId: 57,
+    ...orderPartsPage({ erps: ERP_ENTRIES, record: ORDER_PARTS }),
   });
 }
 
 function resendPart(_incrementId, erpId) {
-  const { heldBy: _heldBy, ...part } = ORDER_PARTS.parts[erpId];
-  ORDER_PARTS.parts[erpId] = {
-    ...part,
-    erpNumber: "CON-0000000311",
-    message: "Order sent to Contoso ERP as CON-0000000311.",
-    status: "sent",
-  };
+  const part = ORDER_PARTS.parts[erpId];
+  if (part) {
+    const { heldBy: _heldBy, ...rest } = part;
+    ORDER_PARTS.parts[erpId] = {
+      ...rest,
+      erpNumber: "CONT-0000000311",
+      message: "Order sent to Contoso ERP as CONT-0000000311.",
+      status: "sent",
+    };
+  }
   return Promise.resolve({
-    message: ORDER_PARTS.parts[erpId].message,
+    message: "Order sent to Contoso ERP as CONT-0000000311.",
     outcome: "sent",
-    part: ORDER_PARTS.parts[erpId],
   });
 }
 
 function saveErpSettings(id, website, changes) {
-  const entry = ERPS.find((candidate) => candidate.id === id);
+  const entry = ERP_ENTRIES.find((candidate) => candidate.id === id);
   const settings = { ...(entry.settings ?? {}) };
   const target = website
     ? { ...(settings.websites?.[website] ?? {}) }
@@ -354,35 +166,59 @@ function saveErpSettings(id, website, changes) {
   return Promise.resolve({ entry: { ...entry } });
 }
 
-const HISTORY_SEVERAL = withErpIds(HISTORY);
-
-function fakeLookupSeveral(query) {
-  return lookupAcross(query, fakeLookup(query), {
-    company: LOOKUP_COMPANY,
-    sku: LOOKUP_PRODUCT.commerce.sku,
-  });
-}
-
-const NOT_THROUGH = ["held", "dropped", "failed", "refused"];
-
-function fakeHistory(oneErp, failedOnly, erp) {
-  const all = oneErp ? HISTORY : HISTORY_SEVERAL;
-  return all
-    .filter((e) => !failedOnly || NOT_THROUGH.includes(e.outcome))
-    .filter((e) => oneErp || !erp || e.erpIds.includes(erp));
-}
-
-/** `oneErp`: the status as one ERP answers it, with no list (the header as before). */
-export function fakeApi({ oneErp = false } = {}) {
+/** The one-ERP status: Northwind's health, with no list. */
+function oneErpStatus() {
+  const [northwind] = statusErps(true);
   return {
-    erps: () => Promise.resolve({ entries: ERPS, stored: true }),
+    erp: {
+      appearance: northwind.appearance,
+      counts: northwind.counts,
+      displayName: northwind.name,
+      lastImportAt: northwind.lastImportAt,
+      lastWipeAt: northwind.lastWipeAt,
+      reachable: true,
+    },
+    ledger: { entries: 2 },
+  };
+}
+
+/** One ERP: its records, with no ERP named on them (erp/history with one ERP). */
+function oneErpHistory(records) {
+  return records
+    .filter((e) => !(e.erpIds ?? []).includes("contoso") || e.kind === "reset")
+    .map(({ erpIds: _erpIds, ...entry }) => entry);
+}
+
+/**
+ * @param {{ oneErp?: boolean, allGood?: boolean }} [options] `oneErp`: the store with one ERP;
+ *   `allGood`: nothing wrong (Contoso answers, every record went through)
+ */
+export function fakeApi({ allGood = false, oneErp = false } = {}) {
+  const records = historyRecords(allGood);
+  const shown = oneErp ? oneErpHistory(records) : records;
+  const answer = (value) => Promise.resolve(value);
+  return {
+    erps: () =>
+      answer({ entries: oneErp ? [ERP_ENTRIES[0]] : ERP_ENTRIES, stored: !oneErp }),
     history: (failedOnly, erp) =>
-      Promise.resolve({ entries: fakeHistory(oneErp, failedOnly, erp) }),
-    lookup: (query) =>
-      Promise.resolve(oneErp ? fakeLookup(query) : fakeLookupSeveral(query)),
+      answer({
+        entries: shown
+          .filter((e) => !failedOnly || ["held", "dropped", "failed", "refused"].includes(e.outcome))
+          .filter((e) => oneErp || !erp || (e.erpIds ?? []).includes(erp)),
+      }),
+    lookup: (query) => {
+      if (query.companyName !== undefined) {
+        return answer(fakeCompanyNames(query.companyName));
+      }
+      return answer(
+        query.sku === undefined
+          ? fakeCompany(query.company, { oneErp })
+          : fakeProduct(query.sku, { allGood, oneErp }),
+      );
+    },
     orderParts,
     resendPart,
-    retry: () => Promise.resolve({ outcome: "sent" }),
+    retry: () => answer({ message: "Sent again; see Activity for how it ended.", outcome: "sent" }),
     saveErpSettings,
     saveSettings: (scope, changes) => {
       for (const [name, value] of Object.entries(changes)) {
@@ -392,73 +228,24 @@ export function fakeApi({ oneErp = false } = {}) {
           values.set(`${scope}:${name}`, value);
         }
       }
-      return Promise.resolve(settingsPage(scope));
+      const { confirmStatuses: _statuses, ...page } = settingsPage(scope, { oneErp });
+      return answer(page);
     },
-    scheduled: () => Promise.resolve({ scheduled: SCHEDULED }),
-    settings: (scope) => Promise.resolve(settingsPage(scope)),
+    scheduled: () => answer({ scheduled: scheduledRuns() }),
+    settings: (scope) => answer(settingsPage(scope, { oneErp })),
     status: () =>
-      Promise.resolve({
-        erp: {
-          counts: {
-            businessPartners: 5,
-            events: 0,
-            pricingConditions: 6,
-            products: 182,
-            salesOrders: 12,
-          },
-          displayName: "Northwind ERP",
-          lastImportAt: "2026-09-22T09:12:04.000Z",
-          lastWipeAt: "2026-09-21T19:11:14.000Z",
-          reachable: true,
-          // The selling structure as the ERP's health answers it (demo-erp lib/structure.js).
-          structure: {
-            companyCode: { code: "1000", name: "Northwind ERP" },
-            salesOrgs: [
-              { code: "1000", name: "Online US", websiteCode: "bodea" },
-            ],
-            warehouses: [
-              {
-                code: "default",
-                commerceName: "Default Source",
-                name: "Plant 1000 · Seattle DC",
-              },
-              { code: "east", commerceName: "East DC", name: "East DC" },
-            ],
-          },
-        },
-        // With several ERPs, erp/status lists each with whether it can be used, why not,
-        // and its own figures.
-        ...(oneErp
-          ? {}
+      answer(
+        oneErp
+          ? oneErpStatus()
           : {
-              erps: STATUS_ERPS,
-            }),
-        ledger: { entries: 2 },
+              erp: { displayName: "Northwind ERP", reachable: true },
+              erps: statusErps(allGood),
+              ledger: { entries: 2 },
+            },
+      ),
+    trace: (ref) =>
+      answer({
+        trace: oneErp ? fakeTraceOneErp(ref, shown) : fakeTrace(ref, shown),
       }),
-    trace: () => Promise.resolve({ trace: oneErp ? TRACE : TRACE_SEVERAL }),
-  };
-}
-
-function settingsPage(scope) {
-  const node = scopeNode(scope);
-  const level = node?.level ?? "global";
-  return {
-    fields: SETTINGS_FIELDS,
-    scope: scope ?? "global",
-    scopes: SCOPES,
-    values: SETTINGS_FIELDS.map((field) => {
-      const held = values.get(`${scope}:${field.name}`);
-      return held === undefined
-        ? {
-            name: field.name,
-            origin: { code: "global", level: "global" },
-            value: field.default,
-          }
-        : {
-            name: field.name,
-            origin: { code: node?.code ?? "global", level },
-            value: held,
-          };
-    }),
   };
 }

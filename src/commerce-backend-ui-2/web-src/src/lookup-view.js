@@ -99,3 +99,13 @@ export function lookupTable(answer, erpName, erps) {
         note,
       );
 }
+
+/**
+ * Whether Commerce or any ERP holds the record: the search box moves on to a company name when
+ * a SKU is found nowhere.
+ * @param {object} answer erp/lookup's answer
+ */
+export function lookupFound(answer) {
+  const sides = answer?.erps ?? [answer];
+  return sides.some((side) => side?.found?.commerce || side?.found?.erp);
+}

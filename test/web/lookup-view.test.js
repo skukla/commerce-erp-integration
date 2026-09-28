@@ -3,7 +3,7 @@
  * Commerce beside the ERP, as always. With several: a product beside the ERP that owns it, and
  * a company beside each ERP, since a company can be a customer in several.
  */
-import { lookupTable } from "#web/lookup-view.js";
+import { lookupFound, lookupTable } from "#web/lookup-view.js";
 
 const ERPS = [
   { id: "erp", name: "Northwind ERP" },
@@ -116,5 +116,23 @@ describe("Given several ERPs", () => {
         },
       ],
     });
+  });
+});
+
+describe("Given the search box's look-up", () => {
+  test("Then an answer is found when Commerce or any ERP holds the record", () => {
+    expect(lookupFound(product())).toBe(true);
+    expect(
+      lookupFound(product({ found: { commerce: false, erp: false } })),
+    ).toBe(false);
+    expect(
+      lookupFound({
+        erps: [
+          { found: { commerce: false, erp: false } },
+          { found: { commerce: false, erp: true } },
+        ],
+        kind: "company",
+      }),
+    ).toBe(true);
   });
 });

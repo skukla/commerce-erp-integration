@@ -1,0 +1,73 @@
+/* The other pages the Admin opens: Move stock, an order's ERP parts, and the crash screen. */
+.erp-subpage {
+  max-width: 960px;
+  padding: 24px;
+  font-family: var(--font);
+}
+.erp-subpage > p:first-child {
+  margin-top: 0;
+  font-size: 15px;
+  color: var(--text-strong);
+}
+.erp-subpage .actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 20px;
+}
+
+.move-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  align-items: flex-end;
+  margin: 16px 0;
+}
+.move-form label,
+.move-form fieldset {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+.move-form fieldset {
+  gap: 6px;
+  padding: 0;
+  margin: 0;
+  border: 0;
+}
+.move-form legend {
+  padding: 0;
+  margin-bottom: 4px;
+}
+.move-form .radio {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  font-size: 14px;
+  color: var(--text);
+}
+.move-result {
+  padding: 12px 14px;
+  margin: 16px 0;
+  color: var(--text-strong);
+  background: var(--ok-bg);
+  border-left: 3px solid var(--ok);
+}
+
+.part-warning {
+  margin-top: 4px;
+  color: var(--warn);
+}
+
+.erp-crash h1 {
+  margin: 0 0 8px;
+  font-size: 20px;
+}
+.erp-crash pre {
+  padding: 12px;
+  overflow: auto;
+  font-size: 12px;
+  background: #f5f5f5;
+  border-radius: 4px;
+}

@@ -8,8 +8,6 @@ import { PER_ERP_KEYS } from "#lib/erp-settings";
 import {
   dressErpField,
   ERP_SETTING_NAMES,
-  erpChoices,
-  erpGroupsAt,
   erpValues,
   websiteCodeOf,
 } from "#web/settings-view.js";
@@ -36,28 +34,6 @@ const PAGE_VALUES = [
 describe("Given the ERP list", () => {
   test("Then the page's per-ERP names are the integration's per-ERP settings", () => {
     expect(ERP_SETTING_NAMES).toEqual(PER_ERP_KEYS);
-  });
-
-  test("Then one ERP offers no switcher, and several offer the integration then each ERP by name", () => {
-    expect(erpChoices([ERPS[0]])).toEqual([]);
-    expect(erpChoices(ERPS)).toEqual([
-      { id: "", label: "Every ERP (the integration's settings)" },
-      { id: "brand-a", label: "Brand A ERP" },
-      { id: "brand-b", label: "Brand B ERP" },
-    ]);
-  });
-
-  test("Then an ERP's groups hold only its own settings: every one at Default Config, the sales organization at a website", () => {
-    expect(erpGroupsAt("global").map((g) => g.legend)).toEqual([
-      "Sales organization",
-      "Products and order numbers",
-    ]);
-    expect(erpGroupsAt("website").map((g) => [g.legend, g.names])).toEqual([
-      [
-        "Sales organization",
-        ["structure_sales_org", "structure_sales_org_name"],
-      ],
-    ]);
   });
 
   test("Then a scope id reads as its website's code", () => {
