@@ -107,7 +107,9 @@ describe("Given a company name to find", () => {
 
     const [, options] = mockGet.mock.calls[0];
     expect(
-      options.searchParams["searchCriteria[filter_groups][0][filters][0][value]"],
+      options.searchParams[
+        "searchCriteria[filter_groups][0][filters][0][value]"
+      ],
     ).toBe("%100off%");
   });
 });

@@ -15,10 +15,11 @@ const credit = (eventId, data) => ({
 
 function readers() {
   return {
-    companyOf: vi.fn(async (partnerId, erpId) =>
-      ({ "contoso|C-2231": "4", "erp|100042": "4", "erp|100051": "2" })[
-        `${erpId}|${partnerId}`
-      ] ?? null,
+    companyOf: vi.fn(
+      async (partnerId, erpId) =>
+        ({ "contoso|C-2231": "4", "erp|100042": "4", "erp|100051": "2" })[
+          `${erpId}|${partnerId}`
+        ] ?? null,
     ),
     nameOf: vi.fn(
       async (id) => ({ 2: "ServerSavvy Solutions", 4: "Kukla Studios" })[id],
@@ -32,8 +33,15 @@ describe("Given the history as read", () => {
     const entries = [
       credit("e1", { creditLimit: 25_000, partnerId: "100051" }),
       credit("e2", { creditLimit: 50_000, partnerId: "100042" }),
-      credit("e3", { creditLimit: 20_000, erpId: "contoso", partnerId: "C-2231" }),
-      { ...credit("e4", { blocked: true, partnerId: "100042" }), kind: "block" },
+      credit("e3", {
+        creditLimit: 20_000,
+        erpId: "contoso",
+        partnerId: "C-2231",
+      }),
+      {
+        ...credit("e4", { blocked: true, partnerId: "100042" }),
+        kind: "block",
+      },
       { ...credit("e5", { lines: [], partnerId: "100042" }), kind: "contract" },
     ];
 

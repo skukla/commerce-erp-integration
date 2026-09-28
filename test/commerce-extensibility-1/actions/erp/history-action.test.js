@@ -99,10 +99,7 @@ describe("Given the history action", () => {
       { id: "4", name: "Kukla Studios" },
       undefined,
     ]);
-    expect(getCompany).toHaveBeenCalledExactlyOnceWith(
-      expect.any(Object),
-      "4",
-    );
+    expect(getCompany).toHaveBeenCalledExactlyOnceWith(expect.any(Object), "4");
   });
 
   test("Then POST retries one order, records it as an admin's retry, and answers its record", async () => {
