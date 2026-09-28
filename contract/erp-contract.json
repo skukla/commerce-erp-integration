@@ -87,6 +87,6 @@
     "webhookPath": "/api/v1/web/ingestion/webhook",
     "body": { "data": ["uid", "event", "value"] },
     "maxAttempts": 10,
-    "erpId": "version 4: every delivered event's value carries erpId, the id the integration's ERP list gives this ERP (set at deploy as ERP_ID), when the ERP was deployed with one. An event without erpId is the single ERP's. The integration matches an order message to that ERP's part and a customer message to that ERP's key-map pairs"
+    "erpId": "version 4: every delivered event's object value carries erpId (a list value, the stock lines, is sent as it is), the id the integration's ERP list gives this ERP (set at deploy as ERP_ID), when the ERP was deployed with one. An event without erpId is the single ERP's. The integration matches an order message to that ERP's part and a customer message to that ERP's key-map pairs"
   }
 }
