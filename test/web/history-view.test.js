@@ -80,6 +80,7 @@ describe("Given the History section", () => {
     ["shipment", "42", "Order 42"],
     ["credit", "7", "Company 7"],
     ["block", "7", "Company 7"],
+    ["contract", "C21", "Customer prices C21"],
   ])(
     "Then a %s event from the ERP is named for what it changed",
     (kind, ref, what) => {

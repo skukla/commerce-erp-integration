@@ -24,6 +24,8 @@ const NOT_THROUGH = new Set(["held", "dropped", "failed", "refused"]);
 const SUBJECT = {
   block: "Company",
   cancel: "Order",
+  // The ERP customer whose prices in force were published into the shared catalog.
+  contract: "Customer prices",
   credit: "Company",
   invoice: "Order",
   order: "Order",
