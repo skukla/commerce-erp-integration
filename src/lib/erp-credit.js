@@ -54,6 +54,32 @@ function totalLimit(attributes, erps) {
 }
 
 /**
+ * A company's attributes with one ERP's credit taken off (its limit, exposure and available).
+ * @param {{ attribute_code: string, value: string }[]} attributes the company's set
+ * @param {string} erpId the ERP
+ */
+export function withoutErp(attributes, erpId) {
+  const codes = new Set(FIELDS.map(([field]) => attributeCode(erpId, field)));
+  return attributes.filter((a) => !codes.has(a.attribute_code));
+}
+
+/**
+ * The credit limit the given ERPs hold on a company: the total of their limits, or null when
+ * none of them holds one.
+ * @param {{ attribute_code: string, value: string }[]} attributes the company's set
+ * @param {{ id: string }[]} erps the ERPs
+ * @returns {number|null}
+ */
+export function heldLimit(attributes, erps) {
+  const holding = erps.filter((erp) =>
+    attributes.some(
+      (a) => a.attribute_code === attributeCode(erp.id, "credit_limit"),
+    ),
+  );
+  return holding.length > 0 ? totalLimit(attributes, holding) : null;
+}
+
+/**
  * Write one ERP's credit onto the company and set Commerce's limit to the total.
  * @param {object} params action params
  * @param {{ companyId: string, erpId: string, creditLimit: number, exposure?: number, available?: number }} credit

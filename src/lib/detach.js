@@ -11,16 +11,20 @@
  * shipments, invoices and cancellations. Orders are the stated exception: Commerce has
  * no API to delete one, so the ERP's number is cleared instead — and an order the ERP
  * still holds for credit is taken off hold, since a hold is a state Commerce can undo.
+ *
+ * With one ERP named, only that ERP's writes are undone (lib/detach-erp.js), so one ERP can be
+ * reset while the others keep theirs.
  */
 import { paramsForErp } from "#adapters/contract";
+import { revertErp } from "#lib/detach-erp";
 
 /**
- * @param {object} deps `{ erps?, commerce: { clearExtOrderId, unholdIfHeld, setCompanyCreditLimit, setCompanyStatus, setProductName, setProductPrice, setStock }, erp: { listOrders }, ledger: { revertLedger }, tierPrices: { revertTierPrice } }`
- * @returns {Promise<{ reverted: object, orders: { cleared: number, failed: object[] }, holds: { released: number, failed: object[] } }>}
+ * The ledger's writers: one per thing the ERP can change on Commerce (lib/ledger.js).
+ * @param {object} params action params
+ * @param {object} deps `{ commerce, tierPrices }`
  */
-export async function detach(params, deps) {
-  const { commerce, erp, ledger, tierPrices } = deps;
-  const reverted = await ledger.revertLedger({
+function ledgerWriters(params, { commerce, tierPrices }) {
+  return {
     creditLimit: (companyId, creditId, before) =>
       commerce.setCompanyCreditLimit(params, creditId, companyId, before),
     customAttributes: (companyId, before) =>
@@ -35,11 +39,29 @@ export async function detach(params, deps) {
     stock: (sku, source, before) =>
       commerce.setStock(params, sku, before, source),
     tierPrice: (entry) => tierPrices.revertTierPrice(params, entry),
-  });
+  };
+}
+
+/**
+ * Undo what the integration wrote on Commerce: for every ERP, or with `params.erp` for that
+ * one ERP only (AB-16c: its ledger entries, its share of each company's credit, and its own
+ * orders), leaving the other ERPs' writes. The caller checks the id is listed (erp/detach).
+ *
+ * @param {object} params action params; `erp` the one ERP to undo
+ * @param {object} deps `{ erps?, commerce: { clearExtOrderId, unholdIfHeld, getCompany, setCompanyCreditLimit, setCompanyCustomAttributes, setCompanyStatus, setProductName, setProductPrice, setStock }, erp: { listOrders }, ledger, tierPrices: { revertTierPrice } }`
+ * @returns {Promise<{ erp?: string, reverted: object, orders: { cleared: number, failed: object[] }, holds: { released: number, failed: object[] } }>}
+ */
+export async function detach(params, deps) {
+  const { commerce, erp, ledger } = deps;
+  const erpId = params.erp ? String(params.erp) : undefined;
+  const writers = ledgerWriters(params, deps);
+  const reverted = erpId
+    ? await revertErp(params, erpId, writers, deps)
+    : await ledger.revertLedger(writers);
   const orders = { cleared: 0, failed: [] };
   const holds = { failed: [], released: 0 };
   const cleared = new Set();
-  for (const target of erpTargets(params, deps.erps)) {
+  for (const target of erpTargets(params, deps.erps, erpId)) {
     // biome-ignore lint/performance/noAwaitInLoops: one ERP at a time, few ERPs
     const listed = await erp.listOrders(target.params);
     if (!listed.ok) {
@@ -55,22 +77,25 @@ export async function detach(params, deps) {
       orders,
     });
   }
-  return { holds, orders, reverted };
+  return { ...(erpId ? { erp: erpId } : {}), holds, orders, reverted };
 }
 
 /**
  * The ERPs whose orders detach reads. It undoes what the integration wrote for every ERP it
  * serves, so with several ERPs each is read at its own address with its own credential; with one,
- * the integration's own params, as before.
+ * the integration's own params, as before. With one ERP named, only that ERP's orders: a split
+ * order carries no ERP number, so an ERP's own list names every order it numbered.
  */
-function erpTargets(params, erps) {
+function erpTargets(params, erps, erpId) {
   if (!erps || erps.length <= 1) {
     return [{ label: "ERP", params }];
   }
-  return erps.map((entry) => ({
-    label: entry.name,
-    params: paramsForErp(params, entry),
-  }));
+  return erps
+    .filter((entry) => erpId === undefined || entry.id === erpId)
+    .map((entry) => ({
+      label: entry.name,
+      params: paramsForErp(params, entry),
+    }));
 }
 
 /** Clear each order's ERP number once, and take off hold what the ERP holds for credit. */
