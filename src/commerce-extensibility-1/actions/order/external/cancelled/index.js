@@ -11,13 +11,23 @@ import {
   addComment,
   cancelOrder,
   getOrder,
+  holdOrder,
   unholdOrder,
 } from "#src/order/commerce-order-api-client";
+
+const REFUSED =
+  "Commerce did not cancel this order because part of it is already invoiced or shipped.";
 
 /**
  * be-observer.sales_order_cancel: cancel the Commerce order the ERP cancelled, and say
  * why in the order's history — the ERP's own reason, so the Commerce Admin reads as a
  * downstream of the ERP's decision rather than a bare cancellation.
+ *
+ * Commerce will not cancel an order once any of it is invoiced or shipped: it keeps the order
+ * and the rest has to be closed with a credit memo (Experience League, Invoices). The call
+ * does not fail when that happens, so the order is read back: if it is not cancelled, it is
+ * put On Hold for staff and its history says so, instead of claiming a cancel that did not
+ * happen. It answers success either way; retrying would not change Commerce's mind.
  */
 async function handle(params) {
   const logger = AioLogger("order-external-cancelled", {
@@ -36,6 +46,7 @@ async function handle(params) {
       await unholdOrder(params, orderId);
     }
     await cancelOrder(params, orderId);
+    const after = await getOrder(params, orderId);
     const erp = params.data.erpNumber
       ? ` (ERP sales order ${params.data.erpNumber})`
       : "";
@@ -43,17 +54,36 @@ async function handle(params) {
       typeof params.data.reason === "string" && params.data.reason
         ? `: ${params.data.reason}`
         : "";
+    const cancelled = after?.state === "canceled";
+    const outcome = cancelled
+      ? ""
+      : `. ${REFUSED} ${await holdForStaff(params, orderId, logger)}`;
     await addComment(params, orderId, {
       statusHistory: {
-        comment: `Cancelled in the ERP${erp}${reason}`,
+        comment: `Cancelled in the ERP${erp}${reason}${outcome}`,
         is_customer_notified: 0,
         is_visible_on_front: 0,
       },
     });
-    return ok("Order cancelled successfully");
+    return ok(
+      cancelled
+        ? "Order cancelled successfully"
+        : "Commerce kept the order (invoiced or shipped); it is held for a credit memo",
+    );
   } catch (error) {
     logger.error(`Error processing the request: ${error.message}`);
     return internalServerError(error.message);
+  }
+}
+
+/** Put a refused cancel On Hold; answers the sentence that says whether it worked. */
+async function holdForStaff(params, orderId, logger) {
+  try {
+    await holdOrder(params, orderId);
+    return "It is On Hold: close the rest with a credit memo.";
+  } catch (error) {
+    logger.warn(`order ${orderId} could not be held: ${error.message}`);
+    return "It could not be put On Hold: close the rest with a credit memo.";
   }
 }
 

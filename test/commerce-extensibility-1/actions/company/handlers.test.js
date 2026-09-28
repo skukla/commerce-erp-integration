@@ -130,6 +130,9 @@ describe("Given the ERP order events the kit has no handler for", () => {
     });
   });
   test("Then cancelled cancels the order, notes the ERP's reason, and a missing id is refused", async () => {
+    getOrder
+      .mockResolvedValueOnce({ state: "processing" })
+      .mockResolvedValueOnce({ state: "canceled" });
     const res = await cancelled.main({
       data: { erpNumber: "0000001000", orderId: 55, reason: "Duplicate order" },
     });
@@ -144,6 +147,36 @@ describe("Given the ERP order events the kit has no handler for", () => {
       },
     });
     expect((await cancelled.main({ data: {} })).error.statusCode).toBe(400);
+  });
+  test("Then an order Commerce will not cancel (already invoiced or shipped) is put On Hold, and its history says why instead of claiming a cancel", async () => {
+    // Commerce keeps an order it cannot cancel; reading it back is the only proof either way.
+    getOrder
+      .mockResolvedValueOnce({ state: "processing" })
+      .mockResolvedValueOnce({ state: "processing" });
+    const res = await cancelled.main({
+      data: { erpNumber: "0000001000", orderId: 55, reason: "Duplicate order" },
+    });
+    expect(res.statusCode).toBe(200);
+    expect(cancelOrder).toHaveBeenCalledWith(expect.anything(), 55);
+    expect(holdOrder).toHaveBeenCalledWith(expect.anything(), 55);
+    expect(addComment).toHaveBeenCalledTimes(1);
+    const { comment } = addComment.mock.calls[0][2].statusHistory;
+    expect(comment).toBe(
+      "Cancelled in the ERP (ERP sales order 0000001000): Duplicate order. Commerce did not cancel this order because part of it is already invoiced or shipped. It is On Hold: close the rest with a credit memo.",
+    );
+  });
+  test("Then a refused cancel that fails to hold still records why, and answers success so the event is not retried", async () => {
+    getOrder
+      .mockResolvedValueOnce({ state: "processing" })
+      .mockResolvedValueOnce({ state: "complete" });
+    holdOrder.mockRejectedValueOnce(
+      new Error("The hold action is not available."),
+    );
+    const res = await cancelled.main({ data: { orderId: 55 } });
+    expect(res.statusCode).toBe(200);
+    expect(addComment.mock.calls[0][2].statusHistory.comment).toBe(
+      "Cancelled in the ERP. Commerce did not cancel this order because part of it is already invoiced or shipped. It could not be put On Hold: close the rest with a credit memo.",
+    );
   });
 });
 
@@ -218,7 +251,9 @@ describe("Given the ERP's credit hold event", () => {
     );
   });
   test("Then a rejected hold arrives as a cancel, which takes the order off hold first", async () => {
-    getOrder.mockResolvedValueOnce({ state: "holded" });
+    getOrder
+      .mockResolvedValueOnce({ state: "holded" })
+      .mockResolvedValueOnce({ state: "canceled" });
     const res = await cancelled.main({
       data: { erpNumber: "0000001000", orderId: 55, reason: "Credit rejected" },
     });
