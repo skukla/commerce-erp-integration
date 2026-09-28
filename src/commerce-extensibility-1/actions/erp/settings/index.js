@@ -5,6 +5,7 @@ import {
 } from "@adobe/aio-commerce-sdk/core/responses";
 import AioLogger from "@adobe/aio-lib-core-logging";
 
+import { pendingOrderStatuses } from "#lib/commerce-admin-reads";
 import { withErpSettings } from "#lib/erp-settings";
 import { erpById, loadErps } from "#lib/erps";
 import {
@@ -49,7 +50,9 @@ async function settingsForErp(params, resolved) {
  *   the one routing uses (router/ownership.js), so the fill gives each ERP only what it owns.
  * GET ?scope=<scope id>[&refresh=true]: the fields, the scopes a merchant can pick, and the
  *   values at that scope with where each comes from (Default Config when no scope is given).
- *   `refresh` reads Commerce's websites again first.
+ *   `refresh` reads Commerce's websites again first. `confirmStatuses` lists the order statuses
+ *   "Order status when the ERP confirms" can take (lib/commerce-admin-reads.js), or is null
+ *   when Commerce's statuses could not be read (the page then offers a text box).
  * PATCH { scope?, values: { <setting>: true | false | null } }: save at that scope;
  *   null removes the override so the wider scope's value applies. Answers the page as
  *   it now reads.
@@ -77,11 +80,16 @@ async function main(params) {
       return await settingsForErp(params, resolved);
     }
     if (method === "get") {
-      return ok({
-        body: await settingsPage(params, params.scope || undefined, {
+      const [page, confirmStatuses] = await Promise.all([
+        settingsPage(params, params.scope || undefined, {
           refresh: String(params.refresh) === "true",
         }),
-      });
+        pendingOrderStatuses(params).catch((error) => {
+          logger.warn(`order statuses not read: ${error.message}`);
+          return null;
+        }),
+      ]);
+      return ok({ body: { ...page, confirmStatuses } });
     }
     if (method === "patch") {
       const body = readPayload(params);

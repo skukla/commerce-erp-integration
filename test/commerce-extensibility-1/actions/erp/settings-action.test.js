@@ -15,11 +15,17 @@ vi.mock("#lib/settings", async (importOriginal) => {
     })),
   };
 });
+// "Order status when the ERP confirms" is picked from Commerce's Pending statuses.
+const CHOICES = [{ label: "Confirmed in ERP", value: "erp_confirmed" }];
+vi.mock("#lib/commerce-admin-reads", () => ({
+  pendingOrderStatuses: vi.fn(async () => CHOICES),
+}));
 vi.mock("@adobe/aio-commerce-lib-config", () => ({
   byCodeAndLevel: vi.fn(),
   initialize: vi.fn(),
 }));
 
+import { pendingOrderStatuses } from "#lib/commerce-admin-reads";
 import { resolvedSettings, saveSettings, settingsPage } from "#lib/settings";
 import { main } from "#src/erp/settings/index";
 
@@ -36,7 +42,10 @@ describe("Given the settings action", () => {
   test("Then GET answers Default Config's page when no scope is given", async () => {
     const res = await main({ __ow_method: "get" });
     expect(res.statusCode).toBe(200);
-    expect(res.body).toStrictEqual({ scope: "default" });
+    expect(res.body).toStrictEqual({
+      confirmStatuses: CHOICES,
+      scope: "default",
+    });
     expect(settingsPage).toHaveBeenCalledWith(expect.any(Object), undefined, {
       refresh: false,
     });
@@ -51,7 +60,15 @@ describe("Given the settings action", () => {
 
   test("Then GET answers the chosen scope's page", async () => {
     const res = await main({ __ow_method: "get", scope: "w1" });
-    expect(res.body).toStrictEqual({ scope: "w1" });
+    expect(res.body).toStrictEqual({ confirmStatuses: CHOICES, scope: "w1" });
+  });
+
+  test("Then GET still answers the page when Commerce's statuses cannot be read, with none to pick", async () => {
+    // The page then keeps a text box for the status, with a hint.
+    pendingOrderStatuses.mockRejectedValueOnce(new Error("404 Not Found"));
+    const res = await main({ __ow_method: "get" });
+    expect(res.statusCode).toBe(200);
+    expect(res.body).toStrictEqual({ confirmStatuses: null, scope: "default" });
   });
 
   test("Then PATCH saves at the scope and answers the page as it now reads", async () => {
