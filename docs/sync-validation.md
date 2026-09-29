@@ -143,19 +143,19 @@ Record each row's result inline: `PASS <date>`, or `FAIL <date> — <what happen
 3. **Reset:** **Expect:** an order Commerce can still cancel is cancelled; one it cannot keeps a
    note; the ERP number is cleared; the integration forgets the order.
 
-## 6. Shipment and invoice — both ways · Result: invoice E→C PASS; shipment E→C FAILED (400) 2026-09-29
+## 6. Shipment and invoice — both ways · Result: PASS 2026-09-29 (after AB-43 two-part fix)
 
-> Live on Bodea 2026-09-29 on order 000000001 / ERP 0000001014. ERP ship route is
-> `orders/<n>/shipments` (create, body `{lines:[{item,qty}]}`) → `.../shipments/<id>/post`,
-> then `orders/<n>/invoice`. INVOICE E→C PASS: the ERP invoice reached Commerce — order moved
-> to `processing`, total_invoiced 298, total_paid 298. SHIPMENT E→C FAILED: the integration's
-> `POST /V1/order/24/ship` got a 400 (get_erp_order_trace: "shipped — not applied … 400 Bad
-> Request"), and Commerce has no shipment for the order. Two likely causes, not yet separated:
-> (a) my ERP shipment had no warehouse/source, and the Commerce ship needs the inventory source
-> (per live-validation-learnings); (b) order 24 was created via `POST /V1/orders` directly, so
-> it has no inventory reservation and may not be shippable. Retry ERP shipment WITH a warehouse
-> and/or use a cart-reserved order before calling this a real gap. Commerce-side ship/invoice
-> (§6.3) not run.
+> Live on Bodea 2026-09-29. ERP ship route is `orders/<n>/shipments` (create, `{lines:[{item,
+> qty}]}`) → `.../shipments/<id>/post`, then `orders/<n>/invoice`. INVOICE E→C PASS: the ERP
+> invoice reached Commerce (order → processing, total_invoiced/paid 298). SHIPMENT E→C first
+> FAILED (400 on POST order/{id}/ship), then FIXED (AB-43) and re-proven on order 000000003 /
+> ERP 0000001016: shipped with no warehouse → applied to Commerce. TWO bugs, both non-default-
+> source only (why prior default-source shipments "passed"): (1) demo-erp createShipment left
+> warehouse null → Commerce source "default", where accesspoint is not → default to the shipped
+> products' warehouse; (2) the integration sent the MSI source in a top-level extension_attributes,
+> which salesShipOrder ignores → move under `arguments.extension_attributes.source_code`. The
+> box's fake Commerce read the top-level field too — that agreement is why it shipped; the fake
+> is now faithful. Commerce-side ship/invoice (§6.3) not run.
 
 1. **Do:** on the ERP screen, ship the order's lines. **Expect:** Commerce records a shipment
    with those items and the source code.
