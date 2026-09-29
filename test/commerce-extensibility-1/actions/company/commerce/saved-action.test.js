@@ -139,3 +139,19 @@ describe("Given two ERPs in the stored list", () => {
     expect(res.statusCode ?? res.error?.statusCode).toBe(500);
   });
 });
+
+// AB-41: the B2B Company entity's key is entity_id, not id. The event subscribes to both;
+// the handler must read whichever Commerce populates, or every company update is rejected.
+describe("Given the company id arrives as entity_id (the real Commerce payload)", () => {
+  test("Then the company is still resolved and paired", async () => {
+    const res = await main({ data: { value: { entity_id: 21 } } });
+    expect(res.statusCode).toBe(200);
+    expect(await erpCustomerOf("21")).toBe("C21");
+  });
+
+  test("Then an event carrying neither id nor entity_id is refused", async () => {
+    const res = await main({ data: { value: {} } });
+    expect(res.statusCode ?? res.error?.statusCode).toBe(400);
+    expect(erp.importRecords).not.toHaveBeenCalled();
+  });
+});

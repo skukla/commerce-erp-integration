@@ -26,7 +26,9 @@ async function main(params) {
     level: params.LOG_LEVEL || "info",
   });
   const company = params.data?.value ?? params.data ?? {};
-  const companyId = Number(company.id);
+  // The B2B Company entity's key is entity_id (like shipment/invoice), not id; the event
+  // subscribes to both so the payload carries whichever Commerce populates (AB-41).
+  const companyId = Number(company.entity_id ?? company.id);
   if (!(Number.isInteger(companyId) && companyId > 0)) {
     return badRequest("the company event carries no company id");
   }
