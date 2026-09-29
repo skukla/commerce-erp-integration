@@ -235,9 +235,29 @@ Record each row's result inline: `PASS <date>`, or `FAIL <date> — <what happen
 
 ---
 
-## Several ERPs
+## Several ERPs · Result: PASS 2026-09-29 (split + isolation + reset)
 
 Run §1–§8 with **two** ERPs added to one integration, using products each ERP owns and one order
 that spans both. Confirm at each step that a change reaches only the owning ERP, that each ERP
 reports only its own part, and that reset returns both ERPs to zero in either order. The box
 version is `test/box/several-erps.test.js`.
+
+> Live on Bodea 2026-09-29 with **Northwind (demo-erp)** and **Contoso (demo-erp-2)** attached to
+> the one integration — disjoint products (Northwind: accesspoint/switchenterprise8/switchlite8;
+> Contoso: poweredger752/primergyrx4770m5/proliantdl380).
+> - **Split order — PASS.** One Commerce order 000000007 (accesspoint + poweredger752) fanned out
+>   to **both** ERPs: Northwind created sales order 0000001020 holding only `accesspoint`, Contoso
+>   created 0000001003 holding only `poweredger752`. Both parts `sent`; both ERP orders carry the
+>   same `commerceOrderId=30`; the single Commerce order stayed `pending`. So one Commerce order
+>   splits ERP-side and each ERP reports only its own part (`router/route-order.js`,
+>   `order-parts.js`). Also settled that accesspoint (whose `erp_owner` attribute reads `"erp"`)
+>   still routes to Northwind.
+> - **Write isolation — PASS.** A price write on Contoso (poweredger752 1850→1875) reached Commerce
+>   in ~5s; Northwind never held the SKU. Reverted to 1850 (Contoso ERP restored; Commerce
+>   re-publish confirmed).
+> - **Reset — PASS.** `reset_erp_records` returned both ERPs to zero: 2 pending orders cancelled
+>   (29, 30), 5 shipped/invoiced orders kept + noted (Commerce cannot delete their
+>   shipments/invoices — the documented exception), 7 order parts removed, 8 credit reversions
+>   undone, both ERPs wiped and refilled from Commerce (Northwind 4 partners/3 products, Contoso
+>   likewise). After reset each ERP holds 0 orders and mirrors Commerce. The report also confirmed
+>   ownership: Northwind owns "products whose erp_owner is erp", Contoso "…is demo-erp-2".
