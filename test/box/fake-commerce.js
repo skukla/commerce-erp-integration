@@ -449,11 +449,13 @@ export function createFakeCommerce() {
       const o = order(orderId);
       const id = db.nextId;
       db.nextId += 1;
+      // Real Commerce reads the MSI source from arguments.extension_attributes.source_code,
+      // NOT a top-level extension_attributes. The fake reads the same place so the box proves
+      // the shape real Commerce accepts.
+      const sourceCode = data.arguments?.extension_attributes?.source_code;
       db.shipments.push({
         entity_id: id,
-        extension_attributes: {
-          source_code: data.extension_attributes?.source_code,
-        },
+        extension_attributes: { source_code: sourceCode },
         increment_id: String(id),
         items: data.items.map((i) => ({
           order_item_id: i.order_item_id,
@@ -462,14 +464,14 @@ export function createFakeCommerce() {
         order_id: o.entity_id,
       });
       for (const i of data.items) {
-        const key = `${o.items.find((x) => x.item_id === i.order_item_id)?.sku}|${data.extension_attributes?.source_code ?? "default"}`;
+        const key = `${o.items.find((x) => x.item_id === i.order_item_id)?.sku}|${sourceCode ?? "default"}`;
         db.sourceItems.set(key, (db.sourceItems.get(key) ?? 0) - i.qty);
       }
       o.state = "processing";
       record("ship", {
         orderId: String(orderId),
         shipmentId: id,
-        sourceCode: data.extension_attributes?.source_code,
+        sourceCode,
       });
       return id;
     },
@@ -557,7 +559,7 @@ export function createFakeCommerce() {
     adminShip(orderId, items, sourceCode = "default") {
       const shipmentId = db.nextId;
       shipmentClient.createShipment({}, orderId, {
-        extension_attributes: { source_code: sourceCode },
+        arguments: { extension_attributes: { source_code: sourceCode } },
         items,
       });
       return shipmentId;
