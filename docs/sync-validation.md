@@ -115,7 +115,24 @@ Record each row's result inline: `PASS <date>`, or `FAIL <date> — <what happen
 4. **Reset:** **Expect:** the credit limit and block are undone; with several ERPs, the limit is
    recomputed to the remaining ERPs' total.
 
-## 5. Order — Commerce → ERP, status back · Result: ____
+## 5. Order — Commerce → ERP, status back · Result: PASS 2026-09-29
+
+> Live on Bodea 2026-09-29. Order built and placed via REST for Kukla Studios (company 21):
+> customer cart (customers/44/carts → items → shipping-information gave companycredit "Payment
+> on Account", contract price 149 applied) then created via the Order API `POST /V1/orders`
+> (order 000000001, entity_id 24). §5.1 PASS: Northwind ERP created sales order 0000001014 in
+> ~11s; get_erp_order_trace shows the crossing. §5.2 PASS: confirming on the ERP set Commerce
+> status `erp_confirmed` (the custom status on the Pending STATE, not Processing) — exactly the
+> documented rule. Note: `POST /V1/carts/{id}/payment-information` is mine/guest-only (404 for
+> admin); the Order API is the admin/integration path.
+>
+> AB-37 #2 (PO invoicing at checkout): ANSWERED — Payment on Account is NOT invoiced at
+> checkout (total_due stayed 298, nothing paid until the ERP invoiced). The "Order workflow"
+> doc is right; the "Invoices" claim does not hold for Payment on Account on ACCS.
+> AB-37 #1 (attribute write after Pending): ANSWERED — `ext_order_id` was written to the order
+> while in PROCESSING (post-Pending) via `POST /V1/orders` and read back. The ERP-number
+> write-back works regardless of state; the "only when Pending" limit is about genuinely custom
+> attributes, which the integration does not rely on for the ERP number.
 
 1. **Do:** place an order on the storefront for products the ERP owns. **Expect:** the ERP's
    Sales orders screen shows a new sales order; Commerce's order shows the ERP number as
@@ -126,7 +143,19 @@ Record each row's result inline: `PASS <date>`, or `FAIL <date> — <what happen
 3. **Reset:** **Expect:** an order Commerce can still cancel is cancelled; one it cannot keeps a
    note; the ERP number is cleared; the integration forgets the order.
 
-## 6. Shipment and invoice — both ways · Result: ____
+## 6. Shipment and invoice — both ways · Result: invoice E→C PASS; shipment E→C FAILED (400) 2026-09-29
+
+> Live on Bodea 2026-09-29 on order 000000001 / ERP 0000001014. ERP ship route is
+> `orders/<n>/shipments` (create, body `{lines:[{item,qty}]}`) → `.../shipments/<id>/post`,
+> then `orders/<n>/invoice`. INVOICE E→C PASS: the ERP invoice reached Commerce — order moved
+> to `processing`, total_invoiced 298, total_paid 298. SHIPMENT E→C FAILED: the integration's
+> `POST /V1/order/24/ship` got a 400 (get_erp_order_trace: "shipped — not applied … 400 Bad
+> Request"), and Commerce has no shipment for the order. Two likely causes, not yet separated:
+> (a) my ERP shipment had no warehouse/source, and the Commerce ship needs the inventory source
+> (per live-validation-learnings); (b) order 24 was created via `POST /V1/orders` directly, so
+> it has no inventory reservation and may not be shippable. Retry ERP shipment WITH a warehouse
+> and/or use a cart-reserved order before calling this a real gap. Commerce-side ship/invoice
+> (§6.3) not run.
 
 1. **Do:** on the ERP screen, ship the order's lines. **Expect:** Commerce records a shipment
    with those items and the source code.
