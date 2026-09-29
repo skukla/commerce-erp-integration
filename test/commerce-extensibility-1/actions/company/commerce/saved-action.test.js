@@ -31,6 +31,7 @@ import { main } from "#src/company/commerce/saved/index";
 const memory = () => {
   const store = new Map();
   return {
+    delete: async (k) => store.delete(k),
     get: async (k) => (store.has(k) ? { value: store.get(k) } : undefined),
     put: async (k, v) => store.set(k, v),
   };

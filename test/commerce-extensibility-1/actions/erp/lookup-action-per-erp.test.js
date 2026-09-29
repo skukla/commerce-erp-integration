@@ -45,6 +45,7 @@ const ERPS = [
 function memoryState(initial = {}) {
   const store = new Map(Object.entries(initial));
   return {
+    delete: async (k) => store.delete(k),
     get: async (k) => (store.has(k) ? { value: store.get(k) } : undefined),
     put: async (k, v) => store.set(k, v),
   };

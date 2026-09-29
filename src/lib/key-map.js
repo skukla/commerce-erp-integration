@@ -17,8 +17,13 @@
 import stateLib from "@adobe/aio-lib-state";
 
 import { SINGLE_ERP_ID } from "#lib/erps";
+import { withStateLock } from "#lib/state-lock";
 
 const KEY = "erp-key-map";
+// One writer at a time: the whole-map fill (replaceKeyMap) and event-driven pairing
+// (pairCustomer) both read-modify-write this one document, and without the lock the later
+// write clobbers the earlier with a stale map, dropping pairs (AB-16g). Exported for tests.
+export const LOCK_KEY = "erp-key-map-lock";
 const TTL_SECONDS = 365 * 24 * 60 * 60;
 const KINDS = new Set(["customer"]);
 const COMMERCE_ID = /^\d+$/u;
@@ -117,31 +122,47 @@ export function keyMapProblem(entries) {
 }
 
 /** Replace the whole map (Demo Builder, after a fill). Check it with keyMapProblem first. */
-export async function replaceKeyMap(entries) {
-  await writeKeyMap(
-    entries.map((e) => stored(String(e.commerce), e.erp, e.erpId)),
+export async function replaceKeyMap(entries, lockOptions) {
+  await withStateLock(
+    await state(),
+    LOCK_KEY,
+    () =>
+      writeKeyMap(
+        entries.map((e) => stored(String(e.commerce), e.erp, e.erpId)),
+      ),
+    lockOptions,
   );
 }
 
 /**
  * Pair one Commerce company with the customer an ERP created for it, replacing that ERP's old
- * pair; other ERPs' pairs are left alone.
+ * pair; other ERPs' pairs are left alone. The read-modify-write runs under the lock so a
+ * concurrent fill (replaceKeyMap) cannot land between the read and the write and be clobbered.
+ * @param {{ attempts?: number, wait?: () => Promise<void> }} [lockOptions] test seam
  */
 export async function pairCustomer(
   commerceId,
   erpNumber,
   erpId = SINGLE_ERP_ID,
+  lockOptions = {},
 ) {
   const commerce = String(commerceId);
-  const rest = (await readKeyMap()).filter(
-    (e) =>
-      !(
-        e.kind === "customer" &&
-        erpOf(e) === erpId &&
-        (e.commerce === commerce || e.erp === erpNumber)
-      ),
+  await withStateLock(
+    await state(),
+    LOCK_KEY,
+    async () => {
+      const rest = (await readKeyMap()).filter(
+        (e) =>
+          !(
+            e.kind === "customer" &&
+            erpOf(e) === erpId &&
+            (e.commerce === commerce || e.erp === erpNumber)
+          ),
+      );
+      await writeKeyMap([...rest, stored(commerce, erpNumber, erpId)]);
+    },
+    lockOptions,
   );
-  await writeKeyMap([...rest, stored(commerce, erpNumber, erpId)]);
 }
 
 /** One ERP's customer number for a Commerce company, or null. */

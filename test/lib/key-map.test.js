@@ -6,15 +6,25 @@ import {
   commerceCompanyOf,
   erpCustomerOf,
   keyMapProblem,
+  LOCK_KEY,
   pairCustomer,
   readKeyMap,
   replaceKeyMap,
   resetKeyMapClient,
 } from "#lib/key-map";
+import { releaseLock, takeLock } from "#lib/state-lock";
+
+const NO_WAIT = () => Promise.resolve();
+const FAST = { attempts: 1, wait: NO_WAIT };
+const LOCK_HELD = /could not take the lock/u;
 
 function memoryState() {
   const store = new Map();
   return {
+    delete: vi.fn((k) => {
+      store.delete(k);
+      return Promise.resolve();
+    }),
     get: vi.fn((k) =>
       Promise.resolve(store.has(k) ? { value: store.get(k) } : undefined),
     ),
@@ -67,6 +77,32 @@ describe("Given a key map loaded by Demo Builder", () => {
     await pairCustomer("40", "C000301");
     expect(await erpCustomerOf("40")).toBe("C000301");
     expect(await readKeyMap()).toHaveLength(3);
+  });
+});
+
+describe("Given a fill in progress (the key-map lock is held)", () => {
+  const A = { commerce: "12", erp: "C000102", kind: "customer" };
+
+  test("Then a concurrent pairing does not clobber the map with a stale copy (AB-16g)", async () => {
+    const client = memoryState();
+    resetKeyMapClient(client);
+    await replaceKeyMap([A], FAST);
+
+    // A fill holds the lock; the pairing cannot take it, so it refuses rather than
+    // read the pre-fill map and write it back, dropping the fill's rows.
+    const held = await takeLock(client, LOCK_KEY, FAST);
+    expect(held).toEqual(expect.any(String));
+    await expect(
+      pairCustomer("40", "C000300", undefined, FAST),
+    ).rejects.toThrow(LOCK_HELD);
+    expect(await readKeyMap()).toEqual([A]);
+
+    // Once the fill releases, the pairing runs and keeps the existing pair.
+    await releaseLock(client, LOCK_KEY, held);
+    await pairCustomer("40", "C000300", undefined, FAST);
+    const map = await readKeyMap();
+    expect(map).toContainEqual(A);
+    expect(map.some((e) => e.erp === "C000300")).toBe(true);
   });
 });
 
