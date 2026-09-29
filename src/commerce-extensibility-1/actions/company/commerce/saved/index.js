@@ -30,6 +30,11 @@ async function main(params) {
   // subscribes to both so the payload carries whichever Commerce populates (AB-41).
   const companyId = Number(company.entity_id ?? company.id);
   if (!(Number.isInteger(companyId) && companyId > 0)) {
+    // AB-41 diagnostic (temporary): capture the real event shape so we can see which key
+    // Commerce puts the company id under. Logs field NAMES + the value object only (no secrets).
+    logger.warn(
+      `[AB-41 diag] paramsKeys=${Object.keys(params).join(",")} | dataKeys=${Object.keys(params.data || {}).join(",")} | valueKeys=${Object.keys(params.data?.value || {}).join(",")} | value=${JSON.stringify(params.data?.value)} | data=${JSON.stringify(params.data)}`,
+    );
     return badRequest("the company event carries no company id");
   }
   try {
