@@ -1,0 +1,121 @@
+# Sync validation — every entity, both directions, on a live instance
+
+The live counterpart of the box journeys (`test/box/journeys.test.js`,
+`test/box/several-erps.test.js`): one journey per row of the entity-coverage matrix
+(`.rptc/research/erp-bidirectional-review/`), each written so you can run it by hand against a
+deployed pair and check the result at every step. The box journeys prove the same paths in
+process; this proves them against real Commerce and a real ERP.
+
+**When to run:** as a baseline against today's code, again after a change to any sync path, and
+before every release. **Products first** — they are the simplest round trip and the one every
+other entity leans on.
+
+**How to read a step:** *Do* names where to act (Commerce Admin, the ERP screen, or a tool);
+*Expect* is what you should see, and where. A step marked **GAP Gn** is a known hole from the
+matrix — its "expect" is the current (wrong) behaviour, recorded so a run does not read it as a
+regression. Reset always comes last: it must return the pair to zero.
+
+Record each row's result inline: `PASS <date>`, or `FAIL <date> — <what happened>`.
+
+---
+
+## 1. Product (name, price, type) — both ways · Result: ____
+
+1. **Do:** in Commerce Admin, create a simple product whose SKU an ERP owns (its `erp_owner`
+   attribute, or a stocked source of that ERP). **Expect:** the ERP's Products screen shows the
+   new item — SKU, name, price, type — within a few seconds.
+2. **Do:** in Commerce Admin, change that product's name and price. **Expect:** the ERP's item
+   shows the new name and price.
+3. **Do:** on the ERP's Products screen, change the item's price (and name). **Expect:** the
+   Commerce product shows the ERP's value (this write is ledgered).
+4. **GAP G1 — Do:** delete the product in Commerce Admin. **Expect (current):** the ERP still
+   lists it; the record lingers until reset. Record as G1, not a regression.
+5. **Reset:** run a reset. **Expect:** the ERP's product records match Commerce as it stands;
+   the ledgered ERP price edit is reverted.
+
+## 2. Stock per source — both ways · Result: ____
+
+1. **Do:** in Commerce Admin, set the quantity of an ERP-owned SKU at that ERP's **default**
+   inventory source. **Expect:** the ERP's warehouse quantity for that item matches.
+2. **Do:** on the ERP screen, change the item's on-hand quantity. **Expect:** the Commerce
+   source item for that source shows the ERP's number (ledgered).
+3. **GAP G2 — Do:** in Commerce Admin, edit the quantity at a **non-default** source.
+   **Expect (current):** the change does not reach the ERP until reset, and the ERP overwrites
+   it on its next stock edit. Record as G2.
+4. **Reset:** **Expect:** stock matches Commerce; ledgered ERP stock edits reverted.
+
+## 3. Company (customer) — Commerce → ERP · Result: ____
+
+1. **Do:** in Commerce Admin, create a B2B company (name, legal identity, admin) that trades on
+   a website an ERP serves. **Expect:** the ERP's Business partners screen shows the company as
+   a customer (sold-to), paired by its customer number; its sales organisation reflects the
+   website's setting.
+2. **Do:** change the company's name/legal fields. **Expect:** the ERP's partner updates.
+3. **Reset:** **Expect:** partners match Commerce; the pair is rebuilt.
+
+## 4. Credit limit and block — ERP → Commerce · Result: ____
+
+1. **Do:** on the ERP screen, set the partner's credit limit. **Expect:** the Commerce company's
+   credit limit shows the ERP's value (ledgered). With several ERPs, Commerce's limit is the
+   total across ERPs; each ERP's own figure is in its prefixed company attribute.
+2. **Do:** on the ERP screen, block the partner. **Expect:** that ERP's orders for the company
+   are held; the other ERPs keep flowing (the company flag is not written).
+3. **GAP G3 — Expect:** Commerce's balance and the ERP's exposure can disagree; the ERP's
+   exposure is the demo's truth (stated on the Credit card). Record as G3, not a regression.
+4. **Reset:** **Expect:** the credit limit and block are undone; with several ERPs, the limit is
+   recomputed to the remaining ERPs' total.
+
+## 5. Order — Commerce → ERP, status back · Result: ____
+
+1. **Do:** place an order on the storefront for products the ERP owns. **Expect:** the ERP's
+   Sales orders screen shows a new sales order; Commerce's order shows the ERP number as
+   `ext_order_id` (`<PREFIX>-<ten digits>`) and a note. A mixed order splits: each ERP gets only
+   its own lines, and the order carries each ERP's number.
+2. **Do:** confirm the order on the ERP screen. **Expect:** the Commerce order gains a comment
+   (and moves to the configured Pending status if one is set); it does not jump to Processing.
+3. **Reset:** **Expect:** an order Commerce can still cancel is cancelled; one it cannot keeps a
+   note; the ERP number is cleared; the integration forgets the order.
+
+## 6. Shipment and invoice — both ways · Result: ____
+
+1. **Do:** on the ERP screen, ship the order's lines. **Expect:** Commerce records a shipment
+   with those items and the source code.
+2. **Do:** on the ERP screen, invoice the order. **Expect:** Commerce records the invoice
+   (capture) and a comment; Commerce moves the order toward Complete.
+3. **Do:** in Commerce Admin, create a shipment / invoice for the order's lines. **Expect:** the
+   ERP is told and shows the delivery / billing for its own lines (invoice before shipment; one
+   invoice at a time per order).
+4. **Reset:** **Expect:** shipments and invoices stay (documented exception — Commerce cannot
+   delete them); the ERP number is cleared.
+
+## 7. Cancel and hold in Commerce — Commerce → ERP · Result: ____
+
+1. **Do:** in Commerce Admin, cancel an order the ERP holds. **Expect:** the ERP is told and
+   marks its sales order cancelled (with the origin marker, so it does not echo back).
+2. **Do:** in Commerce Admin, hold / unhold an order. **Expect:** the ERP reflects the hold /
+   release. (Matrix item 1 / G4 — confirm built before running.)
+3. **Reset:** **Expect:** holds the integration placed are released.
+
+## 8. Contract prices → shared catalog — ERP → Commerce · Result: ____
+
+1. **Do:** on the ERP screen, set a contract price (a pricing condition, above the discount
+   ceiling) for a company on a product that ERP owns. **Expect:** the company sees its contract
+   price in the storefront everywhere; the price is published into the company's own shared
+   catalog. Publication runs hourly and on fill/reset.
+2. **Reset:** **Expect:** the company's contract prices are re-published from the ERP as it
+   stands.
+
+## 9. Currency — · Result: ____
+
+1. **GAP G5 — Expect:** the ERP has no currency of its own; products and credit print USD
+   regardless of the website's currency. Record as G5, small; the structure plan's Store
+   Information read is the fix.
+
+---
+
+## Several ERPs
+
+Run §1–§8 with **two** ERPs added to one integration, using products each ERP owns and one order
+that spans both. Confirm at each step that a change reaches only the owning ERP, that each ERP
+reports only its own part, and that reset returns both ERPs to zero in either order. The box
+version is `test/box/several-erps.test.js`.
