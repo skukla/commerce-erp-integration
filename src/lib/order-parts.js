@@ -8,6 +8,8 @@
  */
 import stateLib from "@adobe/aio-lib-state";
 
+import { releaseLock, takeLock } from "#lib/state-lock";
+
 const TTL_SECONDS = 365 * 24 * 60 * 60;
 
 /** The outcomes after which a part is never sent again. */
@@ -136,28 +138,10 @@ export async function writeOrderParts(incrementId, record) {
 /*
  * One invoice at a time per order. Adobe's quality patch MDVA-40399 reports that two partial
  * invoices created at once on one order fail (reported, not re-verified), so every partial
- * invoice on an order is created under this lock. App Builder State has no compare-and-set:
- * a taker writes its own token and reads it back, and whoever reads their own token holds it.
- * A lock older than LOCK_MS is treated as abandoned.
+ * invoice on an order is created under this lock — the shared State lease lock (lib/state-lock.js).
  */
-const LOCK_MS = 30_000;
-const LOCK_TTL_SECONDS = 60;
-
 function lockKey(incrementId) {
   return `order-invoice-lock-${String(incrementId).replace(/[^A-Za-z0-9_-]/gu, "_")}`;
-}
-
-async function lockHolder(client, key) {
-  const res = await client.get(key);
-  if (!res?.value) {
-    return null;
-  }
-  try {
-    const held = JSON.parse(res.value);
-    return held.until > Date.now() ? held : null;
-  } catch {
-    return null;
-  }
 }
 
 /**
@@ -167,37 +151,10 @@ async function lockHolder(client, key) {
  * @returns {Promise<string|null>} the token to release with, or null when it stayed taken
  */
 export async function lockOrder(incrementId, options = {}) {
-  const client = await state();
-  const key = lockKey(incrementId);
-  const attempts = options.attempts ?? 10;
-  const wait = options.wait ?? (() => new Promise((r) => setTimeout(r, 500)));
-  for (let attempt = 0; attempt < attempts; attempt += 1) {
-    // biome-ignore lint/performance/noAwaitInLoops: each try waits for the holder to finish
-    if (!(await lockHolder(client, key))) {
-      const token = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
-      await client.put(
-        key,
-        JSON.stringify({ token, until: Date.now() + LOCK_MS }),
-        {
-          ttl: LOCK_TTL_SECONDS,
-        },
-      );
-      const held = await lockHolder(client, key);
-      if (held?.token === token) {
-        return token;
-      }
-    }
-    await wait();
-  }
-  return null;
+  return takeLock(await state(), lockKey(incrementId), options);
 }
 
 /** Release an order's invoice lock, only if this token still holds it. */
 export async function unlockOrder(incrementId, token) {
-  const client = await state();
-  const key = lockKey(incrementId);
-  const held = await lockHolder(client, key);
-  if (held?.token === token) {
-    await client.delete(key);
-  }
+  return releaseLock(await state(), lockKey(incrementId), token);
 }
