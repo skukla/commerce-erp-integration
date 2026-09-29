@@ -19,7 +19,13 @@ Record each row's result inline: `PASS <date>`, or `FAIL <date> — <what happen
 
 ---
 
-## 1. Product (name, price, type) — both ways · Result: ____
+## 1. Product (name, price, type) — both ways · Result: PASS 2026-09-29 (price both ways)
+
+> Live on Bodea 2026-09-29 via the agent tools: §1.2 Commerce→ERP price PASS ~5s
+> (switchenterprise8 →333 reached the ERP); §1.3 ERP→Commerce price PASS ~10s (accesspoint
+> ERP →249 reached Commerce, ledgered). Create (§1.1), the G1 delete and the §1.5 reset legs
+> not run in this pass. The ERP→Commerce leg was blocked until AB-40 was fixed
+> (write_erp_rest leaked ERP_ID into the body); the Commerce PUT needed a >120s timeout.
 
 1. **Do:** in Commerce Admin, create a simple product whose SKU an ERP owns (its `erp_owner`
    attribute, or a stocked source of that ERP). **Expect:** the ERP's Products screen shows the
@@ -33,7 +39,15 @@ Record each row's result inline: `PASS <date>`, or `FAIL <date> — <what happen
 5. **Reset:** run a reset. **Expect:** the ERP's product records match Commerce as it stands;
    the ledgered ERP price edit is reverted.
 
-## 2. Stock per source — both ways · Result: ____
+## 2. Stock per source — both ways · Result: §2.2 PASS 2026-09-29; §2.1 = GAP G2 (confirmed)
+
+> Live on Bodea 2026-09-29: §2.2 ERP→Commerce PASS — set accesspoint northwind warehouse
+> qty=77 on the ERP → Commerce inventory/source-items for source `northwind` = 77 (the legacy
+> stockItems aggregate reads 0, so use source-items to verify). §2.1 Commerce→ERP via an MSI
+> source-item write (inventory/source-items POST, qty 88) did NOT reach the ERP in 120s —
+> confirmed GAP G2 / the AB-26h gap by the subscription: commerce-events.js:19 listens to the
+> LEGACY `cataloginventory_stock_item_save_commit_after`, not MSI `inventory_source_item`
+> events, so per-source edits never fire the handler. Known gap, not a regression. Reset not run.
 
 1. **Do:** in Commerce Admin, set the quantity of an ERP-owned SKU at that ERP's **default**
    inventory source. **Expect:** the ERP's warehouse quantity for that item matches.
@@ -44,7 +58,17 @@ Record each row's result inline: `PASS <date>`, or `FAIL <date> — <what happen
    it on its next stock edit. Record as G2.
 4. **Reset:** **Expect:** stock matches Commerce; ledgered ERP stock edits reverted.
 
-## 3. Company (customer) — Commerce → ERP · Result: ____
+## 3. Company (customer) — Commerce → ERP · Result: FAIL 2026-09-29 — company event carries no id (AB-41)
+
+> Live on Bodea 2026-09-29: renamed company 21 to "Kukla Studios QA" in Commerce (REST PUT
+> succeeded); the ERP partner name did NOT update in 150s. Diagnosed: the company-saved event
+> DID dispatch (runtime activation `company-commerce/saved` ran, status 1) and failed with
+> "the company event carries no company id" (400). The subscription declares fields:[{id}]
+> (app.commerce.manifest.json) but the handler (saved/index.js:28) reads data.value.id and got
+> none — the B2B Company entity's key is entity_id, not id, so `id` extracts nothing. Company
+> updates never sync via events; companies are only paired at the bulk fill. Filed AB-41. The
+> initial two attempts also failed on my side (company PUT needs the full address block) —
+> the third PUT was valid and the failure above is the real sync gap.
 
 1. **Do:** in Commerce Admin, create a B2B company (name, legal identity, admin) that trades on
    a website an ERP serves. **Expect:** the ERP's Business partners screen shows the company as
@@ -53,7 +77,16 @@ Record each row's result inline: `PASS <date>`, or `FAIL <date> — <what happen
 2. **Do:** change the company's name/legal fields. **Expect:** the ERP's partner updates.
 3. **Reset:** **Expect:** partners match Commerce; the pair is rebuilt.
 
-## 4. Credit limit and block — ERP → Commerce · Result: ____
+## 4. Credit limit and block — ERP → Commerce · Result: PASS 2026-09-29 (limit); block not run
+
+> Live on Bodea 2026-09-29: set C21 (Kukla Studios) creditLimit=150000 on Northwind →
+> Commerce company 21 credit reached 150000 in ~10s. OBSERVATION to confirm: Bodea has two
+> ERPs both holding C21 at 120000; Commerce showed 150000 (Northwind's value), NOT a 270000
+> cross-ERP total. RESOLVED — correct behaviour: `erp-credit.js` sums each ERP's own
+> `erp_<id>_credit_limit` attribute, and the fill copies Commerce→ERP without writing that
+> attribute, so Contoso's 120000 was never a ledgered edit (0 in the sum). Confirmed live:
+> then set Contoso C21=50000 → Commerce became 200000 (=150000+50000) in ~10s. The
+> aggregation sums ledgered edits correctly. Block (step 2) and reset not run.
 
 1. **Do:** on the ERP screen, set the partner's credit limit. **Expect:** the Commerce company's
    credit limit shows the ERP's value (ledgered). With several ERPs, Commerce's limit is the
