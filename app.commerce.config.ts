@@ -282,7 +282,7 @@ export default defineConfig({
           {
             description:
               "Fires after a B2B company is created or changed in Commerce, so the business partner in the ERP follows at once (it replaces the minute refresh that polled every company)",
-            fields: [field("id"), field("entity_id")],
+            fields: [field("entity_id")],
             label: "Company Saved",
             name: "observer.company_save_commit_after",
             priority: true,
