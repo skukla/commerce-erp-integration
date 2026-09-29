@@ -69,6 +69,14 @@ Record each row's result inline: `PASS <date>`, or `FAIL <date> — <what happen
 > updates never sync via events; companies are only paired at the bulk fill. Filed AB-41. The
 > initial two attempts also failed on my side (company PUT needs the full address block) —
 > the third PUT was valid and the failure above is the real sync gap.
+>
+> UPDATE (deeper diagnosis, same day): the HANDLER is fixed on main (reads entity_id ?? id;
+> a direct replay renamed the partner live) — but a diagnostic deploy showed the event arrives
+> with `data.value = {}`: Commerce extracts NONE of the subscription's fields for this event.
+> The real blocker is that the Commerce event subscription does NOT re-register its fields on a
+> plain redeploy (the "Refresh registrations" trap); no targeted refresh tool exists, only a
+> heavy reinstall. So §3 stays FAIL pending the eventing re-registration — that is AB-41's
+> remaining work, not a field swap.
 
 1. **Do:** in Commerce Admin, create a B2B company (name, legal identity, admin) that trades on
    a website an ERP serves. **Expect:** the ERP's Business partners screen shows the company as
@@ -129,7 +137,14 @@ Record each row's result inline: `PASS <date>`, or `FAIL <date> — <what happen
    release. (Matrix item 1 / G4 — confirm built before running.)
 3. **Reset:** **Expect:** holds the integration placed are released.
 
-## 8. Contract prices → shared catalog — ERP → Commerce · Result: ____
+## 8. Contract prices → shared catalog — ERP → Commerce · Result: PASS 2026-09-29
+
+> Live on Bodea 2026-09-29: POST pricing on the ERP (contractPrice, partner C21, sku
+> accesspoint, price 149) → within ~2 min a Commerce tier price appeared for accesspoint,
+> customer_group "Kukla Studios", fixed 149, qty 1 (read via products/tier-prices-information).
+> Event-driven publish (contract.changed → tier price), no fill needed. Note: the same read
+> showed a pre-existing "ServerSavvy Solutions" fixed-199 tier price the ERP never wrote —
+> the exact AB-42 case (shared-catalog prices the ERP does not know about). Reset not run.
 
 1. **Do:** on the ERP screen, set a contract price (a pricing condition, above the discount
    ceiling) for a company on a product that ERP owns. **Expect:** the company sees its contract
