@@ -58,7 +58,16 @@ Record each row's result inline: `PASS <date>`, or `FAIL <date> — <what happen
    it on its next stock edit. Record as G2.
 4. **Reset:** **Expect:** stock matches Commerce; ledgered ERP stock edits reverted.
 
-## 3. Company (customer) — Commerce → ERP · Result: FAIL 2026-09-29 — company event carries no id (AB-41)
+## 3. Company (customer) — Commerce → ERP · Result: PASS 2026-09-29 (after AB-41 field fix)
+
+> RESOLVED. The company event was registered with field `id`, but the B2B Company entity
+> exposes `entity_id` (Adobe docs: entity observer events use entity_id; confirmed in the Admin
+> Events Subscriptions grid — sales docs use entity_id, company had id). Set the subscription
+> field to `entity_id` → renaming company 21 updated the ERP partner name in ~10s. Code fix on
+> main (company event fields = [entity_id]). Note: the aio-commerce-lib deploy reconcile did NOT
+> push the field change to the existing subscription (stayed at id across redeploys); Bodea was
+> fixed by a manual Admin edit — existing projects need a forced re-subscribe (AB-41 secondary
+> finding). Original diagnosis kept below for the record.
 
 > Live on Bodea 2026-09-29: renamed company 21 to "Kukla Studios QA" in Commerce (REST PUT
 > succeeded); the ERP partner name did NOT update in 150s. Diagnosed: the company-saved event
