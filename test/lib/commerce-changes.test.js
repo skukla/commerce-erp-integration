@@ -223,7 +223,7 @@ describe("Given a change made in Commerce", () => {
     d.erp.order.mockResolvedValueOnce(
       ok(
         erpOrder({
-          creditReason: "Credit limit 1,000.00 exceeded by 5.00",
+          creditReason: "Credit limit USD 1,000.00 exceeded by USD 5.00",
           creditStatus: "held",
         }),
       ),

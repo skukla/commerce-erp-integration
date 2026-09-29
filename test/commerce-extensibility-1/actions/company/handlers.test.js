@@ -195,7 +195,7 @@ describe("Given the ERP's credit hold event", () => {
     held: true,
     incrementId: "000000042",
     orderId: 55,
-    reason: "Credit limit 1,000.00 exceeded by 100.00",
+    reason: "Credit limit USD 1,000.00 exceeded by USD 100.00",
   };
   test("Then a hold puts the Commerce order On Hold and says why in its history", async () => {
     const res = await hold.main({ data: held });
@@ -205,7 +205,7 @@ describe("Given the ERP's credit hold event", () => {
     expect(addComment).toHaveBeenCalledWith(expect.anything(), 55, {
       statusHistory: {
         comment:
-          "On credit hold in the ERP (ERP sales order 0000001000): Credit limit 1,000.00 exceeded by 100.00",
+          "On credit hold in the ERP (ERP sales order 0000001000): Credit limit USD 1,000.00 exceeded by USD 100.00",
         is_customer_notified: 0,
         is_visible_on_front: 0,
       },

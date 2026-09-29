@@ -116,7 +116,7 @@ const TEN_DIGITS = /^\d{10}$/u;
 const PREFIXED = /^ERP-\d{10}$/u;
 const RECEIVED_FROM_COMMERCE = /received from Commerce/u;
 const ON_CREDIT_HOLD =
-  /^On credit hold in the ERP .*Credit limit 1,000\.00 exceeded/u;
+  /^On credit hold in the ERP .*Credit limit USD 1,000\.00 exceeded/u;
 const erpOrder = async (number) => (await erp.order({}, number)).data;
 
 /** The store filled into the ERP and the first Commerce order sent, as a demo starts. */

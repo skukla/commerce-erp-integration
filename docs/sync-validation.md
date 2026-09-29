@@ -155,7 +155,10 @@ Record each row's result inline: `PASS <date>`, or `FAIL <date> — <what happen
 > products' warehouse; (2) the integration sent the MSI source in a top-level extension_attributes,
 > which salesShipOrder ignores → move under `arguments.extension_attributes.source_code`. The
 > box's fake Commerce read the top-level field too — that agreement is why it shipped; the fake
-> is now faithful. Commerce-side ship/invoice (§6.3) not run.
+> is now faithful. SHIPMENT C→E (§6.3) PASS: fresh order 000000004 / ERP 0000001017, shipped in
+> Commerce Admin from source `northwind` (`POST order/{id}/ship` with the source under
+> `arguments.extension_attributes`) → the ERP recorded it in ~10s (shippedQty=2, shippingStatus
+> full). So the shipment round-trips both directions.
 
 1. **Do:** on the ERP screen, ship the order's lines. **Expect:** Commerce records a shipment
    with those items and the source code.
@@ -167,12 +170,26 @@ Record each row's result inline: `PASS <date>`, or `FAIL <date> — <what happen
 4. **Reset:** **Expect:** shipments and invoices stay (documented exception — Commerce cannot
    delete them); the ERP number is cleared.
 
-## 7. Cancel and hold in Commerce — Commerce → ERP · Result: ____
+## 7. Cancel and hold in Commerce — Commerce → ERP · Result: §7.1 PASS 2026-09-29 · §7.2 GAP (G4)
+
+> Live on Bodea 2026-09-29.
+> **§7.1 CANCEL — PASS.** Fresh order 000000005 / ERP 0000001018. `POST orders/{id}/cancel` in
+> Commerce → the ERP sales order moved to header/status `canceled` (overall Canceled) in ~10s.
+> **§7.2 HOLD/UNHOLD — GAP, not runnable.** Two reasons, both confirmed:
+> 1. The ERP integration subscribes to no hold event — Commerce→ERP hold sync is the unbuilt G4
+>    matrix item. Order 000000006 / ERP 0000001019 stayed ERP-Open across a Commerce hold.
+> 2. It cannot even be STAGED via the agent/REST surface: `POST orders/{id}/hold` returns `true`
+>    but the order does not hold on this ACCS instance — measured on entity_id 29, `state=new
+>    status=pending hold_before_state=None` immediately after a true-returning hold, and a
+>    following unhold answers HTTP 400 "You cannot remove the hold" (i.e. it was never held). So
+>    the Commerce REST hold action is a no-op here; a UI-driven hold would be needed to test the
+>    sync, and the sync is not built regardless.
 
 1. **Do:** in Commerce Admin, cancel an order the ERP holds. **Expect:** the ERP is told and
-   marks its sales order cancelled (with the origin marker, so it does not echo back).
+   marks its sales order cancelled (with the origin marker, so it does not echo back). — PASS.
 2. **Do:** in Commerce Admin, hold / unhold an order. **Expect:** the ERP reflects the hold /
-   release. (Matrix item 1 / G4 — confirm built before running.)
+   release. (Matrix item 1 / G4 — confirm built before running.) — GAP: not built; and REST hold
+   is a no-op on ACCS, so not stageable via the agent surface.
 3. **Reset:** **Expect:** holds the integration placed are released.
 
 ## 8. Contract prices → shared catalog — ERP → Commerce · Result: PASS 2026-09-29
@@ -191,11 +208,30 @@ Record each row's result inline: `PASS <date>`, or `FAIL <date> — <what happen
 2. **Reset:** **Expect:** the company's contract prices are re-published from the ERP as it
    stands.
 
-## 9. Currency — · Result: ____
+## 9. Currency — · Result: GAP G5 — NARROWED to a display gap (verified live 2026-09-29)
 
-1. **GAP G5 — Expect:** the ERP has no currency of its own; products and credit print USD
-   regardless of the website's currency. Record as G5, small; the structure plan's Store
-   Information read is the fix.
+> Re-checked against the code and the live ERPs. G5 as first written ("the ERP has no currency
+> of its own") is **false**: the currency data pipe works end-to-end and is populated.
+> - **Verified live:** both ERPs report `companyCode.currency = "USD"` (health.structure), read
+>   from the Commerce store's `base_currency_code` by the extension's fill
+>   (`erpFillReaders.ts:220` → `erpFillRows.ts:286` `storeInfo.currency` → ERP `admin` import →
+>   `settings.structureMirror` → `describeStructure` `companyCode.currency`,
+>   `demo-erp/lib/structure.js:70`). The ERP contract already declares `storeInfo.currency`.
+> - **Orders** already carry their own document currency (`demo-erp/lib/orders.js:230`, from the
+>   Commerce order).
+> - **The gap was display-only, and is now FIXED (2026-09-29).** The screen already formatted
+>   money in the ERP's currency but as a SYMBOL (`$1,850.00`); the one bare-number case was the
+>   server credit hold reason (`demo-erp/lib/credit.js` `amount()`). Both now show the ISO CODE,
+>   the ERP convention (SAP's currency key, Business Central's currency code):
+>   - `demo-erp/screen/src/money.js` `moneyOptions()` adds `currencyDisplay: 'code'` → every
+>     screen money reads `USD 1,850.00`.
+>   - `demo-erp/lib/credit.js` `amount(value, currency)` prefixes the code; `decide()` and
+>     `lib/orders.js` thread the order currency → the hold reason reads `Credit limit USD
+>     1,000.00 exceeded by USD 3,820.00`. The stale "no currency yet" comment is removed.
+>   demo-erp 370/370 (screen fingerprints re-accepted: 4 money screens, element counts
+>   unchanged); commerce-erp-integration 932/932 (box journey regex + 2 fixtures re-pinned to the
+>   new reason). The LIVE ERPs show the new format only after a demo-erp redeploy. Currency is
+>   not a synced entity (nothing round-trips it), so §9 stays a read, not a journey.
 
 ---
 
