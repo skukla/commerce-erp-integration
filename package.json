@@ -99,8 +99,7 @@
       "distDir": "preview-dist",
       "publicUrl": "./",
       "source": [
-        "preview/index.html",
-        "preview/next.html"
+        "preview/index.html"
       ],
       "optimize": false,
       "sourceMap": false,
