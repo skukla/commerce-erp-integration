@@ -29,7 +29,9 @@
     "storeInfo": ["currency", "countryId", "vatNumber", "address"],
     "stock": ["sku", "warehouses"],
     "stockNote": "quantities per warehouse for products the ERP already has (the integration sends a product's quantity at every source on Commerce's product and stock item events); a SKU the ERP does not have is reported under stock.unknown and not created; a stock-only import does not move lastImportAt",
-    "projectName": "optional"
+    "projectName": "optional",
+    "seed": ["priceGroups", "partnerGroups", "contracts"],
+    "seedNote": "version 10: the ONE-TIME setup seed of pricing from Commerce's custom shared catalogs (Demo Builder's fill, AB-44), sent after products and partners exist. priceGroups [{code,name}] is a group per custom shared catalog; partnerGroups [{id,priceGroup}] sets each customer's price group from its catalog membership; contracts [{priceGroup,description,startingDate,lines}] is the catalog's tier prices as the group's ACTIVE price list. Silent: the prices are Commerce's already, so nothing is echoed back (no contract.changed); a seed-only import journals nothing and does not move lastImportAt"
   },
   "quote": {
     "request": ["partnerId", "lines", "date", "salesOrg"],
@@ -46,7 +48,7 @@
     "line": ["sku", "kind", "price", "percent", "minQty", "startingDate", "endingDate"],
     "lineKinds": ["price", "discount"],
     "priceGroup": ["code", "name"],
-    "priceGroupNote": "version 7: a customer belongs to at most one price group, priceGroup on the business partner: the ERP's own, set on its screen or with PATCH partners/:id, never from an import",
+    "priceGroupNote": "version 7: a customer belongs to at most one price group, priceGroup on the business partner: the ERP's own, set on its screen or with PATCH partners/:id, never from the ongoing mirror import (partners). version 10: the ONE-TIME setup seed (import.seed.partnerGroups, AB-44) is the sanctioned exception — Demo Builder may set the group once at fill time from Commerce's shared-catalog membership; the ongoing mirror still never touches it",
     "inForce": ["items"],
     "inForceItem": ["partnerId", "lines"],
     "inForceNote": "GET contracts/in-force answers today's prices in force for every customer with at least one line, price groups resolved in the ERP; with ?partnerId= it answers exactly that customer, lines possibly empty. version 9: the lines are what the ERP would charge the customer, by the same precedence as a quote: its own price lists, then its price group's, then its loose pricing conditions (its contract price or discount for the SKU, before its all-products discount), then the list price; the maximum discount bounds every result. A loose pricing condition counts on today's date and from its minimum quantity, as a list line does, and an all-products discount is one line per product the ERP sells. A discount stays a discountLine, so it follows the list price; a result the maximum discount cut is a discountLine at the maximum discount's percent. A product's quantity breaks are a line only where the charged price moves",
