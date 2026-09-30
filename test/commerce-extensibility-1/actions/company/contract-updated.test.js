@@ -67,6 +67,7 @@ describe("Given one customer's prices in force from the ERP", () => {
       "ledger",
       "ownsSku",
       "tierPrices",
+      "websiteIdsOf",
     ]);
     const saved = await readErpEvent("ev-1");
     expect(saved).toMatchObject({

@@ -57,10 +57,20 @@ function tierValueOf(line) {
   return { price, priceType: discount ? "discount" : "fixed" };
 }
 
-/** The rows a customer's lines ask for, keyed; a later line for one row wins. */
-async function wantedRows(lines, group, ownsSku) {
+/**
+ * The rows a customer's lines ask for, keyed; a later line for one row wins.
+ *
+ * A line scoped to a sales organization (contract version 12, AB-46) becomes one row per
+ * website that organization sells through, and NO row for every website — a shared catalog's
+ * tier prices carry a website, and the catalog price scope is Website (Adobe: B2B "Set shared
+ * catalog pricing and structure"). Never a row for every website: a per-site discount on the
+ * wrong site is exactly the defect. A line whose organization sells through no website here is
+ * left out and named.
+ */
+async function wantedRows(lines, group, ownsSku, websiteIdsOf) {
   const wanted = new Map();
   const notOwned = [];
+  const unmapped = [];
   for (const line of lines) {
     const value = tierValueOf(line);
     if (!value) {
@@ -72,13 +82,24 @@ async function wantedRows(lines, group, ownsSku) {
       continue;
     }
     const quantity = Math.max(1, Number(line.minQty) || 1);
-    wanted.set(rowKey(line.sku, group, quantity, ALL_WEBSITES), {
-      after: value,
-      quantity,
-      sku: line.sku,
-    });
+    // biome-ignore lint/performance/noAwaitInLoops: the resolver reads the websites once
+    const websites = line.salesOrg
+      ? await (websiteIdsOf ? websiteIdsOf(line.salesOrg) : [])
+      : [ALL_WEBSITES];
+    if (websites.length === 0) {
+      unmapped.push(`${line.sku} (sales organization ${line.salesOrg})`);
+      continue;
+    }
+    for (const websiteId of websites) {
+      wanted.set(rowKey(line.sku, group, quantity, websiteId), {
+        after: value,
+        quantity,
+        sku: line.sku,
+        websiteId,
+      });
+    }
   }
-  return { notOwned, wanted };
+  return { notOwned, unmapped, wanted };
 }
 
 /** Which company and customer group the lines are for, or why they are for none. */
@@ -116,7 +137,7 @@ async function writeRows(params, rows, target, customer, deps) {
     price_type: r.after.priceType,
     quantity: r.quantity,
     sku: r.sku,
-    website_id: ALL_WEBSITES,
+    website_id: r.websiteId,
   });
   let landed = rows;
   let refusal = null;
@@ -138,7 +159,7 @@ async function writeRows(params, rows, target, customer, deps) {
       partnerId: customer.partnerId,
       quantity: r.quantity,
       sku: r.sku,
-      websiteId: ALL_WEBSITES,
+      websiteId: r.websiteId,
     });
   }
   if (refusal) {
@@ -159,9 +180,12 @@ async function removeRows(params, entries, deps) {
  * Apply one customer's prices in force from one ERP.
  * @param {object} params action params
  * @param {{ erpId: string, partnerId: string, lines: object[] }} customer
- * @param {object} deps `{ commerceCompanyOf, ownsSku(sku), ledger, tierPrices }`
+ * @param {object} deps `{ commerceCompanyOf, ownsSku(sku), ledger, tierPrices,
+ *   websiteIdsOf?(salesOrg) }` — the last answers the website ids a sales organization sells
+ *   through (lib/contract-price-deps.js); without it a scoped line maps to no website
  * @returns {Promise<{ written: number, removed: number, unchanged: number,
- *   skipped?: string, notOwned?: string[] }>}
+ *   skipped?: string, notOwned?: string[], unmapped?: string[] }>} `unmapped` names the
+ *   scoped lines whose sales organization sells through no website here
  */
 export async function applyCustomerPrices(params, customer, deps) {
   const held = await deps.ledger.tierPriceEntries({
@@ -171,9 +195,14 @@ export async function applyCustomerPrices(params, customer, deps) {
   const lines = Array.isArray(customer.lines) ? customer.lines : [];
   const target =
     lines.length > 0 ? await targetOf(params, customer, deps) : { skip: null };
-  const { notOwned, wanted } = target.skip
-    ? { notOwned: [], wanted: new Map() }
-    : await wantedRows(lines, target.customerGroup, deps.ownsSku);
+  const { notOwned, unmapped, wanted } = target.skip
+    ? { notOwned: [], unmapped: [], wanted: new Map() }
+    : await wantedRows(
+        lines,
+        target.customerGroup,
+        deps.ownsSku,
+        deps.websiteIdsOf,
+      );
   const heldByKey = new Map(held.map((e) => [entryKey(e), e]));
   const rows = [...wanted].map(([key, r]) => ({ ...r, key }));
   const changed = rows.filter(
@@ -195,6 +224,7 @@ export async function applyCustomerPrices(params, customer, deps) {
     removed: gone.length,
     ...(target.skip ? { skipped: target.skip } : {}),
     unchanged: rows.length - changed.length,
+    ...(unmapped.length > 0 ? { unmapped } : {}),
     written: toWrite.length,
   };
 }

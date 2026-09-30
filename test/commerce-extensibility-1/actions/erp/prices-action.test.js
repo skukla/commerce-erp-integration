@@ -75,6 +75,7 @@ describe("Given erp/prices", () => {
       "ledger",
       "ownsSku",
       "tierPrices",
+      "websiteIdsOf",
     ]);
     expect(res.body).toEqual({
       erps: ["acme", "globex"],
