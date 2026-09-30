@@ -1,13 +1,13 @@
 {
   "name": "demo-erp",
-  "contractVersion": 10,
+  "contractVersion": 11,
   "description": "What the ERP promises its subscribers: the routes it serves, the shapes it accepts, and the events it publishes. The Commerce integration vendors this file and its tests fail when the two disagree.",
   "routes": {
     "health": ["GET"],
     "settings": ["GET", "PATCH", "POST /maintenance", "DELETE /maintenance"],
     "admin": ["POST /wipe", "POST /import"],
-    "products": ["GET", "GET /:sku", "PATCH /:sku", "DELETE /:sku"],
-    "partners": ["GET", "GET /:id", "PATCH /:id"],
+    "products": ["GET", "GET /:sku", "PATCH /:sku", "DELETE /:sku", "POST /availability"],
+    "partners": ["GET", "GET /:id", "PATCH /:id", "POST /:id/credit-check"],
     "pricing": ["GET", "POST", "DELETE /:id", "POST /quote"],
     "contracts": ["GET", "GET /in-force", "GET /:number", "POST", "PATCH /:number", "POST /:number/activate", "POST /:number/deactivate", "GET /price-groups", "POST /price-groups", "DELETE /price-groups/:code"],
     "orders": ["GET", "GET /:number", "POST", "POST /:number/confirm", "POST /:number/cancel", "POST /:number/shipments", "POST /:number/shipments/:shipment/post", "POST /:number/lines/:item/close", "POST /:number/invoice", "POST /:number/credit/release", "POST /:number/credit/reject", "POST /:number/credit/hold", "POST /:number/commerce-shipment", "POST /:number/commerce-invoice", "POST /:number/status"],
@@ -32,6 +32,18 @@
     "projectName": "optional",
     "seed": ["priceGroups", "partnerGroups", "contracts"],
     "seedNote": "version 10: the ONE-TIME setup seed of pricing from Commerce's custom shared catalogs (Demo Builder's fill, AB-44), sent after products and partners exist. priceGroups [{code,name}] is a group per custom shared catalog; partnerGroups [{id,priceGroup}] sets each customer's price group from its catalog membership; contracts [{priceGroup,description,startingDate,lines}] is the catalog's tier prices as the group's ACTIVE price list. Silent: the prices are Commerce's already, so nothing is echoed back (no contract.changed); a seed-only import journals nothing and does not move lastImportAt"
+  },
+  "availability": {
+    "request": ["lines"],
+    "requestLine": ["sku", "qty"],
+    "responseLine": ["sku", "requested", "availableNow", "canPromiseNow", "promiseDate", "leadTimeDays"],
+    "unknownLine": ["sku", "unknown"],
+    "note": "version 11: POST products/availability — available-to-promise per line (AB-19): what is available now (on hand less committed) ships today, a shortfall after the product's lead time. The integration asks it in the placement webhook (an early signal) and again just before each part is sent, recording the answer on the order's part; it never blocks an order. Version 11 also carries the import.seed block, which landed under version 10 without a bump."
+  },
+  "creditCheck": {
+    "request": ["net", "currency"],
+    "response": ["partnerId", "status", "reason", "requested", "exposure", "limit", "available"],
+    "note": "version 11: POST partners/:id/credit-check — the live credit check at placement (AB-20): can this customer carry this amount now. The same verdict the order create would reach, asked WITHOUT creating the order, so Commerce can refuse before committing (the placement webhook). status approved | held | null (no credit relationship); limit and available are null for the walk-in customer."
   },
   "quote": {
     "request": ["partnerId", "lines", "date", "salesOrg"],

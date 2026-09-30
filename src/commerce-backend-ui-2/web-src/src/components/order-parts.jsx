@@ -44,6 +44,9 @@ function PartRow({ onResend, resending, row }) {
       <td>{row.erpNumber ?? ""}</td>
       <td>
         {row.waitsFor ?? ""}
+        {row.promised && (
+          <div className="part-promise">Promised: {row.promised}</div>
+        )}
         {row.warnings.map((warning) => (
           <div className="part-warning" key={warning}>
             Setup: {warning}

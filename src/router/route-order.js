@@ -133,6 +133,27 @@ async function variantWarning(params, line, erps, deps) {
   }
 }
 
+/**
+ * The ERP's available-to-promise for a part (AB-19), asked BEFORE the part is sent: once
+ * the ERP holds this order it counts the order's own quantity against its stock, and the
+ * promise would answer for the next order instead. Never a reason to hold: a check that
+ * cannot run leaves no promise and the send goes on.
+ * @returns {Promise<object[]|null>} the ERP's per-line promises, or null
+ */
+async function promisesFor(params, entry, lines, deps) {
+  if (!deps?.promisesFor) {
+    return null;
+  }
+  try {
+    return await deps.promisesFor(params, entry, lines);
+  } catch (error) {
+    deps.logger?.warn?.(
+      `${entry.name}: availability not asked: ${error.message}`,
+    );
+    return null;
+  }
+}
+
 /** The buyer's Commerce company, or null (a guest, or a company that cannot be read). */
 async function companyOfOrder(params, order, deps) {
   if (
@@ -265,6 +286,7 @@ async function routeToSeveral(params, event, deps, erps) {
       continue;
     }
     await writeOrderParts(order.increment_id, record);
+    const promises = await promisesFor(params, entry, lines, deps);
     const outcome = await adapterFor(entry).sendPart(
       params,
       { erp: entry, lines, order, shared: true },
@@ -274,6 +296,7 @@ async function routeToSeveral(params, event, deps, erps) {
     record.parts[entry.id] = {
       ...record.parts[entry.id],
       ...(outcome.erpNumber ? { erpNumber: outcome.erpNumber } : {}),
+      ...(promises ? { promises } : {}),
       message: outcome.message,
       ...status,
     };
@@ -377,10 +400,12 @@ async function routeCompanyOrder(params, event, deps, entry, send) {
     }
     return { message, outcome: "skipped", statusCode: 200 };
   }
+  const promises = await promisesFor(params, entry, linesOf(order), deps);
   const outcome = await send();
   record.parts[entry.id] = {
     ...wholePart(order),
     ...(outcome.erpNumber ? { erpNumber: outcome.erpNumber } : {}),
+    ...(promises ? { promises } : {}),
     message: outcome.message,
     status: outcome.outcome,
   };

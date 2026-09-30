@@ -45,10 +45,40 @@ export function partsSummary(record) {
 }
 
 /**
+ * What the ERP promised for a part, in a sentence (AB-19): the lines it can ship now, and
+ * for the rest the date it promises. Read from the promises the router recorded on the part
+ * (router/route-order.js), so it costs no call to an ERP.
+ * @param {object[]|undefined} promises the ERP's per-line answers (lib/erp-availability.js)
+ * @returns {string|null} e.g. "2 of 3 lines ship now; A1 by 2026-10-07", or null when the
+ *   ERP was not asked or could not answer
+ */
+export function promiseWords(promises) {
+  if (!Array.isArray(promises) || promises.length === 0) {
+    return null;
+  }
+  const known = promises.filter((p) => !p.unknown);
+  const now = known.filter((p) => p.canPromiseNow);
+  const later = known.filter((p) => !p.canPromiseNow);
+  const pieces = [
+    `${now.length} of ${known.length} ${known.length === 1 ? "line ships" : "lines ship"} now`,
+  ];
+  if (later.length > 0) {
+    pieces.push(
+      later.map((p) => `${p.sku} by ${p.promiseDate ?? "a date the ERP did not give"}`).join(", "),
+    );
+  }
+  const unknown = promises.length - known.length;
+  if (unknown > 0) {
+    pieces.push(`${lines(unknown)} the ERP does not have`);
+  }
+  return pieces.join("; ");
+}
+
+/**
  * @param {{ parts?: object }} record the order's parts
  * @param {{ id: string, name: string }[]} erps the ERP list, for the names
  * @returns {object[]} one row per part: its ERP, lines, status, ERP number, why it waits,
- *   its setup warnings, and whether staff may send it again
+ *   what it promised, its setup warnings, and whether staff may send it again
  */
 export function partRows(record, erps) {
   return Object.entries(record?.parts ?? {}).map(([erpId, part]) => ({
@@ -56,6 +86,7 @@ export function partRows(record, erps) {
     erpId,
     erpName: erps.find((e) => e.id === erpId)?.name ?? erpId,
     erpNumber: part.erpNumber ?? null,
+    promised: promiseWords(part.promises),
     skus: part.skus ?? [],
     status: part.status,
     waitsFor: WAITING.includes(part.status) ? (part.message ?? null) : null,

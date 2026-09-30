@@ -42,13 +42,6 @@ export function partNet(lines) {
   return Math.round(sum * 100) / 100;
 }
 
-/** The SKU/qty lines an availability call asks about (a configurable's child travels with it). */
-function askLines(lines) {
-  return lines
-    .filter((line) => !line.parent_item_id && line.sku)
-    .map((line) => ({ sku: line.sku, qty: qtyOf(line) }));
-}
-
 /**
  * Ask each owning ERP, once, whether the company can carry its part (credit) and by when it can
  * promise the quantity (availability).
@@ -59,7 +52,8 @@ function askLines(lines) {
  *   - `companyIdOf(order)` → `Promise<string|null>` the buyer's Commerce company (null for a guest)
  *   - `erpCustomerOf(companyId, erpId)` → `Promise<string|null>` that ERP's partner number
  *   - `creditCheck(erp, partnerId, net, currency)` → `Promise<{status, reason}>` (may throw)
- *   - `availability(erp, lines)` → `Promise<object[]>` per-line promises (may throw)
+ *   - `availability(erp, lines)` → `Promise<object[]>` per-line promises for the part's raw
+ *     lines (lib/erp-availability.js picks the lines to ask about; may throw)
  *   - `currency` the order currency (default USD); `logger` optional
  * @returns {Promise<{ companyId: string|null, results: Array<{ erpId, erpName, credit, promises }>}>}
  *   `credit` is `{status, reason, net}` with status `approved|held|unavailable|null` (null: no
@@ -99,7 +93,7 @@ export async function assessPlacement(order, deps) {
     };
     const askAvailability = async () => {
       try {
-        return await availability(erp, askLines(lines));
+        return await availability(erp, lines);
       } catch (error) {
         logger?.warn?.(`${erp.name} availability unavailable: ${error.message}`);
         return null;

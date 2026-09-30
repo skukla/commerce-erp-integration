@@ -7,6 +7,7 @@ import AioLogger from "@adobe/aio-lib-core-logging";
 
 import { paramsForErp } from "#adapters/contract";
 import { erpRequest } from "#lib/erp";
+import { availabilityOf } from "#lib/erp-availability";
 import { listErps, loadErps } from "#lib/erps";
 import { erpCustomerOf } from "#lib/key-map";
 import { orderSyncDeps } from "#lib/order-deps";
@@ -48,15 +49,10 @@ function answerOf(res) {
 export function placementDeps(params, logger) {
   const sync = orderSyncDeps(logger);
   return {
-    availability: async (erp, lines) => {
-      const res = await erpRequest(paramsForErp(params, erp), "products", {
-        body: { lines },
-        method: "POST",
-        path: "/availability",
-        timeoutMs: ERP_TIMEOUT_MS,
-      });
-      return answerOf(res).lines ?? [];
-    },
+    // The same call the router makes when it records the promise on the part
+    // (lib/erp-availability.js); here it is an early signal while the shopper waits.
+    availability: (erp, lines) =>
+      availabilityOf(params, erp, lines, ERP_TIMEOUT_MS),
     companyIdOf: (order) =>
       order.customer_id === undefined || order.customer_id === null
         ? Promise.resolve(null)
