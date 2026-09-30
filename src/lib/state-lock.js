@@ -6,6 +6,15 @@
  * map needed the same guard (AB-16g): its map is one document written by both a whole-map fill
  * and event-driven per-customer pairing, and the two races last-writer-wins without this.
  *
+ * BEST-EFFORT, NOT EXACT (review, 2026-09-30; AB-48). Two takers that both read "no holder"
+ * before either has written can each put, then each read back its OWN token — A puts, A reads
+ * A; B puts, B reads B — and both believe they hold the lock. The window is the get → put → get
+ * gap, tens of milliseconds against State. It makes the common case safe (a fill and an event
+ * handler seconds apart) and leaves the same-instant case open. Nothing here closes it: that
+ * needs a compare-and-set State does not offer, or one writer. The tests drive an in-memory
+ * client that never opens the window, so they prove the protocol, not the race. Read "the lock
+ * holds" as "almost always", and keep the documents it guards re-derivable from their sources.
+ *
  * The State client is passed in, so callers keep their own `stateLib.init()` and this stays
  * testable with an in-memory client.
  */
