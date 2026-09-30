@@ -42,10 +42,12 @@ export function linesOf(order) {
 
 /**
  * Group an order's lines by owning ERP. A configurable's child line travels with its parent.
+ * Exported for the placement checks (webhook/placement), which ask each owning ERP about its
+ * own part before the order exists — the one split, used by both.
  * @returns {Promise<{ byErp: Map<string, object[]>, unrouted: string[], conflicts: object[],
  *   warnings: Map<string, string[]> }>}
  */
-async function splitLines(params, order, erps, deps) {
+export async function splitLines(params, order, erps, deps) {
   const lines = linesOf(order);
   const byErp = new Map();
   const unrouted = [];

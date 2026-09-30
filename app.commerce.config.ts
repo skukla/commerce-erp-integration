@@ -67,12 +67,16 @@ const integrationName =
  * sends them: after the order is saved, with the ERP number written back and I/O Events
  * delivering again while the ERP is offline (src/lib/order-sync.js).
  *
- * No webhook: no ERP is asked while the shopper waits. Each ERP's contract prices are
- * synced ahead into the company's shared catalog as tier prices (erp/prices, which Demo
- * Builder runs after a fill, and the ERP's customer prices event, handled by
+ * One webhook, at placement, and none on the cart. Each ERP's contract prices are synced
+ * ahead into the company's shared catalog as tier prices (erp/prices, which Demo Builder
+ * runs after a fill, and the ERP's customer prices event, handled by
  * company-backoffice/contract-updated), so the cart, the listing and the product page all
  * price from Commerce; a discount limit is the ERP's to enforce on the order. The two cart
- * webhooks that asked the ERP on every cart change were removed (AB-26z, 2026-09-28).
+ * webhooks that asked the ERP on every cart change were removed (AB-26z, 2026-09-28). What
+ * must be current is asked once, as the order is placed: can the company carry this order
+ * (credit, AB-20) and by when can the ERP promise the quantity (availability, AB-19) — the
+ * `webhooks` entry below (webhook/placement, lib/placement-checks.js). A definitive credit
+ * refusal stops the order; a slow or down ERP never does.
  *
  * The ERP → Commerce direction is the kit's back-office eventing: the ERP posts its events
  * to the ingestion webhook, they are published to the `erp` provider, and the handler
@@ -469,6 +473,45 @@ export default defineConfig({
     // version with every change to what this file registers, or the change never reaches
     // Commerce. "auto" runs the plan; the library marks it experimental.
     upgradeMode: "auto",
-    version: "0.9.2",
+    version: "0.10.0",
   },
+  /*
+   * The one synchronous webhook (AB-19, AB-20): as the order is placed, each owning ERP is
+   * asked once whether the company can carry its part (credit) and by when it can promise
+   * the quantity (availability). Adobe's own SaaS method for this is
+   * plugin.sales.api.order_management.place, type before (developer.adobe.com, webhooks
+   * use case "Order placement validation"); Bodea's GET /V1/webhooks/supportedList confirms
+   * it (2026-09-30). No `fields`: the whole default payload (the order with its items) is
+   * sent, as the cart webhooks did; the X-OW-EXTRA-LOGGING header makes every run readable.
+   */
+  webhooks: [
+    {
+      category: "validation",
+      description:
+        "As the order is placed, asks each owning ERP whether the company can carry its part (credit) and by when it can promise the quantity (availability); a definitive credit refusal stops the order, a slow or down ERP never does",
+      label: "ERP credit and availability at placement",
+      requireAdobeAuth: true,
+      runtimeAction: "webhook/placement",
+      webhook: {
+        batch_name: "erp_placement_checks",
+        // Reached only if the ACTION itself is aborted: the action fails open on its own ERP
+        // timeouts well inside Commerce's, so a down ERP never shows this.
+        fallback_error_message:
+          "The ERP could not confirm this order right now. Please try again in a moment.",
+        // Runtime records a blocking web action's run only when it failed, unless the
+        // request carries this header (Adobe Runtime, "Logging and monitoring").
+        headers: [{ name: "X-OW-EXTRA-LOGGING", value: "on" }],
+        hook_name: "erp_placement_checks",
+        method: "POST",
+        // Asked for, not what happens: Commerce as a Cloud Service runs every webhook as
+        // required (measured 2026-09-26), so the fail-open lives in the action.
+        required: false,
+        soft_timeout: 1000,
+        // Two ERPs at 4 s each, asked in parallel per ERP, fit inside this.
+        timeout: 10_000,
+        webhook_method: "plugin.sales.api.order_management.place",
+        webhook_type: "before",
+      },
+    },
+  ],
 });

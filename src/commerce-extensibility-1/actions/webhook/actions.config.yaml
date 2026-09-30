@@ -1,0 +1,22 @@
+# The synchronous placement webhook Commerce calls; declared in app.commerce.config.ts.
+# Runtime's 15 s limit sits above Commerce's 10 s hard timeout: the action must answer
+# first, so its own ERP calls time out well inside that (placement/index.js).
+placement:
+  function: ./placement/index.js
+  web: 'yes'
+  runtime: nodejs:24
+  limits:
+    timeout: 15000
+  inputs:
+    LOG_LEVEL: $LOG_LEVEL
+    AIO_COMMERCE_AUTH_IMS_CLIENT_ID: $AIO_COMMERCE_AUTH_IMS_CLIENT_ID
+    AIO_COMMERCE_AUTH_IMS_CLIENT_SECRETS: $AIO_COMMERCE_AUTH_IMS_CLIENT_SECRETS
+    AIO_COMMERCE_AUTH_IMS_TECHNICAL_ACCOUNT_ID: $AIO_COMMERCE_AUTH_IMS_TECHNICAL_ACCOUNT_ID
+    AIO_COMMERCE_AUTH_IMS_TECHNICAL_ACCOUNT_EMAIL: $AIO_COMMERCE_AUTH_IMS_TECHNICAL_ACCOUNT_EMAIL
+    AIO_COMMERCE_AUTH_IMS_ORG_ID: $AIO_COMMERCE_AUTH_IMS_ORG_ID
+    AIO_COMMERCE_AUTH_IMS_SCOPES: $AIO_COMMERCE_AUTH_IMS_SCOPES
+    ERP_BASE_URL: $ERP_BASE_URL
+    ERP_DISPLAY_NAME: $ERP_DISPLAY_NAME
+  annotations:
+    require-adobe-auth: true
+    final: true

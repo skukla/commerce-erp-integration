@@ -19,6 +19,12 @@ runtimeManifest:
       license: Apache-2.0
       actions:
         $include: ./actions/starter-kit/actions.config.yaml
+    # The one synchronous webhook Commerce calls: the credit and availability checks as the
+    # order is placed (app.commerce.config.ts webhooks; lib/placement-checks.js).
+    webhook:
+      license: Apache-2.0
+      actions:
+        $include: ./actions/webhook/actions.config.yaml
     product-commerce:
       license: Apache-2.0
       actions:

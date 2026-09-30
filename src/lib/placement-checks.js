@@ -30,9 +30,15 @@ function priceOf(line) {
   return Number(line.base_price ?? line.price) || 0;
 }
 
-/** The net of one ERP's part: the sum of its lines, to cents. */
+/**
+ * The net of one ERP's part: the sum of its lines, to cents. A configurable's child line
+ * travels with its parent and carries no money of its own — the parent line is the row —
+ * so children are left out, or the part would be counted twice.
+ */
 export function partNet(lines) {
-  const sum = lines.reduce((total, line) => total + qtyOf(line) * priceOf(line), 0);
+  const sum = lines
+    .filter((line) => !line.parent_item_id)
+    .reduce((total, line) => total + qtyOf(line) * priceOf(line), 0);
   return Math.round(sum * 100) / 100;
 }
 
@@ -77,25 +83,30 @@ export async function assessPlacement(order, deps) {
     const net = partNet(lines);
     // biome-ignore lint/performance/noAwaitInLoops: one ERP at a time, few ERPs
     const partnerId = companyId ? await erpCustomerOf(companyId, erp.id) : null;
-    let credit = { status: null, reason: null, net };
-    if (partnerId) {
+    // Credit and availability together, so one ERP costs one round trip, not two: the caller
+    // runs inside Commerce's hard timeout and every second is the shopper's.
+    const askCredit = async () => {
+      if (!partnerId) {
+        return { status: null, reason: null, net };
+      }
       try {
-        // biome-ignore lint/performance/noAwaitInLoops: one ERP at a time
         const answer = await creditCheck(erp, partnerId, net, currency);
-        credit = { status: answer.status, reason: answer.reason ?? null, net };
+        return { status: answer.status, reason: answer.reason ?? null, net };
       } catch (error) {
         logger?.warn?.(`${erp.name} credit check unavailable: ${error.message}`);
-        credit = { status: UNAVAILABLE, reason: error.message, net };
+        return { status: UNAVAILABLE, reason: error.message, net };
       }
-    }
-    let promises = null;
-    try {
-      // biome-ignore lint/performance/noAwaitInLoops: one ERP at a time
-      promises = await availability(erp, askLines(lines));
-    } catch (error) {
-      logger?.warn?.(`${erp.name} availability unavailable: ${error.message}`);
-      promises = null;
-    }
+    };
+    const askAvailability = async () => {
+      try {
+        return await availability(erp, askLines(lines));
+      } catch (error) {
+        logger?.warn?.(`${erp.name} availability unavailable: ${error.message}`);
+        return null;
+      }
+    };
+    // biome-ignore lint/performance/noAwaitInLoops: one ERP at a time
+    const [credit, promises] = await Promise.all([askCredit(), askAvailability()]);
     results.push({ erpId: erp.id, erpName: erp.name, credit, promises });
   }
   return { companyId, results };

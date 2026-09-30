@@ -72,15 +72,15 @@
       },
       {
         "default": "1000",
-        "description": "The ERP sales organisation that sells through this website (four letters or digits, like an SAP sales org). Orders from this website carry it.",
-        "label": "ERP sales organisation for this website",
+        "description": "The ERP sales organization that sells through this website (four letters or digits, like an SAP sales org). Orders from this website carry it.",
+        "label": "ERP sales organization for this website",
         "name": "structure_sales_org",
         "type": "text"
       },
       {
         "default": "",
-        "description": "What the ERP calls that sales organisation. Blank: the ERP prints the website's name.",
-        "label": "Sales organisation name",
+        "description": "What the ERP calls that sales organization. Blank: the ERP prints the website's name.",
+        "label": "Sales organization name",
         "name": "structure_sales_org_name",
         "type": "text"
       },
@@ -190,7 +190,7 @@
             "description": "Fires after a B2B company is created or changed in Commerce, so the business partner in the ERP follows at once (it replaces the minute refresh that polled every company)",
             "fields": [
               {
-                "name": "id"
+                "name": "entity_id"
               }
             ],
             "label": "Company Saved",
@@ -458,6 +458,32 @@
     "displayName": "ERP Integration",
     "id": "commerce-erp-integration",
     "upgradeMode": "auto",
-    "version": "0.9.2"
-  }
+    "version": "0.10.0"
+  },
+  "webhooks": [
+    {
+      "category": "validation",
+      "description": "As the order is placed, asks each owning ERP whether the company can carry its part (credit) and by when it can promise the quantity (availability); a definitive credit refusal stops the order, a slow or down ERP never does",
+      "label": "ERP credit and availability at placement",
+      "requireAdobeAuth": true,
+      "runtimeAction": "webhook/placement",
+      "webhook": {
+        "batch_name": "erp_placement_checks",
+        "fallback_error_message": "The ERP could not confirm this order right now. Please try again in a moment.",
+        "headers": [
+          {
+            "name": "X-OW-EXTRA-LOGGING",
+            "value": "on"
+          }
+        ],
+        "hook_name": "erp_placement_checks",
+        "method": "POST",
+        "required": false,
+        "soft_timeout": 1000,
+        "timeout": 10000,
+        "webhook_method": "plugin.sales.api.order_management.place",
+        "webhook_type": "before"
+      }
+    }
+  ]
 }
