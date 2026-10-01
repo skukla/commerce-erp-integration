@@ -64,6 +64,7 @@ describe("Given one customer's prices in force from the ERP", () => {
     });
     expect(Object.keys(deps).sort()).toEqual([
       "commerceCompanyOf",
+      "expectSkus",
       "ledger",
       "ownsSku",
       "tierPrices",

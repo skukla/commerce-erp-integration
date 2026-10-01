@@ -193,6 +193,7 @@ export async function applyCustomerPrices(params, customer, deps) {
     partnerId: customer.partnerId,
   });
   const lines = Array.isArray(customer.lines) ? customer.lines : [];
+  deps.expectSkus?.(lines.map((line) => line.sku));
   const target =
     lines.length > 0 ? await targetOf(params, customer, deps) : { skip: null };
   const { notOwned, unmapped, wanted } = target.skip
@@ -247,6 +248,12 @@ export async function publishErpPrices(params, erp, items, deps) {
     written: 0,
   };
   const listed = new Set(items.map((i) => i.partnerId));
+  // Every customer's SKUs at once: their owners are read in as few Commerce calls as can be.
+  deps.expectSkus?.(
+    items.flatMap((i) =>
+      Array.isArray(i.lines) ? i.lines.map((line) => line.sku) : [],
+    ),
+  );
   const unlisted = [
     ...new Set(
       (await deps.ledger.tierPriceEntries({ erpId: erp.id }))
