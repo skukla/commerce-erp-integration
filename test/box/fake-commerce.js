@@ -271,6 +271,15 @@ export function createFakeCommerce() {
     },
     productAttributes: async (_p, sku) =>
       clone(db.products.get(sku)?.custom_attributes ?? {}),
+    productAttributesOfSkus: async (_p, skus) =>
+      new Map(
+        skus
+          .filter((sku) => db.products.has(sku))
+          .map((sku) => [
+            sku,
+            clone(db.products.get(sku).custom_attributes ?? {}),
+          ]),
+      ),
     setCompanyCreditLimit: async (_p, creditId, companyId, creditLimit) => {
       db.credits.get(Number(companyId)).credit_limit = creditLimit;
       record("setCompanyCreditLimit", {
@@ -309,6 +318,16 @@ export function createFakeCommerce() {
       [...db.sourceItems.keys()]
         .filter((key) => key.startsWith(`${sku}|`))
         .map((key) => key.split("|")[1]),
+    sourceCodesOfSkus: async (_p, skus) => {
+      const found = new Map();
+      for (const key of db.sourceItems.keys()) {
+        const [sku, code] = key.split("|");
+        if (skus.includes(sku)) {
+          found.set(sku, [...(found.get(sku) ?? []), code]);
+        }
+      }
+      return found;
+    },
     storeConfigs: async () =>
       new Map([[1, { currency: "USD", locale: "en_US" }]]),
     unholdIfHeld: async (_p, orderId) => {

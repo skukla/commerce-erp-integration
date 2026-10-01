@@ -72,6 +72,7 @@ describe("Given erp/prices", () => {
     expect(items).toEqual(ITEMS["https://a.example"]);
     expect(Object.keys(deps).sort()).toEqual([
       "commerceCompanyOf",
+      "expectSkus",
       "ledger",
       "ownsSku",
       "tierPrices",

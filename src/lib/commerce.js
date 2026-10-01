@@ -313,9 +313,75 @@ export async function productAttributes(params, sku) {
   const product = await client
     .get(`products/${encodeURIComponent(sku)}`)
     .json();
+  return attributesOf(product);
+}
+
+function attributesOf(product) {
   return Object.fromEntries(
     (product?.custom_attributes ?? []).map((a) => [a.attribute_code, a.value]),
   );
+}
+
+/**
+ * The SKUs one `in` filter can carry, in lists of at most a page: the filter's value is
+ * comma-separated, so a SKU holding a comma is left out (its caller reads it on its own).
+ */
+function skuLists(skus) {
+  const listable = [...new Set(skus.map(String))].filter(
+    (sku) => !sku.includes(","),
+  );
+  const lists = [];
+  for (let i = 0; i < listable.length; i += PAGE_SIZE) {
+    lists.push(listable.slice(i, i + PAGE_SIZE));
+  }
+  return lists;
+}
+
+const skuIn = (list) => ({
+  "searchCriteria[filter_groups][0][filters][0][condition_type]": "in",
+  "searchCriteria[filter_groups][0][filters][0][field]": "sku",
+  "searchCriteria[filter_groups][0][filters][0][value]": list.join(","),
+});
+
+/**
+ * Many products' custom attributes in one products search per hundred SKUs (the ownership
+ * check of a price publish, lib/ownership-readers.js). A SKU Commerce does not have, or one
+ * holding a comma, is absent from the answer.
+ * @returns {Promise<Map<string, object>>} Commerce's SKU → code → value
+ */
+export async function productAttributesOfSkus(params, skus) {
+  const client = await commerceClient(params);
+  const found = new Map();
+  for (const list of skuLists(skus)) {
+    // biome-ignore lint/performance/noAwaitInLoops: one search at a time on a slow store
+    const products = await readAllPages(client, "products", skuIn(list));
+    for (const product of products) {
+      found.set(product.sku, attributesOf(product));
+    }
+  }
+  return found;
+}
+
+/**
+ * Many SKUs' inventory sources in one source-items search per hundred SKUs. A SKU with no
+ * source, or one holding a comma, is absent from the answer.
+ * @returns {Promise<Map<string, string[]>>} Commerce's SKU → source codes
+ */
+export async function sourceCodesOfSkus(params, skus) {
+  const client = await commerceClient(params);
+  const found = new Map();
+  for (const list of skuLists(skus)) {
+    // biome-ignore lint/performance/noAwaitInLoops: one search at a time on a slow store
+    const items = await readAllPages(
+      client,
+      "inventory/source-items",
+      skuIn(list),
+    );
+    for (const item of items) {
+      found.set(item.sku, [...(found.get(item.sku) ?? []), item.source_code]);
+    }
+  }
+  return found;
 }
 
 /** @returns {Promise<string|null>} the SKU of a product id, null when unknown */

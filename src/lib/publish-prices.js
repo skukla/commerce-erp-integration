@@ -9,9 +9,10 @@ import { contractPriceDeps } from "#lib/contract-price-deps";
 import { publishErpPrices } from "#lib/contract-prices";
 import { erp } from "#lib/erp";
 import { erpById, loadErps } from "#lib/erps";
+import { ownershipReaders } from "#lib/ownership-readers";
 
 /** One ERP's prices in force, published; an ERP that does not answer touches nothing. */
-async function publishOne(params, erps, entry) {
+async function publishOne(params, erps, entry, readers) {
   const res = await erp.inForce(paramsForErp(params, entry));
   if (!res.ok) {
     return {
@@ -31,7 +32,7 @@ async function publishOne(params, erps, entry) {
     params,
     entry,
     res.data?.items ?? [],
-    contractPriceDeps(params, erps, entry.id),
+    contractPriceDeps(params, erps, entry.id, readers),
   );
 }
 
@@ -55,9 +56,11 @@ export async function publishPrices(params, erpId) {
     unchanged: 0,
     written: 0,
   };
+  // One set of readers for every ERP: a SKU's owner is read from Commerce once per publish.
+  const readers = ownershipReaders();
   for (const entry of targets) {
     // biome-ignore lint/performance/noAwaitInLoops: one ERP at a time: one ledger document
-    const result = await publishOne(params, erps, entry);
+    const result = await publishOne(params, erps, entry, readers);
     total.written += result.written;
     total.removed += result.removed;
     total.unchanged += result.unchanged;
