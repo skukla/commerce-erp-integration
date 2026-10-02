@@ -10,7 +10,8 @@ Every ERP screen below is named by its address in the ERP's own preview
 (`npm run preview` in the `demo-erp` repository, then `#…` in the address bar), so each
 look is reproducible with the stand-in records. Against a deployed pair the same addresses
 open the same screens with real records. Written 2026-09-24 from the code and the preview;
-re-check against a deployed pair before a first showing.
+the Event Journal, Settings and the order-to-return journey were brought up to date and run
+against the deployed Justrite pair on 2026-10-02.
 
 Two words used throughout: **mirrored** means the value came from Commerce and every fill or
 Commerce event overwrites it; **the ERP's own** means the ERP decides it and Commerce follows, or never
@@ -147,23 +148,59 @@ orders go On Hold, and the next order waits there until you open the customer ag
 
 ### 8. Event Journal (`#events`)
 
-Every change the ERP published (price, stock, credit limit, block, order confirmed,
-shipment posted, invoice created, canceled, credit hold) and every change that arrived
-from Commerce (imports, a Commerce-side shipment, invoice, cancellation or hold), as
-sentences naming the documents, each a link. Delivered, pending or failed, with Retry and
-Requeue. The detail page carries the wire name and the event id Debug Tracing lists.
+Every change the ERP published, in the ERP's own words, and every change that arrived from
+the web shop (imports, a shipment or invoice made there, a cancellation or hold), as sentences
+naming the documents, each a link. Sent, pending or failed, with Retry and Requeue.
+
+The ERP knows nothing about Commerce: it publishes its own events and the integration
+translates each into what Commerce needs (one module, `actions/ingestion/translate.js`). What
+the journal says, and the event behind it on the detail page:
+
+| The journal says | The ERP's event |
+|---|---|
+| Sales order changed (confirmed, held, released, canceled) | `SalesOrder.Changed` |
+| Goods issue posted | `OutboundDelivery.GoodsIssueStatusChanged` |
+| Billing document created (invoice), or (credit memo) | `BillingDocument.Created` |
+| Customer return changed | `CustomerReturn.Changed` |
+| Incoming payment posted | `IncomingPayment.Posted` |
+| Product changed: name, list price (the fields that changed) | `Product.Changed` |
+| Product stock changed | `ProductStock.Changed` |
+| Customer changed: credit limit, blocking level | `Customer.Changed` |
+| Price list changed | `PriceList.Changed` |
+
+The ERP keeps the web shop's numbers as references on its own documents (the order's customer
+reference is the Commerce order number), never as Commerce ids.
+
+What to say: this is what an ERP sends. The names and fields are the ERP's; nothing in it was
+shaped for Commerce. The integration is where the translating happens, and it is the part a
+customer would write for their own ERP.
 
 ### 9. Settings (`#settings`)
 
-Name; Records (Sync records, Wipe all records, and what the last wipe removed);
-Document numbering (each range's next number, and the currency money falls back to);
-Organization (the company code with its currency and country; each sales organization
-with its website and its customer and order counts); Warehouses (each plant with its ERP
-name, its Commerce source code and name, its product count; click to rename); Appearance.
+A setup form, in four sections an ERP user edits. Each field changes what the ERP does or
+prints.
 
-The ERP's own: the name, the warehouse names, the look. Derived from Commerce on every
-sync: the organization card. Nothing here survives a wipe except the settings themselves,
-and a counter never rewinds, so no document number is ever handed out twice.
+- **Company**: name, company code, address, tax ID, currency. Printed as the Seller on every
+  invoice.
+- **Sales & Receivables**: default payment terms (new customers get them, and they set invoice
+  due dates); credit warnings (credit limit, overdue balance, both or none: what holds a new
+  order); the return reasons and the default one (a return order's lines carry the code).
+- **Number Series**: one row per document type with its starting, next and ending number. Click
+  a next number to change it; it only moves forward, so no number is handed out twice.
+- **Sales Organizations**: code, name, currency and the website each serves, with Add and Edit.
+
+What to say: change the credit warnings to "overdue balance" and an order from a customer with
+an unpaid, overdue invoice arrives held, with that reason.
+
+### 10. Appearance (the person icon, top right)
+
+How this ERP's screen looks: a theme in one click, or the colour, logo and navigation (side
+rail or top band) on their own. Each pick repaints the screen at once; Save keeps it, Cancel
+puts back what was there. It is for the person preparing the demo, so two ERPs side by side
+look different; it is not on the Settings page, and it changes no record.
+
+Wiping and refilling an ERP, and pretending one is down, are not on the ERP's screen: they are
+Demo Builder's (Reset ERPs on the integration's card, Simulate downtime on each ERP's card).
 
 ---
 
@@ -236,8 +273,7 @@ One table per business concept. "Owner" is which side decides the field; the oth
 
 | ERP (Customers → the customer) | Commerce (Customers → Companies → the company) | Owner |
 |---|---|---|
-| Business partner (sold-to): id, name | Company: id, name | Commerce; the join is the Commerce company id |
-| Customer group id | Customer group · shared catalog | Commerce |
+| Customer (sold-to): its own number, name | Company: id, name | Commerce; the join is the integration's key map (ERP customer number = Commerce company). The ERP holds no Commerce id |
 | Credit block (None · Stop shipping · Stop invoicing · Stop all) | — | ERP only; Commerce never changes it. It holds that ERP's orders, never the company |
 | Website account (Active · Closed) | Status (active / blocked) | Commerce; copied to the ERP read-only. Closed stops all website orders |
 | Legal identity (legal name, VAT / tax id, reseller id, address) | The company's legal fields | Commerce |
@@ -246,12 +282,11 @@ One table per business concept. "Owner" is which side decides the field; the oth
 
 ### Selling organization
 
-| ERP (Settings → Organization) | Commerce (Stores → All Stores; the Admin page's Settings) | Owner |
+| ERP (Settings → Company, Sales Organizations) | Commerce (Stores → All Stores; the Admin page's Settings) | Owner |
 |---|---|---|
-| Sales organization (code, name) | Website | Both: the per-website setting in the Admin page's Settings is the join |
-| Company code currency, country | Base currency and locale (store configuration) | Commerce |
-| Seller identity on the invoice | Store Information (address, VAT) | Commerce; not readable over REST, so blank on the ERP |
-| Company code 1000 | — | ERP |
+| Sales organization (code, name, currency, the website it serves) | Website | ERP: its own table, seeded by the first fill and never overwritten after; the per-website setting in the Admin page's Settings is the join |
+| Company: name, code, address, tax ID, currency | Store Information, base currency | ERP: set on its Settings; a field never set falls back to the home website's |
+| Seller identity on the invoice | — | ERP: its Company and the order's sales organization |
 
 ### Sellable item
 
@@ -313,15 +348,14 @@ that amount back on its credit: Customers → Companies → the company, Company
 history row reads Reimbursed with the payment number as its purchase order. An order paid any
 other way (check / money order) changes no credit. Each ERP payment is applied once however
 often its event is delivered, and with two ERPs each pays back only its own invoice. The
-reimbursement is ledgered, so a demo reset takes it back. Posting a payment from the ERP's
-screen is a separate slice (S3); until it ships, the ERP's `POST invoices/:number/payments`
-route is the way in.
+reimbursement is ledgered, so a demo reset takes it back. Post one from the ERP's invoice
+(`#invoices`, the invoice, **Post payment**); the Payments list (`#payments`) shows them all.
 
 ### Fulfilment source
 
-| ERP (Settings → Warehouses; a shipment's ship-from) | Commerce (Stores → Inventory → Sources; a shipment's source) | Owner |
+| ERP (Warehouses; a shipment's ship-from) | Commerce (Stores → Inventory → Sources; a shipment's source) | Owner |
 |---|---|---|
-| Warehouse: code, the ERP's own name | Inventory source: code, name | Both: Commerce keeps its name; the ERP's name is set on its Settings and survives a wipe; the join is the source code |
+| Warehouse: code, the ERP's own name | Inventory source: code, name | Both: Commerce keeps its name; the ERP's name is set on its Warehouses page and survives a wipe; the join is the source code |
 | Which ERP owns the products it ships | The ownership rule in the Admin page's Settings | The setting, per pair |
 
 ---
