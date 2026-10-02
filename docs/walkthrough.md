@@ -299,6 +299,9 @@ One table per business concept. "Owner" is which side decides the field; the oth
 | Credit memo (against the invoice, or a return's) | Credit memo, offline, refunded to company credit on an order paid on account | ERP: each ERP credits only its own lines, once per ERP credit memo |
 | Return order (open · received · credited) | Return (Pending → Authorized → Received → Processed and Closed) | Commerce takes the request; each ERP takes its lines, receives and credits them |
 
+One invoice per ERP part and one credit memo per ERP credit. An ERP that bills per delivery is
+a customization of the pair: `docs/partial-invoicing.md`.
+
 ### Payment / receivable
 
 Not connected yet: order to cash's payment leg is the next slice. The ERP will hold an open
