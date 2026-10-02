@@ -349,19 +349,13 @@ describe("Given one ERP's part of a split order", () => {
     base_grand_total: 332.28,
     increment_id: "5000000008",
     items: [
-      {
-        base_discount_amount: 0,
-        base_price: 274.86,
-        base_row_total: 274.86,
-        base_tax_amount: 0,
-        item_id: 36,
-        qty_ordered: 1,
-        sku: "BOARD",
-      },
+      // No base_row_total: the order EVENT's items do not carry it (live, 2026-10-02: a total
+      // read from it came out 0 and the ERP read the invoice as paid). Quantity and price do.
+      { base_price: 274.86, item_id: 36, qty_ordered: 1, sku: "BOARD" },
     ],
   };
 
-  test("Then its total is its own lines (row total, plus tax, less discount), not the order's", () => {
+  test("Then its total is its own lines (quantity × price, plus tax, less discount), not the order's", () => {
     expect(erpOrderFrom(ORDER, 37, {}, { shared: true }).total).toBe(274.86);
     const taxed = {
       ...ORDER,

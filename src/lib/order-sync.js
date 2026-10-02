@@ -52,16 +52,19 @@ export function isNewOrder(order) {
 }
 
 /**
- * What one ERP's part of a split order comes to: its own lines' row totals, plus their tax,
- * less their discounts. Shipping is the order's, not a part's, so no part carries it (no ERP
+ * What one ERP's part of a split order comes to: its own lines' quantity times price, plus
+ * their tax, less their discounts. Shipping is the order's, not a part's, so no part carries it (no ERP
  * owns shipping; Commerce puts it on its first invoice). Live on Justrite 2026-10-02 each
  * part was sent with the whole order's grand total and the ERP invoiced it.
  */
 function partTotal(lines) {
+  // Quantity times price, as the lines the ERP receives: the order event's items carry no
+  // base_row_total (live 2026-10-02: a total read from it came out 0).
   const sum = lines.reduce(
     (total, item) =>
       total +
-      Number(item.base_row_total ?? 0) +
+      Number(item.qty_ordered ?? item.qty ?? 1) *
+        Number(item.base_price ?? item.price ?? 0) +
       Number(item.base_tax_amount ?? 0) -
       Number(item.base_discount_amount ?? 0),
     0,
