@@ -21,8 +21,9 @@ function eventHandlers() {
 }
 
 describe("Given the ERP event handlers", () => {
-  test("Then there are the ten the ERP's contract names", () => {
-    expect(eventHandlers()).toHaveLength(10);
+  // Contract version 13 added the credit memo and return received events.
+  test("Then there are the twelve the ERP's contract names", () => {
+    expect(eventHandlers()).toHaveLength(12);
   });
 
   test.each(eventHandlers())("Then %s records its events", (file) => {

@@ -103,12 +103,128 @@ async function unholdOrder(params, orderId) {
   return await client.post(`orders/${orderId}/unhold`);
 }
 
+/**
+ * A credit memo of some of an order's lines, offline (returns-design.md §3.1 step 7): shipping
+ * 0, no adjustment, nothing returned to stock (the ERP owns stock). Measured on the live store
+ * 2026-10-02: on a Payment on Account order it credits only these lines, refunds the company
+ * credit, and answers the new credit memo's id as a JSON string.
+ * @param {object} params - Environment params from the IO Runtime request
+ * @param {number} orderId - order id
+ * @param {Array<{order_item_id: number, qty: number}>} items - the lines and quantities
+ * @param {string} comment - the credit memo's own comment, for staff
+ * @returns {Promise<string>} the credit memo id
+ */
+async function refundOrderItems(params, orderId, items, comment) {
+  const client = await getCommerceClient(
+    resolveImsAuthParams(params),
+    COMMERCE_FETCH_OPTIONS,
+  );
+  return await client
+    .post(`order/${orderId}/refund`, {
+      json: {
+        appendComment: true,
+        arguments: {
+          adjustment_negative: 0,
+          adjustment_positive: 0,
+          extension_attributes: { return_to_stock_items: [] },
+          shipping_amount: 0,
+        },
+        comment: { comment, is_visible_on_front: 0 },
+        items,
+        notify: false,
+      },
+    })
+    .json();
+}
+
+/**
+ * Read a return (RMA) with its items.
+ * @param {object} params - Environment params from the IO Runtime request
+ * @param {number} returnId - the return's entity id
+ * @returns {Promise<object>} the return
+ */
+async function getReturn(params, returnId) {
+  const client = await getCommerceClient(
+    resolveImsAuthParams(params),
+    COMMERCE_FETCH_OPTIONS,
+  );
+  return await client.get(`returns/${returnId}`).json();
+}
+
+/**
+ * Write a return back. Measured 2026-10-02: a body without the return's increment_id gives it
+ * a NEW number, so callers send the return as read, changing only statuses and quantities.
+ * @param {object} params - Environment params from the IO Runtime request
+ * @param {number} returnId - the return's entity id
+ * @param {object} rma - the whole return, as GET returns/{id} answered it
+ */
+async function updateReturn(params, returnId, rma) {
+  const client = await getCommerceClient(
+    resolveImsAuthParams(params),
+    COMMERCE_FETCH_OPTIONS,
+  );
+  return await client.put(`returns/${returnId}`, {
+    json: { rmaDataObject: rma },
+  });
+}
+
+/**
+ * The words Commerce shows for each return reason, by the option value a return item stores
+ * ("12" → "Out of Service"), from GET returnsAttributeMetadata (read live 2026-10-02).
+ * @param {object} params - Environment params from the IO Runtime request
+ * @returns {Promise<Map<string, string>>}
+ */
+async function returnReasonLabels(params) {
+  const client = await getCommerceClient(
+    resolveImsAuthParams(params),
+    COMMERCE_FETCH_OPTIONS,
+  );
+  const attributes = await client.get("returnsAttributeMetadata").json();
+  const reason = (attributes ?? []).find((a) => a.attribute_code === "reason");
+  return new Map(
+    (reason?.options ?? [])
+      .filter((o) => o.value !== "" && o.label?.trim())
+      .map((o) => [String(o.value), o.label.trim()]),
+  );
+}
+
+/**
+ * Add a staff-only comment to a return.
+ * @param {object} params - Environment params from the IO Runtime request
+ * @param {number} returnId - the return's entity id
+ * @param {string} comment - the words
+ */
+async function addReturnComment(params, returnId, comment) {
+  const client = await getCommerceClient(
+    resolveImsAuthParams(params),
+    COMMERCE_FETCH_OPTIONS,
+  );
+  return await client.post(`returns/${returnId}/comments`, {
+    json: {
+      data: {
+        // The RMA comment's own field names; the order comment's is_* names are refused
+        // ("IsAdmin is not supported", read live 2026-10-02).
+        admin: true,
+        comment,
+        customer_notified: false,
+        rma_entity_id: Number(returnId),
+        visible_on_front: false,
+      },
+    },
+  });
+}
+
 export {
   addComment,
+  addReturnComment,
   cancelOrder,
   getOrder,
+  getReturn,
   holdOrder,
   invoiceOrder,
   invoiceOrderItems,
+  refundOrderItems,
+  returnReasonLabels,
   unholdOrder,
+  updateReturn,
 };

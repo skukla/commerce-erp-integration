@@ -15,6 +15,8 @@ export const COMPANY_STATUS = {
   REJECTED: 2,
 };
 
+import { createFakeReturns } from "./fake-commerce-returns.js";
+
 const clone = (v) => JSON.parse(JSON.stringify(v));
 
 function seed() {
@@ -31,6 +33,7 @@ function seed() {
         },
       ],
     ]),
+    creditMemos: [],
     credits: new Map([
       [
         7,
@@ -96,6 +99,7 @@ function seed() {
         { id: 102, name: "Shirt", price: 5, sku: "B2", type_id: "simple" },
       ],
     ]),
+    returns: new Map(),
     sharedCatalogs: [{ customer_group_id: 2, id: 5, type: 0 }],
     shipments: [],
     sourceItems: new Map([
@@ -398,7 +402,11 @@ export function createFakeCommerce() {
     },
   };
 
+  // Returns and credit memos (fake-commerce-returns.js), over this store's database.
+  const returns = createFakeReturns({ db: () => db, order, record });
+
   const orderClient = {
+    ...returns.client,
     addComment: async (_p, orderId, data) => {
       record("comment", {
         comment: data.statusHistory?.comment,
@@ -542,6 +550,7 @@ export function createFakeCommerce() {
       data: { value: { ...clone(order(orderId)), _isNew: isNew } },
       type: "observer.sales_order_save_commit_after",
     }),
+    returnSaved: (returnId) => returns.returnSaved(returnId),
     shipmentSaved: (shipmentId) => {
       const s = db.shipments.find((x) => x.entity_id === Number(shipmentId));
       return {
@@ -564,6 +573,9 @@ export function createFakeCommerce() {
   return {
     adminCancel(orderId) {
       return lib.orders.cancel({}, orderId);
+    },
+    adminCreateReturn(orderId, lines) {
+      return returns.adminCreateReturn(orderId, lines);
     },
     adminHold(orderId) {
       return orderClient.holdOrder({}, orderId);

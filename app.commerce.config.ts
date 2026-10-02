@@ -356,6 +356,20 @@ export default defineConfig({
           },
           {
             description:
+              "Fires after a return is saved in Commerce, so each ERP that sold its lines is sent its return order (the return itself is read from Commerce)",
+            fields: [
+              field("entity_id"),
+              field("increment_id"),
+              field("order_id"),
+              field("status"),
+            ],
+            label: "Return Saved",
+            name: "observer.rma_save_commit_after",
+            priority: true,
+            runtimeActions: ["order-commerce/return-saved"],
+          },
+          {
+            description:
               "Fires after a stock item is saved in Commerce, used to keep the ERP stock in step with the store",
             fields: [
               field("item_id"),
@@ -423,6 +437,20 @@ export default defineConfig({
             runtimeActions: ["order-backoffice/hold"],
           },
           {
+            description:
+              "The ERP posted a credit memo for some lines of a sales order, for a return or without one",
+            label: "ERP Order Credit Memo Created",
+            name: "be-observer.sales_order_creditmemo_create",
+            runtimeActions: ["order-backoffice/creditmemo-created"],
+          },
+          {
+            description:
+              "The goods of a return order are back in the ERP warehouse",
+            label: "ERP Return Received",
+            name: "be-observer.rma_status_update",
+            runtimeActions: ["order-backoffice/return-updated"],
+          },
+          {
             description: "The ERP changed an account credit limit",
             label: "ERP Company Credit Updated",
             name: "be-observer.company_credit_update",
@@ -473,7 +501,7 @@ export default defineConfig({
     // version with every change to what this file registers, or the change never reaches
     // Commerce. "auto" runs the plan; the library marks it experimental.
     upgradeMode: "auto",
-    version: "0.10.0",
+    version: "0.11.0",
   },
   /*
    * The one synchronous webhook (AB-19, AB-20): as the order is placed, each owning ERP is

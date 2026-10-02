@@ -46,6 +46,8 @@ export function erpClientModule(call) {
           post("orders", `/${number}/commerce-invoice`, body)(params),
         release: (params, number, body) =>
           post("orders", `/${number}/credit/release`, body)(params),
+        sendReturn: (params, body) =>
+          call("returns", { body, method: "POST", params }),
         ship: (params, number, body) =>
           post("orders", `/${number}/commerce-shipment`, body)(params),
       },

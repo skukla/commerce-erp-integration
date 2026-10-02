@@ -39,6 +39,10 @@ const DESCRIBE = {
     message: `${companyOf(d).who}: credit limit ${d.creditLimit}`,
     ref: companyOf(d).ref,
   }),
+  "credit-memo": (d) => ({
+    message: `order ${d.incrementId}: credited (credit memo ${d.creditMemoNumber})`,
+    ref: d.incrementId,
+  }),
   hold: (d) => ({
     message: `order ${d.incrementId}: ${d.held ? "on credit hold" : "credit hold released"}`,
     ref: d.incrementId,
@@ -52,6 +56,10 @@ const DESCRIBE = {
     ref: d.incrementId,
   }),
   price: (d) => ({ message: `SKU ${d.sku}: price ${d.price}`, ref: d.sku }),
+  return: (d) => ({
+    message: `order ${d.incrementId}: return order ${d.returnNumber} received`,
+    ref: d.incrementId,
+  }),
   shipment: (d) => ({
     message: `order ${d.incrementId}: shipped`,
     ref: d.incrementId,
@@ -104,7 +112,7 @@ async function record(kind, params, ended) {
 /**
  * Wrap an ERP event handler so how each event ended is recorded.
  * @param {string} kind what the event changes: price, stock, order-status, shipment,
- *   invoice, cancel, credit, block, contract
+ *   invoice, cancel, credit, block, contract, credit-memo, return
  * @param {(params: object) => Promise<object>} handler the action's own main
  * @returns {(params: object) => Promise<object>} the handler, recording as it answers
  */
@@ -128,9 +136,11 @@ export const HANDLER_ACTIONS = {
   cancel: "order-backoffice/cancelled",
   contract: "company-backoffice/contract-updated",
   credit: "company-backoffice/credit-updated",
+  "credit-memo": "order-backoffice/creditmemo-created",
   invoice: "order-backoffice/invoice-created",
   "order-status": "order-backoffice/updated",
   price: "product-backoffice/updated",
+  return: "order-backoffice/return-updated",
   shipment: "order-backoffice/shipment-created",
   stock: "stock-backoffice/updated",
 };

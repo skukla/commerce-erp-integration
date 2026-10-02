@@ -128,6 +128,13 @@ export const erp = {
         method: "POST",
         path: `/${number}/credit/release`,
       }),
+    /**
+     * A Commerce return, this ERP's lines of it, as a return order (contract version 13). The
+     * body names the ERP's own sales order (`orderNumber`); the ERP is idempotent on
+     * `commerceReturnId`, answering the return order it already made.
+     */
+    sendReturn: (params, body) =>
+      erpRequest(params, "returns", { body, method: "POST" }),
     ship: (params, number, body) =>
       erpRequest(params, "orders", {
         body,

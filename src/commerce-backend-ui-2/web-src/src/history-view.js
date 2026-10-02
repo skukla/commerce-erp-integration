@@ -59,6 +59,7 @@ const KINDS = {
   changed: { label: "Order change", opens: "trace", type: "orders" },
   contract: { label: "Customer prices", opens: "company", type: "prices" },
   credit: { label: "Credit", opens: "company", type: "companies" },
+  "credit-memo": { label: "Credit memo", opens: "trace", type: "orders" },
   hold: { label: "Credit hold", opens: "trace", type: "orders" },
   invoice: { label: "Invoice", opens: "trace", type: "orders" },
   invoiced: { label: "Invoice", opens: "order", type: "orders" },
@@ -66,6 +67,8 @@ const KINDS = {
   "order-status": { label: "Order status", opens: "trace", type: "orders" },
   price: { label: "Price", opens: "product", type: "prices" },
   reset: { label: "Demo reset", opens: "reset", type: "reset" },
+  return: { label: "Return received", opens: "trace", type: "orders" },
+  returned: { label: "Return", opens: "order", type: "orders" },
   shipment: { label: "Shipment", opens: "trace", type: "orders" },
   shipped: { label: "Shipment", opens: "order", type: "orders" },
   stock: { label: "Stock", opens: "product", type: "stock" },
@@ -75,6 +78,8 @@ const KINDS = {
 const MADE_IN_COMMERCE = {
   changed: "Changed in Commerce Admin",
   invoiced: "Invoiced in Commerce Admin",
+  // A buyer can ask for a return on the storefront, so not "in Commerce Admin".
+  returned: "Return made in Commerce",
   shipped: "Shipped in Commerce Admin",
 };
 

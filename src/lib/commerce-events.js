@@ -15,6 +15,8 @@ export const COMMERCE_EVENTS = {
   orderSaved: "observer.sales_order_save_commit_after",
   productDeleted: "observer.catalog_product_delete_commit_after",
   productSaved: "observer.catalog_product_save_commit_after",
+  // A return (RMA) saved: in the store's supported events, read live 2026-10-02.
+  returnSaved: "observer.rma_save_commit_after",
   shipmentSaved: "observer.sales_order_shipment_save_after",
   stockItemSaved: "observer.cataloginventory_stock_item_save_commit_after",
 };

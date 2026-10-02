@@ -54,6 +54,7 @@ const ACTIONS = [
   "orders",
   "shipments",
   "invoices",
+  "returns",
   "events",
   "search",
   "settings",

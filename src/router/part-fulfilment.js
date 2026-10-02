@@ -37,7 +37,7 @@ const asList = (items) =>
   Array.isArray(items) ? items : Object.values(items ?? {});
 
 /** Whether a line (Commerce's `order_item_id`, or the ERP's sku) is this part's. */
-function inPart(part, itemId, sku) {
+export function inPart(part, itemId, sku) {
   if (Array.isArray(part.itemIds) && part.itemIds.length > 0) {
     return part.itemIds.includes(Number(itemId));
   }

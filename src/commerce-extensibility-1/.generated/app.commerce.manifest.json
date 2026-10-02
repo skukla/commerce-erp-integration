@@ -322,6 +322,29 @@
             ]
           },
           {
+            "description": "Fires after a return is saved in Commerce, so each ERP that sold its lines is sent its return order (the return itself is read from Commerce)",
+            "fields": [
+              {
+                "name": "entity_id"
+              },
+              {
+                "name": "increment_id"
+              },
+              {
+                "name": "order_id"
+              },
+              {
+                "name": "status"
+              }
+            ],
+            "label": "Return Saved",
+            "name": "observer.rma_save_commit_after",
+            "priority": true,
+            "runtimeActions": [
+              "order-commerce/return-saved"
+            ]
+          },
+          {
             "description": "Fires after a stock item is saved in Commerce, used to keep the ERP stock in step with the store",
             "fields": [
               {
@@ -412,6 +435,22 @@
             ]
           },
           {
+            "description": "The ERP posted a credit memo for some lines of a sales order, for a return or without one",
+            "label": "ERP Order Credit Memo Created",
+            "name": "be-observer.sales_order_creditmemo_create",
+            "runtimeActions": [
+              "order-backoffice/creditmemo-created"
+            ]
+          },
+          {
+            "description": "The goods of a return order are back in the ERP warehouse",
+            "label": "ERP Return Received",
+            "name": "be-observer.rma_status_update",
+            "runtimeActions": [
+              "order-backoffice/return-updated"
+            ]
+          },
+          {
             "description": "The ERP changed an account credit limit",
             "label": "ERP Company Credit Updated",
             "name": "be-observer.company_credit_update",
@@ -458,7 +497,7 @@
     "displayName": "ERP Integration",
     "id": "commerce-erp-integration",
     "upgradeMode": "auto",
-    "version": "0.10.0"
+    "version": "0.11.0"
   },
   "webhooks": [
     {

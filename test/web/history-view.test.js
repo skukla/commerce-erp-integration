@@ -210,6 +210,24 @@ describe("Given an update from an ERP", () => {
       { kind: "trace", ref: "3000000019" },
     ],
     [
+      "credit-memo",
+      "5000000002",
+      "order 5000000002: credited (credit memo 9500000001)",
+      "Order 5000000002: credited (credit memo 9500000001)",
+      "orders",
+      "Credit memo",
+      { kind: "trace", ref: "5000000002" },
+    ],
+    [
+      "return",
+      "5000000002",
+      "order 5000000002: return order 8000000001 received",
+      "Order 5000000002: return order 8000000001 received",
+      "orders",
+      "Return received",
+      { kind: "trace", ref: "5000000002" },
+    ],
+    [
       "stock",
       "",
       "SKU CAB at east: 4 in stock",
@@ -334,6 +352,30 @@ describe("Given a change made in Commerce Admin", () => {
       sentence:
         "Commerce shipment 3000000011: told Northwind ERP about its lines",
       typeLabel: "Shipment",
+    });
+  });
+
+  test("Then a return made in Commerce names the ERPs it went to and opens its order's trace", () => {
+    const row = eventRow(
+      {
+        attempts: 1,
+        direction: "to-erp",
+        erpIds: ["erp"],
+        kind: "returned",
+        lastAt: "2026-10-02T11:02:00Z",
+        message:
+          "return 000000004: sent to Northwind ERP as return order 8000000001.",
+        orderRef: "5000000002",
+        outcome: "sent",
+        ref: "000000004",
+      },
+      { erps: ERPS, now: NOW },
+    );
+    expect(row).toMatchObject({
+      detail: "Return made in Commerce",
+      open: { kind: "trace", ref: "5000000002" },
+      type: "orders",
+      typeLabel: "Return",
     });
   });
 

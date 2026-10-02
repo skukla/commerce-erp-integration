@@ -1,6 +1,6 @@
 {
   "name": "demo-erp",
-  "contractVersion": 12,
+  "contractVersion": 13,
   "description": "What the ERP promises its subscribers: the routes it serves, the shapes it accepts, and the events it publishes. The Commerce integration vendors this file and its tests fail when the two disagree.",
   "routes": {
     "health": ["GET"],
@@ -10,7 +10,9 @@
     "partners": ["GET", "GET /:id", "PATCH /:id", "POST /:id/credit-check"],
     "pricing": ["GET", "POST", "DELETE /:id", "POST /quote"],
     "contracts": ["GET", "GET /in-force", "GET /:number", "POST", "PATCH /:number", "POST /:number/activate", "POST /:number/deactivate", "GET /price-groups", "POST /price-groups", "DELETE /price-groups/:code"],
-    "orders": ["GET", "GET /:number", "POST", "POST /:number/confirm", "POST /:number/cancel", "POST /:number/shipments", "POST /:number/shipments/:shipment/post", "POST /:number/lines/:item/close", "POST /:number/invoice", "POST /:number/credit/release", "POST /:number/credit/reject", "POST /:number/credit/hold", "POST /:number/commerce-shipment", "POST /:number/commerce-invoice", "POST /:number/status"],
+    "orders": ["GET", "GET /:number", "POST", "POST /:number/confirm", "POST /:number/cancel", "POST /:number/shipments", "POST /:number/shipments/:shipment/post", "POST /:number/lines/:item/close", "POST /:number/invoice", "POST /:number/credit/release", "POST /:number/credit/reject", "POST /:number/credit/hold", "POST /:number/commerce-shipment", "POST /:number/commerce-invoice", "POST /:number/credit-memo", "POST /:number/status"],
+    "returns": ["GET", "GET /:number", "POST", "POST /:number/receive", "POST /:number/credit-memo"],
+    "credit-memos": ["GET", "GET /:number"],
     "shipments": ["GET", "GET /:number"],
     "invoices": ["GET", "GET /:number"],
     "events": ["GET", "POST /retry", "POST /requeue"],
@@ -85,6 +87,19 @@
       "release": ["origin"]
     }
   },
+  "returns": {
+    "note": "version 13 (AB-16e, returns-design.md r1): a RETURN ORDER is made from a Commerce return for this ERP's lines only, referencing this ERP's own sales order (orderNumber, the part's ERP number). POST returns is idempotent on commerceReturnId: a second call answers the existing return order, 200. Lines name the Commerce order line (commerceItemId) as the sales order's lines do; a line not on that sales order, or more than its invoiced quantity less what earlier returns took, is refused. The goods come back with POST returns/:number/receive (all lines; stock goes up at the order's shipping warehouse, sent out by the stock event; raises return.received), then POST returns/:number/credit-memo credits the received lines (raises creditmemo.created naming the return). A return order is open, received, then credited.",
+    "request": ["commerceReturnId", "commerceReturnIncrementId", "orderNumber", "lines", "origin"],
+    "requestLine": ["commerceItemId", "qty", "reason"],
+    "response": ["number", "commerceReturnId", "commerceReturnIncrementId", "orderNumber", "partnerId", "status", "lines", "creditMemo", "history", "createdAt", "receivedAt"],
+    "responseLine": ["item", "sku", "qty", "price", "reason", "commerceItemId"],
+    "statuses": ["open", "received", "credited"]
+  },
+  "creditMemo": {
+    "note": "version 13 (AB-26r, returns-design.md r1): the ERP's credit memo, numbered from 9500000001. POST orders/:number/credit-memo credits the order's invoice in full (owner O5 2026-09-24: full credit only; the invoice must exist and not be credited already; the invoice then reads credited). POST returns/:number/credit-memo credits a received return's lines. Either raises creditmemo.created, whose items are exactly the credited lines, so the subscriber credits only those in Commerce. A credit memo cannot be undone, in the ERP as in Commerce.",
+    "response": ["number", "createdAt", "orderNumber", "invoiceNumber", "returnNumber", "lines", "net", "tax", "total"],
+    "line": ["item", "sku", "qty", "price", "amount", "commerceItemId"]
+  },
   "events": {
     "be-observer.catalog_product_update": { "raisedBy": "product.price", "value": ["sku", "name", "price"] },
     "be-observer.catalog_stock_update": { "raisedBy": "product.stock", "valueIsArray": true, "value": ["sku", "source", "quantity", "outOfStock"] },
@@ -93,6 +108,8 @@
     "be-observer.sales_order_invoice_create": { "raisedBy": "order.invoiced", "value": ["id", "orderId", "incrementId", "erpNumber", "status", "items", "notifyCustomer"] },
     "be-observer.sales_order_hold": { "raisedBy": "order.hold", "value": ["id", "orderId", "incrementId", "erpNumber", "status", "items", "notifyCustomer", "held", "reason"], "note": "held true puts the Commerce order On Hold (the ERP created the order and held it for credit), false takes it off (a release); reason is the ERP's credit reason, or null on a release. A reject is a cancel and travels as sales_order_cancel" },
     "be-observer.sales_order_cancel": { "raisedBy": "order.canceled", "value": ["id", "orderId", "incrementId", "erpNumber", "status", "items", "notifyCustomer", "reason"], "note": "reason is one of the ERP's own cancellation reasons, for the Commerce order comment" },
+    "be-observer.sales_order_creditmemo_create": { "raisedBy": "creditmemo.created", "value": ["id", "orderId", "incrementId", "erpNumber", "creditMemoNumber", "returnNumber", "commerceReturnId", "items", "total", "notifyCustomer"], "note": "version 13: items are the CREDITED lines only (orderEventItem); returnNumber and commerceReturnId name the return it credits, or are null for an invoice credited without a return; total is the credit memo's total" },
+    "be-observer.rma_status_update": { "raisedBy": "return.received", "value": ["commerceReturnId", "returnNumber", "id", "orderId", "incrementId", "erpNumber", "status", "items"], "note": "version 13: the goods of one ERP's return order are back (status received); items are the received lines (orderEventItem)" },
     "be-observer.company_credit_update": { "raisedBy": "partner.creditLimit", "value": ["partnerId", "creditLimit"] },
     "be-observer.company_status_update": { "raisedBy": "partner.blocked", "value": ["partnerId", "blocked"] },
     "be-observer.company_contract_update": { "raisedBy": "contract.changed", "value": ["partnerId", "lines"], "note": "version 6: raised whenever a change to a price list moves a customer's prices in force today. lines is that customer's whole set (contracts.priceLine or contracts.discountLine each), so a replay is harmless; an empty list means no list price is left. version 7: a price group's list raises one for every member customer whose prices moved, and moving a customer into or out of a price group raises one for that customer. A list or line starting or ending with the calendar raises nothing: read GET contracts/in-force to follow dates. version 9: lines are the prices in force as contracts.inForceNote says, pricing conditions and the maximum discount included, and the event is also raised for each customer whose set moved when a pricing condition is created, changed or deleted (one naming no customer, such as a store-wide maximum discount, can move any customer) and when a product's list price changes on the ERP (a fixed price the maximum discount holds up moves with it). An empty list means the customer pays list price for everything. version 12: a customer with a sales-organization-scoped condition is sent one whole set per sales organization, each line tagged salesOrg (contracts.lineNote), so the subscriber writes each set to that organization's websites; the event is raised when any organization's set moved" }
