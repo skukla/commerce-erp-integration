@@ -136,3 +136,63 @@ describe("Given the ERP writing a tier price into a company's shared catalog", (
     expect((await readLedger()).map((e) => e.customerGroup)).toEqual(["Other"]);
   });
 });
+
+/*
+ * Detach is a web action: its answer is cut off at 60 seconds. One write at a time over a
+ * demo's worth of prices outran it (Justrite, 2026-10-02: a reset stopped before its wipe).
+ */
+describe("Given a ledger holding the prices of many products", () => {
+  const writeFor = async (sku, quantity) =>
+    recordTierPriceWrite({
+      ...ROW,
+      after: { price: 10, priceType: "fixed" },
+      before: null,
+      quantity,
+      sku,
+    });
+
+  test("Then revert undoes several products at a time, never more than its limit", async () => {
+    for (let n = 0; n < 20; n += 1) {
+      // biome-ignore lint/performance/noAwaitInLoops: the ledger is written in order
+      await writeFor(`sku-${n}`, 1);
+    }
+    let running = 0;
+    let most = 0;
+    const tierPrice = vi.fn(async () => {
+      running += 1;
+      most = Math.max(most, running);
+      await new Promise((resolve) => setTimeout(resolve, 5));
+      running -= 1;
+    });
+    const result = await revertLedger({ tierPrice });
+    expect(result).toEqual({ failed: [], reverted: 20 });
+    expect(most).toBeGreaterThan(1);
+    expect(most).toBeLessThanOrEqual(6);
+    expect(await readLedger()).toEqual([]);
+  });
+
+  test("Then one product's rows are still undone one after another, in the order written", async () => {
+    await writeFor("sku-a", 1);
+    await writeFor("sku-a", 10);
+    await writeFor("sku-b", 1);
+    const seen = [];
+    let runningA = 0;
+    const tierPrice = vi.fn(async (entry) => {
+      if (entry.id === "sku-a") {
+        runningA += 1;
+        expect(runningA).toBe(1);
+      }
+      await new Promise((resolve) => setTimeout(resolve, 5));
+      seen.push(`${entry.id}/${entry.quantity}`);
+      if (entry.id === "sku-a") {
+        runningA -= 1;
+      }
+    });
+    await revertLedger({ tierPrice });
+    expect(seen.filter((s) => s.startsWith("sku-a"))).toEqual([
+      "sku-a/1",
+      "sku-a/10",
+    ]);
+    expect(seen).toHaveLength(3);
+  });
+});

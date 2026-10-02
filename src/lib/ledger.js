@@ -354,18 +354,54 @@ export async function revertLedger(writers, erpId) {
   // (two groups, two quantities) are two rows, and only the failed one stays.
   const stays = new Set();
   let reverted = 0;
-  for (const entry of entries.filter(selected)) {
-    try {
-      // biome-ignore lint/performance/noAwaitInLoops: one write per entry, in order
-      await revertOne(entry, writers);
-      reverted += 1;
-    } catch (error) {
-      failed.push({ error: error.message, field: entry.field, id: entry.id });
-      stays.add(entry);
+  const revertInOrder = async (group) => {
+    for (const entry of group) {
+      try {
+        // biome-ignore lint/performance/noAwaitInLoops: one record's writes, in the order written
+        await revertOne(entry, writers);
+        reverted += 1;
+      } catch (error) {
+        failed.push({ error: error.message, field: entry.field, id: entry.id });
+        stays.add(entry);
+      }
     }
-  }
+  };
+  await inParallel(
+    byRecord(entries.filter(selected)),
+    REVERT_AT_ONCE,
+    revertInOrder,
+  );
   await keep(entries.filter((e) => !selected(e) || stays.has(e)));
   return { failed, reverted };
+}
+
+/**
+ * How many Commerce records a revert writes at once. Detach is a web action, answered within 60
+ * seconds or not at all: one write at a time over a demo's prices took as long as publishing
+ * them (52 s on Justrite, 2026-10-02), and the reset behind it stopped before its wipe.
+ */
+const REVERT_AT_ONCE = 6;
+
+/** Entries grouped by the Commerce record they wrote (a product, a company), in ledger order. */
+function byRecord(entries) {
+  const groups = new Map();
+  for (const entry of entries) {
+    const key = `${entry.kind}:${entry.id}`;
+    groups.set(key, [...(groups.get(key) ?? []), entry]);
+  }
+  return [...groups.values()];
+}
+
+/** Run `work` over `items`, at most `limit` at a time. */
+async function inParallel(items, limit, work) {
+  const queue = [...items];
+  const worker = async () => {
+    while (queue.length > 0) {
+      // biome-ignore lint/performance/noAwaitInLoops: each worker takes one item at a time
+      await work(queue.shift());
+    }
+  };
+  await Promise.all(Array.from({ length: limit }, worker));
 }
 
 /**
