@@ -82,7 +82,6 @@ async function wantedRows(lines, group, ownsSku, websiteIdsOf) {
       continue;
     }
     const quantity = Math.max(1, Number(line.minQty) || 1);
-    // biome-ignore lint/performance/noAwaitInLoops: the resolver reads the websites once
     const websites = line.salesOrg
       ? await (websiteIdsOf ? websiteIdsOf(line.salesOrg) : [])
       : [ALL_WEBSITES];
