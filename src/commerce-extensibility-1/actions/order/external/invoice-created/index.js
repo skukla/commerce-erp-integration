@@ -30,6 +30,15 @@ async function handle(params) {
   if (!Number.isFinite(orderId)) {
     return badRequest("the event carries no orderId");
   }
+  // With one ERP the whole order is invoiced below, whatever the lines: so an invoice that
+  // names none is refused here, never read as "the whole order".
+  const { items } = params.data;
+  const lines = Array.isArray(items) ? items : Object.values(items ?? {});
+  if (lines.length === 0) {
+    return badRequest(
+      `The ERP's invoice for order ${params.data.incrementId ?? orderId} names no lines; nothing was invoiced in Commerce.`,
+    );
+  }
   try {
     const partial = await invoicePart(params, orderId, params.data);
     if (partial?.busy) {

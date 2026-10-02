@@ -514,6 +514,105 @@ describe("Given what cannot be translated", () => {
     });
   });
 
+  /*
+   * A document line the ERP cannot name by the customer's line reference (the order went to
+   * the ERP without Commerce's item id for it) has no Commerce line to ship, invoice, credit
+   * or receive. Dropping it turned "lines that could not be mapped" into "no lines", which
+   * Commerce reads as the whole order. The whole document is refused instead, with a 400 the
+   * ERP journals, naming the document and the line.
+   */
+  const unreferenced = (reference) => [
+    ITEMS[0],
+    { ...ITEMS[1], CustomerLineReference: reference },
+  ];
+
+  test.each([
+    [null, "missing"],
+    ["", "empty"],
+    ["line-1", "not a number"],
+  ])(
+    "When a shipment line's customer line reference is %j (%s), Then the whole shipment is refused with a 400 naming the document and the line, Commerce is not read, and nothing is published",
+    async (reference) => {
+      const result = await translate(
+        "OutboundDelivery.GoodsIssueStatusChanged",
+        {
+          GoodsMovementStatus: "posted",
+          Items: unreferenced(reference),
+          OutboundDelivery: "8000000012",
+          Plant: "east",
+          PurchaseOrderByCustomer: ORDER_NUMBER,
+          SalesOrder: "0000001000",
+        },
+      );
+      expect(result).toEqual({
+        message:
+          "Shipment 8000000012 line 20 names no web shop line; nothing was shipped in the web shop.",
+        ok: false,
+        statusCode: 400,
+      });
+      expect(findOrder).not.toHaveBeenCalled();
+    },
+  );
+
+  test("When an invoice, a credit memo or a received return has a line with no reference, Then each is refused whole, in its own words", async () => {
+    const billing = (type, number) =>
+      translate("BillingDocument.Created", {
+        BillingDocument: number,
+        BillingDocumentType: type,
+        Items: unreferenced(null),
+        PurchaseOrderByCustomer: ORDER_NUMBER,
+        SalesOrder: "0000001000",
+      });
+    expect(await billing("Invoice", "9000000001")).toEqual({
+      message:
+        "Invoice 9000000001 line 20 names no web shop line; nothing was invoiced in the web shop.",
+      ok: false,
+      statusCode: 400,
+    });
+    expect(await billing("CreditMemo", "9500000001")).toEqual({
+      message:
+        "Credit memo 9500000001 line 20 names no web shop line; nothing was credited in the web shop.",
+      ok: false,
+      statusCode: 400,
+    });
+    expect(
+      await translate("CustomerReturn.Changed", {
+        CustomerReturn: "6000000001",
+        CustomerReturnReference: "12",
+        Items: unreferenced(null),
+        PurchaseOrderByCustomer: ORDER_NUMBER,
+        SalesOrder: "0000001000",
+        Status: "received",
+      }),
+    ).toEqual({
+      message:
+        "Return 6000000001 line 20 names no web shop line; nothing was received in the web shop.",
+      ok: false,
+      statusCode: 400,
+    });
+  });
+
+  test("When a sales order change or a return that is not yet received has such a line, Then it is still translated: it acts on no line", async () => {
+    const confirmed = await translate("SalesOrder.Changed", {
+      ...ORDER,
+      CreditBlock: false,
+      Items: unreferenced("line-1"),
+      OverallStatus: "confirmed",
+      PrevCreditBlock: false,
+      PrevOverallStatus: "created",
+    });
+    expect(confirmed.ok).toBe(true);
+    expect(confirmed.events[0].payload.items).toEqual([OLD_ITEMS[0]]);
+    const approved = await translate("CustomerReturn.Changed", {
+      CustomerReturn: "6000000001",
+      Items: unreferenced(null),
+      PurchaseOrderByCustomer: ORDER_NUMBER,
+      SalesOrder: "0000001000",
+      Status: "approved",
+    });
+    expect(approved).toMatchObject({ events: [], ok: true });
+  });
+
   test("When the body is not a CloudEvent of version 1.0 from an ERP, Then it is refused, saying what is wrong", () => {
     expect(validateCloudEvent(envelope("SalesOrder.Changed", {}))).toEqual({
       success: true,

@@ -123,6 +123,85 @@ describe("Given the order event, which carries no order id", () => {
   });
 });
 
+/*
+ * The ERP names each line by the Commerce item id it was sent (its customer line reference),
+ * and every shipment, invoice, credit memo and return is matched to its Commerce line by it.
+ * A line sent without one can never be matched again, so an order event whose lines carry no
+ * item ids is completed from Commerce before anything is sent, or not sent at all.
+ */
+describe("Given an order event whose lines carry no item ids", () => {
+  const NO_IDS = {
+    ...EVENT_ORDER,
+    items: EVENT_ORDER.items.map(({ item_id: _id, ...line }) => line),
+  };
+  const fromCommerce = {
+    entity_id: 55,
+    increment_id: "000000042",
+    items: [
+      { base_price: 100, item_id: 81, qty_ordered: 1, sku: "CAB1" },
+      { base_price: 50, item_id: 82, qty_ordered: 2, sku: "SIGN1" },
+    ],
+  };
+
+  test("Then the lines are read from Commerce by the order's number, each ERP is sent its line's item id, and the part records it", async () => {
+    const d = deps({ companyId: null });
+    d.getOrder = vi.fn(async () => structuredClone(fromCommerce));
+    const result = await routeOrder({ some: "param" }, NO_IDS, d, ERPS);
+
+    expect(result.outcome).toBe("sent");
+    expect(d.getOrder).toHaveBeenCalledExactlyOnceWith(
+      { some: "param" },
+      "000000042",
+    );
+    const sent = d.erp.createOrder.mock.calls.map(([params, body]) => [
+      params.ERP_BASE_URL,
+      body.lines.map((l) => [l.sku, l.customerLineReference]),
+    ]);
+    expect(sent).toEqual([
+      ["https://a.example", [["CAB1", "81"]]],
+      ["https://b.example", [["SIGN1", "82"]]],
+    ]);
+    const record = await readOrderParts("000000042");
+    expect(record.parts["brand-a"].itemIds).toEqual([81]);
+    expect(record.parts["brand-b"].itemIds).toEqual([82]);
+  });
+
+  test("Then with one ERP the whole order is sent with its item ids too", async () => {
+    const d = deps({ companyId: null });
+    d.getOrder = vi.fn(async () => structuredClone(fromCommerce));
+    await routeOrder({}, NO_IDS, d, [ERPS[0]]);
+    expect(
+      d.erp.createOrder.mock.calls[0][1].lines.map(
+        (l) => l.customerLineReference,
+      ),
+    ).toEqual(["81", "82"]);
+  });
+
+  test.each([
+    ["Commerce cannot find the order yet", async () => null],
+    [
+      "Commerce's own lines carry no ids either",
+      async () => ({ increment_id: "000000042", items: NO_IDS.items }),
+    ],
+    ["the order cannot be read here at all", undefined],
+  ])(
+    "Then when %s, nothing is sent to any ERP and the event is held to be delivered again, saying why",
+    async (_words, getOrder) => {
+      const d = deps({ companyId: null });
+      d.getOrder = getOrder;
+      const result = await routeOrder({}, NO_IDS, d, ERPS);
+      expect(result).toEqual({
+        message:
+          "order 000000042: its lines carry no Commerce item ids, and they could not be read from Commerce; nothing was sent to any ERP.",
+        outcome: "held",
+        statusCode: 503,
+      });
+      expect(d.erp.createOrder).not.toHaveBeenCalled();
+      expect((await readOrderParts("000000042")).parts).toEqual({});
+    },
+  );
+});
+
 describe("Given Brand B's ERP refuses its part", () => {
   test("Then Brand A's part is taken, Brand B's stays open as failed, and the order is Partially Held naming it", async () => {
     const result = await routeOrder(

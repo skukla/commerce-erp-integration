@@ -126,7 +126,11 @@ describe("Given the ERP company events", () => {
 describe("Given the ERP order events the kit has no handler for", () => {
   test("Then invoice-created invoices the order and leaves a note", async () => {
     const res = await invoiceCreated.main({
-      data: { erpNumber: "0000001000", orderId: 55 },
+      data: {
+        erpNumber: "0000001000",
+        items: [{ orderItemId: 1, qty: 12, sku: "A1" }],
+        orderId: 55,
+      },
     });
     expect(res.statusCode).toBe(200);
     expect(invoiceOrder).toHaveBeenCalledWith(expect.anything(), 55);
@@ -138,6 +142,33 @@ describe("Given the ERP order events the kit has no handler for", () => {
       },
     });
   });
+  // With one ERP the handler invoices the WHOLE order, so an invoice naming no lines must
+  // not reach it: nothing says the ERP billed anything.
+  test.each([
+    ["no item list", {}],
+    ["an empty item list", { items: [] }],
+  ])(
+    "Then invoice-created refuses an invoice with %s in plain words, and invoices nothing",
+    async (_words, items) => {
+      const res = await invoiceCreated.main({
+        data: {
+          erpNumber: "0000001000",
+          incrementId: "000000042",
+          orderId: 55,
+          ...items,
+        },
+      });
+      expect(res.error).toEqual({
+        body: {
+          message:
+            "The ERP's invoice for order 000000042 names no lines; nothing was invoiced in Commerce.",
+        },
+        statusCode: 400,
+      });
+      expect(invoiceOrder).not.toHaveBeenCalled();
+      expect(addComment).not.toHaveBeenCalled();
+    },
+  );
   test("Then cancelled cancels the order, notes the ERP's reason, and a missing id is refused", async () => {
     getOrder
       .mockResolvedValueOnce({ state: "processing" })

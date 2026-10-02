@@ -33,6 +33,20 @@ describe("Given order external shipment created validator", () => {
       expect(validator.validateData(params)).toMatchObject(SUCCESSFUL_RESPONSE);
     });
   });
+  describe("When the shipment names no lines", () => {
+    // An empty item list never reaches Commerce's ship call.
+    test("Then it is refused in plain words, naming the order", () => {
+      expect(
+        validator.validateData({
+          data: { incrementId: "000000042", items: [], orderId: 6 },
+        }),
+      ).toEqual({
+        message:
+          "The ERP's shipment for order 000000042 names no lines; nothing was shipped in Commerce.",
+        success: false,
+      });
+    });
+  });
   describe("When data to validate is not valid", () => {
     it.each([
       [{ data: { orderId: 7 } }],

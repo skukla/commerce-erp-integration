@@ -27,6 +27,7 @@ import {
 } from "#lib/order-parts";
 import { findPart } from "#router/part-outcomes";
 import {
+  getInvoice,
   getOrder,
   invoiceOrderItems,
 } from "#src/order/commerce-order-api-client";
@@ -67,8 +68,23 @@ async function findSplitPart(params, data, deps) {
       reason: `order ${data?.incrementId}: no part for ERP ${data?.erpId ?? "(unnamed)"} sales order ${data?.erpNumber}`,
     };
   }
-  return { erpId, matched: true, part: record.parts[erpId] };
+  return {
+    erpId,
+    erpName: erpById(erps, erpId)?.name ?? erpId,
+    matched: true,
+    part: record.parts[erpId],
+  };
 }
+
+/**
+ * The refusal for an ERP's invoice or shipment that names no line of its own part. Nothing is
+ * handed on: an empty invoice would mark the part invoiced with nothing billed, and an empty
+ * item list may be taken by Commerce's ship call for the whole order (not tried live).
+ */
+const noLineOfPart = (data, found, kind, done) => ({
+  matched: false,
+  reason: `order ${data.incrementId}: the ${kind} names no line of ${found.erpName}'s part; nothing was ${done} in Commerce`,
+});
 
 /** Invoice what of `items` this part has not had invoiced yet, under the order's lock. */
 async function invoiceUnderLock(
@@ -134,6 +150,9 @@ export async function invoicePart(params, orderId, data, deps = {}) {
       order_item_id: Number(item.orderItemId),
       qty: Number(item.qty),
     }));
+  if (items.length === 0) {
+    return noLineOfPart(data, found, "invoice", "invoiced");
+  }
   return invoiceUnderLock(
     params,
     orderId,
@@ -175,6 +194,9 @@ export async function prepareShipment(
       skuOf.get(Number(item.order_item_id)),
     ),
   );
+  if (own.length === 0) {
+    return noLineOfPart(data, found, "shipment", "shipped");
+  }
   const invoiced = await invoiceUnderLock(
     params,
     orderId,
@@ -244,12 +266,47 @@ function tellErp(params, kind, doc, entry, part, lines, client) {
   });
 }
 
+const hasId = (id) => id !== undefined && id !== null;
+
+/**
+ * The lines a Commerce shipment or invoice covers, as the ERP names them. The Invoice Saved
+ * event names no lines (its subscription asks for none, app.commerce.config.ts), so an
+ * invoice's are read from Commerce. "No lines" is never read as "the whole order": on
+ * Justrite, 2026-10-02, that told one ERP's partial invoice to the other ERP, which had not
+ * confirmed its part and refused it.
+ */
+async function linesOfDocument(params, kind, doc, order, deps) {
+  let listed = asList(doc.items);
+  if (kind === "invoice" && listed.length === 0 && hasId(doc.entity_id)) {
+    const invoice = await (deps.getInvoice ?? getInvoice)(
+      params,
+      Number(doc.entity_id),
+    );
+    listed = asList(invoice?.items);
+  }
+  // A configurable's child line travels with its parent: the ERP's sales order holds the
+  // parent only, and refuses a child it does not know (live on Justrite 2026-10-02).
+  const children = new Set(
+    asList(order.items)
+      .filter((line) => line.parent_item_id)
+      .map((line) => Number(line.item_id)),
+  );
+  return listed
+    .filter((item) => item && item.order_item_id !== undefined)
+    .filter((item) => !children.has(Number(item.order_item_id)))
+    .map((item) => ({
+      // The ERP knows the line by the customer's line reference: Commerce's item id.
+      customerLineReference: String(item.order_item_id),
+      qty: Number(item.qty),
+    }));
+}
+
 /**
  * A shipment or invoice made in Commerce, on a split order: each ERP is told only its lines.
  * @param {object} params action params
  * @param {"shipment"|"invoice"} kind what Commerce made
  * @param {object} doc the Commerce shipment or invoice (`order_id`, `entity_id`, `items[]`)
- * @param {object} [deps] `{ erp, erps, getOrder }` (test seam)
+ * @param {object} [deps] `{ erp, erps, getOrder, getInvoice }` (test seam)
  * @returns {Promise<null | {outcome: string, statusCode: number, message: string,
  *   erpIds: string[], orderRef: string}>} null with one ERP, or for an order that was never
  *   split (today's path handles it); `erpIds` are the ERPs told, `orderRef` the order
@@ -267,21 +324,7 @@ export async function fulfilmentFromCommerce(params, kind, doc, deps = {}) {
   if (!record || Object.keys(record.parts).length === 0) {
     return null;
   }
-  // A configurable's child line travels with its parent: the ERP's sales order holds the
-  // parent only, and refuses a child it does not know (live on Justrite 2026-10-02).
-  const children = new Set(
-    asList(order.items)
-      .filter((line) => line.parent_item_id)
-      .map((line) => Number(line.item_id)),
-  );
-  const items = asList(doc.items)
-    .filter((item) => item && item.order_item_id !== undefined)
-    .filter((item) => !children.has(Number(item.order_item_id)))
-    .map((item) => ({
-      // The ERP knows the line by the customer's line reference: Commerce's item id.
-      customerLineReference: String(item.order_item_id),
-      qty: Number(item.qty),
-    }));
+  const items = await linesOfDocument(params, kind, doc, order, deps);
   const client = deps.erp ?? erpClient;
   const told = [];
   for (const [erpId, part] of Object.entries(record.parts)) {
@@ -289,10 +332,8 @@ export async function fulfilmentFromCommerce(params, kind, doc, deps = {}) {
     const lines = items.filter((item) =>
       inPart(part, Number(item.customerLineReference)),
     );
-    // An invoice without lines covers the whole order, so every part hears it.
-    if (
-      !(entry && part.erpNumber && (lines.length > 0 || items.length === 0))
-    ) {
+    // Only an ERP whose lines the document covers hears of it.
+    if (!(entry && part.erpNumber && lines.length > 0)) {
       continue;
     }
     // biome-ignore lint/performance/noAwaitInLoops: one ERP at a time, like the router
@@ -332,10 +373,18 @@ export async function fulfilmentFromCommerce(params, kind, doc, deps = {}) {
       statusCode: SERVER_UNAVAILABLE,
     };
   }
+  if (told.length === 0) {
+    return {
+      ...named,
+      message: `${label} names no lines of any ERP's part; no ERP was told.`,
+      outcome: "skipped",
+      statusCode: 200,
+    };
+  }
   return {
     ...named,
-    message: `${label}: told ${told.map((t) => t.name).join(" and ") || "no ERP"} about its lines.`,
-    outcome: told.length > 0 ? "sent" : "skipped",
+    message: `${label}: told ${told.map((t) => t.name).join(" and ")} about its lines.`,
+    outcome: "sent",
     statusCode: 200,
   };
 }

@@ -10,10 +10,11 @@
 const clone = (v) => JSON.parse(JSON.stringify(v));
 
 /**
- * @param {{ db: () => object, order: (id: number) => object, record: Function }} store the
- *   fake's own database (a getter: a reset replaces it), order lookup and write log
+ * @param {{ db: () => object, fulfilmentState: (order: object) => string,
+ *   order: (id: number) => object, record: Function }} store the fake's own database (a getter:
+ *   a reset replaces it), the state an order takes after an invoice, order lookup and write log
  */
-export function createFakeReturns({ db, order, record }) {
+export function createFakeReturns({ db, fulfilmentState, order, record }) {
   const nextId = () => {
     const id = db().nextId;
     db().nextId += 1;
@@ -51,6 +52,7 @@ export function createFakeReturns({ db, order, record }) {
         const line = o.items.find((x) => x.item_id === i.order_item_id);
         line.qty_invoiced = Number(line.qty_invoiced ?? 0) + i.qty;
       }
+      o.state = fulfilmentState(o);
       record("invoice", {
         invoiceId: id,
         items: clone(items),

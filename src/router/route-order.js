@@ -215,6 +215,35 @@ async function writeCombinedStatus(params, order, record, deps) {
   }
 }
 
+const lacksId = (line) => line.item_id === undefined || line.item_id === null;
+
+/**
+ * The order with every line's Commerce item id, or why it cannot be sent.
+ *
+ * The ERP is sent each line's item id as the customer's line reference, and every shipment,
+ * invoice, credit memo and return it sends back is matched to its Commerce line by it
+ * (#src/ingestion/translate). A line sent without one can never be matched again. So an event
+ * whose lines carry no ids is completed from Commerce, by the order's number, before anything
+ * is sent; when Commerce cannot give them, nothing is sent and the event is delivered again.
+ * @returns {Promise<{ order: object } | { stop: import("#adapters/contract").PartOutcome }>}
+ */
+async function withItemIds(params, order, deps) {
+  const read = deps?.getOrder
+    ? await deps.getOrder(params, order.increment_id)
+    : null;
+  const lines = linesOf(read);
+  if (lines.length > 0 && !lines.some(lacksId)) {
+    return { order: { ...order, items: lines } };
+  }
+  return {
+    stop: {
+      message: `order ${order.increment_id}: its lines carry no Commerce item ids, and they could not be read from Commerce; nothing was sent to any ERP.`,
+      outcome: "held",
+      statusCode: SERVER_UNAVAILABLE,
+    },
+  };
+}
+
 /** One answer for the event delivery, from each part's outcome. */
 function combine(label, outcomes, notes) {
   const all = Object.values(outcomes);
@@ -441,6 +470,19 @@ function routeOver(params, order, deps, erps) {
       deps,
     );
   }
+  if (linesOf(order).some(lacksId)) {
+    return withItemIds(params, order, deps).then((ready) =>
+      "stop" in ready
+        ? ready.stop
+        : routeNumbered(params, ready.order, deps, erps),
+    );
+  }
+  return routeNumbered(params, order, deps, erps);
+}
+
+/** An order with a number, and an item id on every line: to its one ERP, or split. */
+function routeNumbered(params, order, deps, erps) {
+  const [first] = erps;
   if (erps.length === 1) {
     return routeToOne(params, order, deps, first);
   }

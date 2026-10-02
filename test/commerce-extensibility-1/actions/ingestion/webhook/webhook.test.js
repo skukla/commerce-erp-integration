@@ -161,6 +161,36 @@ describe("Given external backoffice events ingestion webhook", () => {
       );
     });
 
+    test("Then a shipment with a line that names no web shop line answers 400 with the reason, and publishes nothing", async () => {
+      const why =
+        "Shipment 8000000012 line 10 names no web shop line; nothing was shipped in the web shop.";
+      const response = await action.main({
+        ...erpEvent,
+        data: {
+          Items: [
+            {
+              CustomerLineReference: null,
+              Material: "A1",
+              Quantity: 10,
+              SalesOrderItem: 10,
+            },
+          ],
+          OutboundDelivery: "8000000012",
+          PurchaseOrderByCustomer: "000000042",
+          SalesOrder: "0000001000",
+        },
+        type: "OutboundDelivery.GoodsIssueStatusChanged",
+      });
+      expect(publishEvent).not.toHaveBeenCalled();
+      expect(response).toEqual({
+        error: { body: { message: why }, statusCode: 400 },
+        type: "error",
+      });
+      expect(mockLoggerInstance.error).toHaveBeenCalledWith(
+        `ERP event e-1 not translated: ${why}`,
+      );
+    });
+
     test("Then an order Commerce cannot find yet answers 503, so the ERP delivers it again", async () => {
       const response = await action.main({
         ...erpEvent,

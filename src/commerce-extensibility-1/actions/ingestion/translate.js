@@ -83,15 +83,20 @@ export function validateCloudEvent(body) {
   return { success: true };
 }
 
-/** The ERP's items as the handlers' order items: Commerce's item id is the customer's line reference. */
+/** Commerce's order item ids are whole numbers; the customer's line reference must be one. */
+const ITEM_ID = /^[0-9]+$/u;
+const listOf = (items) => (Array.isArray(items) ? items : []);
+/** Whether an ERP line names a Commerce order line: missing, empty and non-numeric do not. */
+const namesLine = (i) => ITEM_ID.test(String(i?.CustomerLineReference ?? ""));
+
+/**
+ * The ERP's items as the handlers' order items: Commerce's item id is the customer's line
+ * reference. A line that names none is left out, which is safe only for a message that acts on
+ * no line (a sales order change); a document's lines are checked first (unmappedLine).
+ */
 function orderItems(items) {
-  return (Array.isArray(items) ? items : [])
-    .filter(
-      (i) =>
-        i.CustomerLineReference !== null &&
-        i.CustomerLineReference !== undefined &&
-        i.CustomerLineReference !== "",
-    )
+  return listOf(items)
+    .filter(namesLine)
     .map((i) => ({
       orderItemId: Number(i.CustomerLineReference),
       qty: i.Quantity,
@@ -292,6 +297,43 @@ const MASTER_TYPES = {
   ],
 };
 
+/*
+ * The ERP documents that act on Commerce lines: what each is called, its number, and what
+ * did not happen when it is refused. Null for one that publishes nothing.
+ */
+const DOCUMENTS = {
+  "BillingDocument.Created": (d) =>
+    d.BillingDocumentType === "CreditMemo"
+      ? { done: "credited", name: "Credit memo", number: d.BillingDocument }
+      : { done: "invoiced", name: "Invoice", number: d.BillingDocument },
+  "CustomerReturn.Changed": (d) =>
+    d.Status === "received"
+      ? { done: "received", name: "Return", number: d.CustomerReturn }
+      : null,
+  "OutboundDelivery.GoodsIssueStatusChanged": (d) => ({
+    done: "shipped",
+    name: "Shipment",
+    number: d.OutboundDelivery,
+  }),
+};
+
+/**
+ * Why a document cannot be translated: one of its lines names no Commerce order line. Null
+ * when every line does.
+ *
+ * The WHOLE document is refused, not published with the lines that could be mapped: leaving
+ * a line out would silently drop goods (a shipment short a line, an invoice short an amount),
+ * and with none left the handlers were handed an empty list, which Commerce reads as the
+ * whole order. Refused, the ERP journals the reason and staff see it.
+ */
+function unmappedLine(type, data) {
+  const document = DOCUMENTS[type]?.(data);
+  const line = document ? listOf(data.Items).find((i) => !namesLine(i)) : null;
+  return line
+    ? `${document.name} ${document.number} line ${line.SalesOrderItem} names no web shop line; nothing was ${document.done} in the web shop.`
+    : null;
+}
+
 /** Every ERP event type this module translates (the ERP contract's `events.types`). */
 export const TRANSLATIONS = Object.freeze({ ...ORDER_TYPES, ...MASTER_TYPES });
 
@@ -316,6 +358,11 @@ export async function translateErpEvent(params, cloudEvent, deps = {}) {
       ok: false,
       statusCode: BAD_REQUEST,
     };
+  }
+  const unmapped = unmappedLine(type, data);
+  if (unmapped) {
+    // A 400: delivering it again changes nothing, so the ERP's journal keeps the reason.
+    return { message: unmapped, ok: false, statusCode: BAD_REQUEST };
   }
   let entityId;
   if (Object.hasOwn(ORDER_TYPES, type)) {

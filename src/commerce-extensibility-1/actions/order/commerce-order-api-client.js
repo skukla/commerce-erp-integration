@@ -34,6 +34,21 @@ async function getOrder(params, orderId) {
 }
 
 /**
+ * Read an invoice, with its lines (`items[]`: `order_item_id`, `qty`). The Invoice Saved event
+ * names no lines; this is where they are read (router/part-fulfilment.js).
+ * @param {object} params - Environment params from the IO Runtime request
+ * @param {number} invoiceId - the invoice's entity id
+ * @returns {Promise<object>} the invoice
+ */
+async function getInvoice(params, invoiceId) {
+  const client = await getCommerceClient(
+    resolveImsAuthParams(params),
+    COMMERCE_FETCH_OPTIONS,
+  );
+  return await client.get(`invoices/${invoiceId}`).json();
+}
+
+/**
  * Invoice an order (capture).
  * @param {object} params - Environment params from the IO Runtime request
  * @param {number} orderId - order id
@@ -218,6 +233,7 @@ export {
   addComment,
   addReturnComment,
   cancelOrder,
+  getInvoice,
   getOrder,
   getReturn,
   holdOrder,

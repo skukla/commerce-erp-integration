@@ -19,6 +19,14 @@ function validateData(params) {
       success: false,
     };
   }
+  // An ERP shipment that names no lines ships nothing here, and says so. An empty item list
+  // never reaches Commerce's ship call, which may take it for the whole order (not tried live).
+  if (data.items.length === 0) {
+    return {
+      message: `The ERP's shipment for order ${data.incrementId ?? data.orderId} names no lines; nothing was shipped in Commerce.`,
+      success: false,
+    };
+  }
   return {
     success: true,
   };

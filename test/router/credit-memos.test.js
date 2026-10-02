@@ -116,6 +116,24 @@ beforeEach(async () => {
   await routed();
 });
 
+describe("Given a credit memo that names no lines", () => {
+  test("Then it is refused with the reason and Commerce credits nothing", async () => {
+    const deps = collaborators();
+    const res = await creditMemoFromErp(
+      {},
+      ORDER_ID,
+      creditMemo({ items: [] }),
+      deps,
+    );
+    expect(res).toEqual({
+      matched: false,
+      reason:
+        "order 5000000002: it credits no line; credit memo 9500000001 not applied",
+    });
+    expect(deps.refundOrderItems).not.toHaveBeenCalled();
+  });
+});
+
 describe("Given one of two ERPs credits its line", () => {
   test("Then Commerce credits only that line, offline, and the order's history names the ERP and its credit memo", async () => {
     const deps = collaborators();

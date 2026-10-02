@@ -152,6 +152,19 @@ function canCancel(o) {
   );
 }
 
+/**
+ * The state Commerce gives an order after a shipment or an invoice: Complete once every line
+ * is both invoiced and shipped in full, Processing until then.
+ */
+function fulfilmentState(o) {
+  const done = o.items.every(
+    (i) =>
+      Number(i.qty_invoiced ?? 0) >= Number(i.qty_ordered) &&
+      Number(i.qty_shipped ?? 0) >= Number(i.qty_ordered),
+  );
+  return done ? "complete" : "processing";
+}
+
 const tierKey = (r) =>
   `${r.sku}|${r.customer_group}|${Number(r.quantity)}|${Number(r.website_id)}`;
 
@@ -404,7 +417,12 @@ export function createFakeCommerce() {
   };
 
   // Returns and credit memos (fake-commerce-returns.js), over this store's database.
-  const returns = createFakeReturns({ db: () => db, order, record });
+  const returns = createFakeReturns({
+    db: () => db,
+    fulfilmentState,
+    order,
+    record,
+  });
   // A company's credit balance, moved by the payment leg (fake-commerce-balance.js).
   const balance = createFakeBalance({ db: () => db, record });
 
@@ -433,6 +451,17 @@ export function createFakeCommerce() {
       return {};
     },
     cancelOrder: async (_p, orderId) => lib.orders.cancel(_p, orderId),
+    getInvoice: async (_p, invoiceId) => {
+      const invoice = db.invoices.find(
+        (i) => i.entity_id === Number(invoiceId),
+      );
+      if (!invoice) {
+        const error = new Error(`invoice ${invoiceId} not found`);
+        error.response = { statusCode: 404 };
+        throw error;
+      }
+      return clone(invoice);
+    },
     getOrder: async (_p, orderId) => clone(order(orderId)),
     holdOrder: async (_p, orderId) => {
       const o = order(orderId);
@@ -452,6 +481,11 @@ export function createFakeCommerce() {
       db.invoices.push({
         entity_id: id,
         increment_id: String(id),
+        // Commerce's own invoice lists every line it bills (GET invoices/{id}).
+        items: o.items.map((i) => ({
+          order_item_id: i.item_id,
+          qty: i.qty_ordered,
+        })),
         order_id: o.entity_id,
         state: 2,
       });
@@ -494,10 +528,14 @@ export function createFakeCommerce() {
         order_id: o.entity_id,
       });
       for (const i of data.items) {
-        const key = `${o.items.find((x) => x.item_id === i.order_item_id)?.sku}|${sourceCode ?? "default"}`;
+        const line = o.items.find((x) => x.item_id === i.order_item_id);
+        const key = `${line?.sku}|${sourceCode ?? "default"}`;
         db.sourceItems.set(key, (db.sourceItems.get(key) ?? 0) - i.qty);
+        if (line) {
+          line.qty_shipped = Number(line.qty_shipped ?? 0) + i.qty;
+        }
       }
-      o.state = "processing";
+      o.state = fulfilmentState(o);
       record("ship", {
         orderId: String(orderId),
         shipmentId: id,
@@ -544,8 +582,12 @@ export function createFakeCommerce() {
   const events = {
     invoiceSaved: (invoiceId) => {
       const inv = db.invoices.find((s) => s.entity_id === Number(invoiceId));
+      // Only the fields the Invoice Saved subscription names (app.commerce.config.ts): the
+      // event carries NO lines. Sending the lines here hid that a partial invoice was told
+      // to every ERP of a split order (Justrite, 2026-10-02).
+      const { entity_id, increment_id, order_id, state } = inv;
       return {
-        data: { value: clone(inv) },
+        data: { value: { entity_id, increment_id, order_id, state } },
         type: "observer.sales_order_invoice_save_after",
       };
     },

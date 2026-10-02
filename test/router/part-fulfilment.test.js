@@ -119,6 +119,30 @@ describe("Given an ERP invoices its part", () => {
     expect(invoiceItems).not.toHaveBeenCalled();
   });
 
+  // An invoice with no line of the part invoiced nothing, yet the part was then recorded as
+  // invoiced: refused instead, so the ERP's journal says why.
+  test.each([
+    ["names no lines", []],
+    ["names only another ERP's line", [{ orderItemId: 2, qty: 5 }]],
+  ])(
+    "Then an invoice that %s is refused with the reason and invoices nothing",
+    async (_words, items) => {
+      const invoiceItems = vi.fn();
+      const res = await invoicePart(
+        {},
+        ORDER_ID,
+        message("brand-a", "A-100", items),
+        { erps: ERPS, invoiceItems },
+      );
+      expect(res).toEqual({
+        matched: false,
+        reason:
+          "order 000000042: the invoice names no line of Brand A ERP's part; nothing was invoiced in Commerce",
+      });
+      expect(invoiceItems).not.toHaveBeenCalled();
+    },
+  );
+
   test("Then a message for no part is refused with the reason", async () => {
     const res = await invoicePart({}, ORDER_ID, message("brand-z", "Z-1", []), {
       erps: ERPS,
@@ -228,6 +252,24 @@ describe("Given an ERP ships its part", () => {
       deps,
     );
     expect(invoiceItems).toHaveBeenCalledTimes(1);
+  });
+
+  // An empty item list never reaches Commerce's ship call.
+  test("Then a shipment with no line of the part is refused with the reason: nothing is invoiced, and no empty list is handed on", async () => {
+    const invoiceItems = vi.fn();
+    const prep = await prepareShipment(
+      {},
+      ORDER_ID,
+      message("brand-a", "A-100", [{ orderItemId: 2, qty: 5 }]),
+      { items: [{ order_item_id: 2, qty: 5 }] },
+      { erps: ERPS, invoiceItems },
+    );
+    expect(prep).toEqual({
+      matched: false,
+      reason:
+        "order 000000042: the shipment names no line of Brand A ERP's part; nothing was shipped in Commerce",
+    });
+    expect(invoiceItems).not.toHaveBeenCalled();
   });
 
   test("Then with one ERP the shipment is left exactly as it was", async () => {
@@ -382,6 +424,58 @@ describe("Given Commerce ships or invoices lines of two ERPs' parts", () => {
     expect(res.erpIds).toStrictEqual(["brand-b"]);
     expect(invoice).toHaveBeenCalledTimes(1);
     expect(invoice.mock.calls[0][1]).toBe("B-200");
+  });
+
+  // Live on Justrite 2026-10-02: the Invoice Saved event names no lines (its subscription
+  // asks for none), "no lines" was read as "the whole order", and ERP A's partial invoice was
+  // told to ERP B, which had not confirmed and refused it.
+  test("Then an invoice event that names no lines is read from Commerce, and only the ERP whose lines it covers is told", async () => {
+    const invoice = vi.fn(async () => ({ data: {}, ok: true, status: 200 }));
+    const erp = { fromCommerce: { invoice, ship: vi.fn() } };
+    const getInvoice = vi.fn(async () => ({
+      entity_id: 9,
+      items: [{ order_item_id: 1, qty: 3 }],
+      order_id: ORDER_ID,
+    }));
+    const res = await fulfilmentFromCommerce(
+      { some: "param" },
+      "invoice",
+      { entity_id: 9, increment_id: "5000000023", order_id: ORDER_ID },
+      {
+        erp,
+        erps: ERPS,
+        getInvoice,
+        getOrder: async () => ({ increment_id: ORDER }),
+      },
+    );
+    expect(getInvoice).toHaveBeenCalledWith({ some: "param" }, 9);
+    expect(res).toMatchObject({ erpIds: ["brand-a"], outcome: "sent" });
+    expect(invoice).toHaveBeenCalledTimes(1);
+    expect(invoice.mock.calls[0][0].ERP_BASE_URL).toBe("https://a.example");
+    expect(invoice.mock.calls[0][1]).toBe("A-100");
+  });
+
+  test("Then an invoice with no lines in Commerce either is told to no ERP, never to all of them", async () => {
+    const invoice = vi.fn();
+    const res = await fulfilmentFromCommerce(
+      {},
+      "invoice",
+      { entity_id: 9, increment_id: "5000000023", order_id: ORDER_ID },
+      {
+        erp: { fromCommerce: { invoice, ship: vi.fn() } },
+        erps: ERPS,
+        getInvoice: async () => ({ entity_id: 9, items: [] }),
+        getOrder: async () => ({ increment_id: ORDER }),
+      },
+    );
+    expect(invoice).not.toHaveBeenCalled();
+    expect(res).toMatchObject({
+      erpIds: [],
+      message:
+        "Commerce invoice 5000000023 names no lines of any ERP's part; no ERP was told.",
+      outcome: "skipped",
+      statusCode: 200,
+    });
   });
 
   test("Then with one ERP, or an order that was never split, it is not handled here", async () => {
