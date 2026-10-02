@@ -381,6 +381,24 @@ ERP. The pairs stop listening to Commerce for new orders and know nothing of one
 so adding an ERP is adding a pair and a rule, and the split logic sits in one replaceable
 place. Each pair writes its number into its own custom order attribute on the Commerce order.
 
+## The order's steps in the ERP, and what Commerce shows for each
+
+The ERP has more steps than Commerce and names them its own way. One page to keep beside you:
+
+| In the ERP (the button) | What it means there | Commerce shows |
+|---|---|---|
+| The order arrives | A sales order is created, with the ERP's own number | The order, Pending, with a note naming that number |
+| **Release** or **Reject** (only on a credit hold) | Credit approves the order, or turns it down | The hold comes off, or the order is canceled |
+| **Confirm** | The ERP accepts the order | Processing, with a note |
+| **Create shipment** | A delivery is prepared; nothing has left the warehouse | Nothing yet |
+| **Post** (on the shipment) | Goods issue: the goods leave the warehouse | A shipment, then an invoice, for this ERP's lines |
+| **Post payment** (on the invoice) | Money received against the invoice | A "Paid in …" note; on an order paid on account, the company's credit given back |
+| **Receive** (on a return order) | The returned goods are back in the warehouse | The return reads Received |
+| **Post credit memo** (on the return order or the invoice) | The customer is credited | A credit memo for this ERP's lines; the return closes when every ERP has credited |
+
+With two ERPs each does its own steps for its own lines; Commerce's order reads Complete only
+when every ERP has shipped and invoiced its part.
+
 ## One order, two ERPs, from cart to return (proved live on Justrite, 2026-10-02)
 
 The journey the order-to-return loop built and ran end to end (order 5000000005: placed,
