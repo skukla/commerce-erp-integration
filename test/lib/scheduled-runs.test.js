@@ -7,6 +7,7 @@
 import { dueMoment } from "#lib/schedule";
 import {
   claimDueMoment,
+  clearScheduledRuns,
   readScheduledRuns,
   recordScheduledRun,
   resetScheduledRunsClient,
@@ -171,5 +172,83 @@ describe("Given a heartbeat tick claiming a job's scheduled moment", () => {
     await expect(claimDueMoment("prices", dueNow)).rejects.toThrow(
       "State is down",
     );
+  });
+});
+
+/*
+ * A demo reset starts the page's Activity again (AB-16n), but must not make the jobs due: a
+ * record deleted outright reads as "never ran", so the next heartbeat republished every price
+ * from ERPs the reset was about to wipe (measured live, 2026-10-02: a ledger of 0 entries was
+ * 103 two minutes after the reset's detach). The clear forgets the run and keeps its moment.
+ */
+describe("Given a demo reset clearing the scheduled runs", () => {
+  const HOURLY = {
+    enabled: true,
+    frequency: "hourly",
+    minute: 5,
+    time: "02:00",
+    timeZone: "UTC",
+    weekday: "monday",
+  };
+  const now = new Date("2026-09-28T14:10:00Z");
+  const dueAt = (at) => (after) => dueMoment(HOURLY, after, at);
+
+  test("Then the last run and last change are forgotten and the moment it ran for is kept", async () => {
+    await claimDueMoment("prices", dueAt(now));
+    await recordScheduledRun("prices", WROTE, "2026-09-28T14:10:02.000Z");
+
+    expect(await clearScheduledRuns()).toBe(1);
+
+    expect(await readScheduledRuns()).toEqual([
+      { id: "prices", lastMoment: "2026-09-28T14:05:00.000Z" },
+    ]);
+  });
+
+  test("Then the job is not due again on the same tick, and is due at its next scheduled moment", async () => {
+    await claimDueMoment("prices", dueAt(now));
+    await recordScheduledRun("prices", WROTE, "2026-09-28T14:10:02.000Z");
+    await clearScheduledRuns();
+
+    const sameTick = vi.fn(dueAt(now));
+    expect(await claimDueMoment("prices", sameTick)).toBeNull();
+    expect(sameTick).toHaveBeenCalledExactlyOnceWith(
+      "2026-09-28T14:05:00.000Z",
+    );
+    const beforeNext = dueAt(new Date("2026-09-28T15:04:00Z"));
+    expect(await claimDueMoment("prices", beforeNext)).toBeNull();
+    const atNext = dueAt(new Date("2026-09-28T15:05:00Z"));
+    expect((await claimDueMoment("prices", atNext))?.toISOString()).toBe(
+      "2026-09-28T15:05:00.000Z",
+    );
+  });
+
+  test("Then a run recorded before moments were keeps when it ran as its moment", async () => {
+    await recordScheduledRun("prices", WROTE, "2026-09-28T14:05:12.000Z");
+
+    expect(await clearScheduledRuns()).toBe(1);
+
+    expect(await readScheduledRuns()).toEqual([
+      { id: "prices", lastMoment: "2026-09-28T14:05:12.000Z" },
+    ]);
+    expect(await claimDueMoment("prices", dueAt(now))).toBeNull();
+  });
+
+  test("Then a record with neither a moment nor a run is deleted, and still counted", async () => {
+    const state = fakeState();
+    resetScheduledRunsClient(state);
+    await state.put("scheduled.prices", JSON.stringify({ id: "prices" }));
+
+    expect(await clearScheduledRuns()).toBe(1);
+
+    expect(state.store.has("scheduled.prices")).toBe(false);
+  });
+
+  test("Then a job that never ran has nothing to clear, and nothing is written for it", async () => {
+    const state = fakeState();
+    resetScheduledRunsClient(state);
+
+    expect(await clearScheduledRuns()).toBe(0);
+
+    expect(state.store.size).toBe(0);
   });
 });

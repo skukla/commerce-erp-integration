@@ -108,8 +108,10 @@ export async function detach(params, deps) {
 
 /**
  * A reset starts the Admin page's Activity again (AB-16n): its history and scheduled-run records
- * describe ERP records the reset is about to wipe. They go, and one line says the reset happened
- * and what it closed. Only for a reset (closeOrders), never for removing the integration.
+ * describe ERP records the reset is about to wipe. The history goes and each job's last run is
+ * forgotten (it keeps the moment it last ran for, so the reset does not make it due:
+ * lib/scheduled-runs.js clearScheduledRuns), and one line says the reset happened and what it
+ * closed. Only for a reset (closeOrders), never for removing the integration.
  */
 async function clearActivity(closed, deps) {
   const { activity } = deps;

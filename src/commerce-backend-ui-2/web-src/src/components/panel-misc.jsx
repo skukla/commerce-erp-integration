@@ -119,8 +119,8 @@ export function ResetPanel({ erpInfo, now, onClose, row }) {
       title="Reset from Demo Builder">
       <p className="headline">{row.sentence}</p>
       <p className="note">
-        A reset clears Activity and the scheduled-run records and leaves this
-        one line. Nothing can be retried from it.
+        A reset clears Activity and each scheduled job's last run and leaves
+        this one line. Nothing can be retried from it.
       </p>
     </SidePanel>
   );

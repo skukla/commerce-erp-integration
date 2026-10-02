@@ -329,7 +329,11 @@ describe("Pair in a box: a reset closes the orders the two ERPs hold", () => {
   const resetNotesOn = (id) =>
     notesOn(id).filter((c) => c.includes("by the demo reset on"));
   const closeAll = () =>
-    detachAction.main({ closeOrders: true, ERP_BASE_URL: ERP_A_URL });
+    detachAction.main({
+      __ow_method: "post",
+      closeOrders: true,
+      ERP_BASE_URL: ERP_A_URL,
+    });
 
   /** Every order save Commerce raised since `from`, delivered to both order handlers. */
   async function deliverOrderSaves(from) {

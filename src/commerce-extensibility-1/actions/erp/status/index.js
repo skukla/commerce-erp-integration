@@ -113,6 +113,9 @@ async function healthOf(params) {
  * `erp` and undoes every ERP, so a caller checks this before asking for one ERP.
  * `closesOrdersOnReset` says erp/detach honours `closeOrders` (AB-16n): a deployment from before
  * it ignores the flag and leaves every order open, so a reset checks this first.
+ * `detachRuns` says erp/detach answers `GET detach?run=<id>` with how a named run went
+ * (lib/detach-runs.js): a deployment from before it ignores the method and would RUN a detach
+ * on that GET, so a caller checks this before it polls.
  */
 async function main(params) {
   const logger = AioLogger("erp-status", { level: params.LOG_LEVEL || "info" });
@@ -132,6 +135,7 @@ async function main(params) {
         app: { id: appConfig.metadata.id, version: appConfig.metadata.version },
         closesOrdersOnReset: true,
         detachesPerErp: true,
+        detachRuns: true,
         erp: health,
         erpBaseUrl: target.ERP_BASE_URL || null,
         ...(erps ? { erps } : {}),

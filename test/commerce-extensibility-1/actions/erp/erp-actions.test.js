@@ -41,6 +41,13 @@ describe("Given the status action", () => {
     const res = await status.main({});
     expect(res.body.closesOrdersOnReset).toBe(true);
   });
+  // A deployment from before detach runs could be asked about ignores the method and would RUN
+  // a detach on GET, so Demo Builder asks this before it polls one.
+  test("Then it says a detach run can be asked about", async () => {
+    erp.health.mockResolvedValue({ data: {}, ok: true, status: 200 });
+    const res = await status.main({});
+    expect(res.body.detachRuns).toBe(true);
+  });
   test("Then an unreachable ERP is reported, not thrown", async () => {
     erp.health.mockRejectedValue(new Error("ERP_BASE_URL is not set"));
     const res = await status.main({});

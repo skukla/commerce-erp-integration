@@ -1,8 +1,10 @@
 /*
  * A reset starts the Admin page's Activity again (AB-16n, owner 2026-09-28): once detach has
  * closed off the orders, the integration's history and scheduled-run records describe ERP
- * records the reset is about to wipe, so they go, and one line says the reset happened. A
- * detach that is not a reset (removing the integration, one ERP's undo) leaves them alone.
+ * records the reset is about to wipe, so they are cleared, and one line says the reset happened.
+ * What clearing a scheduled run keeps (the moment it last ran for, so the reset does not make it
+ * due) is test/lib/scheduled-runs.test.js. A detach that is not a reset (removing the
+ * integration, one ERP's undo) leaves them alone.
  */
 // biome-ignore-all lint/suspicious/useAwait: the fakes answer promises without waiting on anything; the real collaborators are async and detach awaits them
 import { detach, resetLine } from "#lib/detach";

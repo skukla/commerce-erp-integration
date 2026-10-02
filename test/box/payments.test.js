@@ -138,7 +138,7 @@ describe("Pair in a box: an ERP payment, ERP → Commerce", () => {
     expect(balance()).toBe(50);
 
     // The demo is reset: the reimbursement is taken back, to the cent.
-    const reset = await detachAction.main({});
+    const reset = await detachAction.main({ __ow_method: "post" });
     expect(reset.statusCode).toBe(200);
     expect(writesOf("decreaseBalance")).toEqual([
       expect.objectContaining({

@@ -75,6 +75,28 @@ describe("Given the scheduled runs", () => {
     ]);
   });
 
+  // A demo reset forgets a job's last run and keeps only the moment it last ran for
+  // (lib/scheduled-runs.js clearScheduledRuns): the page reads that as not yet run.
+  test("Then a job a reset cleared, left with only its moment, reads as not yet run", () => {
+    const cleared = {
+      id: "prices",
+      lastMoment: "2026-09-28T14:05:00.000Z",
+      schedule: HOURLY,
+    };
+    expect(scheduledRunRows([cleared], (t) => t)).toEqual([
+      expect.objectContaining({
+        id: "prices",
+        lastChange: "No change yet.",
+        lastRun: "Has not run yet.",
+      }),
+    ]);
+    const now = new Date("2026-09-28T14:40:00Z");
+    expect(publishLine([cleared], now, (t) => t)).toStrictEqual({
+      last: "has not run yet",
+      next: "2026-09-28T15:05:00.000Z",
+    });
+  });
+
   test("Then the schedule is the one configured, in words, not a constant", () => {
     expect(scheduledRunRows([unrun(CHICAGO_DAILY)], (t) => t)[0].schedule).toBe(
       "Daily at 02:00, America/Chicago",

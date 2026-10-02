@@ -129,7 +129,12 @@ export async function claimDueMoment(id, dueFor) {
 }
 
 /**
- * Forget every run's record (a demo reset starts the page again, AB-16n); the next run fills it.
+ * Forget what the page shows of every run, its last run and last change (a demo reset starts
+ * the page again, AB-16n), and keep the scheduled moment each job last ran for. A record
+ * deleted outright reads as "never ran", so the next heartbeat would run every job at once:
+ * the reset would republish prices from ERPs it is about to wipe. With its moment kept, a job
+ * is next due at its next scheduled moment. A run recorded before moments were keeps when it
+ * ran; a record with neither is deleted.
  * @returns {Promise<number>} how many records there were
  */
 export async function clearScheduledRuns() {
@@ -141,15 +146,27 @@ export async function clearScheduledRuns() {
   for (const id of RUNS) {
     // biome-ignore lint/performance/noAwaitInLoops: one run, few runs
     const found = await client.get(`${PREFIX}${id}`);
-    if (found?.value) {
-      await client.delete(`${PREFIX}${id}`);
-      cleared += 1;
+    if (!found?.value) {
+      continue;
     }
+    const record = JSON.parse(found.value);
+    const lastMoment = record.lastMoment ?? record.lastRun?.at;
+    if (lastMoment) {
+      await client.put(`${PREFIX}${id}`, JSON.stringify({ id, lastMoment }), {
+        ttl: TTL_SECONDS,
+      });
+    } else {
+      await client.delete(`${PREFIX}${id}`);
+    }
+    cleared += 1;
   }
   return cleared;
 }
 
-/** @returns {Promise<object[]>} each run that has run, `{ id, lastRun, lastChange }` */
+/**
+ * @returns {Promise<object[]>} each job with a record, `{ id, lastRun, lastChange, lastMoment }`;
+ *   one claimed and not yet run, or cleared by a reset, has no `lastRun`
+ */
 export async function readScheduledRuns() {
   if (!stateAvailable()) {
     return [];
