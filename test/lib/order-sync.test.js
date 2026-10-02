@@ -62,11 +62,12 @@ describe("Given the order save event", () => {
     expect(d.erp.createOrder).toHaveBeenCalledWith(
       { p: 1 },
       {
-        commerceIncrementId: "3000000004",
-        commerceOrderId: "41",
         currency: "USD",
-        lines: [{ commerceItemId: 1, price: 20, qty: 2, sku: "A" }],
-        origin: { event: "observer.sales_order_save_commit_after" },
+        // The ERP's own words (its contract version 16): Commerce's numbers as the customer's
+        // references, and the entity id not sent at all.
+        lines: [{ customerLineReference: "1", price: 20, qty: 2, sku: "A" }],
+        origin: { document: "order 3000000004", system: "Adobe Commerce" },
+        purchaseOrderByCustomer: "3000000004",
         salesOrg: "1000",
         total: 40,
       },
@@ -282,7 +283,10 @@ describe("Given the order save event", () => {
     const d = deps({
       erp: {
         createOrder: vi.fn(async () => ({
-          data: { errorMessage: "commerceOrderId is required" },
+          data: {
+            errorMessage:
+              "purchaseOrderByCustomer (the customer's order number) is required",
+          },
           ok: false,
           status: 400,
         })),
@@ -291,7 +295,7 @@ describe("Given the order save event", () => {
     const result = await sendOrderToErp({}, NEW_ORDER, d);
     expect(result).toStrictEqual({
       message:
-        "order 3000000004 was refused by the ERP: commerceOrderId is required",
+        "order 3000000004 was refused by the ERP: purchaseOrderByCustomer (the customer's order number) is required",
       outcome: "dropped",
       statusCode: 400,
     });
@@ -325,17 +329,14 @@ describe("Given the order save event", () => {
 
 describe("Given an order's lines", () => {
   test("Then child lines and lines without a SKU are left out, and a keyed list is read", () => {
-    const request = erpOrderFrom(
-      {
-        increment_id: 7,
-        items: { a: { qty_ordered: 1, sku: "A" }, b: { sku: "" } },
-      },
-      9,
-    );
+    const request = erpOrderFrom({
+      increment_id: 7,
+      items: { a: { qty_ordered: 1, sku: "A" }, b: { sku: "" } },
+    });
     expect(request.lines).toStrictEqual([
-      { commerceItemId: null, price: 0, qty: 1, sku: "A" },
+      { customerLineReference: null, price: 0, qty: 1, sku: "A" },
     ]);
-    expect(request.commerceOrderId).toBe("9");
+    expect(request.purchaseOrderByCustomer).toBe("7");
     expect(request.total).toBe(0);
     expect(request.currency).toBe("USD");
   });
@@ -356,18 +357,18 @@ describe("Given one ERP's part of a split order", () => {
   };
 
   test("Then its total is its own lines (quantity × price, plus tax, less discount), not the order's", () => {
-    expect(erpOrderFrom(ORDER, 37, {}, { shared: true }).total).toBe(274.86);
+    expect(erpOrderFrom(ORDER, {}, { shared: true }).total).toBe(274.86);
     const taxed = {
       ...ORDER,
       items: [
         { ...ORDER.items[0], base_discount_amount: 10, base_tax_amount: 21.99 },
       ],
     };
-    expect(erpOrderFrom(taxed, 37, {}, { shared: true }).total).toBe(286.85);
+    expect(erpOrderFrom(taxed, {}, { shared: true }).total).toBe(286.85);
   });
 
   test("Then an order one ERP takes whole keeps the order's grand total", () => {
-    expect(erpOrderFrom(ORDER, 37).total).toBe(332.28);
+    expect(erpOrderFrom(ORDER).total).toBe(332.28);
   });
 });
 
@@ -383,7 +384,7 @@ describe("Given a retry of one order from the Admin screen", () => {
     expect(d.getOrder).toHaveBeenCalledWith({ p: 1 }, "3000000004");
     expect(d.erp.createOrder).toHaveBeenCalledWith(
       { p: 1 },
-      expect.objectContaining({ commerceIncrementId: "3000000004" }),
+      expect.objectContaining({ purchaseOrderByCustomer: "3000000004" }),
       expect.any(Number),
     );
   });

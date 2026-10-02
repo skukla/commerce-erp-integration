@@ -221,18 +221,26 @@ function tellErp(params, kind, doc, entry, part, lines, client) {
   const erpParams = paramsForErp(params, entry);
   if (kind === "shipment") {
     return client.fromCommerce.ship(erpParams, part.erpNumber, {
-      commerceShipmentId: String(doc.entity_id),
-      items: lines,
-      origin: originOf(COMMERCE_EVENTS.shipmentSaved, params),
-      sourceCode: doc.extension_attributes?.source_code ?? null,
+      externalReference: String(doc.entity_id),
+      lines,
+      origin: originOf(
+        COMMERCE_EVENTS.shipmentSaved,
+        params,
+        doc.increment_id ?? doc.entity_id,
+      ),
+      warehouse: doc.extension_attributes?.source_code ?? null,
     });
   }
   return client.fromCommerce.invoice(erpParams, part.erpNumber, {
-    commerceInvoiceId:
+    externalReference:
       doc.entity_id === undefined || doc.entity_id === null
         ? null
         : String(doc.entity_id),
-    origin: originOf(COMMERCE_EVENTS.invoiceSaved, params),
+    origin: originOf(
+      COMMERCE_EVENTS.invoiceSaved,
+      params,
+      doc.increment_id ?? doc.entity_id,
+    ),
   });
 }
 
@@ -270,14 +278,17 @@ export async function fulfilmentFromCommerce(params, kind, doc, deps = {}) {
     .filter((item) => item && item.order_item_id !== undefined)
     .filter((item) => !children.has(Number(item.order_item_id)))
     .map((item) => ({
-      orderItemId: Number(item.order_item_id),
+      // The ERP knows the line by the customer's line reference: Commerce's item id.
+      customerLineReference: String(item.order_item_id),
       qty: Number(item.qty),
     }));
   const client = deps.erp ?? erpClient;
   const told = [];
   for (const [erpId, part] of Object.entries(record.parts)) {
     const entry = erpById(erps, erpId);
-    const lines = items.filter((item) => inPart(part, item.orderItemId));
+    const lines = items.filter((item) =>
+      inPart(part, Number(item.customerLineReference)),
+    );
     // An invoice without lines covers the whole order, so every part hears it.
     if (
       !(entry && part.erpNumber && (lines.length > 0 || items.length === 0))

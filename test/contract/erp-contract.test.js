@@ -7,6 +7,12 @@
  */
 import { readdirSync, readFileSync } from "node:fs";
 
+import {
+  STARTER_KIT_EVENTS,
+  TRANSLATIONS,
+  validateCloudEvent,
+} from "#src/ingestion/translate";
+
 import contract from "../../contract/erp-contract.json" with { type: "json" };
 import manifest from "../../src/commerce-extensibility-1/.generated/app.commerce.manifest.json" with {
   type: "json",
@@ -22,13 +28,9 @@ const FOLDERS = {
 const ERP_ROUTE_CALL = /erpRequest\(params, "([a-z]+)"/gu;
 const externalEvents = manifest.eventing.external.flatMap((p) => p.events);
 
-function schemaOf(action) {
-  try {
-    return JSON.parse(readFileSync(`${ACTIONS}/${action}/schema.json`, "utf8"));
-  } catch {
-    return null; // handlers without a schema validate in code against the same keys
-  }
-}
+/** Commerce's names the ERP stopped accepting at contract version 16. */
+const COMMERCE_NAMES_ON_THE_WIRE =
+  /commerce(?:Shipment|Invoice|Order|Return)Id:|commerceIncrementId:|commerce-(?:shipment|invoice)/u;
 
 /** The Commerce ids the ERP stopped holding at contract version 3. */
 const COMMERCE_IDS = [
@@ -39,30 +41,34 @@ const COMMERCE_IDS = [
 ];
 
 describe("Given the ERP contract", () => {
-  test("Then every ERP event this app subscribes to is one the ERP raises, and every raised event has a subscriber", () => {
-    const subscribed = externalEvents.map((e) => e.name).sort();
-    expect(subscribed).toEqual(Object.keys(contract.events).sort());
+  // Contract version 16: the ERP speaks its own language, and the one translation module
+  // (#src/ingestion/translate) says what each of its types means here. The handlers'
+  // subscriptions are the starter-kit events that module publishes.
+  test("Then every ERP event type has a translation, and every subscription is an event a translation publishes", () => {
+    expect(Object.keys(TRANSLATIONS).sort()).toEqual(
+      Object.keys(contract.events.types).sort(),
+    );
+    expect(externalEvents.map((e) => e.name).sort()).toEqual(
+      [...STARTER_KIT_EVENTS].sort(),
+    );
     for (const e of externalEvents) {
       expect(e.runtimeActions).toHaveLength(1);
+      expect(FOLDERS[e.runtimeActions[0].split("/")[0]]).toBeDefined();
     }
   });
 
-  test("Then each handler's schema asks only for keys the ERP sends", () => {
-    for (const e of externalEvents) {
-      const [pkg, name] = e.runtimeActions[0].split("/");
-      const schema = schemaOf(`${FOLDERS[pkg]}/${name}`);
-      if (!schema) {
-        continue;
-      }
-      const spec = contract.events[e.name];
-      const props =
-        schema.type === "array"
-          ? Object.keys(schema.items.properties)
-          : Object.keys(schema.properties);
-      for (const key of props) {
-        expect(spec.value, `${e.name}: ${key}`).toContain(key);
-      }
-      expect(schema.type === "array").toBe(Boolean(spec.valueIsArray));
+  test("Then the translation reads only data keys the ERP's contract lists for each type", () => {
+    const source = readFileSync(`${ACTIONS}/ingestion/translate.js`, "utf8");
+    const read = new Set(
+      [...source.matchAll(/\bd\.([A-Z][A-Za-z]+)/gu)].map((m) => m[1]),
+    );
+    const listed = new Set([
+      ...Object.values(contract.events.types).flatMap((t) => t.data),
+      ...contract.events.item,
+    ]);
+    expect(read.size).toBeGreaterThan(10);
+    for (const key of read) {
+      expect([...listed], key).toContain(key);
     }
   });
 
@@ -107,8 +113,7 @@ describe("Given the ERP contract", () => {
     expect(stockSender).toContain("stock: [{ sku, warehouses:");
     const orderSync = readFileSync("src/lib/order-sync.js", "utf8");
     for (const key of [
-      "commerceOrderId",
-      "commerceIncrementId",
+      "purchaseOrderByCustomer",
       "currency",
       "lines",
       "total",
@@ -127,14 +132,49 @@ describe("Given the ERP contract", () => {
     }
   });
 
-  test("Then the ingestion webhook expects the body the ERP sends", () => {
-    const validator = readFileSync(
-      `${ACTIONS}/ingestion/webhook/validator.js`,
-      "utf8",
+  test("Then the ingestion webhook expects the body the ERP sends: a CloudEvent", () => {
+    expect(contract.delivery.envelope).toEqual([
+      "specversion",
+      "id",
+      "source",
+      "type",
+      "time",
+      "datacontenttype",
+      "data",
+    ]);
+    const body = Object.fromEntries(
+      contract.delivery.envelope.map((key) => [key, key === "data" ? {} : "x"]),
     );
-    for (const key of contract.delivery.body.data) {
-      expect(validator).toContain(`data.${key}`);
-    }
+    expect(
+      validateCloudEvent({ ...body, source: "/erp", specversion: "1.0" }),
+    ).toEqual({ success: true });
     expect(readdirSync(`${ACTIONS}/ingestion`)).toContain("webhook");
+  });
+
+  test("Then what this app sends the ERP for a move made in Commerce uses the ERP's names, and no Commerce name", () => {
+    const { external } = contract.order;
+    const client = readFileSync("src/lib/erp.js", "utf8");
+    expect(contract.routes.orders).toContain("POST /:number/external-shipment");
+    expect(contract.routes.orders).toContain("POST /:number/external-invoice");
+    expect(client).toContain("/external-shipment");
+    expect(client).toContain("/external-invoice");
+    const changes = readFileSync("src/lib/commerce-changes.js", "utf8");
+    for (const key of [
+      ...external.externalShipment,
+      ...external.externalShipmentLine,
+    ]) {
+      expect(changes).toContain(`${key}`);
+    }
+    expect(changes).toContain(external.cancelReasonFromWebShop);
+    const returns = readFileSync("src/router/return-pieces.js", "utf8");
+    for (const key of [
+      ...contract.returns.request,
+      ...contract.returns.requestLine,
+    ]) {
+      expect(returns).toContain(`${key}`);
+    }
+    for (const text of [client, changes, returns]) {
+      expect(text).not.toMatch(COMMERCE_NAMES_ON_THE_WIRE);
+    }
   });
 });

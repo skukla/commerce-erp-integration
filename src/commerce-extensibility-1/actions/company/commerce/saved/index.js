@@ -40,7 +40,7 @@ async function main(params) {
       const partner = await companyToErp(
         paramsFor(params, entry, erps.length),
         companyId,
-        originOf(COMMERCE_EVENTS.companySaved, params),
+        originOf(COMMERCE_EVENTS.companySaved, params, companyId),
         {
           erpCustomerOf: (id) => erpCustomerOf(id, entry.id),
           importRecords: erp.importRecords,

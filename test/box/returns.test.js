@@ -41,43 +41,19 @@ import { splitExtOrderId } from "#lib/structure";
 import * as orderCreated from "#src/order/commerce/created/index";
 import * as returnSaved from "#src/order/commerce/return-saved/index";
 import * as erpCreditMemo from "#src/order/external/creditmemo-created/index";
-import * as erpInvoiceCreated from "#src/order/external/invoice-created/index";
-import * as erpReturnUpdated from "#src/order/external/return-updated/index";
-import * as erpShipmentCreated from "#src/order/external/shipment-created/index";
-import * as erpStatus from "#src/order/external/updated/index";
-import * as erpStock from "#src/stock/external/updated/index";
 
+import { deliverErpEvents as deliverThrough } from "./deliver-erp-events.js";
 import { fillErp } from "./fill-erp.js";
 
 /** Which handler each ERP event this journey raises reaches (app.commerce.config.ts). */
-const ERP_HANDLERS = {
-  "be-observer.catalog_stock_update": erpStock,
-  "be-observer.rma_status_update": erpReturnUpdated,
-  "be-observer.sales_order_creditmemo_create": erpCreditMemo,
-  "be-observer.sales_order_invoice_create": erpInvoiceCreated,
-  "be-observer.sales_order_shipment_create": erpShipmentCreated,
-  "be-observer.sales_order_status_update": erpStatus,
-};
 
-/** Deliver every pending ERP event to its handler; answers each event and its status. */
+/** Deliver every pending ERP event through the ingestion webhook's translation (deliver-erp-events.js). */
 async function deliverErpEvents() {
-  const delivered = [];
-  for (const entry of await box.erp.pendingEvents()) {
-    const handler = ERP_HANDLERS[entry.event];
-    if (!handler) {
-      throw new Error(`no handler for ERP event ${entry.event}`);
-    }
-    const params = { data: entry.value, id: entry._id, type: entry.event };
-    // biome-ignore lint/performance/noAwaitInLoops: events are delivered in order, as they were raised
-    const res = await handler.main(params);
-    delivered.push({
-      event: entry.event,
-      params,
-      status: res.statusCode ?? res.error?.statusCode,
-    });
-    await box.erp.markDelivered(entry);
-  }
-  return delivered;
+  return (await deliverThrough(box.erp)).map(({ event, params, status }) => ({
+    event,
+    params,
+    status,
+  }));
 }
 
 const ORDER_ID = 55;
@@ -128,8 +104,9 @@ describe("Pair in a box: a return, Commerce → ERP → Commerce", () => {
     expect(sent).toMatchObject({ statusCode: 200 });
     const [returnOrder] = (await erpCall("returns", "GET")).data.items;
     expect(returnOrder).toMatchObject({
-      commerceReturnId: String(returnId),
-      lines: [{ commerceItemId: 1, qty: 3, sku: "A1" }],
+      // The ERP keeps the return's id as the customer's reference (its contract version 16).
+      customerReturnReference: String(returnId),
+      lines: [{ customerLineReference: "1", qty: 3, sku: "A1" }],
       orderNumber: number,
       status: "open",
     });

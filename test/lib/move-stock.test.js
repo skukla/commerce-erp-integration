@@ -65,7 +65,7 @@ describe("Given a stock move from the product grid", () => {
     expect(d.importStock).toHaveBeenCalledWith(
       {},
       {
-        origin: { event: MOVE_ORIGIN },
+        origin: MOVE_ORIGIN,
         stock: [
           {
             sku: "accessmesh",

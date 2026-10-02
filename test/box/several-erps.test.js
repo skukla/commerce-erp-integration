@@ -32,7 +32,7 @@ const box = await vi.hoisted(async () => {
       to: toB ? "b" : "a",
     });
     if (isCreate(action, request)) {
-      creates[toB ? "b" : "a"].push(request.body.commerceIncrementId);
+      creates[toB ? "b" : "a"].push(request.body.purchaseOrderByCustomer);
     }
     if (!toB) {
       return erpA.call(action, request);
@@ -91,7 +91,7 @@ const statusComments = () =>
 /** The sales orders an in-process ERP holds for the Commerce order, read from its own database. */
 async function erpOrdersFor(erpBox) {
   const res = await erpBox.call("orders");
-  return res.data.items.filter((o) => o.commerceIncrementId === ORDER);
+  return res.data.items.filter((o) => o.purchaseOrderByCustomer === ORDER);
 }
 
 /**
@@ -364,7 +364,9 @@ describe("Pair in a box: a reset closes the orders the two ERPs hold", () => {
       statusOf(await orderChanged.main(box.commerce.events.orderSaved(HELD))),
     ).toBe(200);
     const [heldInB] = (await box.erpB.call("orders")).data.items.filter(
-      (o) => o.commerceOrderId === String(HELD),
+      (o) =>
+        o.purchaseOrderByCustomer ===
+        box.commerce.db.orders.get(HELD).increment_id,
     );
     expect(heldInB.creditStatus).toBe("held");
     expect((await listOrderPartsIds()).sort()).toEqual([

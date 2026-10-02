@@ -78,16 +78,17 @@ describe("Given a change made in Commerce", () => {
       { id: "evt-9" },
       "0000001003",
       {
-        commerceShipmentId: "501",
-        items: [
-          { orderItemId: 1, qty: 5 },
-          { orderItemId: 2, qty: 4 },
+        externalReference: "501",
+        lines: [
+          { customerLineReference: "1", qty: 5 },
+          { customerLineReference: "2", qty: 4 },
         ],
         origin: {
-          event: "observer.sales_order_shipment_save_after",
+          document: "shipment 000000501",
           eventId: "evt-9",
+          system: "Adobe Commerce",
         },
-        sourceCode: "east",
+        warehouse: "east",
       },
     );
   });
@@ -151,8 +152,8 @@ describe("Given a change made in Commerce", () => {
     );
     expect(result.outcome).toBe("sent");
     expect(d.erp.fromCommerce.invoice).toHaveBeenCalledWith({}, "0000001003", {
-      commerceInvoiceId: "77",
-      origin: { event: "observer.sales_order_invoice_save_after" },
+      externalReference: "77",
+      origin: { document: "invoice 000000077", system: "Adobe Commerce" },
     });
     expect((await invoiceFromCommerce({}, {}, d)).outcome).toBe("dropped");
   });
@@ -170,11 +171,11 @@ describe("Given a change made in Commerce", () => {
     );
     expect(result.outcome).toBe("sent");
     expect(d.erp.fromCommerce.cancel).toHaveBeenCalledWith({}, "0000001003", {
-      origin: { event: "observer.sales_order_save_commit_after" },
-      reason: contract.order.fromCommerce.cancelReasonFromCommerce,
+      origin: { document: "order 000000042", system: "Adobe Commerce" },
+      reason: contract.order.external.cancelReasonFromWebShop,
     });
-    expect(contract.order.fromCommerce.cancelReasonFromCommerce).toBe(
-      "Canceled in Commerce",
+    expect(contract.order.external.cancelReasonFromWebShop).toBe(
+      "Canceled in the web shop",
     );
     d.erp.order.mockResolvedValueOnce(ok(erpOrder({ header: "canceled" })));
     const again = await orderChangeFromCommerce(
@@ -198,13 +199,13 @@ describe("Given a change made in Commerce", () => {
       ).outcome,
     ).toBe("sent");
     expect(d.erp.fromCommerce.hold).toHaveBeenCalledWith({}, "0000001003", {
-      origin: { event: "observer.sales_order_save_commit_after" },
-      reason: "Put on hold in Commerce",
+      origin: { document: "order", system: "Adobe Commerce" },
+      reason: "Put on hold in the web shop",
     });
     d.erp.order.mockResolvedValueOnce(
       ok(
         erpOrder({
-          creditReason: "Put on hold in Commerce",
+          creditReason: "Put on hold in the web shop",
           creditStatus: "held",
         }),
       ),

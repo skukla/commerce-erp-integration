@@ -4,8 +4,9 @@
  * one row of the entity matrix, both directions, and asks the two questions the sync has
  * to answer: did the change arrive, and did nothing come back twice.
  *
- * The ERP's events are delivered here by hand (deliverErpEvents), the way I/O Events
- * would, to the handler each event name maps to.
+ * The ERP's events are delivered here by hand (deliverErpEvents), the way production does:
+ * the ERP's own CloudEvent, through the ingestion webhook's translation (AB-26y step 6), to
+ * the handler each translated event reaches.
  */
 const box = await vi.hoisted(async () => {
   const { createFakeCommerce } = await import("./fake-commerce.js");
@@ -52,61 +53,26 @@ import { erp } from "#lib/erp";
 import * as keyMap from "#lib/key-map";
 import * as ledger from "#lib/ledger";
 import { splitExtOrderId } from "#lib/structure";
-import * as contractUpdated from "#src/company/external/contract-updated/index";
-import * as creditUpdated from "#src/company/external/credit-updated/index";
-import * as statusUpdated from "#src/company/external/status-updated/index";
 import * as erpPrices from "#src/erp/prices/index";
 import * as orderChanged from "#src/order/commerce/changed/index";
 import * as orderCreated from "#src/order/commerce/created/index";
 import * as orderInvoiced from "#src/order/commerce/invoiced/index";
 import * as orderShipped from "#src/order/commerce/shipped/index";
-import * as erpCancelled from "#src/order/external/cancelled/index";
-import * as erpHold from "#src/order/external/hold/index";
-import * as erpInvoiceCreated from "#src/order/external/invoice-created/index";
-import * as erpShipmentCreated from "#src/order/external/shipment-created/index";
-import * as erpStatus from "#src/order/external/updated/index";
 import * as productDeleted from "#src/product/commerce/deleted/index";
-import * as erpProduct from "#src/product/external/updated/index";
 import * as stockSaved from "#src/stock/commerce/updated/index";
-import * as erpStock from "#src/stock/external/updated/index";
 
+import { deliverErpEvents as deliverThrough } from "./deliver-erp-events.js";
 import { fillErp } from "./fill-erp.js";
 
-/** Which handler each ERP event reaches (app.commerce.config.ts, eventing.external). */
-const ERP_HANDLERS = {
-  "be-observer.catalog_product_update": erpProduct,
-  "be-observer.catalog_stock_update": erpStock,
-  "be-observer.company_contract_update": contractUpdated,
-  "be-observer.company_credit_update": creditUpdated,
-  "be-observer.company_status_update": statusUpdated,
-  "be-observer.sales_order_cancel": erpCancelled,
-  "be-observer.sales_order_hold": erpHold,
-  "be-observer.sales_order_invoice_create": erpInvoiceCreated,
-  "be-observer.sales_order_shipment_create": erpShipmentCreated,
-  "be-observer.sales_order_status_update": erpStatus,
-};
-
-/** Deliver every pending ERP event to its handler, as I/O Events would; answers the handlers' responses. */
+/**
+ * Deliver every pending ERP event through the ingestion webhook's translation, as production
+ * does (deliver-erp-events.js); answers each handler run as `{ event, statusCode }`.
+ */
 async function deliverErpEvents() {
-  const responses = [];
-  for (const entry of await box.erp.pendingEvents()) {
-    const handler = ERP_HANDLERS[entry.event];
-    if (!handler) {
-      throw new Error(`no handler for ERP event ${entry.event}`);
-    }
-    // biome-ignore lint/performance/noAwaitInLoops: events are delivered in order, as they were raised
-    const res = await handler.main({
-      data: entry.value,
-      id: entry._id,
-      type: entry.event,
-    });
-    responses.push({
-      event: entry.event,
-      statusCode: res.statusCode ?? res.error?.statusCode,
-    });
-    await box.erp.markDelivered(entry);
-  }
-  return responses;
+  return (await deliverThrough(box.erp)).map(({ event, statusCode }) => ({
+    event,
+    statusCode,
+  }));
 }
 
 const writesOf = (kind) => box.commerce.writes.filter((w) => w.kind === kind);
@@ -114,7 +80,7 @@ const writesOf = (kind) => box.commerce.writes.filter((w) => w.kind === kind);
 const readers = box.commerce.lib;
 const TEN_DIGITS = /^\d{10}$/u;
 const PREFIXED = /^ERP-\d{10}$/u;
-const RECEIVED_FROM_COMMERCE = /received from Commerce/u;
+const POSTED_FROM_COMMERCE = /^Goods issue posted from Adobe Commerce/u;
 const ON_CREDIT_HOLD =
   /^On credit hold in the ERP .*Credit limit USD 1,000\.00 exceeded/u;
 const erpOrder = async (number) => (await erp.order({}, number)).data;
@@ -146,10 +112,13 @@ describe("Pair in a box: the entity matrix, both directions", () => {
   test("Order, Commerce → ERP: a new order becomes an ERP sales order and its number is written back once", async () => {
     const number = await seeded();
     const order = await erpOrder(number);
-    expect(order.commerceIncrementId).toBe("000000042");
-    expect(order.lines.map((l) => [l.sku, l.qty, l.commerceItemId])).toEqual([
-      ["A1", 12, 1],
-      ["B2", 4, 2],
+    // The ERP keeps Commerce's numbers as the customer's references (its contract version 16).
+    expect(order.purchaseOrderByCustomer).toBe("000000042");
+    expect(
+      order.lines.map((l) => [l.sku, l.qty, l.customerLineReference]),
+    ).toEqual([
+      ["A1", 12, "1"],
+      ["B2", 4, "2"],
     ]);
     expect(order.partnerId).toBe("C7");
     expect(writesOf("setExtOrderId")).toEqual([
@@ -214,7 +183,7 @@ describe("Pair in a box: the entity matrix, both directions", () => {
     expect(back.statusCode).toBe(200);
     const order = await erpOrder(number);
     expect(order.shipments).toHaveLength(1);
-    expect(order.shipments[0].commerceShipmentId).toBe("900");
+    expect(order.shipments[0].externalReference).toBe("900");
     expect(order.lines.map((l) => l.shippedQty)).toEqual([5, 0]);
     expect(writesOf("ship")).toHaveLength(1);
     expect(await box.erp.pendingEvents()).toEqual([]);
@@ -237,7 +206,7 @@ describe("Pair in a box: the entity matrix, both directions", () => {
     const order = await erpOrder(number);
     expect(order.header).toBe("confirmed");
     expect(
-      order.shipments.map((s) => [s.status, s.warehouse, s.commerceShipmentId]),
+      order.shipments.map((s) => [s.status, s.warehouse, s.externalReference]),
     ).toEqual([["posted", "default", String(shipmentId)]]);
     expect(order.status).toBe("shipped");
     expect(await box.erp.pendingEvents()).toEqual([]);
@@ -245,7 +214,7 @@ describe("Pair in a box: the entity matrix, both directions", () => {
     const journal = (await box.erp.call("events")).data.items.filter(
       (e) => e.direction === "in",
     );
-    expect(journal.some((e) => RECEIVED_FROM_COMMERCE.test(e.summary))).toBe(
+    expect(journal.some((e) => POSTED_FROM_COMMERCE.test(e.summary))).toBe(
       true,
     );
   });
@@ -355,7 +324,7 @@ describe("Pair in a box: the entity matrix, both directions", () => {
     ).toBe(200);
     expect((await erpOrder(number)).creditStatus).toBe("held");
     expect((await erpOrder(number)).creditReason).toBe(
-      "Put on hold in Commerce",
+      "Put on hold in the web shop",
     );
     await box.commerce.orderClient.unholdOrder({}, 55);
     expect(

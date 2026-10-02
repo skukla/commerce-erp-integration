@@ -1,7 +1,7 @@
 import { HTTP_INTERNAL_SERVER_ERROR } from "@adobe/aio-commerce-sdk/core/responses";
 
 import { warehousesOfSku } from "#lib/commerce";
-import { originOf } from "#lib/commerce-events";
+import { withEventId } from "#lib/commerce-events";
 import { erp } from "#lib/erp";
 import { ownerParams } from "#lib/owner-params";
 
@@ -27,7 +27,7 @@ async function sendData(params, data) {
     // The transformer names the event; only the action's params carry its id.
     const res = await erp.importRecords(to.params, {
       ...data,
-      origin: originOf(data.origin?.event, params),
+      origin: withEventId(data.origin, params),
       ...(stock.length ? { stock } : {}),
     });
     if (!res.ok) {

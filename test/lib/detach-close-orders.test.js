@@ -115,7 +115,7 @@ describe("Given detach asked to close the orders", () => {
   test("Then an open order the ERP lists is cancelled with a note, and its record, number and marks are handled first", async () => {
     const open = order(55, { ext_order_id: "ERP-0000001000" });
     const { commerce, deps, orderParts } = setUp([open], {
-      listed: [{ commerceOrderId: "55", number: "0000001000" }],
+      listed: [{ number: "0000001000", purchaseOrderByCustomer: "0000055" }],
       parts: ["0000055"],
     });
 
@@ -146,7 +146,10 @@ describe("Given detach asked to close the orders", () => {
       state: "processing",
     });
     const { commerce, deps } = setUp([invoiced, shipped], {
-      listed: [{ commerceOrderId: "56" }, { commerceOrderId: "57" }],
+      listed: [
+        { purchaseOrderByCustomer: "0000056" },
+        { purchaseOrderByCustomer: "0000057" },
+      ],
     });
 
     const result = await detach({ closeOrders: true }, deps);
@@ -163,7 +166,7 @@ describe("Given detach asked to close the orders", () => {
     "Then an order in state %s is only noted",
     async (state) => {
       const { commerce, deps } = setUp([order(58, { state })], {
-        listed: [{ commerceOrderId: "58" }],
+        listed: [{ purchaseOrderByCustomer: "0000058" }],
       });
       const result = await detach({ closeOrders: true }, deps);
       expect(commerce.orders.cancel).not.toHaveBeenCalled();
@@ -203,7 +206,7 @@ describe("Given detach asked to close the orders", () => {
 
   test("Then Commerce refusing the cancel leaves a note instead, as for an order it cannot cancel", async () => {
     const { commerce, deps } = setUp([order(61)], {
-      listed: [{ commerceOrderId: "61" }],
+      listed: [{ purchaseOrderByCustomer: "0000061" }],
     });
     commerce.orders.cancel.mockResolvedValueOnce(false);
 
@@ -219,7 +222,10 @@ describe("Given detach asked to close the orders", () => {
 
   test("Then a failure on one order is reported in words and the others are still closed", async () => {
     const { commerce, deps } = setUp([order(62), order(63)], {
-      listed: [{ commerceOrderId: "62" }, { commerceOrderId: "63" }],
+      listed: [
+        { purchaseOrderByCustomer: "0000062" },
+        { purchaseOrderByCustomer: "0000063" },
+      ],
     });
     commerce.orders.cancel.mockRejectedValueOnce(new Error("locked"));
 
@@ -242,7 +248,7 @@ describe("Given detach asked to close the orders", () => {
       ],
     });
     const { commerce, deps } = setUp([closed], {
-      listed: [{ commerceOrderId: "64" }],
+      listed: [{ purchaseOrderByCustomer: "0000064" }],
     });
 
     const result = await detach({ closeOrders: true }, deps);
@@ -263,7 +269,7 @@ describe("Given detach asked to close the orders", () => {
       { adapter: "demo-erp", connection: { baseUrl: "https://a" }, id: "erp" },
       { adapter: "demo-erp", connection: { baseUrl: "https://b" }, id: "b" },
     ];
-    deps.erp = listing([{ commerceOrderId: "65" }]);
+    deps.erp = listing([{ purchaseOrderByCustomer: "0000065" }]);
 
     const result = await detach({ closeOrders: true }, deps);
 
@@ -275,7 +281,7 @@ describe("Given detach asked to close the orders", () => {
 describe("Given detach without closeOrders", () => {
   test("Then no order is read, marked, cancelled or noted, and the answer carries no closing counts", async () => {
     const { commerce, deps, orderParts } = setUp([order(55)], {
-      listed: [{ commerceOrderId: "55" }],
+      listed: [{ purchaseOrderByCustomer: "0000055" }],
       parts: ["0000055"],
     });
 

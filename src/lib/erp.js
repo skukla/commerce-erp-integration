@@ -91,7 +91,7 @@ export async function erpRequest(
 export const erp = {
   createOrder: (params, order, timeoutMs) =>
     erpRequest(params, "orders", { body: order, method: "POST", timeoutMs }),
-  /** A product Commerce deleted; `body.origin` names the event for the ERP's journal. */
+  /** A product Commerce deleted; `body.origin` names it for the ERP's journal. */
   deleteProduct: (params, sku, body) =>
     erpRequest(params, "products", {
       body,
@@ -100,7 +100,7 @@ export const erp = {
     }),
   /**
    * The moves a change made IN Commerce asks of the ERP (contract order.fromCommerce). Each
-   * body carries `origin: { event, eventId? }`, which is what keeps the ERP from raising its
+   * body carries `origin: { system, document, eventId? }`, which is what keeps the ERP from raising its
    * own event for it and sending the change straight back.
    */
   fromCommerce: {
@@ -120,7 +120,7 @@ export const erp = {
       erpRequest(params, "orders", {
         body,
         method: "POST",
-        path: `/${number}/commerce-invoice`,
+        path: `/${number}/external-invoice`,
       }),
     release: (params, number, body) =>
       erpRequest(params, "orders", {
@@ -131,7 +131,7 @@ export const erp = {
     /**
      * A Commerce return, this ERP's lines of it, as a return order (contract version 13). The
      * body names the ERP's own sales order (`orderNumber`); the ERP is idempotent on
-     * `commerceReturnId`, answering the return order it already made.
+     * `customerReturnReference`, answering the return order it already made.
      */
     sendReturn: (params, body) =>
       erpRequest(params, "returns", { body, method: "POST" }),
@@ -139,7 +139,7 @@ export const erp = {
       erpRequest(params, "orders", {
         body,
         method: "POST",
-        path: `/${number}/commerce-shipment`,
+        path: `/${number}/external-shipment`,
       }),
   },
   health: (params) => erpRequest(params, "health"),

@@ -27,7 +27,7 @@ const answer = (url, init) => {
   if (init.method === "GET") {
     return {
       body: {
-        creditReason: held[number] ? "Put on hold in Commerce" : null,
+        creditReason: held[number] ? "Put on hold in the web shop" : null,
         creditStatus: held[number] ? "held" : "none",
         header: "open",
         number,
@@ -82,10 +82,11 @@ describe("Given an order two ERPs share", () => {
     ]);
     expect(erp.calls[1].body).toEqual({
       origin: {
-        event: "observer.sales_order_save_commit_after",
+        document: "order 000000042",
         eventId: "evt-1",
+        system: "Adobe Commerce",
       },
-      reason: "Canceled in Commerce",
+      reason: "Canceled in the web shop",
     });
   });
 

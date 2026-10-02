@@ -90,13 +90,31 @@ cron does not run), and where to look when one does not arrive: [`docs/eventing.
 | event | `observer.company_save_commit_after` | `company-commerce/saved` → ERP `POST admin/import` (the company read back by id and sent as a business partner) |
 | event | `observer.sales_order_save_commit_after` | `order-commerce/created` → Commerce `GET orders` (entity by increment id) → ERP `POST orders` → Commerce `POST orders` (`ext_order_id`) and `POST orders/{id}/comments` |
 | event | `observer.sales_order_save_commit_after` (saves that are not a new order) | `order-commerce/changed` → asks the ERP `GET orders/{number}` first (rule M2) → ERP `POST orders/{number}/cancel`, `/credit/hold` or `/credit/release`, each with an `origin` so the ERP does not echo it |
-| event | `observer.sales_order_shipment_save_after` | `order-commerce/shipped` → Commerce `GET orders/{id}` → ERP `GET orders/{number}` → ERP `POST orders/{number}/commerce-shipment` (origin) |
-| event | `observer.sales_order_invoice_save_after` | `order-commerce/invoiced` → Commerce `GET orders/{id}` → ERP `GET orders/{number}` → ERP `POST orders/{number}/commerce-invoice` (origin) |
+| event | `observer.sales_order_shipment_save_after` | `order-commerce/shipped` → Commerce `GET orders/{id}` → ERP `GET orders/{number}` → ERP `POST orders/{number}/external-shipment` (origin) |
+| event | `observer.sales_order_invoice_save_after` | `order-commerce/invoiced` → Commerce `GET orders/{id}` → ERP `GET orders/{number}` → ERP `POST orders/{number}/external-invoice` (origin) |
 | event | `observer.cataloginventory_stock_item_save_commit_after` | `stock-commerce/updated` → Commerce `GET products` (SKU by id) → ERP `POST admin/import` |
 
-**ERP → this app** (the ERP posts to `ingestion/webhook`, published to the `erp` provider)
+**ERP → this app** (the ERP posts a CloudEvent in its own words to `ingestion/webhook`; the one
+translation module, `src/commerce-extensibility-1/actions/ingestion/translate.js`, turns each
+ERP type into the starter-kit event below, finding Commerce's ids from this app's own records
+and reads, and that is published to the `erp` provider. ERP contract version 16, AB-26y)
 
-| ERP event | Handler | Commerce REST call |
+| ERP type | Published as |
+|---|---|
+| `SalesOrder.Changed` | `be-observer.sales_order_status_update` (confirmed), `be-observer.sales_order_cancel` (canceled), `be-observer.sales_order_hold` (credit block on or off) |
+| `OutboundDelivery.GoodsIssueStatusChanged` | `be-observer.sales_order_shipment_create` |
+| `BillingDocument.Created` | `be-observer.sales_order_invoice_create` (Invoice), `be-observer.sales_order_creditmemo_create` (CreditMemo) |
+| `CustomerReturn.Changed` | `be-observer.rma_status_update` (received) |
+| `IncomingPayment.Posted` | `be-observer.sales_order_payment_create` |
+| `Product.Changed` | `be-observer.catalog_product_update` (name or list price changed; a sales status alone is nothing to publish) |
+| `ProductStock.Changed` | `be-observer.catalog_stock_update` |
+| `Customer.Changed` | `be-observer.company_credit_update` (credit limit), `be-observer.company_status_update` (blocking level folded to blocked or not, only when that flips) |
+| `PriceList.Changed` | `be-observer.company_contract_update` |
+
+An unknown type answers 400 and is logged; an order Commerce cannot find yet by the customer's
+order number answers 503, so the ERP delivers it again.
+
+| Starter-kit event | Handler | Commerce REST call |
 |---|---|---|
 | `be-observer.catalog_product_update` | `product-backoffice/updated` | `PUT products/{sku}` (name, price) |
 | `be-observer.catalog_stock_update` | `stock-backoffice/updated` | `POST inventory/source-items` |

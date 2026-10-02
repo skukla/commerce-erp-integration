@@ -144,14 +144,19 @@ export async function shipmentFromCommerce(params, shipment, deps) {
   )
     .filter((item) => item && item.order_item_id !== undefined)
     .map((item) => ({
-      orderItemId: Number(item.order_item_id),
+      // The ERP knows the line by the customer's line reference: Commerce's item id.
+      customerLineReference: String(item.order_item_id),
       qty: Number(item.qty),
     }));
   const res = await deps.erp.fromCommerce.ship(params, own.number, {
-    commerceShipmentId: String(shipmentId),
-    items,
-    origin: originOf(COMMERCE_EVENTS.shipmentSaved, params),
-    sourceCode: shipment.extension_attributes?.source_code ?? null,
+    externalReference: String(shipmentId),
+    lines: items,
+    origin: originOf(
+      COMMERCE_EVENTS.shipmentSaved,
+      params,
+      shipment.increment_id ?? shipmentId,
+    ),
+    warehouse: shipment.extension_attributes?.source_code ?? null,
   });
   return fromErp(
     res,
@@ -186,11 +191,15 @@ export async function invoiceFromCommerce(params, invoice, deps) {
     return own.answer;
   }
   const res = await deps.erp.fromCommerce.invoice(params, own.number, {
-    commerceInvoiceId:
+    externalReference:
       invoice.entity_id === undefined || invoice.entity_id === null
         ? null
         : String(invoice.entity_id),
-    origin: originOf(COMMERCE_EVENTS.invoiceSaved, params),
+    origin: originOf(
+      COMMERCE_EVENTS.invoiceSaved,
+      params,
+      invoice.increment_id ?? invoice.entity_id,
+    ),
   });
   return fromErp(
     res,
@@ -202,6 +211,14 @@ export async function invoiceFromCommerce(params, invoice, deps) {
 /** Commerce's state words this handler acts on. */
 const CANCELED = "canceled";
 const HOLDED = "holded";
+
+/**
+ * The ERP's words for a move made here (its contract version 16): the cancellation reason from
+ * its own list, and the hold reason this app gives, which is how a hold made here is told from
+ * one the ERP decided. An ERP hold stored with the old words reads as these (demo-erp lib/legacy).
+ */
+const CANCELED_HERE = "Canceled in the web shop";
+const HELD_HERE = "Put on hold in the web shop";
 
 /**
  * A non-new order save in Commerce: a cancellation or a hold made there reaches the ERP,
@@ -235,7 +252,11 @@ export async function orderChangeFromCommerce(params, order, deps) {
  */
 export async function changeOnErpOrder(params, order, own, deps) {
   const label = `Commerce order ${order.increment_id ?? own.number}`;
-  const origin = originOf(COMMERCE_EVENTS.orderSaved, params);
+  const origin = originOf(
+    COMMERCE_EVENTS.orderSaved,
+    params,
+    order.increment_id,
+  );
   if (order.state === CANCELED) {
     if (own.order.header === "canceled") {
       return answer(
@@ -246,9 +267,8 @@ export async function changeOnErpOrder(params, order, own, deps) {
     }
     const res = await deps.erp.fromCommerce.cancel(params, own.number, {
       origin,
-      // A reason code from the ERP contract's list (demo-erp lib/orders.js), not words
-      // (contract version 10; the old "Cancelled in Commerce" is refused on the wire).
-      reason: "Canceled in Commerce",
+      // A reason code from the ERP contract's list (demo-erp lib/orders.js), not words.
+      reason: CANCELED_HERE,
     });
     return fromErp(res, label, `canceled on sales order ${own.number}`);
   }
@@ -258,13 +278,13 @@ export async function changeOnErpOrder(params, order, own, deps) {
     }
     const res = await deps.erp.fromCommerce.hold(params, own.number, {
       origin,
-      reason: "Put on hold in Commerce",
+      reason: HELD_HERE,
     });
     return fromErp(res, label, `held on sales order ${own.number}`);
   }
   if (
     own.order.creditStatus === "held" &&
-    own.order.creditReason === "Put on hold in Commerce"
+    own.order.creditReason === HELD_HERE
   ) {
     // Off hold in Commerce: only a hold Commerce itself made is released here. A credit hold the
     // ERP decided stays until someone releases it in the ERP.

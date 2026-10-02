@@ -155,7 +155,10 @@ function closeDeps(deps) {
   };
 }
 
-/** Every order each ERP lists; a list that cannot be read is reported and the rest go on. */
+/**
+ * Every order each ERP lists, each with the Commerce order id it is (`commerceOrderId`); a list
+ * that cannot be read is reported and the rest go on.
+ */
 async function listedOrders(params, deps, erpId, orders) {
   const items = [];
   for (const target of erpTargets(params, deps.erps, erpId)) {
@@ -170,7 +173,37 @@ async function listedOrders(params, deps, erpId, orders) {
       });
     }
   }
-  return items;
+  return withCommerceIds(params, items, deps.commerce, orders);
+}
+
+/**
+ * The ERP keeps the customer's order number, not Commerce's id (its contract version 16): each
+ * order's Commerce id is found by that number, once per number. One Commerce does not have is
+ * left out; one that cannot be read is reported and the rest go on.
+ */
+async function withCommerceIds(params, items, commerce, orders) {
+  const ids = new Map();
+  const found = [];
+  for (const order of items) {
+    const number = order.purchaseOrderByCustomer;
+    if (!number) {
+      continue;
+    }
+    if (!ids.has(number)) {
+      try {
+        // biome-ignore lint/performance/noAwaitInLoops: one read per order number, in order
+        const hit = await commerce.findOrderByIncrementId(params, number);
+        ids.set(number, hit ? String(hit.entityId) : null);
+      } catch (error) {
+        ids.set(number, null);
+        orders.failed.push({ error: error.message, orderId: number });
+      }
+    }
+    if (ids.get(number)) {
+      found.push({ ...order, commerceOrderId: ids.get(number) });
+    }
+  }
+  return found;
 }
 
 /**

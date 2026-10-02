@@ -73,25 +73,30 @@ function partTotal(lines) {
 }
 
 /**
- * The ERP's order request for a Commerce order and its entity id. The website's settings
+ * The ERP's order request for a Commerce order. The website's settings
  * name the sales organization the order belongs to (business structure). For one ERP's part
  * of a split order (`shared`), the total is the part's own (partTotal), not the order's.
  */
-export function erpOrderFrom(order, entityId, settings = {}, { shared } = {}) {
+export function erpOrderFrom(order, settings = {}, { shared } = {}) {
   const rawItems = order.items ?? [];
   const items = Array.isArray(rawItems) ? rawItems : Object.values(rawItems);
   const parents = items.filter((item) => !item.parent_item_id && item.sku);
   return {
-    commerceIncrementId: String(order.increment_id),
-    commerceOrderId: String(entityId),
     currency: order.base_currency_code || "USD",
+    // The ERP keeps Commerce's numbers as the customer's references (its contract version 16):
+    // the order number, and each line's item id. The entity id stays here; the translation
+    // module finds it again by the order number (#src/ingestion/translate).
     lines: parents.map((item) => ({
-      commerceItemId: item.item_id ?? null,
+      customerLineReference:
+        item.item_id === undefined || item.item_id === null
+          ? null
+          : String(item.item_id),
       price: Number(item.base_price ?? item.price ?? 0),
       qty: Number(item.qty_ordered ?? item.qty ?? 1),
       sku: item.sku,
     })),
-    origin: originOf(COMMERCE_EVENTS.orderSaved),
+    origin: originOf(COMMERCE_EVENTS.orderSaved, undefined, order.increment_id),
+    purchaseOrderByCustomer: String(order.increment_id),
     ...salesOrgOf(settings),
     total: shared ? partTotal(parents) : Number(order.base_grand_total ?? 0),
   };
@@ -314,11 +319,15 @@ export async function sendOrderToErp(params, order, deps, options = {}) {
     res = await deps.erp.createOrder(
       params,
       {
-        ...erpOrderFrom(order, found.entityId, settings, { shared }),
+        ...erpOrderFrom(order, settings, { shared }),
         // The ERP's own number from the key map is all that names the customer: the ERP
         // holds no Commerce id (contract version 3). Unpaired, it is the walk-in customer's.
         ...(partnerId ? { partnerId } : {}),
-        origin: originOf(COMMERCE_EVENTS.orderSaved, params),
+        origin: originOf(
+          COMMERCE_EVENTS.orderSaved,
+          params,
+          order.increment_id,
+        ),
       },
       ERP_TIMEOUT_MS,
     );

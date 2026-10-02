@@ -12,7 +12,7 @@ import { COMMERCE_EVENTS, originOf } from "#lib/commerce-events";
 function transformData(data) {
   const product = data.value ?? data;
   return {
-    origin: originOf(COMMERCE_EVENTS.productSaved),
+    origin: originOf(COMMERCE_EVENTS.productSaved, undefined, product.sku),
     products: [
       {
         listPrice: Number(product.price ?? 0),

@@ -5,10 +5,11 @@
  * order of only its line, once; ERP B receives and credits its line, and Commerce makes one
  * credit memo of exactly that line, and none more when the event is delivered again.
  *
- * Each ERP's events carry its id (ERP_ID, contract version 4): the two ERPs number their
- * sales orders alike, so the number alone cannot say whose part an event is about. A deployed
- * ERP adds its id as it delivers an event (its lib/events.js `named`), not in its journal, so
- * the box adds it as it delivers, the same way: to an object value, never to a list.
+ * Each ERP's events name it (ERP_ID, contract version 4): the two ERPs number their sales
+ * orders alike, so the number alone cannot say whose part an event is about. A deployed ERP
+ * names itself as its CloudEvent's source (/erp/<ERP_ID>, its lib/events.js `envelope`), and
+ * the translation puts the id on the payload the handlers read (#src/ingestion/translate);
+ * the box delivers through both.
  */
 const box = await vi.hoisted(async () => {
   const { createFakeCommerce } = await import("./fake-commerce.js");
@@ -56,51 +57,28 @@ import { readOrderReturn } from "#lib/order-returns";
 import * as orderCreated from "#src/order/commerce/created/index";
 import * as returnSaved from "#src/order/commerce/return-saved/index";
 import * as erpCreditMemo from "#src/order/external/creditmemo-created/index";
-import * as erpInvoiceCreated from "#src/order/external/invoice-created/index";
-import * as erpReturnUpdated from "#src/order/external/return-updated/index";
-import * as erpShipmentCreated from "#src/order/external/shipment-created/index";
-import * as erpStatus from "#src/order/external/updated/index";
-import * as erpStock from "#src/stock/external/updated/index";
 
+import { deliverErpEvents as deliverThrough } from "./deliver-erp-events.js";
 import { fillErp } from "./fill-erp.js";
 
 const ERP_A_URL = "https://erp-a.example/api/v1/web/erp";
 const ORDER = "000000042";
 const ORDER_ID = 55;
-const ERP_HANDLERS = {
-  "be-observer.catalog_stock_update": erpStock,
-  "be-observer.rma_status_update": erpReturnUpdated,
-  "be-observer.sales_order_creditmemo_create": erpCreditMemo,
-  "be-observer.sales_order_invoice_create": erpInvoiceCreated,
-  "be-observer.sales_order_shipment_create": erpShipmentCreated,
-  "be-observer.sales_order_status_update": erpStatus,
-};
 
-/** Deliver one ERP's pending events to their handlers, named with its id; answers each. */
+/**
+ * Deliver one ERP's pending events through the ingestion webhook's translation
+ * (deliver-erp-events.js), the ERP deployed with this id; answers each handler run.
+ */
 async function deliver(erpBox, erpId) {
-  const delivered = [];
-  for (const entry of await erpBox.pendingEvents()) {
-    const data = Array.isArray(entry.value)
-      ? entry.value
-      : { ...entry.value, erpId };
-    const params = { data, id: entry._id, type: entry.event };
-    // biome-ignore lint/performance/noAwaitInLoops: events are delivered in order, as they were raised
-    const res = await ERP_HANDLERS[entry.event].main(params);
-    delivered.push({
-      event: entry.event,
-      params,
-      status: res.statusCode ?? res.error?.statusCode,
-      why: res.error?.body?.message,
-    });
-    await erpBox.markDelivered(entry);
-  }
-  return delivered;
+  return (await deliverThrough(erpBox, { erpId })).map(
+    ({ event, params, status, why }) => ({ event, params, status, why }),
+  );
 }
 
 const writesOf = (kind) => box.commerce.writes.filter((w) => w.kind === kind);
 const salesOrderIn = async (erpBox) =>
   (await erpBox.call("orders")).data.items.find(
-    (o) => o.commerceIncrementId === ORDER,
+    (o) => o.purchaseOrderByCustomer === ORDER,
   );
 
 /** Confirm, ship and invoice a sales order in one ERP, and deliver what it raised. */
@@ -197,8 +175,12 @@ describe("Pair in a box: a return over two ERPs' lines", () => {
     const [inB] = (await box.erpB.call("returns")).data.items;
     expect((await box.erpA.call("returns")).data.items).toHaveLength(1);
     expect((await box.erpB.call("returns")).data.items).toHaveLength(1);
-    expect(inA.lines.map((l) => [l.commerceItemId, l.qty])).toEqual([[1, 3]]);
-    expect(inB.lines.map((l) => [l.commerceItemId, l.qty])).toEqual([[2, 1]]);
+    expect(inA.lines.map((l) => [l.customerLineReference, l.qty])).toEqual([
+      ["1", 3],
+    ]);
+    expect(inB.lines.map((l) => [l.customerLineReference, l.qty])).toEqual([
+      ["2", 1],
+    ]);
     expect(inA.orderNumber).toBe((await salesOrderIn(box.erpA)).number);
     expect(inB.orderNumber).toBe((await salesOrderIn(box.erpB)).number);
     const record = await readOrderReturn(returnId);

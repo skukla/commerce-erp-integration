@@ -31,11 +31,10 @@ afterEach(() => {
 describe("Given a return order for the ERP", () => {
   test("Then it is POST returns with the body as given, and the ERP's answer comes back", async () => {
     const body = {
-      commerceReturnId: "4",
-      commerceReturnIncrementId: "000000004",
-      lines: [{ commerceItemId: 38, qty: 2, reason: "damaged" }],
+      customerReturnReference: "4",
+      lines: [{ customerLineReference: "38", qty: 2, reason: "damaged" }],
       orderNumber: "0000001000",
-      origin: { event: "observer.rma_save_commit_after" },
+      origin: { document: "return 000000004", system: "Adobe Commerce" },
     };
     const params = { ERP_BASE_URL: "https://erp.example/api/v1/web/erp" };
 

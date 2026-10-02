@@ -30,7 +30,7 @@ async function sendData(params, transformed) {
     // The stock item is Commerce's default source only, so its quantity is not the
     // product's stock once other sources exist: the event is the cue to read them all.
     const res = await erp.importRecords(to.params, {
-      origin: originOf(COMMERCE_EVENTS.stockItemSaved, params),
+      origin: originOf(COMMERCE_EVENTS.stockItemSaved, params, sku),
       stock: [{ sku, warehouses: await warehousesOfSku(params, sku) }],
     });
     if (!res.ok) {

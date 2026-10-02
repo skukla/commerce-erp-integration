@@ -44,7 +44,7 @@ function deleteAt(params, sku, entry, several) {
     several ? paramsForErp(params, entry) : params,
     sku,
     {
-      origin: originOf(COMMERCE_EVENTS.productDeleted, params),
+      origin: originOf(COMMERCE_EVENTS.productDeleted, params, sku),
     },
   );
 }

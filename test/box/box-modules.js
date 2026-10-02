@@ -43,13 +43,13 @@ export function erpClientModule(call) {
         hold: (params, number, body) =>
           post("orders", `/${number}/credit/hold`, body)(params),
         invoice: (params, number, body) =>
-          post("orders", `/${number}/commerce-invoice`, body)(params),
+          post("orders", `/${number}/external-invoice`, body)(params),
         release: (params, number, body) =>
           post("orders", `/${number}/credit/release`, body)(params),
         sendReturn: (params, body) =>
           call("returns", { body, method: "POST", params }),
         ship: (params, number, body) =>
-          post("orders", `/${number}/commerce-shipment`, body)(params),
+          post("orders", `/${number}/external-shipment`, body)(params),
       },
       health: (params) => call("health", { params }),
       importRecords: (params, body) =>

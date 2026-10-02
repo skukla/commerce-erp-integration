@@ -23,8 +23,9 @@ describe("Given a product deleted in Commerce", () => {
     expect(res.statusCode).toBe(200);
     expect(erp.deleteProduct).toHaveBeenCalledWith(expect.anything(), "A1", {
       origin: {
-        event: "observer.catalog_product_delete_commit_after",
+        document: "product A1",
         eventId: "evt-1",
+        system: "Adobe Commerce",
       },
     });
   });

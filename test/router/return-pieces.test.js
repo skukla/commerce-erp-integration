@@ -183,22 +183,32 @@ describe("Given a return over two ERPs' lines", () => {
       [
         A_URL,
         {
-          commerceReturnId: "4",
-          commerceReturnIncrementId: "000000004",
-          lines: [{ commerceItemId: 40, qty: 1, reason: "Wrong Size" }],
+          customerReturnReference: "4",
+          lines: [
+            { customerLineReference: "40", qty: 1, reason: "Wrong Size" },
+          ],
           orderNumber: "A-100",
-          origin: { event: "observer.rma_save_commit_after", eventId: "ev-9" },
+          origin: {
+            document: "return 000000004",
+            eventId: "ev-9",
+            system: "Adobe Commerce",
+          },
         },
       ],
       [
         B_URL,
         {
-          commerceReturnId: "4",
-          commerceReturnIncrementId: "000000004",
+          customerReturnReference: "4",
           // Returned by its child line 39; the ERP's sales order names the parent, 38.
-          lines: [{ commerceItemId: 38, qty: 2, reason: "Wrong Size" }],
+          lines: [
+            { customerLineReference: "38", qty: 2, reason: "Wrong Size" },
+          ],
           orderNumber: "B-200",
-          origin: { event: "observer.rma_save_commit_after", eventId: "ev-9" },
+          origin: {
+            document: "return 000000004",
+            eventId: "ev-9",
+            system: "Adobe Commerce",
+          },
         },
       ],
     ]);
@@ -409,8 +419,8 @@ describe("Given one ERP", () => {
         A_URL,
         expect.objectContaining({
           lines: [
-            { commerceItemId: 38, qty: 2, reason: "Wrong Size" },
-            { commerceItemId: 40, qty: 1, reason: "Wrong Size" },
+            { customerLineReference: "38", qty: 2, reason: "Wrong Size" },
+            { customerLineReference: "40", qty: 1, reason: "Wrong Size" },
           ],
           orderNumber: "0000001000",
         }),

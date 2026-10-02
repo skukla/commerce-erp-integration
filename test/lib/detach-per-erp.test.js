@@ -15,12 +15,12 @@ import { BOTH, erpFetch, NORTHWIND, OWN } from "./per-erp-harness.js";
 
 const ORDERS = {
   "https://a.example": [
-    { commerceOrderId: 11, creditStatus: "none" },
-    { commerceOrderId: 30, creditStatus: "none" },
+    { creditStatus: "none", purchaseOrderByCustomer: "0000011" },
+    { creditStatus: "none", purchaseOrderByCustomer: "0000030" },
   ],
   "https://b.example": [
-    { commerceOrderId: 21, creditStatus: "held" },
-    { commerceOrderId: 30, creditStatus: "none" },
+    { creditStatus: "held", purchaseOrderByCustomer: "0000021" },
+    { creditStatus: "none", purchaseOrderByCustomer: "0000030" },
   ],
 };
 
@@ -34,6 +34,10 @@ beforeEach(() => {
   vi.stubGlobal("fetch", erp.fetch);
   commerce = {
     clearExtOrderId: vi.fn(async () => undefined),
+    // The ERP lists the customer's order number (its contract version 16); Commerce finds the id.
+    findOrderByIncrementId: vi.fn(async (_p, number) => ({
+      entityId: Number(number),
+    })),
     unholdIfHeld: vi.fn(async () => true),
   };
 });
@@ -55,9 +59,13 @@ describe("Given two ERPs", () => {
       ["contoso-client", "https://b.example/api/v1/web/demo-erp/orders"],
     ]);
     expect(commerce.clearExtOrderId.mock.calls.map(([, id]) => id)).toEqual([
-      11, 30, 21,
+      "11",
+      "30",
+      "21",
     ]);
-    expect(commerce.unholdIfHeld.mock.calls.map(([, id]) => id)).toEqual([21]);
+    expect(commerce.unholdIfHeld.mock.calls.map(([, id]) => id)).toEqual([
+      "21",
+    ]);
     expect(result.orders).toEqual({ cleared: 3, failed: [] });
     expect(result.holds).toEqual({ failed: [], released: 1 });
   });

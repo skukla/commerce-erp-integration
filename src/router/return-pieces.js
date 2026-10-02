@@ -129,17 +129,24 @@ function returnOrder(params, rma, number, items) {
   for (const item of items) {
     const known = lines.get(item.commerceItemId);
     lines.set(item.commerceItemId, {
-      commerceItemId: item.commerceItemId,
+      // The ERP knows the line by the customer's line reference: Commerce's item id.
+      customerLineReference: String(item.commerceItemId),
       qty: (known?.qty ?? 0) + item.qty,
       reason: known?.reason ?? item.reason,
     });
   }
   return {
-    commerceReturnId: String(rma.entity_id),
-    commerceReturnIncrementId: String(rma.increment_id),
+    // The customer's reference for the return, in the ERP's words: the return's id, the key of
+    // this app's order-returns record, which the translation module reads back as Commerce's
+    // return id (#src/ingestion/translate).
+    customerReturnReference: String(rma.entity_id),
     lines: [...lines.values()],
     orderNumber: number,
-    origin: originOf(COMMERCE_EVENTS.returnSaved, params),
+    origin: originOf(
+      COMMERCE_EVENTS.returnSaved,
+      params,
+      rma.increment_id ?? rma.entity_id,
+    ),
   };
 }
 

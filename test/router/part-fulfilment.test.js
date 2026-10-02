@@ -273,11 +273,11 @@ describe("Given Commerce ships or invoices lines of two ERPs' parts", () => {
     const [aParams, aNumber, aBody] = ship.mock.calls[0];
     expect(aParams.ERP_BASE_URL).toBe("https://a.example");
     expect(aNumber).toBe("A-100");
-    expect(aBody.items).toEqual([{ orderItemId: 1, qty: 3 }]);
+    expect(aBody.lines).toEqual([{ customerLineReference: "1", qty: 3 }]);
     const [bParams, bNumber, bBody] = ship.mock.calls[1];
     expect(bParams.ERP_BASE_URL).toBe("https://b.example");
     expect(bNumber).toBe("B-200");
-    expect(bBody.items).toEqual([{ orderItemId: 2, qty: 5 }]);
+    expect(bBody.lines).toEqual([{ customerLineReference: "2", qty: 5 }]);
   });
 
   // Live on Justrite 2026-10-02: Commerce's shipment event lists a configurable's child line
@@ -320,7 +320,9 @@ describe("Given Commerce ships or invoices lines of two ERPs' parts", () => {
       },
     );
     expect(ship).toHaveBeenCalledTimes(1);
-    expect(ship.mock.calls[0][2].items).toEqual([{ orderItemId: 2, qty: 5 }]);
+    expect(ship.mock.calls[0][2].lines).toEqual([
+      { customerLineReference: "2", qty: 5 },
+    ]);
   });
 
   test("Then an ERP that refuses the lines for good ends the delivery with its reason; one that is down is asked again", async () => {

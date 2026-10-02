@@ -51,8 +51,9 @@ describe("Given a product deleted in Commerce and two ERPs", () => {
     expect(calledAt()).toEqual(["https://b.example"]);
     expect(erp.deleteProduct).toHaveBeenCalledWith(expect.anything(), "SIGN1", {
       origin: {
-        event: "observer.catalog_product_delete_commit_after",
+        document: "product SIGN1",
         eventId: "evt-1",
+        system: "Adobe Commerce",
       },
     });
   });

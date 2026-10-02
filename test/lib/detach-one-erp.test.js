@@ -40,8 +40,10 @@ const companiesNow = () => ({
 
 /** Each ERP's order list, by its address. */
 const ORDERS = {
-  "https://contoso.example": [{ commerceOrderId: "21", creditStatus: "held" }],
-  "https://erp.example": [{ commerceOrderId: "11" }],
+  "https://contoso.example": [
+    { creditStatus: "held", purchaseOrderByCustomer: "0000021" },
+  ],
+  "https://erp.example": [{ purchaseOrderByCustomer: "0000011" }],
 };
 
 let companies;
@@ -52,6 +54,10 @@ beforeEach(async () => {
   companies = companiesNow();
   commerce = {
     clearExtOrderId: vi.fn(async () => ({})),
+    // The ERP lists the customer's order number (its contract version 16); Commerce finds the id.
+    findOrderByIncrementId: vi.fn(async (_p, number) => ({
+      entityId: Number(number),
+    })),
     getCompany: vi.fn(async (_p, id) => ({
       custom_attributes: companies[id],
       id,

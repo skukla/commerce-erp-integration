@@ -4,6 +4,10 @@ describe("Given detach", () => {
   test("Then it reverts the ledger and clears the ERP number on every ERP-numbered order", async () => {
     const commerce = {
       clearExtOrderId: vi.fn(async () => ({})),
+      // The ERP lists the customer's order number (its contract version 16); Commerce finds the id.
+      findOrderByIncrementId: vi.fn(async (_p, number) => ({
+        entityId: Number(number),
+      })),
       setCompanyCreditLimit: vi.fn(),
       setCompanyStatus: vi.fn(),
       unholdIfHeld: vi.fn(async () => true),
@@ -12,8 +16,8 @@ describe("Given detach", () => {
       listOrders: vi.fn(async () => ({
         data: {
           items: [
-            { commerceOrderId: "55", number: "0000001000" },
-            { commerceOrderId: null, number: "0000001001" },
+            { number: "0000001000", purchaseOrderByCustomer: "0000055" },
+            { number: "0000001001", purchaseOrderByCustomer: null },
           ],
         },
         ok: true,
@@ -38,6 +42,10 @@ describe("Given detach", () => {
   test("Then every order the ERP still holds is taken off hold, and a refusal is reported", async () => {
     const commerce = {
       clearExtOrderId: vi.fn(async () => ({})),
+      // The ERP lists the customer's order number (its contract version 16); Commerce finds the id.
+      findOrderByIncrementId: vi.fn(async (_p, number) => ({
+        entityId: Number(number),
+      })),
       unholdIfHeld: vi
         .fn()
         .mockResolvedValueOnce(true)
@@ -48,10 +56,10 @@ describe("Given detach", () => {
       listOrders: vi.fn(async () => ({
         data: {
           items: [
-            { commerceOrderId: "1", creditStatus: "held" },
-            { commerceOrderId: "2", creditStatus: "held" },
-            { commerceOrderId: "3", creditStatus: "held" },
-            { commerceOrderId: "4", creditStatus: "approved" },
+            { creditStatus: "held", purchaseOrderByCustomer: "000001" },
+            { creditStatus: "held", purchaseOrderByCustomer: "000002" },
+            { creditStatus: "held", purchaseOrderByCustomer: "000003" },
+            { creditStatus: "approved", purchaseOrderByCustomer: "000004" },
           ],
         },
         ok: true,
@@ -75,13 +83,22 @@ describe("Given detach", () => {
         .fn()
         .mockRejectedValueOnce(new Error("locked"))
         .mockResolvedValue({}),
+      // The ERP lists the customer's order number (its contract version 16); Commerce finds the id.
+      findOrderByIncrementId: vi.fn(async (_p, number) => ({
+        entityId: Number(number),
+      })),
       setCompanyCreditLimit: vi.fn(),
       setCompanyStatus: vi.fn(),
     };
     const erp = {
       listOrders: () =>
         Promise.resolve({
-          data: { items: [{ commerceOrderId: "1" }, { commerceOrderId: "2" }] },
+          data: {
+            items: [
+              { purchaseOrderByCustomer: "000001" },
+              { purchaseOrderByCustomer: "000002" },
+            ],
+          },
           ok: true,
           status: 200,
         }),
@@ -121,6 +138,10 @@ describe("Given detach", () => {
   test("Then it hands the ledger a way to put prices and stock back too", async () => {
     const commerce = {
       clearExtOrderId: vi.fn(async () => ({})),
+      // The ERP lists the customer's order number (its contract version 16); Commerce finds the id.
+      findOrderByIncrementId: vi.fn(async (_p, number) => ({
+        entityId: Number(number),
+      })),
       setCompanyCreditLimit: vi.fn(),
       setCompanyStatus: vi.fn(),
       setProductPrice: vi.fn(),

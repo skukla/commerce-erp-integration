@@ -10,8 +10,13 @@
  * source. Pure over the readers and writers it is handed, so it is tested without either system.
  */
 
+import { ORIGIN_SYSTEM } from "#lib/commerce-events";
+
 /** Names the move in the ERP's journal (there is no Commerce event behind it). */
-export const MOVE_ORIGIN = "moved between warehouses in Commerce Admin";
+export const MOVE_ORIGIN = {
+  document: "stock moved between warehouses",
+  system: ORIGIN_SYSTEM,
+};
 
 const SOURCE_CODE = /^[a-z0-9_-]{1,64}$/u;
 const PRODUCT_ID = /^\d{1,12}$/u;
@@ -105,7 +110,7 @@ export async function moveStock(params, request, deps) {
   for (const group of groups) {
     // biome-ignore lint/performance/noAwaitInLoops: one ERP at a time, few ERPs
     const answer = await deps.importStock(group.params, {
-      origin: { event: MOVE_ORIGIN },
+      origin: MOVE_ORIGIN,
       stock: group.stock,
     });
     if (!answer.ok) {

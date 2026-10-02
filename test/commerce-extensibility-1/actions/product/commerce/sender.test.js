@@ -18,9 +18,9 @@ describe("Given the product event chain", () => {
     const rows = transformData({
       value: { name: "Widget", price: "12.5", sku: "W1" },
     });
-    // The Commerce event rides along so the ERP's log can say what arrived.
+    // What arrived, in the ERP's words, rides along so the ERP's log can say so.
     expect(rows).toEqual({
-      origin: { event: "observer.catalog_product_save_commit_after" },
+      origin: { document: "product W1", system: "Adobe Commerce" },
       products: [{ listPrice: 12.5, name: "Widget", sku: "W1" }],
     });
     erp.importRecords.mockResolvedValue({ data: {}, ok: true, status: 200 });
