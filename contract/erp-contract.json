@@ -1,10 +1,10 @@
 {
   "name": "demo-erp",
-  "contractVersion": 14,
+  "contractVersion": 15,
   "description": "What the ERP promises its subscribers: the routes it serves, the shapes it accepts, and the events it publishes. The Commerce integration vendors this file and its tests fail when the two disagree.",
   "routes": {
     "health": ["GET"],
-    "settings": ["GET", "PATCH", "POST /maintenance", "DELETE /maintenance"],
+    "settings": ["GET", "PATCH", "GET /setup", "PATCH /setup", "POST /sales-organizations", "PATCH /sales-organizations/:code", "POST /maintenance", "DELETE /maintenance"],
     "admin": ["POST /wipe", "POST /import"],
     "products": ["GET", "GET /:sku", "PATCH /:sku", "DELETE /:sku", "POST /availability"],
     "partners": ["GET", "GET /:id", "PATCH /:id", "POST /:id/credit-check"],
@@ -93,7 +93,8 @@
     "request": ["commerceReturnId", "commerceReturnIncrementId", "orderNumber", "lines", "origin"],
     "requestLine": ["commerceItemId", "qty", "reason"],
     "response": ["number", "commerceReturnId", "commerceReturnIncrementId", "orderNumber", "partnerId", "status", "lines", "creditMemo", "history", "createdAt", "receivedAt"],
-    "responseLine": ["item", "sku", "qty", "price", "reason", "commerceItemId"],
+    "responseLine": ["item", "sku", "qty", "price", "reason", "reasonCode", "commerceItemId"],
+    "reasonNote": "version 15: each line carries reasonCode, one of the ERP's return reason codes (settings.sales.returnReasons). A reason whose words match a reason's description (any case) takes its code; a line with no reason takes the default reason's code and description; any other words are kept as sent, under the default code",
     "statuses": ["open", "received", "credited"]
   },
   "creditMemo": {
@@ -107,6 +108,18 @@
     "response": ["number", "createdAt", "partnerId", "orderNumber", "invoiceNumber", "amount", "currency", "reference"],
     "invoiceFields": ["openAmount", "paidAmount", "paymentStatus", "payments"],
     "paymentStatuses": ["open", "partly paid", "paid", "credited"]
+  },
+  "settings": {
+    "note": "version 15 (AB-59): the ERP's setup, its Settings page. GET settings/setup answers the four sections; PATCH settings/setup { company?, sales?, numberSeries? } changes one or more, every field checked before any is kept, and answers the setup; POST settings/sales-organizations { code, name, currency, websiteCode? } adds a sales organization (201) and PATCH settings/sales-organizations/:code { name?, currency?, websiteCode? } changes one (its code is fixed), each answering the setup. A refusal is a 400 whose errorMessage is the words to show. company: the seller on every invoice and the company code and currency health answers; a field never set falls back to the home website's Store Information, the name to the ERP's own. sales.defaultPaymentTerms (NET and a number of days) is taken by a customer the ERP creates and bills a customer with none; sales.creditWarnings decides what a new order's credit decision and POST partners/:id/credit-check check besides the credit block and the website account: creditLimit (the default, as before), overdue (open items past their due date: held with the reason Overdue balance), both, or none; sales.returnReasons codes return lines (returns.reasonNote). numberSeries: each document type's next number moves forward only, refused when lowered or past the series' end. salesOrganizations: the ERP's own, seeded from the first fill's structure while it has none and never overwritten by a fill; they name the sales organizations on the customer document, the invoice's seller block and health's structure.salesOrgs (which also carries each one's currency). The prices in force are still published per the sales organizations the fill's websites name. Wipe, maintenance and appearance are Demo Builder's and keep their routes (POST admin/wipe, POST and DELETE settings/maintenance, PATCH settings { appearance }); the ERP's screen no longer shows them",
+    "setup": ["company", "sales", "numberSeries", "salesOrganizations"],
+    "company": ["code", "name", "address", "taxId", "currency"],
+    "address": ["street", "city", "region", "postcode", "countryId"],
+    "sales": ["defaultPaymentTerms", "creditWarnings", "returnReasons", "defaultReturnReason"],
+    "creditWarnings": ["both", "creditLimit", "overdue", "none"],
+    "returnReason": ["code", "description"],
+    "numberSeriesRow": ["type", "starting", "next", "ending"],
+    "numberSeriesTypes": ["salesOrder", "shipment", "invoice", "contract", "creditMemo", "returnOrder", "payment"],
+    "salesOrganization": ["code", "name", "currency", "websiteCode"]
   },
   "events": {
     "be-observer.catalog_product_update": { "raisedBy": "product.price", "value": ["sku", "name", "price"] },
