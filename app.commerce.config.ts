@@ -517,6 +517,13 @@ export default defineConfig({
           },
           {
             description:
+              "The ERP posted a payment against an invoice of a sales order",
+            label: "ERP Order Payment Received",
+            name: "be-observer.sales_order_payment_create",
+            runtimeActions: ["order-backoffice/payment-received"],
+          },
+          {
+            description:
               "The goods of a return order are back in the ERP warehouse",
             label: "ERP Return Received",
             name: "be-observer.rma_status_update",
@@ -573,7 +580,7 @@ export default defineConfig({
     // version with every change to what this file registers, or the change never reaches
     // Commerce. "auto" runs the plan; the library marks it experimental.
     upgradeMode: "auto",
-    version: "0.12.0",
+    version: "0.13.0",
   },
   /*
    * The one synchronous webhook (AB-19, AB-20): as the order is placed, each owning ERP is

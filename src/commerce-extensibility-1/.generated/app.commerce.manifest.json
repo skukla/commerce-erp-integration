@@ -582,6 +582,14 @@
             ]
           },
           {
+            "description": "The ERP posted a payment against an invoice of a sales order",
+            "label": "ERP Order Payment Received",
+            "name": "be-observer.sales_order_payment_create",
+            "runtimeActions": [
+              "order-backoffice/payment-received"
+            ]
+          },
+          {
             "description": "The goods of a return order are back in the ERP warehouse",
             "label": "ERP Return Received",
             "name": "be-observer.rma_status_update",
@@ -636,7 +644,7 @@
     "displayName": "ERP Integration",
     "id": "commerce-erp-integration",
     "upgradeMode": "auto",
-    "version": "0.12.0"
+    "version": "0.13.0"
   },
   "webhooks": [
     {

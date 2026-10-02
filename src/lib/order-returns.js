@@ -8,8 +8,12 @@
  * - `order-credits-<order number>`: the ERP credit memos already made into Commerce credit
  *   memos, keyed `<ERP id>/<credit memo number>`, so a redelivered credit memo event credits
  *   nothing twice. Per order, not per return: an ERP can credit an invoice with no return.
- *   Its only writer is the credit memo handler, under the order's lock, so no other write can
- *   lose it — the parts record has writers that take no lock (router/part-outcomes.js).
+ *   Beside them, under `payments`, the ERP payments already applied (AB-26s,
+ *   router/payments.js), keyed `<ERP id>/<payment number>`: the same money story of the same
+ *   order, behind the same lock. Its only writers are the credit memo and payment handlers,
+ *   each reading the record whole and writing it back whole under the order's lock, so neither
+ *   loses the other's — the parts record has writers that take no lock
+ *   (router/part-outcomes.js).
  *
  * Every write to either record is made under the order's lock (lib/order-parts.js lockOrder).
  */

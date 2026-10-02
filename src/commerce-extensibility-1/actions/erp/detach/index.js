@@ -7,6 +7,7 @@ import AioLogger from "@adobe/aio-lib-core-logging";
 
 import * as commerce from "#lib/commerce";
 import * as tierPrices from "#lib/commerce-tier-prices";
+import * as balance from "#lib/company-balance";
 import { detach } from "#lib/detach";
 import { erp } from "#lib/erp";
 import { loadErps } from "#lib/erps";
@@ -70,6 +71,7 @@ async function main(params) {
     }
     const result = await detach(detachParams(params), {
       activity: { clearHistory, clearScheduledRuns, recordReset },
+      balance,
       commerce,
       erp,
       erps,

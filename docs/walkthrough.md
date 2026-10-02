@@ -298,15 +298,24 @@ One table per business concept. "Owner" is which side decides the field; the oth
 | Cancellation (with its reason) | Cancellation | Both |
 | Credit memo (against the invoice, or a return's) | Credit memo, offline, refunded to company credit on an order paid on account | ERP: each ERP credits only its own lines, once per ERP credit memo |
 | Return order (open · received · credited) | Return (Pending → Authorized → Received → Processed and Closed) | Commerce takes the request; each ERP takes its lines, receives and credits them |
+| Incoming payment against an invoice (open item: open · partly paid · paid) | On an order paid on account, the company's credit given back (Reimbursed in its credit history); a staff comment on the order either way | ERP: each payment crosses once, per ERP; a reset takes the credit back |
 
 One invoice per ERP part and one credit memo per ERP credit. An ERP that bills per delivery is
 a customization of the pair: `docs/partial-invoicing.md`.
 
 ### Payment / receivable
 
-Not connected yet: order to cash's payment leg is the next slice. The ERP will hold an open
-item per invoice, incoming payments and clearing; Commerce holds the invoice's capture and,
-for orders paid on account, the company's credit balance.
+Payments now cross from the ERP (AB-26s, contract version 14). The ERP holds an open item per
+invoice and the incoming payments that clear it, partial ones included; Commerce holds no
+receivable. When the ERP posts a payment, the integration writes on the order a staff comment
+"Paid in <ERP> (payment <number>)", and, when the order was paid on account, gives the company
+that amount back on its credit: Customers → Companies → the company, Company Credit, where the
+history row reads Reimbursed with the payment number as its purchase order. An order paid any
+other way (check / money order) changes no credit. Each ERP payment is applied once however
+often its event is delivered, and with two ERPs each pays back only its own invoice. The
+reimbursement is ledgered, so a demo reset takes it back. Posting a payment from the ERP's
+screen is a separate slice (S3); until it ships, the ERP's `POST invoices/:number/payments`
+route is the way in.
 
 ### Fulfilment source
 

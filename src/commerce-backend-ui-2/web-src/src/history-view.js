@@ -65,6 +65,7 @@ const KINDS = {
   invoiced: { label: "Invoice", opens: "order", type: "orders" },
   order: { label: "Order", opens: "trace", type: "orders" },
   "order-status": { label: "Order status", opens: "trace", type: "orders" },
+  payment: { label: "Payment", opens: "trace", type: "orders" },
   price: { label: "Price", opens: "product", type: "prices" },
   reset: { label: "Demo reset", opens: "reset", type: "reset" },
   return: { label: "Return received", opens: "trace", type: "orders" },

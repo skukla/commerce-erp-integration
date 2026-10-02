@@ -55,6 +55,10 @@ const DESCRIBE = {
     message: `order ${d.incrementId}: ${d.status}`,
     ref: d.incrementId,
   }),
+  payment: (d) => ({
+    message: `order ${d.incrementId}: paid (payment ${d.paymentNumber}, ${d.amount})`,
+    ref: d.incrementId,
+  }),
   price: (d) => ({ message: `SKU ${d.sku}: price ${d.price}`, ref: d.sku }),
   return: (d) => ({
     message: `order ${d.incrementId}: return order ${d.returnNumber} received`,
@@ -112,7 +116,7 @@ async function record(kind, params, ended) {
 /**
  * Wrap an ERP event handler so how each event ended is recorded.
  * @param {string} kind what the event changes: price, stock, order-status, shipment,
- *   invoice, cancel, credit, block, contract, credit-memo, return
+ *   invoice, cancel, credit, block, contract, credit-memo, return, payment
  * @param {(params: object) => Promise<object>} handler the action's own main
  * @returns {(params: object) => Promise<object>} the handler, recording as it answers
  */
@@ -139,6 +143,7 @@ export const HANDLER_ACTIONS = {
   "credit-memo": "order-backoffice/creditmemo-created",
   invoice: "order-backoffice/invoice-created",
   "order-status": "order-backoffice/updated",
+  payment: "order-backoffice/payment-received",
   price: "product-backoffice/updated",
   return: "order-backoffice/return-updated",
   shipment: "order-backoffice/shipment-created",

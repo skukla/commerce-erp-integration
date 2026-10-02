@@ -1,7 +1,8 @@
 /*
  * Undo what this integration wrote onto Commerce: the company credit limits and blocks,
  * the product names, prices and stock the ERP decided, and the contract prices it wrote into
- * companies' shared catalogs as tier prices (all from the ledger), plus the ERP
+ * companies' shared catalogs as tier prices, and the company credit an ERP payment gave back
+ * (all from the ledger), plus the ERP
  * order numbers on orders (from the ERP's own order list). Reset runs it before wiping
  * the ERP; removing the integration runs it before the uninstall.
  *
@@ -22,15 +23,24 @@ import { revertErp } from "#lib/detach-erp";
 /**
  * The ledger's writers: one per thing the ERP can change on Commerce (lib/ledger.js).
  * @param {object} params action params
- * @param {object} deps `{ commerce, tierPrices }`
+ * @param {object} deps `{ balance, commerce, tierPrices }`
  */
-function ledgerWriters(params, { commerce, tierPrices }) {
+function ledgerWriters(params, { balance, commerce, tierPrices }) {
   return {
     creditLimit: (companyId, creditId, before) =>
       commerce.setCompanyCreditLimit(params, creditId, companyId, before),
     customAttributes: (companyId, before) =>
       commerce.setCompanyCustomAttributes(params, companyId, before),
     name: (sku, before) => commerce.setProductName(params, sku, before),
+    // A payment gave the company credit back (router/payments.js): take the same amount back.
+    payment: (entry) =>
+      balance.decreaseCompanyBalance(params, entry.creditId, {
+        comment: `Demo reset: payment ${entry.paymentNumber} taken back`,
+        currency: entry.currency,
+        orderIncrement: entry.incrementId,
+        purchaseOrder: entry.paymentNumber,
+        value: entry.after,
+      }),
     price: (sku, before) => commerce.setProductPrice(params, sku, before),
     // Nothing writes a company status any more (an ERP's block holds its orders instead,
     // owner 2026-09-28), but installs from before that change hold ledger entries for a
@@ -53,7 +63,7 @@ function ledgerWriters(params, { commerce, tierPrices }) {
  * is marked closed before the first Commerce write, and the answer carries `closed`.
  *
  * @param {object} params action params; `erp` the one ERP to undo; `closeOrders` true to close
- * @param {object} deps `{ erps?, commerce: { clearExtOrderId, unholdIfHeld, getCompany, setCompanyCreditLimit, setCompanyCustomAttributes, setCompanyStatus, setProductName, setProductPrice, setStock, findOrderByIncrementId, orders: { get, cancel, comment } }, erp: { listOrders }, ledger, tierPrices: { revertTierPrice }, orderParts?, today? }`
+ * @param {object} deps `{ erps?, commerce: { clearExtOrderId, unholdIfHeld, getCompany, setCompanyCreditLimit, setCompanyCustomAttributes, setCompanyStatus, setProductName, setProductPrice, setStock, findOrderByIncrementId, orders: { get, cancel, comment } }, erp: { listOrders }, ledger, tierPrices: { revertTierPrice }, balance: { decreaseCompanyBalance }, orderParts?, today? }`
  * @returns {Promise<{ erp?: string, reverted: object, orders: { cleared: number, failed: object[] }, holds: { released: number, failed: object[] }, closed?: object }>}
  */
 export async function detach(params, deps) {

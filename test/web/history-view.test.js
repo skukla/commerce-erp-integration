@@ -219,6 +219,15 @@ describe("Given an update from an ERP", () => {
       { kind: "trace", ref: "5000000002" },
     ],
     [
+      "payment",
+      "5000000002",
+      "order 5000000002: paid (payment 7000000001, 42.5)",
+      "Order 5000000002: paid (payment 7000000001, 42.5)",
+      "orders",
+      "Payment",
+      { kind: "trace", ref: "5000000002" },
+    ],
+    [
       "return",
       "5000000002",
       "order 5000000002: return order 8000000001 received",

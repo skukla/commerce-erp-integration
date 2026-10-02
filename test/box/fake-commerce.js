@@ -15,6 +15,7 @@ export const COMPANY_STATUS = {
   REJECTED: 2,
 };
 
+import { createFakeBalance } from "./fake-commerce-balance.js";
 import { createFakeReturns } from "./fake-commerce-returns.js";
 
 const clone = (v) => JSON.parse(JSON.stringify(v));
@@ -404,6 +405,8 @@ export function createFakeCommerce() {
 
   // Returns and credit memos (fake-commerce-returns.js), over this store's database.
   const returns = createFakeReturns({ db: () => db, order, record });
+  // A company's credit balance, moved by the payment leg (fake-commerce-balance.js).
+  const balance = createFakeBalance({ db: () => db, record });
 
   const orderClient = {
     ...returns.client,
@@ -595,6 +598,7 @@ export function createFakeCommerce() {
       });
       return shipmentId;
     },
+    balance,
     before,
     get db() {
       return db;

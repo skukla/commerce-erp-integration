@@ -1,6 +1,6 @@
 {
   "name": "demo-erp",
-  "contractVersion": 13,
+  "contractVersion": 14,
   "description": "What the ERP promises its subscribers: the routes it serves, the shapes it accepts, and the events it publishes. The Commerce integration vendors this file and its tests fail when the two disagree.",
   "routes": {
     "health": ["GET"],
@@ -14,7 +14,8 @@
     "returns": ["GET", "GET /:number", "POST", "POST /:number/receive", "POST /:number/credit-memo"],
     "credit-memos": ["GET", "GET /:number"],
     "shipments": ["GET", "GET /:number"],
-    "invoices": ["GET", "GET /:number"],
+    "invoices": ["GET", "GET /:number", "POST /:number/payments"],
+    "payments": ["GET", "GET /:number"],
     "events": ["GET", "POST /retry", "POST /requeue"],
     "search": ["GET"]
   },
@@ -100,6 +101,13 @@
     "response": ["number", "createdAt", "orderNumber", "invoiceNumber", "returnNumber", "lines", "net", "tax", "total"],
     "line": ["item", "sku", "qty", "price", "amount", "commerceItemId"]
   },
+  "payments": {
+    "note": "version 14 (AB-26s, payment-leg-design.md): an invoice is an OPEN ITEM until paid. POST invoices/:number/payments { amount, reference? } posts an incoming payment against it (Business Central's cash receipt applied to the invoice; SAP's incoming payment clearing the open item): amount is more than 0 and at most the invoice's open amount, so a partial payment leaves the rest open. A credit memo against the invoice lowers its open amount too. Each payment is a document numbered from 7000000001 and raises payment.posted. A customer's credit exposure is its open orders plus its open items (owner, 2026-09-27). A payment cannot be undone in the ERP.",
+    "request": ["amount", "reference"],
+    "response": ["number", "createdAt", "partnerId", "orderNumber", "invoiceNumber", "amount", "currency", "reference"],
+    "invoiceFields": ["openAmount", "paidAmount", "paymentStatus", "payments"],
+    "paymentStatuses": ["open", "partly paid", "paid", "credited"]
+  },
   "events": {
     "be-observer.catalog_product_update": { "raisedBy": "product.price", "value": ["sku", "name", "price"] },
     "be-observer.catalog_stock_update": { "raisedBy": "product.stock", "valueIsArray": true, "value": ["sku", "source", "quantity", "outOfStock"] },
@@ -110,6 +118,7 @@
     "be-observer.sales_order_cancel": { "raisedBy": "order.canceled", "value": ["id", "orderId", "incrementId", "erpNumber", "status", "items", "notifyCustomer", "reason"], "note": "reason is one of the ERP's own cancellation reasons, for the Commerce order comment" },
     "be-observer.sales_order_creditmemo_create": { "raisedBy": "creditmemo.created", "value": ["id", "orderId", "incrementId", "erpNumber", "creditMemoNumber", "returnNumber", "commerceReturnId", "items", "total", "notifyCustomer"], "note": "version 13: items are the CREDITED lines only (orderEventItem); returnNumber and commerceReturnId name the return it credits, or are null for an invoice credited without a return; total is the credit memo's total" },
     "be-observer.rma_status_update": { "raisedBy": "return.received", "value": ["commerceReturnId", "returnNumber", "id", "orderId", "incrementId", "erpNumber", "status", "items"], "note": "version 13: the goods of one ERP's return order are back (status received); items are the received lines (orderEventItem)" },
+    "be-observer.sales_order_payment_create": { "raisedBy": "payment.posted", "value": ["id", "orderId", "incrementId", "erpNumber", "paymentNumber", "invoiceNumber", "amount", "currency", "partnerId", "reference"], "note": "version 14: an incoming payment the ERP posted against one invoice of this order; amount is that payment only (a partial payment raises one event per payment)" },
     "be-observer.company_credit_update": { "raisedBy": "partner.creditLimit", "value": ["partnerId", "creditLimit"] },
     "be-observer.company_status_update": { "raisedBy": "partner.blocked", "value": ["partnerId", "blocked"] },
     "be-observer.company_contract_update": { "raisedBy": "contract.changed", "value": ["partnerId", "lines"], "note": "version 6: raised whenever a change to a price list moves a customer's prices in force today. lines is that customer's whole set (contracts.priceLine or contracts.discountLine each), so a replay is harmless; an empty list means no list price is left. version 7: a price group's list raises one for every member customer whose prices moved, and moving a customer into or out of a price group raises one for that customer. A list or line starting or ending with the calendar raises nothing: read GET contracts/in-force to follow dates. version 9: lines are the prices in force as contracts.inForceNote says, pricing conditions and the maximum discount included, and the event is also raised for each customer whose set moved when a pricing condition is created, changed or deleted (one naming no customer, such as a store-wide maximum discount, can move any customer) and when a product's list price changes on the ERP (a fixed price the maximum discount holds up moves with it). An empty list means the customer pays list price for everything. version 12: a customer with a sales-organization-scoped condition is sent one whole set per sales organization, each line tagged salesOrg (contracts.lineNote), so the subscriber writes each set to that organization's websites; the event is raised when any organization's set moved" }

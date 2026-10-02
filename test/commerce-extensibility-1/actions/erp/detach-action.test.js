@@ -14,6 +14,7 @@ vi.mock("#lib/detach", () => ({
 }));
 vi.mock("#lib/erps", () => ({ loadErps: vi.fn() }));
 
+import * as companyBalance from "#lib/company-balance";
 import { detach } from "#lib/detach";
 import { loadErps } from "#lib/erps";
 import * as orderParts from "#lib/order-parts";
@@ -55,6 +56,14 @@ describe("Given the detach action", () => {
     expect(res.statusCode).toBe(200);
     expect(res.body).not.toHaveProperty("erp");
     expect(detach).toHaveBeenCalledWith({}, expect.anything());
+  });
+
+  test("Then detach is handed the company balance writer a payment's revert needs (AB-26s)", async () => {
+    await action.main({});
+    expect(detach).toHaveBeenCalledWith(
+      {},
+      expect.objectContaining({ balance: companyBalance }),
+    );
   });
 });
 

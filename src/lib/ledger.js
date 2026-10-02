@@ -1,7 +1,8 @@
 /*
  * The ledger of what this integration changed ON COMMERCE: the credit limits and blocks
  * the ERP decided on companies, the prices and stock it decided on products, and the
- * contract prices it wrote into companies' shared catalogs (tier prices).
+ * contract prices it wrote into companies' shared catalogs (tier prices), and the company
+ * credit a payment posted in the ERP gave back (payments, AB-26s).
  *
  * Commerce is the permanent system in a demo and the ERP is transient (owner,
  * 2026-09-23), so anything the ERP writes into Commerce that Commerce can undo must be
@@ -176,6 +177,41 @@ export function recordProductWrite({
   });
 }
 
+/**
+ * Record a payment the ERP posted that gave a company credit back (AB-26s): a MOVE of the
+ * company's balance, not a value, so there is no `before` to restore. One entry per ERP
+ * payment (`<erp id>/<payment number>`), holding what the revert takes back: the amount, its
+ * currency, the credit it went to, and the order and payment it names.
+ *
+ * @param {object} write `{ erpId, paymentNumber, incrementId, companyId, creditId, amount,
+ *   currency }`
+ */
+export function recordPaymentWrite({
+  erpId,
+  paymentNumber,
+  incrementId,
+  companyId,
+  creditId,
+  amount,
+  currency,
+}) {
+  return recordWrite({
+    after: amount,
+    before: null,
+    erpId,
+    extra: {
+      companyId: String(companyId),
+      creditId,
+      currency,
+      incrementId: String(incrementId),
+      paymentNumber: String(paymentNumber),
+    },
+    field: "balance",
+    id: `${erpId}/${paymentNumber}`,
+    kind: "payment",
+  });
+}
+
 /** The row a tier price entry stands for: one per SKU, customer group, quantity, website. */
 const sameTierRow = (a, b) =>
   a.kind === "tierPrice" &&
@@ -247,6 +283,9 @@ function revertOne(entry, writers) {
   if (entry.kind === "tierPrice") {
     return writers.tierPrice(entry);
   }
+  if (entry.kind === "payment") {
+    return writers.payment(entry);
+  }
   if (entry.kind === "product") {
     if (entry.field === "stock") {
       return writers.stock(entry.id, entry.source, entry.before);
@@ -302,7 +341,8 @@ function keep(entries) {
  *   `{ creditLimit(companyId, creditId, before), status(companyId, before),
  *      customAttributes(companyId, before) (the per-ERP credit attributes),
  *      name(sku, before), price(sku, before), stock(sku, source, before),
- *      tierPrice(entry) (delete the row written, or put back the price it held) }`
+ *      tierPrice(entry) (delete the row written, or put back the price it held),
+ *      payment(entry) (take back the credit a payment gave a company) }`
  * @param {string} [erpId] the one ERP to undo; every ERP when absent
  * @returns {Promise<{ reverted: number, failed: {id, field, error}[] }>}
  */
