@@ -2,7 +2,9 @@
  * The integration moves a Commerce return's statuses as each ERP takes its lines (returns-design
  * r1; live test R-T2 answered yes 2026-10-02): authorized when an ERP accepts its return order,
  * received when its goods are back, approved when it credits them. The return is read first and
- * written back whole, because a write without its increment_id renumbers it.
+ * written back with its header whole, because a write without its increment_id renumbers it,
+ * and with only the items this write moves, because Commerce refuses to save an item that is
+ * already approved ("Could not save the RMA entity", live on Justrite 2026-10-02).
  */
 import {
   moveReturnItems,
@@ -241,10 +243,49 @@ describe("Given the return is moved in Commerce", () => {
     expect(getReturn).toHaveBeenCalledExactlyOnceWith({ p: 1 }, 4);
     const [[params, id, rma]] = updateReturn.mock.calls;
     expect([params, id]).toEqual([{ p: 1 }, 4]);
-    expect(rma).toEqual(
-      nextReturn(aReturn(), new Map([[11, 2]]), "authorized", ROUTED),
+    const whole = nextReturn(
+      aReturn(),
+      new Map([[11, 2]]),
+      "authorized",
+      ROUTED,
     );
+    expect(rma).toEqual({ ...whole, items: [whole.items[0]] });
     expect(rma.increment_id).toBe("000000004");
+  });
+
+  test("Then an item already approved is left out of the write, and the return still closes", async () => {
+    // Live on Justrite 2026-10-02 (return 3): one ERP's line approved, the other's received;
+    // the second ERP's credit wrote both items and Commerce answered 400 "Could not save the
+    // RMA entity". The same write with only the moving item closed the return.
+    const halfApproved = aReturn({
+      items: aReturn().items.map((item) =>
+        item.entity_id === 12
+          ? {
+              ...item,
+              qty_approved: 1,
+              qty_authorized: 1,
+              qty_returned: 1,
+              status: "approved",
+            }
+          : { ...item, qty_authorized: 2, qty_returned: 2, status: "received" },
+      ),
+      status: "received",
+    });
+    const getReturn = vi.fn(async () => halfApproved);
+    const updateReturn = vi.fn(async () => ({}));
+
+    await moveReturnItems({}, 4, {
+      deps: { getReturn, updateReturn },
+      moves: new Map([[11, 2]]),
+      routed: ROUTED,
+      stage: "approved",
+    });
+
+    const [[, , rma]] = updateReturn.mock.calls;
+    expect(rma.items.map((item) => [item.entity_id, item.status])).toEqual([
+      [11, "approved"],
+    ]);
+    expect(rma.status).toBe("processed_closed");
   });
 
   test("Then nothing is written when nothing would change", async () => {

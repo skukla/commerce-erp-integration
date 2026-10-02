@@ -93,9 +93,12 @@ export function createFakeReturns({ db, order, record }) {
       if (!next.increment_id) {
         next.increment_id = String(nextId()).padStart(9, "0");
       }
+      // Commerce keeps the items a write leaves out (Justrite, 2026-10-02).
+      const sent = new Map(next.items.map((i) => [i.entity_id, i]));
       db().returns.set(Number(returnId), {
         ...next,
         comments: before.comments,
+        items: before.items.map((i) => sent.get(i.entity_id) ?? i),
       });
       record("updateReturn", {
         items: next.items.map((i) => [i.entity_id, i.status]),

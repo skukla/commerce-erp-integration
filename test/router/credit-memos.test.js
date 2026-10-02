@@ -352,7 +352,8 @@ describe("Given the credit memo names a return", () => {
     expect(id).toBe(4);
     expect(rma.increment_id).toBe("000000004");
     expect(rma.items[0]).toMatchObject({ qty_approved: 2, status: "approved" });
-    expect(rma.items[1].status).toBe("received");
+    // Only the item this credit moves is written; Commerce keeps the other as it is.
+    expect(rma.items).toHaveLength(1);
     // Justrite has not credited yet: the return stays received.
     expect(rma.status).toBe("received");
   });

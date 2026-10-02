@@ -142,7 +142,8 @@ describe("Given one of two ERPs received its goods", () => {
     expect(id).toBe(4);
     expect(rma.increment_id).toBe("000000004");
     expect(rma.items[0]).toMatchObject({ qty_returned: 2, status: "received" });
-    expect(rma.items[1].status).toBe("authorized");
+    // Only the item received is written; Commerce keeps the other, still authorized.
+    expect(rma.items).toHaveLength(1);
     expect(rma.status).toBe("received_on_item");
   });
 

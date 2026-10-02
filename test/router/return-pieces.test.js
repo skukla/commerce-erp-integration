@@ -116,8 +116,13 @@ function collaborators(over = {}) {
     // Commerce's reason labels by option value (GET returnsAttributeMetadata).
     reasonLabels: vi.fn(async () => new Map([["8", "Wrong Size"]])),
     settingsFor: async () => ({}),
+    // Commerce keeps the items a write leaves out (Justrite, 2026-10-02): merge by entity_id.
     updateReturn: vi.fn((_p, _id, next) => {
-      rma = structuredClone(next);
+      const sent = new Map(next.items.map((i) => [i.entity_id, i]));
+      rma = structuredClone({
+        ...next,
+        items: rma.items.map((i) => sent.get(i.entity_id) ?? i),
+      });
       return Promise.resolve({});
     }),
     wait: async () => undefined,

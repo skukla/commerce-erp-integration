@@ -129,7 +129,26 @@ export function nextReturn(rma, moves, stage, routed) {
 }
 
 /**
- * Move some of a return's items to a stage in Commerce: read the return, write it back whole.
+ * The write for a return moved to `next`: its header whole (a write without its increment_id
+ * renumbers it) and only the items this move changed. Commerce refuses to save an item that is
+ * already approved, even unchanged ("Could not save the RMA entity", Justrite 2026-10-02, the
+ * second ERP's credit on a two-ERP return); items left out keep what they hold.
+ */
+function writeOf(rma, next) {
+  const before = new Map(
+    asList(rma.items).map((i) => [Number(i.entity_id), i]),
+  );
+  return {
+    ...next,
+    items: next.items.filter(
+      (item) => item !== before.get(Number(item.entity_id)),
+    ),
+  };
+}
+
+/**
+ * Move some of a return's items to a stage in Commerce: read the return, write back its header
+ * and the items that moved.
  * Callers hold the order's lock (lib/order-parts.js lockOrder).
  * @param {object} params action params
  * @param {number} returnId the return's entity id
@@ -152,6 +171,10 @@ export async function moveReturnItems(params, returnId, change) {
   if (!next) {
     return false;
   }
-  await (deps.updateReturn ?? updateReturn)(params, returnId, next);
+  await (deps.updateReturn ?? updateReturn)(
+    params,
+    returnId,
+    writeOf(rma, next),
+  );
   return true;
 }
