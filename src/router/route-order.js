@@ -53,6 +53,10 @@ export async function splitLines(params, order, erps, deps) {
   const unrouted = [];
   const conflicts = [];
   const ownerOfItem = new Map();
+  // A line's key: its item_id, or its place in the order when it has none. Before Commerce
+  // saves the order (the placement check) no line has an id, and keying them all by the same
+  // missing one sent every line to the last line's ERP (Justrite, 2026-10-02, AB-55).
+  const keyOf = (line) => line.item_id ?? `line-${lines.indexOf(line)}`;
   for (const line of lines.filter((l) => !l.parent_item_id && l.sku)) {
     // biome-ignore lint/performance/noAwaitInLoops: a few lines, in order
     const owners = await ownersOf(params, line.sku, erps, deps.ownsSku);
@@ -61,11 +65,11 @@ export async function splitLines(params, order, erps, deps) {
     } else if (owners.length > 1) {
       conflicts.push({ erps: owners, sku: line.sku });
     } else {
-      ownerOfItem.set(line.item_id, owners[0]);
+      ownerOfItem.set(keyOf(line), owners[0]);
     }
   }
   for (const line of lines) {
-    const owner = ownerOfItem.get(line.parent_item_id ?? line.item_id);
+    const owner = ownerOfItem.get(line.parent_item_id ?? keyOf(line));
     if (owner) {
       byErp.set(owner, [...(byErp.get(owner) ?? []), line]);
     }

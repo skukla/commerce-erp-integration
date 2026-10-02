@@ -6,7 +6,7 @@
  */
 import { orderPartsKey, resetOrderPartsClient } from "#lib/order-parts";
 import { OWNS, ownsSku } from "#lib/structure";
-import { routeOrder } from "#router/route-order";
+import { routeOrder, splitLines } from "#router/route-order";
 
 /** Two ERPs of the demo kind, each owning the products whose erp_owner names it. */
 const ERPS = [
@@ -182,5 +182,31 @@ describe("Given lines no ERP or two ERPs claim", () => {
       { erps: ["brand-a", "brand-b"], sku: "CAB2" },
     ]);
     expect(result.outcome).toBe("dropped");
+  });
+});
+
+describe("Given an order not yet saved (the placement check's payload)", () => {
+  // Before Commerce saves the order its lines carry no item_id (measured 2026-10-02 on
+  // Justrite: the placement check sent a Justrite cabinet AND an Accuform sign to Accuform
+  // alone, because every line keyed to the same missing id and the last owner won).
+  const UNSAVED = {
+    items: [
+      { base_price: 100, qty_ordered: 1, sku: "CAB1" },
+      { base_price: 50, qty_ordered: 2, sku: "SIGN1" },
+    ],
+  };
+  const readOwner = (p, sku, settings) =>
+    ownsSku(p, sku, settings, {
+      productAttributes: async (_p, s) => ({ erp_owner: OWNER[s] }),
+      sourceCodesOf: async () => [],
+    });
+
+  test("Then each line still goes to the ERP that owns it", async () => {
+    const { byErp } = await splitLines({}, UNSAVED, ERPS, {
+      ownsSku: readOwner,
+    });
+    expect([...byErp.keys()]).toEqual(["brand-a", "brand-b"]);
+    expect(byErp.get("brand-a").map((l) => l.sku)).toEqual(["CAB1"]);
+    expect(byErp.get("brand-b").map((l) => l.sku)).toEqual(["SIGN1"]);
   });
 });
