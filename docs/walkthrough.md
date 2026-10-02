@@ -296,7 +296,8 @@ One table per business concept. "Owner" is which side decides the field; the oth
 | Invoice | Invoice | Both |
 | Credit hold | Hold | Both: an ERP hold puts the order On Hold; a Commerce hold holds the ERP order |
 | Cancellation (with its reason) | Cancellation | Both |
-| — | Credit memo | Commerce; not mirrored yet |
+| Credit memo (against the invoice, or a return's) | Credit memo, offline, refunded to company credit on an order paid on account | ERP: each ERP credits only its own lines, once per ERP credit memo |
+| Return order (open · received · credited) | Return (Pending → Authorized → Received → Processed and Closed) | Commerce takes the request; each ERP takes its lines, receives and credits them |
 
 ### Payment / receivable
 
@@ -333,6 +334,43 @@ part to that ERP pair's own runtime actions, which raise that pair's own events 
 ERP. The pairs stop listening to Commerce for new orders and know nothing of one another,
 so adding an ERP is adding a pair and a rule, and the split logic sits in one replaceable
 place. Each pair writes its number into its own custom order attribute on the Commerce order.
+
+## One order, two ERPs, from cart to return (proved live on Justrite, 2026-10-02)
+
+The journey the order-to-return loop built and ran end to end (order 5000000005: placed,
+split, shipped, invoiced, returned and credited in under two minutes, every step below
+observed). Before a showing: the store's setup guide is done, both ERPs are filled ("Fill
+from Commerce" on the integration card), and a buyer of a priced company can sign in. Open
+each ERP's screen from its card in Demo Builder's Integrations view (**Open**); keep Commerce
+Admin open beside them.
+
+| # | Do | Where | What to show |
+|---|---|---|---|
+| 1 | Sign in as a company buyer (Justrite: Dana Whitfield, Northgate) and put one product of each brand in one cart: a Justrite shadow board and two AccuformNMC signs | Storefront | Each line at the company's contract price (Northgate: Justrite less 10%, AccuformNMC less 15%) |
+| 2 | Check out with Payment on Account | Storefront | The order places in seconds: as it is placed, each owning ERP is asked whether the company can carry its part (credit) and when it can ship (availability) |
+| 3 | Open the order | Commerce: Sales → Orders | One order, Pending. A comment per ERP names the sales order it became |
+| 4 | Open Sales Orders on each ERP | Each ERP: Sales Orders (`#orders`) | Justrite ERP holds only the shadow board, Accuform ERP only the signs, each as its own sales order for the same customer |
+| 5 | In each ERP, open its order, **Confirm**, then create and **Post** a shipment | Each ERP: the sales order, then Shipments | The ERP ships from its own warehouse |
+| 6 | Refresh the order | Commerce: Sales → Shipments and Invoices | Two shipments, each from that brand's inventory source (justrite, accuform), and two invoices, one per ERP (the shipping charge is on the first). The order reads Complete |
+| 7 | Show the money | Commerce: Customers → Companies → Northgate, Company Credit | The order's total is on the company's credit balance |
+| 8 | Enter one return for both lines (reason, condition, Refund) | Commerce: Sales → Returns, New (or the order's Returns tab) | One return, Pending. Returns are switched OFF for shoppers on Justrite (RMA Settings, "Enable RMA on Storefront"), so staff enter it here; with that setting on, the buyer asks for it on the storefront |
+| 9 | Refresh the return | Commerce: the return | Within seconds: Authorized, with a comment per ERP ("Sent to Justrite ERP as return order …") |
+| 10 | Open Returns on each ERP | Each ERP: Returns (`#returns`; Home cues "Returns to receive") | Each ERP holds a return order of only its line, against its own sales order, with the buyer's reason in words |
+| 11 | In each ERP, open the return order and **Receive** | Each ERP: the return order | The goods are back in that ERP's warehouse; the Commerce return reads Received, with a "Goods received by …" comment per ERP |
+| 12 | In each ERP, **Post credit memo** (the dialog says it cannot be undone) | Each ERP: the return order, then Credit Memos (`#creditMemos`) | The ERP's credit memo, linked from the return order and the invoice |
+| 13 | Refresh | Commerce: Sales → Credit Memos; the return; the company's credit | One Commerce credit memo per ERP, each only that brand's lines; the return Processed and Closed; the company's credit balance back by the goods (shipping is not refunded) |
+| 14 | Follow the order end to end | Commerce Admin: Apps → the integration → Activity (follow one order); either ERP's Event Journal (`#events`) | Every crossing, both ways, with its time |
+
+**A credit memo without a return.** An ERP can credit its invoice in full: on its invoice
+(`#invoices`, the invoice) press **Post credit memo**. Commerce gets a credit memo of only
+that ERP's lines (proved on order 5000000003: the Accuform ERP's invoice credited, the
+Justrite line untouched). An invoice with an open return refuses it, so a return is never left
+uncreditable.
+
+**What cannot be undone, and what to say about it.** A Commerce credit memo cannot be deleted,
+and neither can a return over the API (retire one by closing it). The ERPs' Reset ERPs clears
+the ERP side; Commerce keeps the credited orders. Rehearse on test orders, and expect the
+company's credit balance to carry each rehearsal's orders less their credits.
 
 ## What this walk-through has not proved live
 
