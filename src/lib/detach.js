@@ -180,30 +180,34 @@ async function listedOrders(params, deps, erpId, orders) {
  * The ERP keeps the customer's order number, not Commerce's id (its contract version 16): each
  * order's Commerce id is found by that number, once per number. One Commerce does not have is
  * left out; one that cannot be read is reported and the rest go on.
+ *
+ * The reads run together: detach is a web action with a 60-second answer window, and one read at
+ * a time over a store's worth of test orders outran it (Justrite, 2026-10-02: a 504 and a reset
+ * stopped before its wipe).
  */
 async function withCommerceIds(params, items, commerce, orders) {
-  const ids = new Map();
-  const found = [];
-  for (const order of items) {
-    const number = order.purchaseOrderByCustomer;
-    if (!number) {
-      continue;
-    }
-    if (!ids.has(number)) {
-      try {
-        // biome-ignore lint/performance/noAwaitInLoops: one read per order number, in order
-        const hit = await commerce.findOrderByIncrementId(params, number);
-        ids.set(number, hit ? String(hit.entityId) : null);
-      } catch (error) {
-        ids.set(number, null);
-        orders.failed.push({ error: error.message, orderId: number });
-      }
-    }
-    if (ids.get(number)) {
-      found.push({ ...order, commerceOrderId: ids.get(number) });
-    }
-  }
-  return found;
+  const numbers = [
+    ...new Set(items.map((order) => order.purchaseOrderByCustomer)),
+  ].filter(Boolean);
+  const ids = new Map(
+    await Promise.all(
+      numbers.map(async (number) => {
+        try {
+          const hit = await commerce.findOrderByIncrementId(params, number);
+          return [number, hit ? String(hit.entityId) : null];
+        } catch (error) {
+          orders.failed.push({ error: error.message, orderId: number });
+          return [number, null];
+        }
+      }),
+    ),
+  );
+  return items
+    .filter((order) => ids.get(order.purchaseOrderByCustomer))
+    .map((order) => ({
+      ...order,
+      commerceOrderId: ids.get(order.purchaseOrderByCustomer),
+    }));
 }
 
 /**

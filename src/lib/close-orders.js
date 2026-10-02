@@ -75,33 +75,38 @@ export const hasResetNote = (order) =>
 async function readTargets(params, listedIds, { commerce, orderParts }) {
   const ids = new Set(listedIds.map(String));
   const failed = [];
+  // The reads run together: this runs inside detach, a web action with a 60-second answer
+  // window, and one read at a time over a day of test orders outran it (Justrite, 2026-10-02).
+  const numbers = await orderParts.listOrderPartsIds();
+  const hits = await Promise.all(
+    numbers.map((incrementId) =>
+      commerce.findOrderByIncrementId(params, incrementId),
+    ),
+  );
   let stale = 0;
-  for (const incrementId of await orderParts.listOrderPartsIds()) {
-    // biome-ignore lint/performance/noAwaitInLoops: one order at a time, few orders
-    const found = await commerce.findOrderByIncrementId(params, incrementId);
+  for (const [index, found] of hits.entries()) {
     if (found) {
       ids.add(String(found.entityId));
-    } else if (await orderParts.deleteOrderParts(incrementId)) {
+      // biome-ignore lint/performance/noAwaitInLoops: a rare drop of a stale record
+    } else if (await orderParts.deleteOrderParts(numbers[index])) {
       // A record for an order Commerce does not have: nothing to close, only the record to drop.
       stale += 1;
     }
   }
-  const orders = [];
-  for (const id of ids) {
-    try {
-      // biome-ignore lint/performance/noAwaitInLoops: one order at a time, few orders
-      const order = await commerce.orders.get(params, id);
-      if (order) {
-        orders.push(order);
+  const read = await Promise.all(
+    [...ids].map(async (id) => {
+      try {
+        return await commerce.orders.get(params, id);
+      } catch (error) {
+        failed.push({
+          error: `order ${id}: not read from Commerce: ${error.message}`,
+          orderId: id,
+        });
+        return null;
       }
-    } catch (error) {
-      failed.push({
-        error: `order ${id}: not read from Commerce: ${error.message}`,
-        orderId: id,
-      });
-    }
-  }
-  return { failed, orders, stale };
+    }),
+  );
+  return { failed, orders: read.filter(Boolean), stale };
 }
 
 /**
