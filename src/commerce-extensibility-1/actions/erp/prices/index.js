@@ -12,7 +12,7 @@ import { readPayload } from "#lib/webhook";
  * POST erp/prices `{ erpId? }`: publish every customer's ERP contract prices in force into
  * the companies' shared catalogs as tier prices (lib/publish-prices.js), for one ERP or
  * every ERP. Demo Builder calls it after a fill; it may be run again at any time, and
- * erp/prices-scheduled runs the same publish every hour so price dates take effect. Answers
+ * erp/scheduled runs the same publish on its schedule so price dates take effect. Answers
  * `{ erps, written, removed, unchanged, skipped: [{ erpId, partnerId, reason }], failed }`.
  */
 async function main(params) {

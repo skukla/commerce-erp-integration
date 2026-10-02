@@ -66,7 +66,10 @@ describe("Given returns and credit memos", () => {
   });
 
   test("Then the app's version is bumped past the store's 0.10.0, so the upgrade subscribes the new events", () => {
-    expect(config.metadata.version).toBe("0.11.0");
+    // 0.11.0 carried the return events; a later bump (0.12.0, AB-38's schedule settings)
+    // still upgrades past the store's 0.10.0.
+    const [major, minor] = config.metadata.version.split(".").map(Number);
+    expect(major === 0 && minor >= 11).toBe(true);
   });
 
   test("Then the Admin history's Retry hands each event back to its own action", () => {

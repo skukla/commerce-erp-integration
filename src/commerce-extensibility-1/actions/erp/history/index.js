@@ -19,7 +19,9 @@ import { orderSyncDeps } from "#lib/order-deps";
 import { readOrderParts } from "#lib/order-parts";
 import { retryOrderToErp } from "#lib/order-sync";
 import { buildOrderTrace } from "#lib/order-trace";
+import { jobsWithSchedules } from "#lib/schedule";
 import { readScheduledRuns } from "#lib/scheduled-runs";
+import { settingsFor } from "#lib/settings";
 import { splitExtOrderId } from "#lib/structure";
 import { readPayload } from "#lib/webhook";
 import { orderHolders } from "#router/order-holders";
@@ -37,8 +39,8 @@ const TRACE_TIMEOUT_MS = 5000;
  * GET ?failedOnly=true&ref=<order>&erp=<id>: the records, newest first; with several ERPs
  *   each names the ERPs it concerns (`erpIds`), and `erp` keeps one ERP's (historyOfErps). A
  *   company event names its Commerce company, `company: { id, name }` (lib/history-names.js).
- * GET ?scheduled=true: the scheduled runs, when each last ran and what it changed
- *   (lib/scheduled-runs.js).
+ * GET ?scheduled=true: every scheduled job, when it last ran and what it changed
+ *   (lib/scheduled-runs.js), and its schedule as set at Default Config (lib/schedule.js).
  * POST { incrementId }: send that order to the ERP again, record it as an admin's retry,
  *   and answer how it ended with the order's record. An order that still did not get
  *   through is an answer, not an error: the record says why.
@@ -84,7 +86,11 @@ async function main(params) {
       });
     }
     if (params.scheduled === "true") {
-      return ok({ body: { scheduled: await readScheduledRuns() } });
+      const [runs, settings] = await Promise.all([
+        readScheduledRuns(),
+        settingsFor(null, logger),
+      ]);
+      return ok({ body: { scheduled: jobsWithSchedules(runs, settings) } });
     }
     const filter = {
       failedOnly: params.failedOnly === "true",

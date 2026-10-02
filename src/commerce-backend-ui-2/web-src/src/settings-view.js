@@ -118,11 +118,53 @@ export const SETTING_GROUPS = Object.freeze([
     ],
     scope: "global",
   },
+  // When the scheduled jobs run (AB-38): the heartbeat reads them at Default Config.
+  {
+    id: "schedules",
+    names: [
+      "schedule_timezone",
+      "schedule_prices_enabled",
+      "schedule_prices_frequency",
+      "schedule_prices_minute",
+      "schedule_prices_weekday",
+      "schedule_prices_time",
+    ],
+    scope: "global",
+  },
 ]);
 
 /** A card's settings, by the card's id. */
 export const groupNames = (id) =>
   SETTING_GROUPS.find((group) => group.id === id)?.names ?? [];
+
+/** Which of a job's settings each frequency reads (lib/schedule.js). */
+const READ_BY = {
+  daily: new Set(["time"]),
+  hourly: new Set(["minute"]),
+  weekly: new Set(["weekday", "time"]),
+};
+const JOB_SETTING = /^schedule_([a-z]+)_([a-z]+)$/u;
+
+/**
+ * The Schedules card's settings as shown: a job switched off shows only its switch, and a job
+ * on shows how often and only what that frequency reads (the minute hourly, the time daily,
+ * the day and time weekly).
+ * @param {Map<string, { value: unknown }>} fields the fields as shown, by name
+ * @returns {string[]}
+ */
+export function scheduleNames(fields) {
+  return groupNames("schedules").filter((name) => {
+    const [, job, part] = JOB_SETTING.exec(name) ?? [];
+    if (!job || part === "enabled") {
+      return true;
+    }
+    if (fields.get(`schedule_${job}_enabled`)?.value !== true) {
+      return false;
+    }
+    const frequency = fields.get(`schedule_${job}_frequency`)?.value;
+    return part === "frequency" || Boolean(READ_BY[frequency]?.has(part));
+  });
+}
 
 /**
  * One setting field as a control shows it: its value at this scope, whether the value is

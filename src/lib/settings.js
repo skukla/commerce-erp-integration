@@ -21,6 +21,7 @@ import {
 import { resolveImsAuthParams } from "@adobe/aio-commerce-sdk/auth";
 
 import appConfig from "#app.commerce.config";
+import { isTimeZone } from "#lib/schedule";
 
 const SCHEMA = appConfig.businessConfig.schema;
 
@@ -46,13 +47,24 @@ const LIST_VALUES = Object.freeze(
 
 /**
  * What a text setting must look like, and the words when it does not (business-structure
- * plan, step 02). A blank is allowed where the setting has a fallback.
+ * plan, step 02). A blank is allowed where the setting has a fallback. A rule is a pattern,
+ * or a `valid` check where no pattern can say it (a timezone the runtime knows).
  */
 export const TEXT_RULES = Object.freeze({
   orders_confirm_status: {
     pattern: /^[a-z][a-z0-9_]*$/u,
     words:
       "a status code as created at Stores → Settings → Order Status, like erp_confirmed, or blank for a note only",
+  },
+  schedule_prices_time: {
+    blankAllowed: false,
+    pattern: /^(?:[01][0-9]|2[0-3]):[0-5][0-9]$/u,
+    words: "a time of day as HH:MM in 24 hours, like 02:00 or 18:30",
+  },
+  schedule_timezone: {
+    blankAllowed: false,
+    valid: isTimeZone,
+    words: "an IANA timezone name, like UTC or America/Chicago",
   },
   structure_order_prefix: {
     pattern: /^[A-Z0-9]{1,6}$/u,
@@ -98,7 +110,8 @@ function valueProblem(name, value) {
   if (value === "") {
     return rule.blankAllowed === false ? `${name} must be ${rule.words}` : null;
   }
-  return rule.pattern.test(value) ? null : `${name} must be ${rule.words}`;
+  const fits = rule.valid ? rule.valid(value) : rule.pattern.test(value);
+  return fits ? null : `${name} must be ${rule.words}`;
 }
 
 const CACHE_MS = 60_000;

@@ -35,6 +35,38 @@ const TEXT = {
     label: "Send orders to the ERP",
     more: "Orders placed on this website are created in the ERP, and the ERP’s order number is written back. With several ERPs, an order is split: each ERP gets only the lines for the products it owns.",
   }),
+  schedule_prices_enabled: () => ({
+    help: "Each ERP’s prices in force, copied into Commerce.",
+    label: "Publish ERP prices into the shared catalogs",
+    more: "Copies each ERP’s customer prices in force into the companies’ shared catalogs on the schedule below. The ERP sends no event when a price’s start or end date arrives, so this run is what makes a dated price take effect. It writes only what changed.",
+  }),
+  schedule_prices_frequency: () => ({
+    help: "Every hour, every day or every week.",
+    label: "How often",
+    more: "Hourly runs at the minute below; daily at the time below; weekly on the day and at the time below. All in the store timezone.",
+  }),
+  schedule_prices_minute: () => ({
+    help: "Minutes past each hour, store time.",
+    label: "Minute past the hour",
+    more: "The price publish runs this many minutes past every hour.",
+  }),
+  schedule_prices_time: () => ({
+    help: "24-hour time, store time, e.g. 02:00.",
+    label: "Time of day",
+    more: "The time of day the daily or weekly price publish runs, as HH:MM in 24 hours. It runs within five minutes of it.",
+    placeholder: "02:00",
+  }),
+  schedule_prices_weekday: () => ({
+    help: "The day the weekly run happens.",
+    label: "Day of the week",
+    more: "The day of the week, in the store timezone, the weekly price publish runs on.",
+  }),
+  schedule_timezone: () => ({
+    help: "The schedules’ clock, e.g. America/Chicago.",
+    label: "Store timezone",
+    more: "The timezone the schedules are read in, as an IANA name like America/Chicago, Europe/Berlin or UTC. A schedule of 02:00 runs at 02:00 there, through daylight-saving changes.",
+    placeholder: "UTC",
+  }),
   structure_order_prefix: (erp) => {
     const prefix = derivedPrefix(erp?.name);
     return {
@@ -142,10 +174,12 @@ export function cardsAt({ atDefault, erp, several }) {
   }
   if (several) {
     return atDefault
-      ? ["orders", "salesOrg", "erpList"]
+      ? ["orders", "salesOrg", "schedules", "erpList"]
       : ["orders", "salesOrg"];
   }
-  return ["orders", "salesOrg", products, "connection"];
+  // The schedules are the whole integration's: set at Default Config only.
+  const schedules = atDefault ? ["schedules"] : [];
+  return ["orders", "salesOrg", products, "connection", ...schedules];
 }
 
 const KINDS = { "demo-erp": "Demo ERP" };

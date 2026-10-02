@@ -17,6 +17,17 @@ vi.mock("#lib/scheduled-runs", () => ({
     { id: "prices", lastRun: { at: "T" } },
   ]),
 }));
+// Each scheduled job carries its schedule, read from the settings at Default Config (AB-38).
+vi.mock("#lib/settings", () => ({
+  settingsFor: vi.fn(async () => ({
+    schedule_prices_enabled: true,
+    schedule_prices_frequency: "daily",
+    schedule_prices_minute: "5",
+    schedule_prices_time: "02:00",
+    schedule_prices_weekday: "monday",
+    schedule_timezone: "America/Chicago",
+  })),
+}));
 // Company events are named when the history is read (lib/history-names.js).
 vi.mock("#lib/key-map", () => ({
   commerceCompanyOf: vi.fn(async (partnerId) =>
@@ -38,6 +49,7 @@ import { getCompany } from "#lib/commerce";
 import { readErpEvent } from "#lib/erp-event-history";
 import { readHistory, recordOrderOutcome } from "#lib/history";
 import { retryOrderToErp } from "#lib/order-sync";
+import { settingsFor } from "#lib/settings";
 import { main } from "#src/erp/history/index";
 
 const HELD = {
@@ -54,11 +66,25 @@ afterEach(() => {
 });
 
 describe("Given the history action", () => {
-  test("Then GET ?scheduled=true answers the scheduled runs, and no history", async () => {
+  test("Then GET ?scheduled=true answers the scheduled runs, each with its schedule from Default Config, and no history", async () => {
     const res = await main({ __ow_method: "get", scheduled: "true" });
     expect(res.body).toStrictEqual({
-      scheduled: [{ id: "prices", lastRun: { at: "T" } }],
+      scheduled: [
+        {
+          id: "prices",
+          lastRun: { at: "T" },
+          schedule: {
+            enabled: true,
+            frequency: "daily",
+            minute: 5,
+            time: "02:00",
+            timeZone: "America/Chicago",
+            weekday: "monday",
+          },
+        },
+      ],
     });
+    expect(settingsFor.mock.calls[0][0]).toBeNull();
     expect(readHistory).not.toHaveBeenCalled();
   });
 

@@ -1,15 +1,16 @@
 /*
  * What the page says about the integration's scheduled runs (erp/history?scheduled=true,
  * lib/scheduled-runs.js), kept apart from the React that renders it (as history-view.js is): the
- * band's one line and the side panel's table. Scheduled work runs as App Builder alarms, not
- * Commerce cron.
+ * band's one line and the side panel's table. Each run carries its schedule as the settings set
+ * it (AB-38), so the words and the next run follow the settings, read the way the heartbeat
+ * reads them (lib/schedule.js).
  */
+import { nextMoment, scheduleWords } from "#lib/schedule";
 
-/** Each run the integration schedules, as the page names it (ext.config.yaml triggers). */
+/** Each run the integration schedules, as the page names it. */
 const RUNS = [
   {
     id: "prices",
-    schedule: "Every hour at five past (an App Builder alarm, in UTC)",
     title: "Price publish: each ERP's prices in force into the shared catalogs",
   },
 ];
@@ -49,25 +50,19 @@ export function scheduledRunRows(runs, when) {
       lastRun: run?.lastRun
         ? `${when(run.lastRun.at)}: ${figures(run.lastRun, true)}`
         : "Has not run yet.",
+      schedule: run?.schedule ? scheduleWords(run.schedule) : "Not known.",
     };
   });
 }
 
-/** The price publish runs every hour at five past, in UTC (ext.config.yaml's alarm). */
-const PUBLISH_MINUTE = 5;
-const HOUR_MS = 60 * 60 * 1000;
-
 /**
- * When the price publish next runs.
+ * When the price publish next runs, by its schedule.
  * @param {Date} now
- * @returns {Date}
+ * @param {object} schedule the run's schedule (erp/history?scheduled=true)
+ * @returns {Date|null} null when it is off
  */
-export function nextPublish(now) {
-  const next = new Date(now.getTime());
-  next.setUTCMinutes(PUBLISH_MINUTE, 0, 0);
-  return next.getTime() > now.getTime()
-    ? next
-    : new Date(next.getTime() + HOUR_MS);
+export function nextPublish(now, schedule) {
+  return nextMoment(schedule, now);
 }
 
 /**
@@ -78,12 +73,14 @@ export function nextPublish(now) {
  * @returns {{ next: string, last: string }}
  */
 export function publishLine(runs, now, when) {
-  const run = runs.find((r) => r.id === "prices")?.lastRun;
+  const prices = runs.find((r) => r.id === "prices");
+  const run = prices?.lastRun;
+  const next = prices?.schedule ? nextPublish(now, prices.schedule) : null;
   return {
     last: run
       ? `last ran ${when(run.at)}, ${figures(run, false).replace(FULL_STOP, "")}`
       : "has not run yet",
-    next: when(nextPublish(now).toISOString()),
+    next: next ? when(next.toISOString()) : "not scheduled",
   };
 }
 

@@ -178,10 +178,12 @@ prices:
   annotations:
     require-adobe-auth: true
     final: true
-# The same publish every hour, started by the erp-prices-hourly-timer alarm (ext.config.yaml),
-# so a price line's start or end date takes effect. Not web: a timer carries no sign-in.
-prices-scheduled:
-  function: ./prices-scheduled/index.js
+# The heartbeat, started every five minutes by the erp-schedule-heartbeat alarm
+# (ext.config.yaml): runs each scheduled job that is due by its schedule setting, today the
+# same publish, so a price line's start or end date takes effect (AB-38). Not web: a timer
+# carries no sign-in.
+scheduled:
+  function: ./scheduled/index.js
   web: 'no'
   runtime: nodejs:24
   limits:

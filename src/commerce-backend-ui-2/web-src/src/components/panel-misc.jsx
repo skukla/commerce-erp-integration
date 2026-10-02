@@ -135,7 +135,7 @@ export function ScheduledPanel({ now, onClose, runs }) {
     <SidePanel
       kicker="Scheduled run"
       onClose={onClose}
-      sub="Every hour at five past"
+      sub={row.schedule}
       title="Price publish">
       <table className="compare">
         <tbody>
@@ -161,7 +161,8 @@ export function ScheduledPanel({ now, onClose, runs }) {
         </tbody>
       </table>
       <p className="note">
-        It runs as an App Builder alarm, not Commerce cron.
+        Its schedule is set in Settings, under Schedules. An App Builder alarm
+        checks every five minutes and runs it when it is due.
       </p>
     </SidePanel>
   );

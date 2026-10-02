@@ -65,23 +65,23 @@ runtimeManifest:
       license: Apache-2.0
       actions:
         $include: ./actions/erp/actions.config.yaml
-      # The ERP raises no event when a price line's start or end date arrives, so every ERP's
-      # prices in force are published again every hour, at five past (erp/prices-scheduled).
-      # Hourly, not daily: I/O Runtime evaluates cron in UTC only and ignores any timezone
-      # (developer.adobe.com/app-builder/docs/resources/cron-jobs/lesson3), so one daily run
-      # lands a dated price hours away from its day somewhere; hourly makes it take effect
-      # within the hour. The publish is a replace that writes only changes. The alarm feed
+      # One heartbeat every five minutes (erp/scheduled) runs the scheduled jobs that are due
+      # (AB-38). Each job's schedule is a business setting (app.commerce.config.ts
+      # `schedule_*`), so a business user changes it without a redeploy, and in the store's
+      # timezone: I/O Runtime evaluates an alarm's cron in UTC only and ignores any timezone
+      # (developer.adobe.com/app-builder/docs/resources/cron-jobs/lesson3). The defaults keep
+      # the hourly price publish at five past, UTC, that this alarm replaced. The alarm feed
       # with a cron schedule: /whisk.system/alarms/alarm. No maxTriggers: it would stop the
       # schedule after that many runs.
       triggers:
-        erp-prices-hourly-timer:
+        erp-schedule-heartbeat:
           feed: /whisk.system/alarms/alarm
           inputs:
-            cron: "5 * * * *"
+            cron: "*/5 * * * *"
       rules:
-        erp-prices-hourly-on-timer:
-          trigger: erp-prices-hourly-timer
-          action: prices-scheduled
+        erp-schedule-heartbeat-on-timer:
+          trigger: erp-schedule-heartbeat
+          action: scheduled
 
     # This package definition is auto-generated. Do not remove or manually edit.
     app-management:

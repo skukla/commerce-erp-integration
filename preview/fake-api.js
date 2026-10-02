@@ -7,6 +7,7 @@
  */
 import appConfig from "#app.commerce.config";
 import { orderPartsPage } from "#lib/order-parts-view";
+import { jobsWithSchedules } from "#lib/schedule";
 
 import { BODEA_SCOPE_TREE } from "../test/web/fixtures/bodea-scope-tree.js";
 import {
@@ -244,7 +245,16 @@ export function fakeApi({ allGood = false, oneErp = false } = {}) {
       });
       return answer(page);
     },
-    scheduled: () => answer({ scheduled: scheduledRuns() }),
+    // Each job with its schedule as Default Config sets it, saves included (erp/history).
+    scheduled: () => {
+      const inForce = Object.fromEntries(
+        settingsPage(undefined, { oneErp }).values.map((v) => [
+          v.name,
+          v.value,
+        ]),
+      );
+      return answer({ scheduled: jobsWithSchedules(scheduledRuns(), inForce) });
+    },
     settings: (scope) => answer(settingsPage(scope, { oneErp })),
     status: () =>
       answer(

@@ -1,11 +1,12 @@
 /*
  * The Settings tab's cards by topic: Orders, Sales organization, Products and order numbers,
- * the read-only Connection card, and with several ERPs the list of ERPs Demo Builder set up.
+ * Schedules, the read-only Connection card, and with several ERPs the list of ERPs Demo Builder
+ * set up.
  */
 import { ErpChip } from "#web/components/controls.jsx";
 import { SettingRow } from "#web/components/setting-row.jsx";
 import { connectionFacts, ownsOptions } from "#web/settings-copy.js";
-import { groupNames } from "#web/settings-view.js";
+import { groupNames, scheduleNames } from "#web/settings-view.js";
 
 /** The rows of a card, each field that is shown, in order. */
 function Rows({ names, row }) {
@@ -44,6 +45,20 @@ export function ProductsCard({ fields, row }) {
     <section className="settings-card">
       <h2>Products and order numbers</h2>
       <Rows names={names} row={row} />
+    </section>
+  );
+}
+
+/** When the scheduled jobs run (AB-38): at Default Config only, for the whole integration. */
+export function SchedulesCard({ fields, row }) {
+  return (
+    <section className="settings-card">
+      <h2>Schedules</h2>
+      <p className="card-note">
+        Checked every five minutes; a change applies from the next check, with
+        no redeploy. When each job last ran is under Activity.
+      </p>
+      <Rows names={scheduleNames(fields)} row={row} />
     </section>
   );
 }
@@ -178,7 +193,7 @@ export function rowMaker({
         options={
           name === "structure_owns"
             ? ownsOptions(notSet ? erp : null)
-            : undefined
+            : field.options
         }
         statuses={statuses}
         useDefault={useDefaultFor(name)}

@@ -8,6 +8,7 @@ import {
   groupNames,
   pendingChanges,
   SETTING_GROUPS,
+  scheduleNames,
   settingsPath,
   websiteChoices,
 } from "#web/settings-view.js";
@@ -116,6 +117,39 @@ describe("Given the settings the Settings tab shows", () => {
     const grouped = SETTING_GROUPS.flatMap((group) => group.names);
     expect([...grouped].sort()).toStrictEqual(declared);
     expect(new Set(grouped).size).toBe(grouped.length);
+  });
+
+  test("Then the schedules card shows what the chosen frequency reads: the minute hourly, the time daily, the day and time weekly, nothing more when off", () => {
+    const shown = (enabled, frequency) =>
+      scheduleNames(
+        new Map([
+          ["schedule_prices_enabled", { value: enabled }],
+          ["schedule_prices_frequency", { value: frequency }],
+        ]),
+      );
+    expect(shown(true, "hourly")).toStrictEqual([
+      "schedule_timezone",
+      "schedule_prices_enabled",
+      "schedule_prices_frequency",
+      "schedule_prices_minute",
+    ]);
+    expect(shown(true, "daily")).toStrictEqual([
+      "schedule_timezone",
+      "schedule_prices_enabled",
+      "schedule_prices_frequency",
+      "schedule_prices_time",
+    ]);
+    expect(shown(true, "weekly")).toStrictEqual([
+      "schedule_timezone",
+      "schedule_prices_enabled",
+      "schedule_prices_frequency",
+      "schedule_prices_weekday",
+      "schedule_prices_time",
+    ]);
+    expect(shown(false, "weekly")).toStrictEqual([
+      "schedule_timezone",
+      "schedule_prices_enabled",
+    ]);
   });
 
   test("Then each card's settings are its group's, in order", () => {

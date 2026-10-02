@@ -22,15 +22,15 @@
   },
   {
     "default": "1000",
-    "description": "The ERP sales organisation that sells through this website (four letters or digits, like an SAP sales org). Orders from this website carry it.",
-    "label": "ERP sales organisation for this website",
+    "description": "The ERP sales organization that sells through this website (four letters or digits, like an SAP sales org). Orders from this website carry it.",
+    "label": "ERP sales organization for this website",
     "name": "structure_sales_org",
     "type": "text"
   },
   {
     "default": "",
-    "description": "What the ERP calls that sales organisation. Blank: the ERP prints the website's name.",
-    "label": "Sales organisation name",
+    "description": "What the ERP calls that sales organization. Blank: the ERP prints the website's name.",
+    "label": "Sales organization name",
     "name": "structure_sales_org_name",
     "type": "text"
   },
@@ -76,5 +76,144 @@
     "label": "Product attribute that names this ERP",
     "name": "structure_owns_attribute",
     "type": "text"
+  },
+  {
+    "default": "UTC",
+    "description": "The timezone the schedules below are read in, as an IANA name like America/Chicago or Europe/Berlin. Set at Default Config.",
+    "label": "Store timezone for schedules",
+    "name": "schedule_timezone",
+    "type": "text"
+  },
+  {
+    "default": true,
+    "description": "Publish each ERP's prices in force into the companies' shared catalogs on the schedule below, so a price whose start or end date arrives takes effect. Set at Default Config.",
+    "label": "Publish ERP prices into the shared catalogs",
+    "name": "schedule_prices_enabled",
+    "type": "boolean"
+  },
+  {
+    "default": "hourly",
+    "description": "How often the price publish runs.",
+    "label": "Price publish: how often",
+    "name": "schedule_prices_frequency",
+    "options": [
+      {
+        "label": "Every hour",
+        "value": "hourly"
+      },
+      {
+        "label": "Every day",
+        "value": "daily"
+      },
+      {
+        "label": "Every week",
+        "value": "weekly"
+      }
+    ],
+    "selectionMode": "single",
+    "type": "list"
+  },
+  {
+    "default": "5",
+    "description": "The minute past each hour, store time, the hourly price publish runs at.",
+    "label": "Price publish: minute past the hour",
+    "name": "schedule_prices_minute",
+    "options": [
+      {
+        "label": ":00",
+        "value": "0"
+      },
+      {
+        "label": ":05",
+        "value": "5"
+      },
+      {
+        "label": ":10",
+        "value": "10"
+      },
+      {
+        "label": ":15",
+        "value": "15"
+      },
+      {
+        "label": ":20",
+        "value": "20"
+      },
+      {
+        "label": ":25",
+        "value": "25"
+      },
+      {
+        "label": ":30",
+        "value": "30"
+      },
+      {
+        "label": ":35",
+        "value": "35"
+      },
+      {
+        "label": ":40",
+        "value": "40"
+      },
+      {
+        "label": ":45",
+        "value": "45"
+      },
+      {
+        "label": ":50",
+        "value": "50"
+      },
+      {
+        "label": ":55",
+        "value": "55"
+      }
+    ],
+    "selectionMode": "single",
+    "type": "list"
+  },
+  {
+    "default": "02:00",
+    "description": "The time of day, store time, as HH:MM in 24 hours, the daily or weekly price publish runs at. It runs within five minutes of it.",
+    "label": "Price publish: time of day",
+    "name": "schedule_prices_time",
+    "type": "text"
+  },
+  {
+    "default": "monday",
+    "description": "The day the weekly price publish runs on.",
+    "label": "Price publish: day of the week",
+    "name": "schedule_prices_weekday",
+    "options": [
+      {
+        "label": "Monday",
+        "value": "monday"
+      },
+      {
+        "label": "Tuesday",
+        "value": "tuesday"
+      },
+      {
+        "label": "Wednesday",
+        "value": "wednesday"
+      },
+      {
+        "label": "Thursday",
+        "value": "thursday"
+      },
+      {
+        "label": "Friday",
+        "value": "friday"
+      },
+      {
+        "label": "Saturday",
+        "value": "saturday"
+      },
+      {
+        "label": "Sunday",
+        "value": "sunday"
+      }
+    ],
+    "selectionMode": "single",
+    "type": "list"
   }
 ]

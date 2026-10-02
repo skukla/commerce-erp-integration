@@ -15,6 +15,7 @@ import {
   ProductsCard,
   rowMaker,
   SalesOrgCard,
+  SchedulesCard,
   WebsiteNote,
 } from "#web/components/settings-cards.jsx";
 import { cardsAt } from "#web/settings-copy.js";
@@ -200,6 +201,7 @@ function Cards({ cards, entries, entry, erpInfo, fields, row, several }) {
         row={row}
       />
     ),
+    schedules: <SchedulesCard fields={fields} key="schedules" row={row} />,
     websiteNote: <WebsiteNote key="websiteNote" />,
   };
   const wide = cards.filter((id) => id === "erpList");

@@ -2,7 +2,7 @@
  * Publish the ERPs' contract prices in force into the companies' shared catalogs: read each
  * ERP's GET contracts/in-force at its own address and apply it as a replace
  * (lib/contract-prices.js). Shared by erp/prices (Demo Builder, after a fill) and
- * erp/prices-scheduled (the hourly alarm), so both publish the same way.
+ * erp/scheduled (the price publish on its schedule setting), so both publish the same way.
  */
 import { paramsForErp } from "#adapters/contract";
 import { contractPriceDeps } from "#lib/contract-price-deps";

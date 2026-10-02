@@ -83,11 +83,17 @@ afterEach(() => {
 });
 
 describe("Given the declared settings", () => {
-  test("Then every switch defaults to on, and the structure fields to a single ERP selling everything as sales organization 1000", () => {
+  test("Then every switch defaults to on, the price publish to hourly at :05 UTC, and the structure fields to a single ERP selling everything as sales organization 1000", () => {
     expect(SETTING_DEFAULTS).toStrictEqual({
       orders_confirm_status: "",
       orders_hold_offline: true,
       orders_send: true,
+      schedule_prices_enabled: true,
+      schedule_prices_frequency: "hourly",
+      schedule_prices_minute: "5",
+      schedule_prices_time: "02:00",
+      schedule_prices_weekday: "monday",
+      schedule_timezone: "UTC",
       structure_order_prefix: "",
       structure_owns: "all",
       structure_owns_attribute: "",
@@ -381,5 +387,42 @@ describe("Given Demo Builder asking for the settings in force before it fills th
       SETTING_DEFAULTS.structure_sales_org,
     );
     expect(answer.websites.bodea.structure_sales_org).toBe("EU01");
+  });
+});
+
+const TIMEZONE_WORDS = /an IANA timezone name, like UTC or America\/Chicago/u;
+const TIME_WORDS = /a time of day as HH:MM/u;
+const ONE_OF_FREQUENCIES = /must be one of hourly, daily, weekly/u;
+const ONE_OF_WEEKDAYS = /must be one of monday, tuesday/u;
+const ONE_OF_MINUTES = /must be one of 0, 5, 10/u;
+
+describe("Given the schedule settings (AB-38)", () => {
+  test("Then a save takes a real timezone, a 24-hour time and the listed choices, and refuses the rest, in words", () => {
+    expect(saveProblem({ schedule_timezone: "America/Chicago" })).toBeNull();
+    expect(saveProblem({ schedule_timezone: "UTC" })).toBeNull();
+    expect(saveProblem({ schedule_timezone: "Mars/Olympus" })).toMatch(
+      TIMEZONE_WORDS,
+    );
+    expect(saveProblem({ schedule_timezone: "" })).toMatch(TIMEZONE_WORDS);
+    expect(saveProblem({ schedule_prices_time: "23:59" })).toBeNull();
+    expect(saveProblem({ schedule_prices_time: "24:00" })).toMatch(TIME_WORDS);
+    expect(saveProblem({ schedule_prices_time: "2:00" })).toMatch(TIME_WORDS);
+    expect(saveProblem({ schedule_prices_time: "" })).toMatch(TIME_WORDS);
+    expect(saveProblem({ schedule_prices_frequency: "weekly" })).toBeNull();
+    expect(saveProblem({ schedule_prices_frequency: "monthly" })).toMatch(
+      ONE_OF_FREQUENCIES,
+    );
+    expect(saveProblem({ schedule_prices_weekday: "sunday" })).toBeNull();
+    expect(saveProblem({ schedule_prices_weekday: "funday" })).toMatch(
+      ONE_OF_WEEKDAYS,
+    );
+    expect(saveProblem({ schedule_prices_minute: "55" })).toBeNull();
+    expect(saveProblem({ schedule_prices_minute: "7" })).toMatch(
+      ONE_OF_MINUTES,
+    );
+    expect(saveProblem({ schedule_prices_enabled: false })).toBeNull();
+    expect(saveProblem({ schedule_prices_enabled: "no" })).toMatch(
+      BOOLEAN_WORDS,
+    );
   });
 });

@@ -238,6 +238,78 @@ export default defineConfig({
         name: "structure_owns_attribute",
         type: "text",
       },
+      // Schedules (AB-38): when the scheduled jobs run, set at Default Config for the whole
+      // integration. One heartbeat alarm ticks every five minutes and runs whatever is due
+      // (erp/scheduled, src/lib/schedule.js), so a schedule changes without a redeploy and
+      // "02:00" is the store's 02:00. The defaults are the alarm this replaced: the price
+      // publish hourly at five past, in UTC.
+      {
+        default: "UTC",
+        description:
+          "The timezone the schedules below are read in, as an IANA name like America/Chicago or Europe/Berlin. Set at Default Config.",
+        label: "Store timezone for schedules",
+        name: "schedule_timezone",
+        type: "text",
+      },
+      {
+        default: true,
+        description:
+          "Publish each ERP's prices in force into the companies' shared catalogs on the schedule below, so a price whose start or end date arrives takes effect. Set at Default Config.",
+        label: "Publish ERP prices into the shared catalogs",
+        name: "schedule_prices_enabled",
+        type: "boolean",
+      },
+      {
+        default: "hourly",
+        description: "How often the price publish runs.",
+        label: "Price publish: how often",
+        name: "schedule_prices_frequency",
+        options: [
+          { label: "Every hour", value: "hourly" },
+          { label: "Every day", value: "daily" },
+          { label: "Every week", value: "weekly" },
+        ],
+        selectionMode: "single",
+        type: "list",
+      },
+      {
+        default: "5",
+        description:
+          "The minute past each hour, store time, the hourly price publish runs at.",
+        label: "Price publish: minute past the hour",
+        name: "schedule_prices_minute",
+        options: Array.from({ length: 12 }, (_, i) => ({
+          label: `:${String(i * 5).padStart(2, "0")}`,
+          value: String(i * 5),
+        })),
+        selectionMode: "single",
+        type: "list",
+      },
+      {
+        default: "02:00",
+        description:
+          "The time of day, store time, as HH:MM in 24 hours, the daily or weekly price publish runs at. It runs within five minutes of it.",
+        label: "Price publish: time of day",
+        name: "schedule_prices_time",
+        type: "text",
+      },
+      {
+        default: "monday",
+        description: "The day the weekly price publish runs on.",
+        label: "Price publish: day of the week",
+        name: "schedule_prices_weekday",
+        options: [
+          { label: "Monday", value: "monday" },
+          { label: "Tuesday", value: "tuesday" },
+          { label: "Wednesday", value: "wednesday" },
+          { label: "Thursday", value: "thursday" },
+          { label: "Friday", value: "friday" },
+          { label: "Saturday", value: "saturday" },
+          { label: "Sunday", value: "sunday" },
+        ],
+        selectionMode: "single",
+        type: "list",
+      },
     ],
   },
   /*
@@ -501,7 +573,7 @@ export default defineConfig({
     // version with every change to what this file registers, or the change never reaches
     // Commerce. "auto" runs the plan; the library marks it experimental.
     upgradeMode: "auto",
-    version: "0.11.0",
+    version: "0.12.0",
   },
   /*
    * The one synchronous webhook (AB-19, AB-20): as the order is placed, each owning ERP is

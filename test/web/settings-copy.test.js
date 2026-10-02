@@ -83,11 +83,22 @@ describe("Given which products an ERP owns", () => {
   });
 });
 
+describe("Given the schedule settings' words (AB-38)", () => {
+  test("Then the price publish says what it does in plain words", () => {
+    expect(settingText("schedule_prices_enabled", null).label).toBe(
+      "Publish ERP prices into the shared catalogs",
+    );
+    expect(settingText("schedule_timezone", null).label).toBe("Store timezone");
+  });
+});
+
+// The schedules are the whole integration's (the heartbeat reads Default Config), so their
+// card is shown at Default Config with every ERP, never at a website or for one ERP.
 describe("Given the cards a view holds", () => {
   test.each([
     [
       { atDefault: true, erp: false, several: true },
-      ["orders", "salesOrg", "erpList"],
+      ["orders", "salesOrg", "schedules", "erpList"],
     ],
     [{ atDefault: false, erp: false, several: true }, ["orders", "salesOrg"]],
     [
@@ -100,7 +111,7 @@ describe("Given the cards a view holds", () => {
     ],
     [
       { atDefault: true, erp: false, several: false },
-      ["orders", "salesOrg", "products", "connection"],
+      ["orders", "salesOrg", "products", "connection", "schedules"],
     ],
     [
       { atDefault: false, erp: false, several: false },

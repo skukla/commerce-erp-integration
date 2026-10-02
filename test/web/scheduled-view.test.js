@@ -5,11 +5,30 @@ import {
   scheduledRunRows,
 } from "#web/scheduled-view.js";
 
-const run = (lastRun, lastChange = null) => ({
+/** The default schedule, as erp/history?scheduled=true answers it (lib/schedule.js). */
+const HOURLY = {
+  enabled: true,
+  frequency: "hourly",
+  minute: 5,
+  time: "02:00",
+  timeZone: "UTC",
+  weekday: "monday",
+};
+const CHICAGO_DAILY = {
+  ...HOURLY,
+  frequency: "daily",
+  time: "02:00",
+  timeZone: "America/Chicago",
+};
+const OFF = { ...HOURLY, enabled: false };
+
+const run = (lastRun, lastChange = null, schedule = HOURLY) => ({
   id: "prices",
   lastChange,
   lastRun,
+  schedule,
 });
+const unrun = (schedule) => ({ id: "prices", schedule });
 
 describe("Given the scheduled runs", () => {
   test("Then the price publish says when it runs, when it last ran, and what it changed", () => {
@@ -21,7 +40,7 @@ describe("Given the scheduled runs", () => {
         lastChange: "[2026-09-28T14:05:00.000Z]: 3 written, 1 removed.",
         lastRun:
           "[2026-09-28T14:05:00.000Z]: 3 written, 1 removed, 120 unchanged.",
-        schedule: "Every hour at five past (an App Builder alarm, in UTC)",
+        schedule: "Every hour at :05, store time (UTC)",
         title:
           "Price publish: each ERP's prices in force into the shared catalogs",
       },
@@ -47,7 +66,7 @@ describe("Given the scheduled runs", () => {
   });
 
   test("Then the price publish is listed before it has ever run", () => {
-    expect(scheduledRunRows([], (t) => t)).toEqual([
+    expect(scheduledRunRows([unrun(HOURLY)], (t) => t)).toEqual([
       expect.objectContaining({
         id: "prices",
         lastChange: "No change yet.",
@@ -55,19 +74,39 @@ describe("Given the scheduled runs", () => {
       }),
     ]);
   });
+
+  test("Then the schedule is the one configured, in words, not a constant", () => {
+    expect(scheduledRunRows([unrun(CHICAGO_DAILY)], (t) => t)[0].schedule).toBe(
+      "Daily at 02:00, America/Chicago",
+    );
+    expect(scheduledRunRows([unrun(OFF)], (t) => t)[0].schedule).toBe("Off");
+    expect(scheduledRunRows([], (t) => t)[0].schedule).toBe("Not known.");
+  });
 });
 
 describe("Given the band's one line about the price publish", () => {
   const now = new Date("2026-09-28T14:40:00Z");
 
-  test("Then the next run is the next five past the hour, in UTC", () => {
-    expect(nextPublish(now).toISOString()).toBe("2026-09-28T15:05:00.000Z");
-    expect(nextPublish(new Date("2026-09-28T14:03:00Z")).toISOString()).toBe(
-      "2026-09-28T14:05:00.000Z",
-    );
-    expect(nextPublish(new Date("2026-09-28T14:05:00Z")).toISOString()).toBe(
+  test("Then the next run is the schedule's next moment: by default the next five past the hour, in UTC", () => {
+    expect(nextPublish(now, HOURLY).toISOString()).toBe(
       "2026-09-28T15:05:00.000Z",
     );
+    expect(
+      nextPublish(new Date("2026-09-28T14:03:00Z"), HOURLY).toISOString(),
+    ).toBe("2026-09-28T14:05:00.000Z");
+    expect(
+      nextPublish(new Date("2026-09-28T14:05:00Z"), HOURLY).toISOString(),
+    ).toBe("2026-09-28T15:05:00.000Z");
+    // Daily at 02:00 in Chicago is 07:00 UTC.
+    expect(nextPublish(now, CHICAGO_DAILY).toISOString()).toBe(
+      "2026-09-29T07:00:00.000Z",
+    );
+    expect(nextPublish(now, OFF)).toBeNull();
+  });
+
+  test("Then a publish switched off, or a schedule not known, has no next run", () => {
+    expect(publishLine([unrun(OFF)], now, (t) => t).next).toBe("not scheduled");
+    expect(publishLine([], now, (t) => t).next).toBe("not scheduled");
   });
 
   test("Then it says when it next runs and how the last run went", () => {
@@ -82,7 +121,9 @@ describe("Given the band's one line about the price publish", () => {
       last: "last ran [2026-09-28T14:05:00Z], nothing changed",
       next: "[2026-09-28T15:05:00.000Z]",
     });
-    expect(publishLine([], now, (t) => t).last).toBe("has not run yet");
+    expect(publishLine([unrun(HOURLY)], now, (t) => t).last).toBe(
+      "has not run yet",
+    );
     expect(
       publishLine(
         [run({ at: "T", error: "Contoso ERP answered 503" })],

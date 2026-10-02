@@ -204,7 +204,8 @@ Record each row's result inline: `PASS <date>`, or `FAIL <date> — <what happen
 1. **Do:** on the ERP screen, set a contract price (a pricing condition, above the discount
    ceiling) for a company on a product that ERP owns. **Expect:** the company sees its contract
    price in the storefront everywhere; the price is published into the company's own shared
-   catalog. Publication runs hourly and on fill/reset.
+   catalog. Publication runs on fill/reset and on the price publish's schedule (a setting,
+   hourly at :05 UTC by default; README, Schedules).
 2. **Reset:** **Expect:** the company's contract prices are re-published from the ERP as it
    stands.
 
