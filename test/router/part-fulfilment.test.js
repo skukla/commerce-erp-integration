@@ -280,6 +280,90 @@ describe("Given Commerce ships or invoices lines of two ERPs' parts", () => {
     expect(bBody.items).toEqual([{ orderItemId: 2, qty: 5 }]);
   });
 
+  // Live on Justrite 2026-10-02: Commerce's shipment event lists a configurable's child line
+  // beside its parent, and the router's part holds both ids; the ERP's sales order holds only
+  // the parent, so it answered 400 "Commerce order item 55 is not on this order" to every
+  // echo of its own shipment, and the event was delivered again for hours.
+  test("Then a configurable's child line is left out: the ERP's sales order holds the parent", async () => {
+    await writeOrderParts(ORDER, {
+      conflicts: [],
+      parts: {
+        "brand-b": {
+          erpNumber: "B-200",
+          itemIds: [2, 3],
+          skus: ["SIGN1"],
+          status: "sent",
+        },
+      },
+      unrouted: [],
+    });
+    const ship = vi.fn(async () => ({ data: {}, ok: true, status: 200 }));
+    const erp = { fromCommerce: { invoice: vi.fn(), ship } };
+    await fulfilmentFromCommerce(
+      {},
+      "shipment",
+      {
+        entity_id: 7,
+        items: [
+          { order_item_id: 2, qty: 5 },
+          { order_item_id: 3, qty: 5 },
+        ],
+        order_id: ORDER_ID,
+      },
+      {
+        erp,
+        erps: ERPS,
+        getOrder: async () => ({
+          increment_id: ORDER,
+          items: [{ item_id: 2 }, { item_id: 3, parent_item_id: 2 }],
+        }),
+      },
+    );
+    expect(ship).toHaveBeenCalledTimes(1);
+    expect(ship.mock.calls[0][2].items).toEqual([{ orderItemId: 2, qty: 5 }]);
+  });
+
+  test("Then an ERP that refuses the lines for good ends the delivery with its reason; one that is down is asked again", async () => {
+    const refusing = {
+      fromCommerce: {
+        invoice: vi.fn(),
+        ship: vi.fn(async () => ({
+          data: { errorMessage: "Commerce order item 9 is not on this order." },
+          ok: false,
+          status: 400,
+        })),
+      },
+    };
+    const shipment = {
+      entity_id: 7,
+      items: [{ order_item_id: 2, qty: 5 }],
+      order_id: ORDER_ID,
+    };
+    const getOrder = async () => ({ increment_id: ORDER });
+    const refused = await fulfilmentFromCommerce({}, "shipment", shipment, {
+      erp: refusing,
+      erps: ERPS,
+      getOrder,
+    });
+    expect(refused).toMatchObject({ outcome: "dropped", statusCode: 400 });
+    expect(refused.message).toContain(
+      "Commerce order item 9 is not on this order.",
+    );
+
+    const down = {
+      fromCommerce: {
+        invoice: vi.fn(),
+        ship: vi.fn(async () => ({ data: {}, ok: false, status: 503 })),
+      },
+    };
+    const held = await fulfilmentFromCommerce({}, "shipment", shipment, {
+      erp: down,
+      erps: ERPS,
+      getOrder,
+    });
+    expect(held).toMatchObject({ outcome: "held", statusCode: 503 });
+  });
+
   test("Then an invoice covering one ERP's lines goes to that ERP only", async () => {
     const invoice = vi.fn(async () => ({ data: {}, ok: true, status: 200 }));
     const erp = { fromCommerce: { invoice, ship: vi.fn() } };

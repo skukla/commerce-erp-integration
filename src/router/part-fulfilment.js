@@ -32,6 +32,9 @@ import {
 } from "#src/order/commerce-order-api-client";
 
 const SERVER_UNAVAILABLE = 503;
+const BAD_REQUEST = 400;
+const TOO_MANY = 429;
+const SERVER_ERROR = 500;
 
 const asList = (items) =>
   Array.isArray(items) ? items : Object.values(items ?? {});
@@ -202,6 +205,17 @@ export async function recordShipped(incrementId, erpId, items) {
   await writeOrderParts(incrementId, record);
 }
 
+/** A 4xx answer other than "too many requests": the ERP refused the request itself. */
+function refusedForGood(res) {
+  const status = Number(res?.status);
+  return (
+    !res?.ok &&
+    status >= BAD_REQUEST &&
+    status < SERVER_ERROR &&
+    status !== TOO_MANY
+  );
+}
+
 /** Tell one ERP about its lines of a Commerce shipment or invoice. */
 function tellErp(params, kind, doc, entry, part, lines, client) {
   const erpParams = paramsForErp(params, entry);
@@ -245,8 +259,16 @@ export async function fulfilmentFromCommerce(params, kind, doc, deps = {}) {
   if (!record || Object.keys(record.parts).length === 0) {
     return null;
   }
+  // A configurable's child line travels with its parent: the ERP's sales order holds the
+  // parent only, and refuses a child it does not know (live on Justrite 2026-10-02).
+  const children = new Set(
+    asList(order.items)
+      .filter((line) => line.parent_item_id)
+      .map((line) => Number(line.item_id)),
+  );
   const items = asList(doc.items)
     .filter((item) => item && item.order_item_id !== undefined)
+    .filter((item) => !children.has(Number(item.order_item_id)))
     .map((item) => ({
       orderItemId: Number(item.order_item_id),
       qty: Number(item.qty),
@@ -264,7 +286,13 @@ export async function fulfilmentFromCommerce(params, kind, doc, deps = {}) {
     }
     // biome-ignore lint/performance/noAwaitInLoops: one ERP at a time, like the router
     const res = await tellErp(params, kind, doc, entry, part, lines, client);
-    told.push({ id: entry.id, name: entry.name, ok: Boolean(res?.ok) });
+    told.push({
+      id: entry.id,
+      name: entry.name,
+      ok: Boolean(res?.ok),
+      reason: res?.data?.errorMessage ?? null,
+      refused: refusedForGood(res),
+    });
   }
   const failed = told.filter((t) => !t.ok).map((t) => t.name);
   const label = `Commerce ${kind} ${doc.increment_id ?? doc.entity_id}`;
@@ -273,6 +301,18 @@ export async function fulfilmentFromCommerce(params, kind, doc, deps = {}) {
     erpIds: told.map((t) => t.id),
     orderRef: String(order.increment_id),
   };
+  // Every ERP that failed refused the request itself (a 4xx): delivering it again changes
+  // nothing, so the delivery ends and the reason shows on the Admin page's Activity. On
+  // 2026-10-02 a refusal answered "again later" and was re-delivered for two hours.
+  const unanswered = told.filter((t) => !t.ok);
+  if (unanswered.length > 0 && unanswered.every((t) => t.refused)) {
+    return {
+      ...named,
+      message: `${label}: ${unanswered.map((t) => `${t.name} refused it (${t.reason ?? "no reason given"})`).join("; ")}.`,
+      outcome: "dropped",
+      statusCode: BAD_REQUEST,
+    };
+  }
   if (failed.length > 0) {
     return {
       ...named,
