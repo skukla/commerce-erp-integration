@@ -20,6 +20,7 @@ vi.mock("#lib/commerce", () => ({
   sourceCodesOf: vi.fn(async () => []),
 }));
 
+import { getProduct, productAttributes } from "#lib/commerce";
 import { erp } from "#lib/erp";
 import { resetErpsClient } from "#lib/erps";
 import { pairCustomer, resetKeyMapClient } from "#lib/key-map";
@@ -42,6 +43,21 @@ const ERPS = [
   },
 ];
 
+/** What Commerce's client throws for a product it does not have (ky's HTTPError carries it). */
+function commerceNotFound(sku) {
+  const error = new Error(
+    `Request failed with status code 404 Not Found: GET products/${sku}`,
+  );
+  error.response = { status: 404 };
+  return error;
+}
+
+/** A SKU deleted from Commerce: the safe read answers null, the attribute read throws. */
+function goneFromCommerce(sku) {
+  getProduct.mockResolvedValueOnce(null);
+  productAttributes.mockRejectedValue(commerceNotFound(sku));
+}
+
 function memoryState(initial = {}) {
   const store = new Map(Object.entries(initial));
   return {
@@ -58,6 +74,8 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.clearAllMocks();
+  // Back to the factory's answer: goneFromCommerce makes the attribute read throw.
+  productAttributes.mockReset();
 });
 
 describe("Given a company looked up with two ERPs", () => {
@@ -98,6 +116,45 @@ describe("Given a SKU looked up with two ERPs", () => {
     expect(erp.product.mock.calls[0][0].ERP_BASE_URL).toBe(B);
     expect(res.body.owner).toEqual({ id: "brand-b", name: "Brand B ERP" });
     expect(res.body.found).toEqual({ commerce: true, erp: true });
+  });
+
+  test("Then a SKU Commerce does not have asks every ERP, and the one still holding it owns it", async () => {
+    // The ownership rule reads the product's attributes, and for a SKU Commerce lacks that
+    // read throws; it must not be made (AB-54).
+    goneFromCommerce("GONE1");
+    erp.product.mockImplementation((params, sku) =>
+      Promise.resolve(
+        params.ERP_BASE_URL === A
+          ? { data: { name: "Kept", sku, type: "FERT" }, ok: true, status: 200 }
+          : { data: { errorCode: "NOT_FOUND" }, ok: false, status: 404 },
+      ),
+    );
+    const res = await lookup.main({ sku: "GONE1" });
+
+    expect(res.statusCode).toBe(200);
+    expect(productAttributes).not.toHaveBeenCalled();
+    expect(erp.product.mock.calls.map((c) => c[0].ERP_BASE_URL)).toEqual([
+      A,
+      B,
+    ]);
+    expect(res.body.found).toEqual({ commerce: false, erp: true });
+    expect(res.body.owner).toEqual({ id: "brand-a", name: "Brand A ERP" });
+    expect(res.body.owners).toEqual(["brand-a"]);
+  });
+
+  test("Then a SKU neither Commerce nor any ERP has answers with both sides empty, not an error", async () => {
+    goneFromCommerce("GONE2");
+    erp.product.mockResolvedValue({
+      data: { errorCode: "NOT_FOUND" },
+      ok: false,
+      status: 404,
+    });
+    const res = await lookup.main({ sku: "GONE2" });
+
+    expect(res.statusCode).toBe(200);
+    expect(res.body.found).toEqual({ commerce: false, erp: false });
+    expect(res.body.owner).toBeNull();
+    expect(res.body.owners).toEqual([]);
   });
 
   test("Then a SKU no ERP owns is shown with an empty ERP side and no owner", async () => {

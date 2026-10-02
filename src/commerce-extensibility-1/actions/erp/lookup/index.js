@@ -95,17 +95,48 @@ async function lookupCompany(params, companyId) {
 }
 
 /**
+ * A SKU Commerce does not have, with several ERPs: there are no attributes to decide its
+ * owner by (the read that decides it throws on a 404, AB-54), so every ERP is asked, and
+ * each one that still holds it is an owner. This is the case the lookup is reached for after
+ * a product is deleted: did an ERP keep it?
+ */
+async function lookupSkuGoneFromCommerce(params, sku, erps) {
+  const records = await Promise.all(
+    erps.map(async (entry) =>
+      erpRecord(
+        await erp.product(paramsForErp(params, entry), sku, ERP_TIMEOUT_MS),
+        `product ${sku} in ${entry.name}`,
+      ),
+    ),
+  );
+  const holders = erps.filter((_, i) => records[i]);
+  const owner = holders.length === 1 ? holders[0] : null;
+  return {
+    ...productLookup({
+      commerce: null,
+      erp: owner ? records[erps.indexOf(owner)] : null,
+      sku,
+    }),
+    owner: owner ? { id: owner.id, name: owner.name } : null,
+    owners: holders.map((entry) => entry.id),
+  };
+}
+
+/**
  * A SKU with several ERPs: the one ERP that owns it is asked, at its own address, and named
  * (`owner`). A SKU no ERP owns, or two claim, shows an empty ERP side and `owner: null`.
  */
 async function lookupSkuAcross(params, sku, erps) {
+  const commerce = await getProduct(params, sku);
+  if (!commerce) {
+    return lookupSkuGoneFromCommerce(params, sku, erps);
+  }
   const owners = await ownersOf(params, sku, erps, (p, s, settings) =>
     ownsSku(p, s, settings, { productAttributes, sourceCodesOf }),
   );
   const owner =
     owners.length === 1 ? erps.find((e) => e.id === owners[0]) : null;
-  const [commerce, sourceCodes, answer] = await Promise.all([
-    getProduct(params, sku).catch(notFoundAsNull),
+  const [sourceCodes, answer] = await Promise.all([
     sourceCodesOf(params, sku).catch(() => []),
     owner
       ? erp.product(paramsForErp(params, owner), sku, ERP_TIMEOUT_MS)
