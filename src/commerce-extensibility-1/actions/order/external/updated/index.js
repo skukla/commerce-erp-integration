@@ -7,6 +7,7 @@ import {
 import AioLogger from "@adobe/aio-lib-core-logging";
 
 import { recordingErpEvent } from "#lib/erp-event-history";
+import { loadErps } from "#lib/erps";
 import { stringParameters } from "#lib/utils";
 import { applyCombinedStatus } from "#router/combined-status";
 import { recordPartMessage } from "#router/part-outcomes";
@@ -16,6 +17,15 @@ import { preProcess } from "./pre.js";
 import { sendData } from "./sender.js";
 import { transformData } from "./transformer.js";
 import { validateData } from "./validator.js";
+
+/** The ERP that sent the event, by name, when the integration serves several; else none. */
+async function speakerName(params) {
+  const erps = await loadErps(params);
+  if (erps.length <= 1) {
+    return;
+  }
+  return erps.find((e) => e.id === params.data?.erpId)?.name;
+}
 
 /**
  * This action is on charge of sending updated order status information in external back-office application to Adobe commerce
@@ -37,7 +47,7 @@ async function handle(params) {
       return badRequest(validation.message);
     }
     logger.debug(`Transform data: ${stringParameters(params)}`);
-    const transformed = transformData(params);
+    const transformed = transformData(params, await speakerName(params));
     logger.debug(`Preprocess data: ${stringParameters(params)}`);
     const preProcessed = preProcess(params, transformed);
     logger.debug(`Start sending data: ${JSON.stringify(transformed)}`);
