@@ -52,27 +52,45 @@ export function isNewOrder(order) {
 }
 
 /**
- * The ERP's order request for a Commerce order and its entity id. The website's settings
- * name the sales organization the order belongs to (business structure).
+ * What one ERP's part of a split order comes to: its own lines' row totals, plus their tax,
+ * less their discounts. Shipping is the order's, not a part's, so no part carries it (no ERP
+ * owns shipping; Commerce puts it on its first invoice). Live on Justrite 2026-10-02 each
+ * part was sent with the whole order's grand total and the ERP invoiced it.
  */
-export function erpOrderFrom(order, entityId, settings = {}) {
+function partTotal(lines) {
+  const sum = lines.reduce(
+    (total, item) =>
+      total +
+      Number(item.base_row_total ?? 0) +
+      Number(item.base_tax_amount ?? 0) -
+      Number(item.base_discount_amount ?? 0),
+    0,
+  );
+  return Math.round(sum * 100) / 100;
+}
+
+/**
+ * The ERP's order request for a Commerce order and its entity id. The website's settings
+ * name the sales organization the order belongs to (business structure). For one ERP's part
+ * of a split order (`shared`), the total is the part's own (partTotal), not the order's.
+ */
+export function erpOrderFrom(order, entityId, settings = {}, { shared } = {}) {
   const rawItems = order.items ?? [];
   const items = Array.isArray(rawItems) ? rawItems : Object.values(rawItems);
+  const parents = items.filter((item) => !item.parent_item_id && item.sku);
   return {
     commerceIncrementId: String(order.increment_id),
     commerceOrderId: String(entityId),
     currency: order.base_currency_code || "USD",
-    lines: items
-      .filter((item) => !item.parent_item_id && item.sku)
-      .map((item) => ({
-        commerceItemId: item.item_id ?? null,
-        price: Number(item.base_price ?? item.price ?? 0),
-        qty: Number(item.qty_ordered ?? item.qty ?? 1),
-        sku: item.sku,
-      })),
+    lines: parents.map((item) => ({
+      commerceItemId: item.item_id ?? null,
+      price: Number(item.base_price ?? item.price ?? 0),
+      qty: Number(item.qty_ordered ?? item.qty ?? 1),
+      sku: item.sku,
+    })),
     origin: originOf(COMMERCE_EVENTS.orderSaved),
     ...salesOrgOf(settings),
-    total: Number(order.base_grand_total ?? 0),
+    total: shared ? partTotal(parents) : Number(order.base_grand_total ?? 0),
   };
 }
 
@@ -293,7 +311,7 @@ export async function sendOrderToErp(params, order, deps, options = {}) {
     res = await deps.erp.createOrder(
       params,
       {
-        ...erpOrderFrom(order, found.entityId, settings),
+        ...erpOrderFrom(order, found.entityId, settings, { shared }),
         // The ERP's own number from the key map is all that names the customer: the ERP
         // holds no Commerce id (contract version 3). Unpaired, it is the walk-in customer's.
         ...(partnerId ? { partnerId } : {}),

@@ -341,6 +341,42 @@ describe("Given an order's lines", () => {
   });
 });
 
+// Live on Justrite 2026-10-02 (order 5000000008): each ERP's part was sent with the WHOLE
+// order's grand total (332.28), so the Justrite ERP invoiced 332.28 for a 274.86 part (the gap
+// read as tax) and Accuform 332.28 for 42.42. With payments that double-counts what is owed.
+describe("Given one ERP's part of a split order", () => {
+  const ORDER = {
+    base_grand_total: 332.28,
+    increment_id: "5000000008",
+    items: [
+      {
+        base_discount_amount: 0,
+        base_price: 274.86,
+        base_row_total: 274.86,
+        base_tax_amount: 0,
+        item_id: 36,
+        qty_ordered: 1,
+        sku: "BOARD",
+      },
+    ],
+  };
+
+  test("Then its total is its own lines (row total, plus tax, less discount), not the order's", () => {
+    expect(erpOrderFrom(ORDER, 37, {}, { shared: true }).total).toBe(274.86);
+    const taxed = {
+      ...ORDER,
+      items: [
+        { ...ORDER.items[0], base_discount_amount: 10, base_tax_amount: 21.99 },
+      ],
+    };
+    expect(erpOrderFrom(taxed, 37, {}, { shared: true }).total).toBe(286.85);
+  });
+
+  test("Then an order one ERP takes whole keeps the order's grand total", () => {
+    expect(erpOrderFrom(ORDER, 37).total).toBe(332.28);
+  });
+});
+
 // The Commerce Admin screen's Retry: one order a person sends again. The order is read
 // from Commerce (the event that carried it is long gone) and goes through the same send.
 describe("Given a retry of one order from the Admin screen", () => {
