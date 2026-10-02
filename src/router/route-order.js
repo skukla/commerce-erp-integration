@@ -241,6 +241,20 @@ function combine(label, outcomes, notes) {
   };
 }
 
+/**
+ * Whether a part needs no send: its ERP already holds it (it answered a sales order number), or
+ * its send ended for good. Every message from the ERP moves a part's status on (confirmed,
+ * shipped, invoiced, held, cancelled), and a list of "done" statuses missed those, so every
+ * later save of the order sent each part again and set its status back to sent (Justrite,
+ * 2026-10-02, AB-56). A part with no number (a failed send, or one held while its ERP blocks
+ * the company) is still sent.
+ */
+function alreadyWithErp(part) {
+  return Boolean(
+    part && (part.erpNumber || FINAL_OUTCOMES.includes(part.status)),
+  );
+}
+
 async function routeToSeveral(params, event, deps, erps) {
   const order = await withOrderId(params, event, deps);
   const label = `order ${order.increment_id}`;
@@ -264,7 +278,7 @@ async function routeToSeveral(params, event, deps, erps) {
   for (const entry of erps.filter((e) => byErp.has(e.id))) {
     const lines = byErp.get(entry.id);
     const known = record.parts[entry.id];
-    if (known && FINAL_OUTCOMES.includes(known.status)) {
+    if (alreadyWithErp(known)) {
       continue;
     }
     record.parts[entry.id] = {

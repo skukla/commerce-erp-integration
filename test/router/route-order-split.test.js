@@ -133,6 +133,28 @@ describe("Given a mixed order and two ERPs", () => {
     expect(again.outcome).toBe("skipped");
   });
 
+  // Live on Justrite 2026-10-02 (order 5000000005): after the ERPs confirmed and invoiced,
+  // every later order save sent each part again ("Sent to … ERP, waiting for confirmation")
+  // and set its status back to sending/sent, losing "invoiced".
+  test.each(["confirmed", "shipped", "invoiced", "held", "cancelled"])(
+    "Then a part its ERP has already moved to %s is not sent again on a later save, and keeps its status",
+    async (moved) => {
+      const d = deps();
+      await routeOrder({}, ORDER, d, ERPS);
+      const key = orderPartsKey("000000042");
+      const record = JSON.parse(state.store.get(key));
+      record.parts["brand-b"].status = moved;
+      state.store.set(key, JSON.stringify(record));
+
+      await routeOrder({}, ORDER, d, ERPS);
+
+      expect(d.erp.createOrder).toHaveBeenCalledTimes(2);
+      expect(JSON.parse(state.store.get(key)).parts["brand-b"].status).toBe(
+        moved,
+      );
+    },
+  );
+
   test("Then a part the ERP could not take is sent again on redelivery, and the part already sent is not", async () => {
     const d = deps();
     d.erp.createOrder
