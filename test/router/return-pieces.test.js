@@ -140,6 +140,22 @@ beforeEach(async () => {
 });
 
 describe("Given a return over two ERPs' lines", () => {
+  test.each(["closed", "processed_closed", "denied"])(
+    "Then a %s return is sent to no ERP: a finished return asks nothing of them",
+    async (status) => {
+      const deps = collaborators();
+      deps.getReturn.mockResolvedValueOnce({
+        ...structuredClone(RETURN),
+        status,
+      });
+
+      const res = await returnToErps({ id: "ev-9" }, 4, deps);
+
+      expect(res).toMatchObject({ outcome: "skipped", statusCode: 200 });
+      expect(deps.erp.fromCommerce.sendReturn).not.toHaveBeenCalled();
+    },
+  );
+
   test("Then a reason Commerce cannot name is sent as its stored value", async () => {
     const deps = collaborators({
       reasonLabels: vi.fn(() =>

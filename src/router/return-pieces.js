@@ -49,6 +49,13 @@ const UNAVAILABLE = 503;
 const TOO_MANY = 429;
 /** A piece in one of these is never sent again. */
 const DONE = Object.freeze(["sent", "received", "credited"]);
+/**
+ * A return in one of these asks nothing of any ERP. A return cannot be deleted over REST on
+ * the Cloud Service (DELETE returns/{id} answers "rmaDataObject is required" even with it in
+ * the body, read 2026-10-02), so closing is how one is retired, and a later save of a closed
+ * return must not send it.
+ */
+const FINISHED = Object.freeze(["closed", "processed_closed", "denied"]);
 
 const answer = (outcome, statusCode, message) => ({
   message,
@@ -316,6 +323,13 @@ export async function returnToErps(params, returnId, deps = {}) {
       "held",
       UNAVAILABLE,
       `return ${returnId} is not readable with its items yet`,
+    );
+  }
+  if (FINISHED.includes(rma.status)) {
+    return answer(
+      "skipped",
+      OK,
+      `return ${rma.increment_id ?? returnId} is ${rma.status}; nothing to send`,
     );
   }
   const order = await (deps.getOrder ?? getOrder)(params, Number(rma.order_id));
