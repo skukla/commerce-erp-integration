@@ -31,6 +31,8 @@ const externalEvents = manifest.eventing.external.flatMap((p) => p.events);
 
 /** A DELETE sent to the ERP's products route: gone at contract version 17. */
 const NO_PAYMENT_EVENT = /NO IncomingPayment\.Posted/u;
+/** A repeat order is the ERP's own (contract version 19). */
+const NO_CUSTOMER_REFERENCE = /purchaseOrderByCustomer is null/u;
 const PRODUCT_DELETE_CALL = /erpRequest\(params, "products", \{[^}]*DELETE/u;
 
 /** Commerce's names the ERP stopped accepting at contract version 16. */
@@ -101,8 +103,8 @@ describe("Given the ERP contract", () => {
   // Contract version 18 (AB-26s, the card half): an order paid at checkout carries the
   // payment reference, built from an allow-list (lib/payment-reference.js), and the ERP raises
   // no payment event for the payment it posts with that order's invoice.
-  test("Then the contract is at version 18: the order request carries the payment reference this app builds", () => {
-    expect(contract.contractVersion).toBe(18);
+  test("Then from version 18 the order request carries the payment reference this app builds", () => {
+    expect(contract.contractVersion).toBeGreaterThanOrEqual(18);
     expect(contract.order.request).toContain("payment");
     const built = paymentReferenceOf({
       base_amount_paid: 10,
@@ -115,6 +117,14 @@ describe("Given the ERP contract", () => {
       [...contract.order.payment].sort(),
     );
     expect(contract.payments.paidInWebShopNote).toMatch(NO_PAYMENT_EVENT);
+  });
+
+  // Contract version 19 (AB-26r): a repeat order is the ERP's own, with no customer reference;
+  // the translator answers its events without publishing anything (translate.test.js).
+  test("Then the contract is at version 19: a repeat order carries no customer reference", () => {
+    expect(contract.contractVersion).toBe(19);
+    expect(contract.routes.orders).toContain("POST /:number/repeat");
+    expect(contract.order.repeatNote).toMatch(NO_CUSTOMER_REFERENCE);
   });
 
   test("Then the ERP routes this app calls are routes the ERP serves", () => {

@@ -26,6 +26,17 @@
  * Stock needs no record of its own: Commerce raises no event for a quantity written through
  * REST (docs/commerce-api-inventory.md, settled 2026-09-27). The product save event is what
  * carried Commerce's stock back to the ERP, and a dropped echo carries nothing.
+ *
+ * The other direction (AB-26y step 5, the ERP's contract version 19): a change made in Commerce
+ * that this integration sends the ERP — a shipment, an invoice, a cancel, a hold or its release
+ * — comes back as the ERP's own event, because a real ERP raises its events for every change,
+ * whoever made it. Until version 19 the ERP held those events back; no real ERP does. The change
+ * is recorded here before it is sent (sentToErp) and the ingestion webhook drops the event that
+ * matches it (isErpEcho). Unlike a Commerce save, the ERP raises ONE event per change, so a
+ * record is used up by its echo, and two equal changes (two shipments of the same lines) are
+ * two echoes. A change the ERP did not make (it refused, was away, or had it already: 200 for a
+ * document it already held) leaves no record, so it cannot swallow a later event of the ERP's
+ * own.
  */
 import { createHash } from "node:crypto";
 
@@ -79,6 +90,108 @@ export async function noteProductWrite(sku, { name, price }) {
     JSON.stringify({ at: new Date().toISOString() }),
     { ttl: OWN_WRITE_TTL_SECONDS },
   );
+}
+
+/**
+ * How long a change sent to an ERP stays known: the ERP delivers its event while it answers,
+ * and retries an undelivered one every minute, ten times (its contract's delivery.maxAttempts),
+ * so an echo can arrive up to ten minutes late. Fifteen leaves room for a slow retry.
+ */
+export const ERP_ECHO_TTL_SECONDS = 900;
+
+/** The moves that make an ERP document: only a 201 says the ERP made one (contract v19). */
+const MAKES_DOCUMENT = new Set(["invoice", "shipment"]);
+
+/**
+ * @typedef {object} ErpChange a change sent to one ERP, as its event will name it
+ * @property {string} erpId the ERP's id (lib/erps eventErpId)
+ * @property {string} salesOrder the ERP's sales order number
+ * @property {"cancel"|"hold"|"release"|"shipment"|"invoice"} kind what the ERP is asked to do
+ * @property {Array<{ customerLineReference: string|number, qty: number }>} [lines] a shipment's
+ */
+
+/** A key in State's alphabet for a change: a hash of the ERP, the document and the lines. */
+function changeKey({ erpId, salesOrder, kind, lines }) {
+  const named = (lines ?? [])
+    .map((l) => `${String(l.customerLineReference)}:${Number(l.qty)}`)
+    .sort();
+  const written = JSON.stringify([
+    String(erpId),
+    String(salesOrder),
+    kind,
+    named,
+  ]);
+  return `own-write-erp.${createHash("sha256").update(written).digest("hex")}`;
+}
+
+/** How many changes under this key are still waiting for their echo. */
+async function waiting(key) {
+  const res = await (await state()).get(key);
+  if (!res?.value) {
+    return 0;
+  }
+  try {
+    const { at, count } = JSON.parse(res.value);
+    const fresh = Date.now() - Date.parse(at) < ERP_ECHO_TTL_SECONDS * MS;
+    return fresh ? Number(count) || 0 : 0;
+  } catch {
+    return 0;
+  }
+}
+
+/** Set how many changes under this key wait for their echo; none deletes the record. */
+async function setWaiting(key, count) {
+  const client = await state();
+  if (count <= 0) {
+    await client.delete(key);
+    return;
+  }
+  await client.put(
+    key,
+    JSON.stringify({ at: new Date().toISOString(), count }),
+    { ttl: ERP_ECHO_TTL_SECONDS },
+  );
+}
+
+/** Whether the ERP made the change: a document when it answers 201, a move when it answers ok. */
+const madeIt = (kind, res) =>
+  MAKES_DOCUMENT.has(kind) ? res?.status === 201 : Boolean(res?.ok);
+
+/**
+ * Send a change made in Commerce to an ERP, remembering it first so the ERP's event for it is
+ * known as its echo. Forgotten again when the ERP did not make it.
+ *
+ * @param {ErpChange} change the change, as the ERP's event will name it
+ * @param {() => Promise<{ ok: boolean, status: number }>} send the ERP call (lib/erp fromCommerce)
+ * @returns {Promise<object>} what the ERP answered
+ */
+export async function sentToErp(change, send) {
+  const key = changeKey(change);
+  await setWaiting(key, (await waiting(key)) + 1);
+  let res;
+  try {
+    res = await send();
+  } finally {
+    if (!madeIt(change.kind, res)) {
+      await setWaiting(key, (await waiting(key)) - 1);
+    }
+  }
+  return res;
+}
+
+/**
+ * Whether an ERP event echoes a change this integration sent it; if so it is used up.
+ * @param {ErpChange} change what the event names (translate.js erpChangeOf) and its ERP
+ * @returns {Promise<boolean>}
+ */
+export async function isErpEcho(change) {
+  const key = changeKey(change);
+  const count = await waiting(key);
+  if (count === 0) {
+    return false;
+  }
+  await setWaiting(key, count - 1);
+  return true;
 }
 
 /** Whether a record exists under this key and is still inside the window. */

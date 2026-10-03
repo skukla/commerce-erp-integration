@@ -4,8 +4,14 @@ import {
   orderChangeFromCommerce,
   shipmentFromCommerce,
 } from "#lib/commerce-changes";
+import { resetOwnWritesClient } from "#lib/own-writes";
 
 import contract from "../../contract/erp-contract.json" with { type: "json" };
+import { fakeState } from "../box/state.js";
+
+/* A change sent to the ERP is remembered in State so its echo is known (lib/own-writes.js). */
+beforeEach(() => resetOwnWritesClient(fakeState()));
+afterEach(() => resetOwnWritesClient());
 
 const ok = (data) => ({ data, ok: true, status: 200 });
 const gone = { data: {}, ok: false, status: 404 };

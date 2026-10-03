@@ -30,7 +30,8 @@ function openParts(record, erps) {
 /** One ERP's answer, named for the order's history. */
 async function tellPart(params, order, { entry, part }, client) {
   const erpParams = paramsForErp(params, entry);
-  const deps = { erp: client };
+  // The ERP's id, so the change it echoes is known per ERP (lib/own-writes.js).
+  const deps = { erp: client, erpId: entry.id };
   const own = await askErp(erpParams, part.erpNumber, deps);
   const result =
     own.answer ?? (await changeOnErpOrder(erpParams, order, own, deps));

@@ -10,10 +10,15 @@ vi.mock("@adobe/aio-commerce-sdk/auth", async (original) =>
 
 import { resetErpTokenCache } from "#lib/erp";
 import { resetOrderPartsClient, writeOrderParts } from "#lib/order-parts";
+import { resetOwnWritesClient } from "#lib/own-writes";
 import { orderChangeToParts } from "#router/part-changes";
 
 import { fakeState } from "../box/state.js";
 import { BOTH, erpFetch, NORTHWIND, OWN } from "../lib/per-erp-harness.js";
+
+/* A change sent to the ERP is remembered in State so its echo is known (lib/own-writes.js). */
+beforeEach(() => resetOwnWritesClient(fakeState()));
+afterEach(() => resetOwnWritesClient());
 
 const ORDER = "000000042";
 const A = "https://a.example/api/v1/web/demo-erp/orders";

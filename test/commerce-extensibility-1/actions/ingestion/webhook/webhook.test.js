@@ -22,7 +22,10 @@ vi.mock("@adobe/aio-commerce-sdk/auth", () => ({
 
 import { resolveImsAuthParams } from "@adobe/aio-commerce-sdk/auth";
 
+import { resetOwnWritesClient, sentToErp } from "#lib/own-writes";
 import * as action from "#src/ingestion/webhook/index";
+
+import { fakeState } from "../../../../box/state.js";
 
 const mockLoggerInstance = {
   debug: vi.fn(),
@@ -139,6 +142,57 @@ describe("Given external backoffice events ingestion webhook", () => {
       expect(publishEvent).not.toHaveBeenCalled();
       expect(response.statusCode).toBe(200);
       expect(response.body.published).toEqual([]);
+    });
+  });
+
+  /*
+   * AB-26y step 5 (ERP contract version 19): the ERP raises its events for every change, so a
+   * cancel this integration sent it for a cancel made in Commerce comes back as the ERP's own
+   * SalesOrder.Changed. It is recognised (lib/own-writes.js) and nothing is published; the
+   * same event without the integration's change behind it is published as before.
+   */
+  describe("When the ERP event echoes a change this integration sent the ERP", () => {
+    const canceled = {
+      ...erpEvent,
+      data: {
+        CreditBlock: false,
+        Items: [],
+        OverallStatus: "canceled",
+        PrevCreditBlock: false,
+        PrevOverallStatus: "created",
+        PurchaseOrderByCustomer: "000000042",
+        Reason: "Canceled in the web shop",
+        SalesOrder: "0000001000",
+      },
+      type: "SalesOrder.Changed",
+    };
+    beforeEach(() => resetOwnWritesClient(fakeState()));
+    afterEach(() => resetOwnWritesClient());
+
+    test("Then it answers 200, says it was an echo, and publishes nothing; the same event again is published", async () => {
+      // One ERP, so its events are its own whatever id they carry (lib/erps eventErpId).
+      await sentToErp(
+        { erpId: "erp", kind: "cancel", salesOrder: "0000001000" },
+        async () => ({ data: {}, ok: true, status: 200 }),
+      );
+      const echo = await action.main(canceled);
+      expect(publishEvent).not.toHaveBeenCalled();
+      expect(echo).toEqual({
+        body: {
+          published: [],
+          response: {
+            message:
+              "sales order 0000001000: the ERP raised the cancel this integration sent it for a change made in Commerce; nothing to publish",
+            success: true,
+          },
+          type: "SalesOrder.Changed",
+        },
+        statusCode: 200,
+        type: "success",
+      });
+      const again = await action.main(canceled);
+      expect(again.body.published).toEqual(["be-observer.sales_order_cancel"]);
+      expect(publishEvent).toHaveBeenCalledTimes(1);
     });
   });
 

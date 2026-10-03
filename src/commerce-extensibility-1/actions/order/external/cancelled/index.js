@@ -6,6 +6,7 @@ import {
 import AioLogger from "@adobe/aio-lib-core-logging";
 
 import { recordingErpEvent } from "#lib/erp-event-history";
+import { paymentReferenceOf } from "#lib/payment-reference";
 import { stringParameters } from "#lib/utils";
 import { handlePartMessage } from "#router/part-outcomes";
 import {
@@ -18,6 +19,14 @@ import {
 
 const REFUSED =
   "Commerce did not cancel this order because part of it is already invoiced or shipped.";
+
+/*
+ * A card captured at checkout (Authorize and Capture) invoiced the order in Commerce, so
+ * Commerce keeps it, and the money is the web shop's to give back (AB-26s; owner 2026-10-02,
+ * flow 1: the web shop owns the gateway, nothing in the ERP or here moves card money).
+ */
+const CARD_KEPT =
+  "The card payment was captured at checkout, so Commerce keeps the order: the card payment is refunded in the web shop, with a credit memo from its invoice.";
 
 /**
  * be-observer.sales_order_cancel: cancel the Commerce order the ERP cancelled, and say
@@ -70,7 +79,7 @@ async function handle(params) {
     const cancelled = after?.state === "canceled";
     const outcome = cancelled
       ? ""
-      : `. ${REFUSED} ${await holdForStaff(params, orderId, logger)}`;
+      : `. ${await holdForStaff(params, orderId, logger, paymentReferenceOf(order?.payment) !== null)}`;
     await addComment(params, orderId, {
       statusHistory: {
         comment: `Canceled in the ERP${erp}${reason}${outcome}`,
@@ -89,15 +98,22 @@ async function handle(params) {
   }
 }
 
-/** Put a refused cancel On Hold; answers the sentence that says whether it worked. */
-async function holdForStaff(params, orderId, logger) {
+/**
+ * Put a refused cancel On Hold; answers why Commerce kept the order, what staff do, and
+ * whether the hold worked.
+ */
+async function holdForStaff(params, orderId, logger, paidByCard) {
+  let held = true;
   try {
     await holdOrder(params, orderId);
-    return "It is On Hold: close the rest with a credit memo.";
   } catch (error) {
     logger.warn(`order ${orderId} could not be held: ${error.message}`);
-    return "It could not be put On Hold: close the rest with a credit memo.";
+    held = false;
   }
+  if (paidByCard) {
+    return `${CARD_KEPT} ${held ? "It is On Hold so nothing ships; take it off hold to make the credit memo." : "It could not be put On Hold."}`;
+  }
+  return `${REFUSED} ${held ? "It is On Hold" : "It could not be put On Hold"}: close the rest with a credit memo.`;
 }
 
 /** Records how each event ended, for the Admin screen's history (lib/erp-event-history.js). */

@@ -13,10 +13,15 @@ vi.mock("#lib/history", () => ({
 import { resetErpTokenCache } from "#lib/erp";
 import { resetErpsClient } from "#lib/erps";
 import { resetOrderPartsClient, writeOrderParts } from "#lib/order-parts";
+import { resetOwnWritesClient } from "#lib/own-writes";
 import { main } from "#src/order/commerce/changed/index";
 
 import { fakeState } from "../../../../box/state.js";
 import { BOTH, erpFetch, OWN } from "../../../../lib/per-erp-harness.js";
+
+/* A change sent to the ERP is remembered in State so its echo is known (lib/own-writes.js). */
+beforeEach(() => resetOwnWritesClient(fakeState()));
+afterEach(() => resetOwnWritesClient());
 
 let erp;
 beforeEach(async () => {

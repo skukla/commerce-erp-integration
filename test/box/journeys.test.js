@@ -191,7 +191,7 @@ describe("Pair in a box: the entity matrix, both directions", () => {
     expect(await box.erp.pendingEvents()).toEqual([]);
   });
 
-  test("Shipment, Commerce → ERP: a shipment made in Commerce Admin is recorded on the ERP order and nothing ships again in Commerce", async () => {
+  test("Shipment, Commerce → ERP → Commerce: a shipment made in Commerce Admin is recorded on the ERP order, the ERP's goods issue for it is recognised as the echo, and nothing ships again in Commerce", async () => {
     const number = await seeded();
     const shipmentId = box.commerce.adminShip(
       55,
@@ -211,6 +211,12 @@ describe("Pair in a box: the entity matrix, both directions", () => {
       order.shipments.map((s) => [s.status, s.warehouse, s.externalReference]),
     ).toEqual([["posted", "default", String(shipmentId)]]);
     expect(order.status).toBe("shipped");
+    // Contract version 19: the ERP raises its goods issue for it, as for its own.
+    expect((await box.erp.pendingEvents()).map((e) => e.type)).toEqual([
+      "OutboundDelivery.GoodsIssueStatusChanged",
+    ]);
+    // Delivered, it is this integration's own change coming back: no handler runs.
+    expect(await deliverErpEvents()).toEqual([]);
     expect(await box.erp.pendingEvents()).toEqual([]);
     expect(writesOf("ship")).toHaveLength(1);
     const journal = (await box.erp.call("events")).data.items.filter(
@@ -318,8 +324,15 @@ describe("Pair in a box: the entity matrix, both directions", () => {
     expect(writesOf("unhold").map((w) => w.orderId)).toEqual(["55", "56"]);
   });
 
-  test("Order, Commerce → ERP: a cancellation and a hold made in Commerce Admin reach the ERP, and are not echoed back", async () => {
+  test("Order, Commerce → ERP: a cancellation and a hold made in Commerce Admin reach the ERP; the ERP raises each, and each echo is recognised and changes nothing in Commerce", async () => {
     const number = await seeded();
+    const comments = writesOf("comment").length;
+    /** The ERP's events since the last move: raised, delivered, and every one an echo. */
+    const echoesOnly = async (types) => {
+      expect((await box.erp.pendingEvents()).map((e) => e.type)).toEqual(types);
+      expect(await deliverErpEvents()).toEqual([]);
+      expect(await box.erp.pendingEvents()).toEqual([]);
+    };
     await box.commerce.adminHold(55);
     expect(
       (await orderChanged.main(box.commerce.events.orderSaved(55))).statusCode,
@@ -328,18 +341,68 @@ describe("Pair in a box: the entity matrix, both directions", () => {
     expect((await erpOrder(number)).creditReason).toBe(
       "Put on hold in the web shop",
     );
+    await echoesOnly(["SalesOrder.Changed"]);
     await box.commerce.orderClient.unholdOrder({}, 55);
     expect(
       (await orderChanged.main(box.commerce.events.orderSaved(55))).statusCode,
     ).toBe(200);
     expect((await erpOrder(number)).creditStatus).toBe("released");
+    await echoesOnly(["SalesOrder.Changed"]);
     await box.commerce.adminCancel(55);
     expect(
       (await orderChanged.main(box.commerce.events.orderSaved(55))).statusCode,
     ).toBe(200);
     expect((await erpOrder(number)).status).toBe("canceled");
-    expect(await box.erp.pendingEvents()).toEqual([]);
-    expect(writesOf("cancel")).toHaveLength(1);
+    await echoesOnly(["SalesOrder.Changed"]);
+    // Commerce's own three moves, once each, and no note claiming the ERP did them.
+    expect(
+      ["hold", "unhold", "cancel"].map((kind) => writesOf(kind).length),
+    ).toEqual([1, 1, 1]);
+    expect(writesOf("comment")).toHaveLength(comments);
+  });
+
+  test("Shipment and invoice, Commerce → ERP → Commerce: two equal shipments and an invoice made in Commerce Admin are each recognised when the ERP raises them; the ERP's own shipment afterwards still reaches Commerce", async () => {
+    const number = await seeded();
+    const shipped = async (qty) => {
+      const id = box.commerce.adminShip(55, [{ order_item_id: 1, qty }]);
+      expect(
+        (await orderShipped.main(box.commerce.events.shipmentSaved(id)))
+          .statusCode,
+      ).toBe(200);
+    };
+    // Two shipments with the same lines: two echoes, both recognised.
+    await shipped(4);
+    await shipped(4);
+    expect((await box.erp.pendingEvents()).map((e) => e.type)).toEqual([
+      "OutboundDelivery.GoodsIssueStatusChanged",
+      "OutboundDelivery.GoodsIssueStatusChanged",
+    ]);
+    expect(await deliverErpEvents()).toEqual([]);
+    expect(writesOf("ship")).toHaveLength(2);
+    // The ERP ships the rest itself: a change of its own, which reaches Commerce.
+    await box.erp.call("orders", {
+      body: { status: "shipped" },
+      method: "POST",
+      path: `/${number}/status`,
+    });
+    expect(await deliverErpEvents()).toEqual([
+      { event: "be-observer.sales_order_shipment_create", statusCode: 200 },
+    ]);
+    expect(writesOf("ship")).toHaveLength(3);
+    // An invoice made in Commerce Admin: the ERP invoices too, and its invoice is the echo.
+    const invoiceId = await box.commerce.adminInvoice(55);
+    expect(
+      (await orderInvoiced.main(box.commerce.events.invoiceSaved(invoiceId)))
+        .statusCode,
+    ).toBe(200);
+    expect((await erpOrder(number)).invoice.externalReference).toBe(
+      String(invoiceId),
+    );
+    expect((await box.erp.pendingEvents()).map((e) => e.type)).toEqual([
+      "BillingDocument.Created",
+    ]);
+    expect(await deliverErpEvents()).toEqual([]);
+    expect(writesOf("invoice")).toHaveLength(1);
   });
 
   test("Sellable item and inventory, ERP → Commerce, ledgered; reset puts every write back and clears the ERP numbers", async () => {

@@ -8,6 +8,7 @@ import {
   resetOrderPartsClient,
   writeOrderParts,
 } from "#lib/order-parts";
+import { resetOwnWritesClient } from "#lib/own-writes";
 import { applyCombinedStatus } from "#router/combined-status";
 import {
   fulfilmentFromCommerce,
@@ -15,6 +16,12 @@ import {
   prepareShipment,
   recordShipped,
 } from "#router/part-fulfilment";
+
+import { fakeState } from "../box/state.js";
+
+/* A change sent to the ERP is remembered in State so its echo is known (lib/own-writes.js). */
+beforeEach(() => resetOwnWritesClient(fakeState()));
+afterEach(() => resetOwnWritesClient());
 
 function memoryState() {
   const store = new Map();

@@ -1,8 +1,10 @@
 /*
  * Changes made IN Commerce Admin flow back to the ERP (bidirectional review, item 1 and
  * G4): a shipment, an invoice, a cancellation, a hold. Each is told to the ERP with an
- * `origin` marker so the ERP records it and does not echo it. Pure over the collaborators
- * it is handed, so it is tested without either system.
+ * `origin` marker, which the ERP journals as the source of the change. The ERP raises its own
+ * event for it as for any change (its contract version 19); each change is remembered as it is
+ * sent (lib/own-writes.js sentToErp), so the ingestion webhook knows that event as the echo.
+ * Pure over the collaborators it is handed, so it is tested without either system.
  *
  * "Is this mine?" (rule M2 of the multi-ERP review): the Commerce order carries the ERP's
  * number as ext_order_id; the ERP is asked for that order first. An order the ERP does not
@@ -10,6 +12,8 @@
  * delivery.
  */
 import { COMMERCE_EVENTS, originOf } from "#lib/commerce-events";
+import { eventErpId, loadErps } from "#lib/erps";
+import { sentToErp } from "#lib/own-writes";
 import { orderPrefix, splitExtOrderId } from "#lib/structure";
 
 const OK = 200;
@@ -86,6 +90,16 @@ export async function askErp(params, number, deps) {
   );
 }
 
+/**
+ * Send one change to the ERP, remembered first so the ERP's event for it is known as the echo.
+ * The ERP is named as its events are attributed (lib/erps eventErpId): `deps.erpId` when the
+ * caller knows it (a split order's part), else this pair's single ERP.
+ */
+async function tellErp(params, deps, change, send) {
+  const erpId = deps.erpId ?? eventErpId(deps.erps ?? (await loadErps(params)));
+  return sentToErp({ ...change, erpId }, send);
+}
+
 /** What the ERP answered, as this handler's outcome. */
 function fromErp(res, label, done) {
   if (res.ok) {
@@ -148,16 +162,22 @@ export async function shipmentFromCommerce(params, shipment, deps) {
       customerLineReference: String(item.order_item_id),
       qty: Number(item.qty),
     }));
-  const res = await deps.erp.fromCommerce.ship(params, own.number, {
-    externalReference: String(shipmentId),
-    lines: items,
-    origin: originOf(
-      COMMERCE_EVENTS.shipmentSaved,
-      params,
-      shipment.increment_id ?? shipmentId,
-    ),
-    warehouse: shipment.extension_attributes?.source_code ?? null,
-  });
+  const res = await tellErp(
+    params,
+    deps,
+    { kind: "shipment", lines: items, salesOrder: own.number },
+    () =>
+      deps.erp.fromCommerce.ship(params, own.number, {
+        externalReference: String(shipmentId),
+        lines: items,
+        origin: originOf(
+          COMMERCE_EVENTS.shipmentSaved,
+          params,
+          shipment.increment_id ?? shipmentId,
+        ),
+        warehouse: shipment.extension_attributes?.source_code ?? null,
+      }),
+  );
   return fromErp(
     res,
     `Commerce shipment ${shipment.increment_id ?? shipmentId}`,
@@ -190,17 +210,23 @@ export async function invoiceFromCommerce(params, invoice, deps) {
   if (own.answer !== null) {
     return own.answer;
   }
-  const res = await deps.erp.fromCommerce.invoice(params, own.number, {
-    externalReference:
-      invoice.entity_id === undefined || invoice.entity_id === null
-        ? null
-        : String(invoice.entity_id),
-    origin: originOf(
-      COMMERCE_EVENTS.invoiceSaved,
-      params,
-      invoice.increment_id ?? invoice.entity_id,
-    ),
-  });
+  const res = await tellErp(
+    params,
+    deps,
+    { kind: "invoice", salesOrder: own.number },
+    () =>
+      deps.erp.fromCommerce.invoice(params, own.number, {
+        externalReference:
+          invoice.entity_id === undefined || invoice.entity_id === null
+            ? null
+            : String(invoice.entity_id),
+        origin: originOf(
+          COMMERCE_EVENTS.invoiceSaved,
+          params,
+          invoice.increment_id ?? invoice.entity_id,
+        ),
+      }),
+  );
   return fromErp(
     res,
     `Commerce invoice ${invoice.increment_id ?? invoice.entity_id}`,
@@ -265,21 +291,33 @@ export async function changeOnErpOrder(params, order, own, deps) {
         `${label}: the ERP already shows it canceled`,
       );
     }
-    const res = await deps.erp.fromCommerce.cancel(params, own.number, {
-      origin,
-      // A reason code from the ERP contract's list (demo-erp lib/orders.js), not words.
-      reason: CANCELED_HERE,
-    });
+    const res = await tellErp(
+      params,
+      deps,
+      { kind: "cancel", salesOrder: own.number },
+      () =>
+        deps.erp.fromCommerce.cancel(params, own.number, {
+          origin,
+          // A reason code from the ERP contract's list (demo-erp lib/orders.js), not words.
+          reason: CANCELED_HERE,
+        }),
+    );
     return fromErp(res, label, `canceled on sales order ${own.number}`);
   }
   if (order.state === HOLDED) {
     if (own.order.creditStatus === "held") {
       return answer("skipped", OK, `${label}: the ERP already holds it`);
     }
-    const res = await deps.erp.fromCommerce.hold(params, own.number, {
-      origin,
-      reason: HELD_HERE,
-    });
+    const res = await tellErp(
+      params,
+      deps,
+      { kind: "hold", salesOrder: own.number },
+      () =>
+        deps.erp.fromCommerce.hold(params, own.number, {
+          origin,
+          reason: HELD_HERE,
+        }),
+    );
     return fromErp(res, label, `held on sales order ${own.number}`);
   }
   if (
@@ -288,9 +326,12 @@ export async function changeOnErpOrder(params, order, own, deps) {
   ) {
     // Off hold in Commerce: only a hold Commerce itself made is released here. A credit hold the
     // ERP decided stays until someone releases it in the ERP.
-    const res = await deps.erp.fromCommerce.release(params, own.number, {
-      origin,
-    });
+    const res = await tellErp(
+      params,
+      deps,
+      { kind: "release", salesOrder: own.number },
+      () => deps.erp.fromCommerce.release(params, own.number, { origin }),
+    );
     return fromErp(res, label, `released on sales order ${own.number}`);
   }
   return answer(

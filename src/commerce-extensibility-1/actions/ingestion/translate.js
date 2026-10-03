@@ -88,6 +88,10 @@ const ITEM_ID = /^[0-9]+$/u;
 const listOf = (items) => (Array.isArray(items) ? items : []);
 /** Whether an ERP line names a Commerce order line: missing, empty and non-numeric do not. */
 const namesLine = (i) => ITEM_ID.test(String(i?.CustomerLineReference ?? ""));
+/** Whether an ERP order event names a web shop order: the customer's order number. */
+const namesOrder = (d) =>
+  typeof d.PurchaseOrderByCustomer === "string" &&
+  d.PurchaseOrderByCustomer.trim() !== "";
 
 /**
  * The ERP's items as the handlers' order items: Commerce's item id is the customer's line
@@ -334,6 +338,44 @@ function unmappedLine(type, data) {
     : null;
 }
 
+/*
+ * The change of this integration's own an ERP event would echo (AB-26y step 5, the ERP's
+ * contract version 19): what lib/own-writes.js recorded when the change, made in Commerce, was
+ * sent to the ERP (lib/commerce-changes.js, router/part-fulfilment.js). Only these five are
+ * ever sent; any other event is the ERP's own and echoes nothing.
+ */
+const CHANGES = {
+  "BillingDocument.Created": (d) =>
+    d.BillingDocumentType === "Invoice" ? { kind: "invoice" } : null,
+  "OutboundDelivery.GoodsIssueStatusChanged": (d) => ({
+    kind: "shipment",
+    lines: listOf(d.Items).map((i) => ({
+      customerLineReference: i.CustomerLineReference,
+      qty: i.Quantity,
+    })),
+  }),
+  "SalesOrder.Changed": (d) => {
+    if (d.OverallStatus === "canceled" && d.PrevOverallStatus !== "canceled") {
+      return { kind: "cancel" };
+    }
+    if (Boolean(d.CreditBlock) === Boolean(d.PrevCreditBlock)) {
+      return null;
+    }
+    return { kind: d.CreditBlock ? "hold" : "release" };
+  },
+};
+
+/**
+ * The change an ERP event would echo, in lib/own-writes.js's words; null for one it cannot.
+ * @param {string} type the ERP's event type
+ * @param {object} data its data
+ * @returns {{ kind: string, salesOrder: string, lines?: object[] } | null}
+ */
+export function erpChangeOf(type, data) {
+  const change = Object.hasOwn(CHANGES, type) ? CHANGES[type](data) : null;
+  return change ? { ...change, salesOrder: data.SalesOrder } : null;
+}
+
 /** Every ERP event type this module translates (the ERP contract's `events.types`). */
 export const TRANSLATIONS = Object.freeze({ ...ORDER_TYPES, ...MASTER_TYPES });
 
@@ -346,7 +388,8 @@ const named = (payload, erpId) =>
  * @param {object} params the action params (Commerce credentials, for an order's id)
  * @param {object} cloudEvent the delivered CloudEvent (validateCloudEvent passed)
  * @param {{ findOrder?: Function }} [deps] `findOrder(params, incrementId)` (test seam)
- * @returns {Promise<{ ok: true, erpId?: string, events: Array<{ event: string, payload: object }> }
+ * @returns {Promise<{ ok: true, erpId?: string, events: Array<{ event: string, payload: object }>,
+ *   skipped?: string }
  *   | { ok: false, statusCode: number, message: string }>}
  */
 export async function translateErpEvent(params, cloudEvent, deps = {}) {
@@ -357,6 +400,17 @@ export async function translateErpEvent(params, cloudEvent, deps = {}) {
       message: `unknown ERP event type ${type}`,
       ok: false,
       statusCode: BAD_REQUEST,
+    };
+  }
+  if (Object.hasOwn(ORDER_TYPES, type) && !namesOrder(data)) {
+    // An order the ERP made itself (Repeat order, contract version 19): the web shop never had
+    // it, so there is nothing to change there and no order to create. Answered, not refused:
+    // delivering it again would change nothing.
+    return {
+      erpId,
+      events: [],
+      ok: true,
+      skipped: `sales order ${data.SalesOrder} was made in the ERP; the web shop has no order for it`,
     };
   }
   const unmapped = unmappedLine(type, data);

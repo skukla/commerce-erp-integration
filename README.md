@@ -89,7 +89,7 @@ cron does not run), and where to look when one does not arrive: [`docs/eventing.
 | event | `observer.catalog_product_delete_commit_after` | `product-commerce/deleted` → no ERP call: the delete is recorded in the Admin page's Activity ("Product deleted", In Commerce); the ERP keeps the product until its next reset (with several ERPs the record names the ERP the event's `erp_owner` names) |
 | event | `observer.company_save_commit_after` | `company-commerce/saved` → ERP `POST admin/import` (the company read back by id and sent as a business partner) |
 | event | `observer.sales_order_save_commit_after` | `order-commerce/created` → Commerce `GET orders` (entity by increment id) → ERP `POST orders` → Commerce `POST orders` (`ext_order_id`) and `POST orders/{id}/comments` |
-| event | `observer.sales_order_save_commit_after` (saves that are not a new order) | `order-commerce/changed` → asks the ERP `GET orders/{number}` first (rule M2) → ERP `POST orders/{number}/cancel`, `/credit/hold` or `/credit/release`, each with an `origin` so the ERP does not echo it |
+| event | `observer.sales_order_save_commit_after` (saves that are not a new order) | `order-commerce/changed` → asks the ERP `GET orders/{number}` first (rule M2) → ERP `POST orders/{number}/cancel`, `/credit/hold` or `/credit/release`, each with an `origin` the ERP journals; the ERP raises its own event for it (contract version 19) and the ingestion webhook drops that echo (`lib/own-writes.js`) |
 | event | `observer.sales_order_shipment_save_after` | `order-commerce/shipped` → Commerce `GET orders/{id}` → ERP `GET orders/{number}` → ERP `POST orders/{number}/external-shipment` (origin) |
 | event | `observer.sales_order_invoice_save_after` | `order-commerce/invoiced` → Commerce `GET orders/{id}` → ERP `GET orders/{number}` → ERP `POST orders/{number}/external-invoice` (origin) |
 | event | `observer.cataloginventory_stock_item_save_commit_after` | `stock-commerce/updated` → Commerce `GET products` (SKU by id) → ERP `POST admin/import` |
@@ -97,7 +97,11 @@ cron does not run), and where to look when one does not arrive: [`docs/eventing.
 **ERP → this app** (the ERP posts a CloudEvent in its own words to `ingestion/webhook`; the one
 translation module, `src/commerce-extensibility-1/actions/ingestion/translate.js`, turns each
 ERP type into the starter-kit event below, finding Commerce's ids from this app's own records
-and reads, and that is published to the `erp` provider. ERP contract version 16, AB-26y)
+and reads, and that is published to the `erp` provider. ERP contract version 16, AB-26y.
+Version 19: an event about an order the ERP made itself, with no customer reference (Repeat
+order), publishes nothing; and the ERP raises its events for changes this app sent it from
+Commerce too, so the webhook drops the event that echoes such a change, known from
+`src/lib/own-writes.js`, which remembers each change as it is sent)
 
 | ERP type | Published as |
 |---|---|
@@ -121,7 +125,7 @@ order number answers 503, so the ERP delivers it again.
 | `be-observer.sales_order_status_update` | `order-backoffice/updated` | `POST orders/{id}/comments` |
 | `be-observer.sales_order_shipment_create` | `order-backoffice/shipment-created` | `POST order/{id}/ship` |
 | `be-observer.sales_order_invoice_create` | `order-backoffice/invoice-created` | `POST order/{id}/invoice`, `POST orders/{id}/comments` |
-| `be-observer.sales_order_cancel` | `order-backoffice/cancelled` | `GET orders/{id}`, `POST orders/{id}/unhold` when On Hold, `POST orders/{id}/cancel` |
+| `be-observer.sales_order_cancel` | `order-backoffice/cancelled` | `GET orders/{id}`, `POST orders/{id}/unhold` when On Hold, `POST orders/{id}/cancel`; an order Commerce keeps (invoiced or shipped) is put On Hold, and one whose card was captured at checkout says the card payment is refunded in the web shop, with a credit memo from its invoice (nothing here refunds it) |
 | `be-observer.sales_order_hold` | `order-backoffice/hold` | asks the ERP `GET orders/{number}` first (rule M2); `GET orders/{id}`, `POST orders/{id}/hold` or `/unhold`, `POST orders/{id}/comments` |
 | `be-observer.company_credit_update` | `company-backoffice/credit-updated` | `GET companyCredits/company/{id}`, `PUT companyCredits/{id}` (ledgered) |
 | `be-observer.company_status_update` | `company-backoffice/status-updated` | `GET company/{id}`, `PUT company/{id}` (ledgered) |

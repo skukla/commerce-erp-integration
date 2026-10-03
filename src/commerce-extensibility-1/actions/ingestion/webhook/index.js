@@ -13,8 +13,11 @@ import { createAdobeIoEventsApiClient } from "@adobe/aio-commerce-sdk/events/io-
 import AioLogger from "@adobe/aio-lib-core-logging";
 
 import appConfig from "#app.commerce.config";
+import { eventErpId, loadErps } from "#lib/erps";
+import { isErpEcho } from "#lib/own-writes";
 import { stringParameters } from "#lib/utils";
 import {
+  erpChangeOf,
   translateErpEvent,
   validateCloudEvent,
 } from "#src/ingestion/translate";
@@ -48,6 +51,20 @@ export async function ingestErpEvent(params, deps) {
       body: { message: translated.message },
     });
   }
+  if (translated.skipped) {
+    deps.logger?.info(`ERP event ${params.id}: ${translated.skipped}`);
+  }
+  const echo = await echoOf(params, translated, deps);
+  if (echo) {
+    deps.logger?.info(`ERP event ${params.id}: ${echo}`);
+    return ok({
+      body: {
+        published: [],
+        response: { message: echo, success: true },
+        type: params.type,
+      },
+    });
+  }
   for (const { event, payload } of translated.events) {
     deps.logger?.debug(
       `Publish event ${event} to provider ${BACKOFFICE_PROVIDER_KEY}`,
@@ -58,10 +75,34 @@ export async function ingestErpEvent(params, deps) {
   return ok({
     body: {
       published: translated.events.map((e) => e.event),
-      response: { message: "Event published successfully", success: true },
+      response: {
+        message: translated.skipped ?? "Event published successfully",
+        success: true,
+      },
       type: params.type,
     },
   });
+}
+
+/**
+ * Why an ERP event is the echo of a change this integration sent that ERP for a move made in
+ * Commerce, or null when it is not (AB-26y step 5): the ERP raises its events for every change
+ * (its contract version 19), and the move is already in Commerce. lib/own-writes.js remembers
+ * each change sent; the record is used up here. The ERP is named as an ERP event is attributed
+ * (lib/erps eventErpId), as the change was recorded under it.
+ */
+async function echoOf(params, translated, deps) {
+  const change =
+    translated.events.length > 0 ? erpChangeOf(params.type, params.data) : null;
+  if (!change) {
+    return null;
+  }
+  const erps = deps.erps ?? (await loadErps(params));
+  const erpId = eventErpId(erps, translated.erpId);
+  if (!(erpId && (await isErpEcho({ ...change, erpId })))) {
+    return null;
+  }
+  return `sales order ${change.salesOrder}: the ERP raised the ${change.kind} this integration sent it for a change made in Commerce; nothing to publish`;
 }
 
 /**

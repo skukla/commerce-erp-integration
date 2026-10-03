@@ -92,9 +92,10 @@ export const erp = {
   createOrder: (params, order, timeoutMs) =>
     erpRequest(params, "orders", { body: order, method: "POST", timeoutMs }),
   /**
-   * The moves a change made IN Commerce asks of the ERP (contract order.fromCommerce). Each
-   * body carries `origin: { system, document, eventId? }`, which is what keeps the ERP from raising its
-   * own event for it and sending the change straight back.
+   * The moves a change made IN Commerce asks of the ERP (contract order.external). Each
+   * body carries `origin: { system, document, eventId? }`, which the ERP journals as the source.
+   * The ERP raises its own event for the move all the same (contract version 19); the callers
+   * send through lib/own-writes.js sentToErp, so the ingestion webhook knows it as the echo.
    */
   fromCommerce: {
     cancel: (params, number, body) =>

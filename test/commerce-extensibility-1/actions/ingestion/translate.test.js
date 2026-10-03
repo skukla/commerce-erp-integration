@@ -13,6 +13,7 @@ import { readFileSync } from "node:fs";
 import Ajv from "ajv";
 
 import {
+  erpChangeOf,
   STARTER_KIT_EVENTS,
   TRANSLATIONS,
   translateErpEvent,
@@ -515,6 +516,90 @@ describe("Given what cannot be translated", () => {
   });
 
   /*
+   * Repeat order (ERP contract version 19): the ERP made a sales order of its own from a
+   * canceled one. The web shop never had it, so it carries no customer reference, and nothing
+   * about it is the web shop's to hear: no Commerce order is read, none is created, nothing is
+   * published, and the answer ends the delivery (a 503 would have the ERP retry it in vain).
+   */
+  const ERP_OWN = {
+    ...ORDER,
+    Items: ITEMS.map((i) => ({ ...i, CustomerLineReference: null })),
+    PurchaseOrderByCustomer: null,
+  };
+  test.each([
+    [
+      "SalesOrder.Changed",
+      {
+        ...ERP_OWN,
+        CreditBlock: false,
+        OverallStatus: "confirmed",
+        PrevCreditBlock: false,
+        PrevOverallStatus: "created",
+        Reason: null,
+      },
+    ],
+    [
+      "SalesOrder.Changed",
+      {
+        ...ERP_OWN,
+        CreditBlock: true,
+        OverallStatus: "created",
+        PrevCreditBlock: false,
+        PrevOverallStatus: null,
+        Reason: "Credit limit exceeded",
+      },
+    ],
+    [
+      "OutboundDelivery.GoodsIssueStatusChanged",
+      {
+        ...ERP_OWN,
+        GoodsMovementStatus: "posted",
+        OutboundDelivery: "8000000012",
+        Plant: "east",
+      },
+    ],
+    [
+      "BillingDocument.Created",
+      {
+        ...ERP_OWN,
+        BillingDocument: "9000000001",
+        BillingDocumentType: "Invoice",
+      },
+    ],
+    [
+      "BillingDocument.Created",
+      {
+        ...ERP_OWN,
+        BillingDocument: "9500000001",
+        BillingDocumentType: "CreditMemo",
+      },
+    ],
+    [
+      "IncomingPayment.Posted",
+      {
+        ...ERP_OWN,
+        Amount: 5,
+        BillingDocument: "9000000001",
+        Customer: "C7",
+        Payment: "7000000001",
+      },
+    ],
+  ])(
+    "When a %s names no customer reference (an order the ERP made itself), Then nothing is published and Commerce is not read",
+    async (type, data) => {
+      const result = await translate(type, data);
+      expect(result).toEqual({
+        erpId: undefined,
+        events: [],
+        ok: true,
+        skipped:
+          "sales order 0000001000 was made in the ERP; the web shop has no order for it",
+      });
+      expect(findOrder).not.toHaveBeenCalled();
+    },
+  );
+
+  /*
    * A document line the ERP cannot name by the customer's line reference (the order went to
    * the ERP without Commerce's item id for it) has no Commerce line to ship, invoice, credit
    * or receive. Dropping it turned "lines that could not be mapped" into "no lines", which
@@ -644,6 +729,91 @@ describe("Given what cannot be translated", () => {
       validateCloudEvent({ ...envelope("SalesOrder.Changed", null) }).success,
     ).toBe(false);
   });
+});
+
+/*
+ * AB-26y step 5 (ERP contract version 19): which change of the integration's own an ERP event
+ * would echo, in the words lib/own-writes.js records it by (sentToErp). Read here, the one
+ * module that reads the ERP's words.
+ */
+describe("Given an ERP event that may echo a change this integration sent", () => {
+  const change = (d) => ({
+    ...ORDER,
+    CreditBlock: false,
+    PrevCreditBlock: false,
+    Reason: null,
+    ...d,
+  });
+  test.each([
+    [
+      "a cancel",
+      "SalesOrder.Changed",
+      change({ OverallStatus: "canceled", PrevOverallStatus: "created" }),
+      { kind: "cancel", salesOrder: "0000001000" },
+    ],
+    [
+      "a hold",
+      "SalesOrder.Changed",
+      change({
+        CreditBlock: true,
+        OverallStatus: "created",
+        PrevOverallStatus: "created",
+      }),
+      { kind: "hold", salesOrder: "0000001000" },
+    ],
+    [
+      "a release",
+      "SalesOrder.Changed",
+      change({
+        OverallStatus: "created",
+        PrevCreditBlock: true,
+        PrevOverallStatus: "created",
+      }),
+      { kind: "release", salesOrder: "0000001000" },
+    ],
+    [
+      "a confirmation (nothing this app sends)",
+      "SalesOrder.Changed",
+      change({ OverallStatus: "confirmed", PrevOverallStatus: "created" }),
+      null,
+    ],
+    [
+      "a goods issue, by its lines",
+      "OutboundDelivery.GoodsIssueStatusChanged",
+      { ...ORDER, OutboundDelivery: "8000000001" },
+      {
+        kind: "shipment",
+        lines: [
+          { customerLineReference: "1", qty: 12 },
+          { customerLineReference: "2", qty: 4 },
+        ],
+        salesOrder: "0000001000",
+      },
+    ],
+    [
+      "an invoice",
+      "BillingDocument.Created",
+      { ...ORDER, BillingDocumentType: "Invoice" },
+      { kind: "invoice", salesOrder: "0000001000" },
+    ],
+    [
+      "a credit memo (nothing this app sends)",
+      "BillingDocument.Created",
+      { ...ORDER, BillingDocumentType: "CreditMemo" },
+      null,
+    ],
+    [
+      "a product change",
+      "Product.Changed",
+      { ChangedFields: ["ProductName"], Product: "A1" },
+      null,
+    ],
+  ])(
+    "When it is %s, Then the change it would echo is named",
+    (_what, type, data, expected) => {
+      expect(erpChangeOf(type, data)).toEqual(expected);
+    },
+  );
 });
 
 describe("Given the ERP contract and this app's subscriptions", () => {

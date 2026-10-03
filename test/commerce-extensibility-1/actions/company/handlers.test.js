@@ -218,6 +218,53 @@ describe("Given the ERP order events the kit has no handler for", () => {
       "Canceled in the ERP. Commerce did not cancel this order because part of it is already invoiced or shipped. It could not be put On Hold: close the rest with a credit memo.",
     );
   });
+  // AB-26s, flow 1: the web shop owns the card gateway. A card captured at checkout invoiced
+  // the order in Commerce, which therefore keeps it; the refund is the web shop's to make.
+  const CAPTURED = {
+    base_amount_paid: 140,
+    last_trans_id: "TX1",
+    method: "payment_services_paypal_hosted_fields",
+  };
+  test.each([
+    [
+      true,
+      "It is On Hold so nothing ships; take it off hold to make the credit memo.",
+    ],
+    [false, "It could not be put On Hold."],
+  ])(
+    "Then an order paid by card at checkout that Commerce keeps says the card payment is refunded in the web shop (held: %s), and no credit memo is made",
+    async (held, after) => {
+      getOrder
+        .mockResolvedValueOnce({ payment: CAPTURED, state: "processing" })
+        .mockResolvedValueOnce({ payment: CAPTURED, state: "processing" });
+      if (!held) {
+        holdOrder.mockRejectedValueOnce(new Error("no hold"));
+      }
+      const res = await cancelled.main({
+        data: {
+          erpNumber: "0000001000",
+          orderId: 55,
+          reason: "Customer request",
+        },
+      });
+      expect(res.statusCode).toBe(200);
+      expect(addComment.mock.calls[0][2].statusHistory.comment).toBe(
+        `Canceled in the ERP (ERP sales order 0000001000): Customer request. The card payment was captured at checkout, so Commerce keeps the order: the card payment is refunded in the web shop, with a credit memo from its invoice. ${after}`,
+      );
+    },
+  );
+  test("Then a payment on account is no card payment: the refused cancel reads as before", async () => {
+    getOrder
+      .mockResolvedValueOnce({
+        payment: { method: "companycredit" },
+        state: "processing",
+      })
+      .mockResolvedValueOnce({ state: "processing" });
+    await cancelled.main({ data: { orderId: 55 } });
+    expect(addComment.mock.calls[0][2].statusHistory.comment).toBe(
+      "Canceled in the ERP. Commerce did not cancel this order because part of it is already invoiced or shipped. It is On Hold: close the rest with a credit memo.",
+    );
+  });
 });
 
 describe("Given the ERP's credit hold event", () => {

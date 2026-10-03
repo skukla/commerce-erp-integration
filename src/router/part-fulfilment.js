@@ -25,6 +25,7 @@ import {
   unlockOrder,
   writeOrderParts,
 } from "#lib/order-parts";
+import { sentToErp } from "#lib/own-writes";
 import { findPart } from "#router/part-outcomes";
 import {
   getInvoice,
@@ -238,8 +239,24 @@ function refusedForGood(res) {
   );
 }
 
-/** Tell one ERP about its lines of a Commerce shipment or invoice. */
+/**
+ * Tell one ERP about its lines of a Commerce shipment or invoice, remembered first so the
+ * ERP's own event for it is known as the echo (lib/own-writes.js; the ERP's contract v19).
+ */
 function tellErp(params, kind, doc, entry, part, lines, client) {
+  return sentToErp(
+    {
+      erpId: entry.id,
+      kind,
+      ...(kind === "shipment" ? { lines } : {}),
+      salesOrder: part.erpNumber,
+    },
+    () => askErp(params, kind, doc, entry, part, lines, client),
+  );
+}
+
+/** The ERP call for one ERP's lines of a Commerce shipment or invoice. */
+function askErp(params, kind, doc, entry, part, lines, client) {
   const erpParams = paramsForErp(params, entry);
   if (kind === "shipment") {
     return client.fromCommerce.ship(erpParams, part.erpNumber, {
