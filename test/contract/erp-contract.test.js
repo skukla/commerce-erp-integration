@@ -7,6 +7,7 @@
  */
 import { readdirSync, readFileSync } from "node:fs";
 
+import { paymentReferenceOf } from "#lib/payment-reference";
 import {
   STARTER_KIT_EVENTS,
   TRANSLATIONS,
@@ -29,6 +30,7 @@ const ERP_ROUTE_CALL = /erpRequest\(params, "([a-z]+)"/gu;
 const externalEvents = manifest.eventing.external.flatMap((p) => p.events);
 
 /** A DELETE sent to the ERP's products route: gone at contract version 17. */
+const NO_PAYMENT_EVENT = /NO IncomingPayment\.Posted/u;
 const PRODUCT_DELETE_CALL = /erpRequest\(params, "products", \{[^}]*DELETE/u;
 
 /** Commerce's names the ERP stopped accepting at contract version 16. */
@@ -77,8 +79,8 @@ describe("Given the ERP contract", () => {
 
   // Contract version 17: the ERP has no product delete (AB-26y step 5), and an order line
   // may carry the discount Commerce took off it (AB-16l).
-  test("Then the contract is at version 17: this app deletes no ERP product, and the order event asks for each line's discount", () => {
-    expect(contract.contractVersion).toBe(17);
+  test("Then from version 17 this app deletes no ERP product, and the order event asks for each line's discount", () => {
+    expect(contract.contractVersion).toBeGreaterThanOrEqual(17);
     expect(contract.routes.products.join(" ")).not.toContain("DELETE");
     const erpClient = readFileSync("src/lib/erp.js", "utf8");
     expect(erpClient).not.toContain("deleteProduct");
@@ -90,6 +92,25 @@ describe("Given the ERP contract", () => {
     expect(orderSaved.fields.map((f) => f.name)).toContain(
       "items[].base_discount_amount",
     );
+  });
+
+  // Contract version 18 (AB-26s, the card half): an order paid at checkout carries the
+  // payment reference, built from an allow-list (lib/payment-reference.js), and the ERP raises
+  // no payment event for the payment it posts with that order's invoice.
+  test("Then the contract is at version 18: the order request carries the payment reference this app builds", () => {
+    expect(contract.contractVersion).toBe(18);
+    expect(contract.order.request).toContain("payment");
+    const built = paymentReferenceOf({
+      base_amount_paid: 10,
+      cc_last4: "4242",
+      cc_type: "VI",
+      last_trans_id: "TX1",
+      method: "card",
+    });
+    expect(Object.keys(built).sort()).toStrictEqual(
+      [...contract.order.payment].sort(),
+    );
+    expect(contract.payments.paidInWebShopNote).toMatch(NO_PAYMENT_EVENT);
   });
 
   test("Then the ERP routes this app calls are routes the ERP serves", () => {

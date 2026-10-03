@@ -8,7 +8,10 @@
  *   (Reimbursed), naming the order and the ERP's payment (lib/company-balance.js);
  * - that reimbursement is ledgered (lib/ledger.js recordPaymentWrite), so a demo reset takes it
  *   back (lib/detach.js, decreaseBalance type 4): whatever can be done can be undone;
- * - an order paid any other way (e.g. check / money order) changes no credit;
+ * - an order paid any other way (e.g. check / money order) changes no credit. An order paid
+ *   by card at checkout raises no payment event at all: the ERP posts that payment with the
+ *   invoice and stays silent (its contract version 18), and were one delivered, its method is
+ *   not `companycredit`, so it would change no credit either;
  * - either way the order gets one staff-only comment naming the ERP and the payment.
  *
  * Made under the order's lock (lib/order-parts.js lockOrder), the lock credit memos and partial

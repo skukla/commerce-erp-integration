@@ -458,6 +458,98 @@ describe("Given one ERP's part of a split order", () => {
   });
 });
 
+// AB-26s, the card half (owner 2026-10-02, flow 1): Commerce captured the card; each ERP is
+// told the payment reference and what of the captured amount is its own, never a card number.
+describe("Given an order Commerce captured a card payment for", () => {
+  const CARD = {
+    additional_information: ["Credit Card", "4111111111111111"],
+    base_amount_paid: 352.29,
+    cc_last4: "4242",
+    cc_number_enc: "4111111111111111",
+    cc_type: "VI",
+    last_trans_id: "8FK21345TX901234A",
+    method: "payment_services_paypal_hosted_fields",
+  };
+  // 20.00 of the 352.29 is shipping, which belongs to no ERP's part.
+  const ORDER = {
+    base_currency_code: "USD",
+    base_grand_total: 352.29,
+    increment_id: "5000000020",
+    items: [
+      {
+        base_price: 33.33,
+        base_tax_amount: 8.25,
+        item_id: 36,
+        qty_ordered: 3,
+        sku: "BOARD",
+      },
+      {
+        base_discount_amount: 1.11,
+        base_price: 99.99,
+        base_tax_amount: 16.51,
+        item_id: 37,
+        qty_ordered: 2,
+        sku: "SIGN",
+      },
+      { base_price: 8.67, item_id: 38, qty_ordered: 1, sku: "TAPE" },
+    ],
+    store_id: 3,
+  };
+  const found = (payment) =>
+    vi.fn(async () => ({
+      entityId: 41,
+      extOrderId: null,
+      payment,
+      storeId: 3,
+    }));
+  const sentTo = (d) => d.erp.createOrder.mock.calls[0][1];
+
+  test("Then the ERP's order carries the payment reference read from the Commerce record, and no card number", async () => {
+    const d = deps({ findOrder: found(CARD) });
+    await sendOrderToErp({}, ORDER, d);
+    expect(sentTo(d).payment).toStrictEqual({
+      amount: 352.29,
+      cardBrand: "Visa",
+      cardLastFour: "4242",
+      method: "payment_services_paypal_hosted_fields",
+      reference: "8FK21345TX901234A",
+    });
+    expect(JSON.stringify(d.erp.createOrder.mock.calls)).not.toContain(
+      "4111111111111111",
+    );
+  });
+
+  test("Then each ERP's part of a split order carries the reference and its own share: its part's total, to the cent", async () => {
+    const shares = [];
+    for (const items of [[ORDER.items[0]], [ORDER.items[1], ORDER.items[2]]]) {
+      const d = deps({ findOrder: found(CARD) });
+      // biome-ignore lint/performance/noAwaitInLoops: two parts, one after the other
+      await sendOrderToErp({}, { ...ORDER, items }, d, { shared: true });
+      const { payment, total } = sentTo(d);
+      expect(payment.reference).toBe("8FK21345TX901234A");
+      expect(payment.amount).toBe(total);
+      shares.push(payment.amount);
+    }
+    expect(shares).toStrictEqual([108.24, 224.05]);
+    // The shares and the shipping no part carries add up to what was captured, to the cent.
+    expect(Math.round((shares[0] + shares[1] + 20) * 100)).toBe(35_229);
+  });
+
+  test("Then an order paid on account, by check, or only authorized carries no payment at all", async () => {
+    for (const payment of [
+      { method: "companycredit" },
+      { base_amount_paid: 180, method: "checkmo" },
+      { ...CARD, base_amount_paid: null },
+      undefined,
+    ]) {
+      const d = deps({ findOrder: found(payment) });
+      // biome-ignore lint/performance/noAwaitInLoops: a few cases, in order
+      await sendOrderToErp({}, ORDER, d);
+      expect("payment" in sentTo(d)).toBe(false);
+    }
+  });
+});
+
 // The Commerce Admin screen's Retry: one order a person sends again. The order is read
 // from Commerce (the event that carried it is long gone) and goes through the same send.
 describe("Given a retry of one order from the Admin screen", () => {

@@ -302,7 +302,7 @@ One table per business concept. "Owner" is which side decides the field; the oth
 | ERP (Pricing) | Commerce (the company's shared catalog, where the integration publishes them; each ERP price event in the Admin page's Activity) | Owner |
 |---|---|---|
 | Contract price · contract discount, in force today, with minimum quantity | Tier price for the company's shared-catalog customer group: fixed, or a percentage, at the minimum quantity, all websites | ERP; the integration writes what is in force and takes back what is not (ledgered, undone by detach) |
-| Discount ceiling | — | ERP, enforced on the order, not the cart |
+| Discount ceiling | — | ERP; it caps only the ERP's own prices (the prices in force it publishes), and is not checked on an order |
 | — | Other shared-catalog custom prices, website price | Commerce |
 
 ### Inventory position

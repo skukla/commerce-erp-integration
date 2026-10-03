@@ -27,6 +27,7 @@ import {
   unholdIfHeld,
   warehousesOfSku,
 } from "#lib/commerce";
+import { paymentReferenceOf } from "#lib/payment-reference";
 
 /** A captured body, as Commerce answered it. */
 function captured(name) {
@@ -124,11 +125,20 @@ describe("Given Commerce's own answers about companies", () => {
 describe("Given Commerce's own answers about orders", () => {
   test("Then an order found by increment id gives the ids a write needs", async () => {
     commerce({ orders: "orders-by-increment" });
-    expect(await findOrderByIncrementId({}, "3000000011")).toEqual({
+    const found = await findOrderByIncrementId({}, "3000000011");
+    expect(found).toMatchObject({
       entityId: 11,
       extOrderId: "NORT-0000001001",
       storeId: 3,
     });
+    // The payment record as Commerce answers it: a check, paid, with no gateway transaction,
+    // so it is no payment reference for the ERP (AB-26s, lib/payment-reference.js).
+    expect(found.payment).toMatchObject({
+      base_amount_paid: 180,
+      cc_last4: null,
+      method: "checkmo",
+    });
+    expect(paymentReferenceOf(found.payment)).toBeNull();
   });
 
   test("Then a complete order is not On Hold, so nothing is taken off hold", async () => {

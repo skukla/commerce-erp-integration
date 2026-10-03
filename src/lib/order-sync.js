@@ -22,6 +22,7 @@
  * repeated delivery creates nothing twice.
  */
 import { COMMERCE_EVENTS, originOf } from "#lib/commerce-events";
+import { paymentReferenceOf } from "#lib/payment-reference";
 import {
   OWNS,
   orderPrefix,
@@ -116,6 +117,20 @@ export function erpOrderFrom(order, settings = {}, { shared } = {}) {
     ...salesOrgOf(settings),
     total: shared ? partTotal(parents) : Number(order.base_grand_total ?? 0),
   };
+}
+
+/**
+ * The payment reference this ERP's order carries when Commerce captured the money at checkout
+ * (AB-26s; the ERP's contract version 18), read from the order as Commerce answers it over
+ * REST (`found.payment`; the event carries none). A part of a split order carries its own
+ * share, its part's total, so each ERP's invoice closes; shipping is in no part.
+ */
+function paymentFor(request, found, shared) {
+  const payment = paymentReferenceOf(
+    found.payment,
+    shared ? request.total : undefined,
+  );
+  return payment ? { payment } : {};
 }
 
 /**
@@ -330,12 +345,14 @@ export async function sendOrderToErp(params, order, deps, options = {}) {
     .catch((error) =>
       deps.logger?.warn(`${label}: note not added: ${error.message}`),
     );
+  const request = erpOrderFrom(order, settings, { shared });
   let res;
   try {
     res = await deps.erp.createOrder(
       params,
       {
-        ...erpOrderFrom(order, settings, { shared }),
+        ...request,
+        ...paymentFor(request, found, shared),
         // The ERP's own number from the key map is all that names the customer: the ERP
         // holds no Commerce id (contract version 3). Unpaired, it is the walk-in customer's.
         ...(partnerId ? { partnerId } : {}),

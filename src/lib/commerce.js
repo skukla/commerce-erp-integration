@@ -646,6 +646,9 @@ export async function findOrderByIncrementId(params, incrementId) {
   return {
     entityId: Number(order.entity_id),
     extOrderId: order.ext_order_id || null,
+    // How it was paid (AB-26s): read by lib/payment-reference.js, which forwards only an
+    // allow-list of it to the ERP. The order event's subscription carries no payment fields.
+    payment: order.payment ?? null,
     storeId: Number(order.store_id),
   };
 }

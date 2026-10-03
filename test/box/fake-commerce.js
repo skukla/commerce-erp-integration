@@ -212,6 +212,7 @@ export function createFakeCommerce() {
         ? {
             entityId: o.entity_id,
             extOrderId: o.ext_order_id || null,
+            payment: clone(o.payment ?? null),
             storeId: o.store_id,
           }
         : null;

@@ -33,12 +33,21 @@ describe("Given the Commerce order calls", () => {
   test("Then an order is found by its increment id, one result asked for", async () => {
     mockGet.mockReturnValueOnce(
       answer({
-        items: [{ entity_id: "41", ext_order_id: null, store_id: "3" }],
+        items: [
+          {
+            entity_id: "41",
+            ext_order_id: null,
+            payment: { last_trans_id: "TX1", method: "card" },
+            store_id: "3",
+          },
+        ],
       }),
     );
     expect(await findOrderByIncrementId({}, "3000000004")).toStrictEqual({
       entityId: 41,
       extOrderId: null,
+      // The order's payment record as Commerce answers it (lib/payment-reference.js reads it).
+      payment: { last_trans_id: "TX1", method: "card" },
       storeId: 3,
     });
     const [path, { searchParams }] = mockGet.mock.calls[0];
