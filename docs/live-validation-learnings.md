@@ -41,7 +41,8 @@ claim; a test with no row is a rule nobody can find.
    invoice over both, a hold and its release, a cancellation ("Canceled in Commerce"), each
    on the ERP within seconds; a default-source quantity by the minute refresh (the journal
    names it; Commerce raised no stock event for a quantity written through REST); a product
-   deleted in Commerce, removed from the ERP by its delete event.
+   deleted in Commerce, removed from the ERP by its delete event (as built then; since
+   AB-26y step 5 the delete is recorded in the Activity and the ERP keeps the product).
 5. The credit-hold round trip on an order over its limit (2026-09-27): the ERP held it
    ("Credit limit 100.00 exceeded by 60.00"), Commerce put it On Hold with that reason within
    two seconds, and the ERP's release took it off hold with a note.

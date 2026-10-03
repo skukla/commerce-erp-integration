@@ -441,6 +441,42 @@ describe("Given a demo reset's line", () => {
   });
 });
 
+describe("Given a product deleted in Commerce", () => {
+  // AB-26y step 5: the delete is recorded and told to no ERP, so the row does not read
+  // "To ERP"; a click opens the product's look-up, which shows whether an ERP still holds it.
+  test("Then the row reads as made in Commerce, done, and opens the product", () => {
+    const row = eventRow(
+      {
+        attempts: 1,
+        direction: "commerce",
+        erpIds: ["contoso"],
+        kind: "product-deleted",
+        lastAt: "2026-09-28T10:08:00.000Z",
+        message:
+          "Product SIGN1 was deleted in Commerce. Contoso ERP keeps it until its next reset",
+        outcome: "done",
+        ref: "SIGN1",
+      },
+      { erps: ERPS, now: NOW },
+    );
+    expect(row).toMatchObject({
+      detail: "Contoso ERP keeps it until its next reset",
+      direction: "commerce",
+      directionLabel: "In Commerce",
+      erpIds: ["contoso"],
+      key: "product-deleted.SIGN1",
+      open: { kind: "product", sku: "SIGN1" },
+      problem: false,
+      result: "Done",
+      retriable: false,
+      sentence: "Product SIGN1 was deleted in Commerce",
+      tone: "neutral",
+      type: "products",
+      typeLabel: "Product deleted",
+    });
+  });
+});
+
 describe("Given one ERP", () => {
   test("Then every row is that ERP's", () => {
     const row = eventRow(order("sent"), { erps: [ERPS[0]], now: NOW });

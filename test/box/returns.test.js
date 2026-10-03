@@ -172,6 +172,63 @@ describe("Pair in a box: a return, Commerce → ERP → Commerce", () => {
     expect(box.commerce.db.creditMemos).toHaveLength(1);
   });
 
+  // AB-16l: a cart price rule took 12.00 off the trouser row (12 × 10). The order event carries
+  // it as the item's base_discount_amount (the subscription asks for it), and the ERP's order,
+  // invoice, return and credit memo all carry it, each in proportion to its quantity.
+  test("A discounted order keeps its discount in the ERP from the order to the credit memo: order → ship → invoice → return → credit memo add up", async () => {
+    const stored = box.commerce.db.orders.get(ORDER_ID);
+    stored.items[0].base_discount_amount = 12;
+    stored.base_grand_total = 128;
+    const number = await invoicedOrder();
+
+    // The order: the discount on the trouser line, the lines adding up to what the buyer paid.
+    const order = (await erpCall("orders", "GET", `/${number}`)).data;
+    expect(
+      order.lines.map((l) => [l.sku, l.qty, l.price, l.discount, l.amount]),
+    ).toEqual([
+      ["A1", 12, 10, 12, 108],
+      ["B2", 4, 5, 0, 20],
+    ]);
+    expect([order.net, order.tax, order.total]).toEqual([128, 0, 128]);
+
+    // The invoice bills the same net.
+    expect(
+      order.invoice.lines.map((l) => [l.sku, l.discount, l.amount]),
+    ).toEqual([
+      ["A1", 12, 108],
+      ["B2", 0, 20],
+    ]);
+    expect([order.invoice.net, order.invoice.total]).toEqual([128, 128]);
+
+    // 3 of the 12 trousers come back: a quarter of the line's discount goes with them.
+    const returnId = box.commerce.adminCreateReturn(ORDER_ID, [
+      { order_item_id: 1, qty: 3 },
+    ]);
+    await returnSaved.main(box.commerce.events.returnSaved(returnId));
+    const [returnOrder] = (await erpCall("returns", "GET")).data.items;
+    expect(returnOrder.lines).toMatchObject([
+      { discount: 3, price: 10, qty: 3, sku: "A1" },
+    ]);
+    await erpCall("returns", "POST", `/${returnOrder.number}/receive`);
+    await erpCall("returns", "POST", `/${returnOrder.number}/credit-memo`);
+    const delivered = await deliverErpEvents();
+    expect(delivered.every((d) => d.status === 200)).toBe(true);
+
+    // The credit memo credits what the buyer paid for 3: 30 less 3. Commerce credits 3 units.
+    const memo = (await erpCall("returns", "GET", `/${returnOrder.number}`))
+      .data.creditMemo;
+    expect(memo.lines).toMatchObject([
+      { amount: 27, discount: 3, price: 10, qty: 3 },
+    ]);
+    expect([memo.net, memo.tax, memo.total]).toEqual([27, 0, 27]);
+    expect(writesOf("refund").map((w) => w.items)).toEqual([
+      [{ order_item_id: 1, qty: 3 }],
+    ]);
+    // What is still open on the invoice is the invoice less the credit.
+    const after = (await erpCall("orders", "GET", `/${number}`)).data;
+    expect(after.invoice.openAmount).toBe(101);
+  });
+
   test("The ERP credits a whole invoice with no return: Commerce credits every line once", async () => {
     const number = await invoicedOrder();
 

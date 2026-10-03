@@ -18,6 +18,8 @@ import {
 import { clockTime } from "#web/time-view.js";
 
 const ARROWS = {
+  // No arrow: the change stayed in Commerce.
+  commerce: "M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8",
   from: "M20 12H5m5-6-6 6 6 6",
   reset: "M4 12a8 8 0 1 0 2.4-5.7M4 4v5h5",
   to: "M4 12h15m-5-6 6 6-6 6",

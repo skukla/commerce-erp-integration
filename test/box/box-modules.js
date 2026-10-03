@@ -30,13 +30,6 @@ export function erpClientModule(call) {
     erp: {
       createOrder: (params, order) =>
         call("orders", { body: order, method: "POST", params }),
-      deleteProduct: (params, sku, body) =>
-        call("products", {
-          body,
-          method: "DELETE",
-          params,
-          path: `/${encodeURIComponent(sku)}`,
-        }),
       fromCommerce: {
         cancel: (params, number, body) =>
           post("orders", `/${number}/cancel`, body)(params),

@@ -103,6 +103,35 @@ export async function recordCommerceChange(kind, value, result, options = {}) {
   );
 }
 
+/**
+ * A product deleted in Commerce (AB-26y step 5): recorded here and told to no ERP, so the
+ * record's direction is "commerce", not "to-erp". One record per SKU, so a redelivery updates
+ * its own row. The key carries the SKU in hex: State keys take only letters, digits, "-", "_"
+ * and ".", and a SKU may hold anything.
+ * @param {string} sku the deleted product
+ * @param {{ message: string, erpIds?: string[] }} result what the row says, and the ERPs that
+ *   owned the product (several ERPs)
+ * @param {object} [logger]
+ * @returns {Promise<void>}
+ */
+export async function recordProductDeleted(sku, result, logger) {
+  await updateRecord(
+    `commerce.product-deleted.${Buffer.from(sku, "utf8").toString("hex")}`,
+    (before, now) => ({
+      attempts: (before?.attempts ?? 0) + 1,
+      direction: "commerce",
+      firstAt: before?.firstAt ?? now,
+      kind: "product-deleted",
+      lastAt: now,
+      message: result.message,
+      outcome: "done",
+      ref: sku,
+      ...(result.erpIds ? { erpIds: result.erpIds } : {}),
+    }),
+    logger,
+  );
+}
+
 export async function recordOrderOutcome(order, result, options = {}) {
   if (result.outcome === "skipped" || !order?.increment_id) {
     return;

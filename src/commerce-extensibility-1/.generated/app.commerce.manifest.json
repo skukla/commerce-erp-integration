@@ -405,6 +405,9 @@
                 "name": "items[].base_price"
               },
               {
+                "name": "items[].base_discount_amount"
+              },
+              {
                 "name": "items[].parent_item_id"
               }
             ],

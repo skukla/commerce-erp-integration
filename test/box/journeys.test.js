@@ -50,6 +50,7 @@ import { contractPriceDeps } from "#lib/contract-price-deps";
 import { publishErpPrices } from "#lib/contract-prices";
 import { detach } from "#lib/detach";
 import { erp } from "#lib/erp";
+import { readHistory } from "#lib/history";
 import * as keyMap from "#lib/key-map";
 import * as ledger from "#lib/ledger";
 import { splitExtOrderId } from "#lib/structure";
@@ -439,18 +440,28 @@ describe("Pair in a box: the entity matrix, both directions", () => {
     expect(quantities).toMatchObject({ default: 9, east: 3 });
   });
 
-  test("Sellable item, Commerce → ERP: a product deleted in Commerce leaves the ERP", async () => {
+  // AB-26y step 5: the ERP is untouched; the integration's history says what happened.
+  test("Sellable item, Commerce → ERP: a product deleted in Commerce stays in the ERP and shows in the integration's history", async () => {
     await seeded();
     box.commerce.db.products.delete("B2");
     const res = await productDeleted.main({
       data: { value: { id: 102, sku: "B2" } },
     });
     expect(res.statusCode).toBe(200);
-    expect((await box.erp.call("products", { path: "/B2" })).status).toBe(404);
-    expect(
-      (await productDeleted.main({ data: { value: { id: 102, sku: "B2" } } }))
-        .statusCode,
-    ).toBe(200);
+    const kept = await box.erp.call("products", { path: "/B2" });
+    expect(kept.status).toBe(200);
+    expect(kept.data.sku).toBe("B2");
+    const deletes = (await readHistory()).filter(
+      (entry) => entry.kind === "product-deleted",
+    );
+    expect(deletes).toHaveLength(1);
+    expect(deletes[0]).toMatchObject({
+      direction: "commerce",
+      message:
+        "Product B2 was deleted in Commerce. The ERP keeps it until its next reset",
+      outcome: "done",
+      ref: "B2",
+    });
   });
 
   // Each ERP for itself, one ERP too (owner, 2026-09-28): the ERP's block holds the company's

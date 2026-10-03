@@ -65,7 +65,7 @@ row says otherwise.
 | `observer.sales_order_invoice_save_after` | yes | AB-26g | **proven live 2026-09-27**; payload not captured |
 | order hold/unhold/cancel: the order save event's non-new saves | yes | AB-26g | **proven live 2026-09-27**: hold, unhold and cancel in Commerce each reached the ERP |
 | `observer.sales_order_creditmemo_save_after` | no | AB-26r | to validate |
-| `observer.catalog_product_delete_commit_after` | yes | AB-26h (G1) | **proven live 2026-09-27**: a product deleted in Commerce left the ERP |
+| `observer.catalog_product_delete_commit_after` | yes | AB-26h (G1), AB-26y step 5 | proven live 2026-09-27 as it then was (the product left the ERP). Since AB-26y step 5 the delete is only recorded in the Activity and the ERP keeps the product; not yet run live |
 | `observer.company_save_commit_after` (B2B) | yes | — | in Commerce's supported event list (`GET eventing/supportedList`); replaces the removed minute refresh; not yet proven live |
 
 Changing a subscription after install needs an uninstall + install of the app in Commerce

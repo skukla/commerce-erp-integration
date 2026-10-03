@@ -28,6 +28,9 @@ const FOLDERS = {
 const ERP_ROUTE_CALL = /erpRequest\(params, "([a-z]+)"/gu;
 const externalEvents = manifest.eventing.external.flatMap((p) => p.events);
 
+/** A DELETE sent to the ERP's products route: gone at contract version 17. */
+const PRODUCT_DELETE_CALL = /erpRequest\(params, "products", \{[^}]*DELETE/u;
+
 /** Commerce's names the ERP stopped accepting at contract version 16. */
 const COMMERCE_NAMES_ON_THE_WIRE =
   /commerce(?:Shipment|Invoice|Order|Return)Id:|commerceIncrementId:|commerce-(?:shipment|invoice)/u;
@@ -70,6 +73,23 @@ describe("Given the ERP contract", () => {
     for (const key of read) {
       expect([...listed], key).toContain(key);
     }
+  });
+
+  // Contract version 17: the ERP has no product delete (AB-26y step 5), and an order line
+  // may carry the discount Commerce took off it (AB-16l).
+  test("Then the contract is at version 17: this app deletes no ERP product, and the order event asks for each line's discount", () => {
+    expect(contract.contractVersion).toBe(17);
+    expect(contract.routes.products.join(" ")).not.toContain("DELETE");
+    const erpClient = readFileSync("src/lib/erp.js", "utf8");
+    expect(erpClient).not.toContain("deleteProduct");
+    expect(erpClient).not.toMatch(PRODUCT_DELETE_CALL);
+    expect(contract.order.requestLine).toContain("discount");
+    const orderSaved = manifest.eventing.commerce
+      .flatMap((provider) => provider.events)
+      .find((e) => e.name === "observer.sales_order_save_commit_after");
+    expect(orderSaved.fields.map((f) => f.name)).toContain(
+      "items[].base_discount_amount",
+    );
   });
 
   test("Then the ERP routes this app calls are routes the ERP serves", () => {

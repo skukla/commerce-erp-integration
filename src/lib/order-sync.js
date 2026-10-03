@@ -52,6 +52,18 @@ export function isNewOrder(order) {
 }
 
 /**
+ * What Commerce took off one order line: the row's discount from cart price rules (AB-16l).
+ * The event carries `base_discount_amount` (the order subscription asks for it,
+ * app.commerce.config.ts); an order read over REST carries both. Never below 0.
+ */
+function discountOf(item) {
+  return Math.max(
+    0,
+    Number(item.base_discount_amount ?? item.discount_amount ?? 0) || 0,
+  );
+}
+
+/**
  * What one ERP's part of a split order comes to: its own lines' quantity times price, plus
  * their tax, less their discounts. Shipping is the order's, not a part's, so no part carries it (no ERP
  * owns shipping; Commerce puts it on its first invoice). Live on Justrite 2026-10-02 each
@@ -66,7 +78,7 @@ function partTotal(lines) {
       Number(item.qty_ordered ?? item.qty ?? 1) *
         Number(item.base_price ?? item.price ?? 0) +
       Number(item.base_tax_amount ?? 0) -
-      Number(item.base_discount_amount ?? 0),
+      discountOf(item),
     0,
   );
   return Math.round(sum * 100) / 100;
@@ -86,11 +98,15 @@ export function erpOrderFrom(order, settings = {}, { shared } = {}) {
     // The ERP keeps Commerce's numbers as the customer's references (its contract version 16):
     // the order number, and each line's item id. The entity id stays here; the translation
     // module finds it again by the order number (#src/ingestion/translate).
+    // A line a promotion discounted carries the amount off the whole line (the ERP's contract
+    // version 17), so the ERP's line is worth what the buyer paid for it; the ERP does not
+    // reprice the order. A line with no discount carries no `discount`.
     lines: parents.map((item) => ({
       customerLineReference:
         item.item_id === undefined || item.item_id === null
           ? null
           : String(item.item_id),
+      ...(discountOf(item) > 0 ? { discount: discountOf(item) } : {}),
       price: Number(item.base_price ?? item.price ?? 0),
       qty: Number(item.qty_ordered ?? item.qty ?? 1),
       sku: item.sku,

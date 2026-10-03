@@ -1,12 +1,12 @@
 {
   "name": "demo-erp",
-  "contractVersion": 16,
+  "contractVersion": 17,
   "description": "What the ERP promises its subscribers: the routes it serves, the shapes it accepts, and the events it publishes. The Commerce integration vendors this file and its tests fail when the two disagree.",
   "routes": {
     "health": ["GET"],
     "settings": ["GET", "PATCH", "GET /setup", "PATCH /setup", "POST /sales-organizations", "PATCH /sales-organizations/:code", "POST /maintenance", "DELETE /maintenance"],
     "admin": ["POST /wipe", "POST /import"],
-    "products": ["GET", "GET /:sku", "PATCH /:sku", "DELETE /:sku", "POST /availability"],
+    "products": ["GET", "GET /:sku", "PATCH /:sku", "POST /availability"],
     "partners": ["GET", "GET /:id", "PATCH /:id", "POST /:id/credit-check"],
     "pricing": ["GET", "POST", "DELETE /:id", "POST /quote"],
     "contracts": ["GET", "GET /in-force", "GET /:number", "POST", "PATCH /:number", "POST /:number/activate", "POST /:number/deactivate", "GET /price-groups", "POST /price-groups", "DELETE /price-groups/:code"],
@@ -19,6 +19,7 @@
     "events": ["GET", "POST /retry", "POST /requeue"],
     "search": ["GET"]
   },
+  "productsNote": "version 17: the ERP has no product delete (DELETE products/:sku is gone). A product is not removed from the ERP because another system dropped it; a subscriber that sees a product deleted on its side records that on its side. Filling the ERP again (admin wipe and import) is what removes a product.",
   "import": {
     "products": ["sku", "name", "listPrice", "warehouses", "type", "parentSku", "variantAttributes"],
     "productTypes": ["simple", "configurable"],
@@ -74,7 +75,8 @@
 
   "order": {
     "request": ["purchaseOrderByCustomer", "partnerId", "lines", "currency", "total", "salesOrg", "salesOrgName"],
-    "requestLine": ["sku", "qty", "price", "customerLineReference"],
+    "requestLine": ["sku", "qty", "price", "discount", "customerLineReference"],
+    "discountNote": "version 17: a line may carry discount, the amount the customer's web shop took off the WHOLE line (a promotion there), in the order's currency: a number from 0 to the line's qty x price, anything else is refused (400); none sent is 0. The ERP keeps it as sent and does not reprice the order. A line's net amount is qty x price - discount, the order's net is the sum of its lines' net amounts, and its tax is still total - net. Every order line answers its discount (0 when none). The invoice's lines carry the same discount and bill the net (lines: item, sku, qty, price, discount, amount). A return order's line carries the part of the discount its quantity takes (discount x returned qty / ordered qty, worked out on the running quantity so partial returns add up to the line's discount to the cent), and a credit memo credits qty x price - discount for each line. An order, invoice, return or credit memo stored before version 17 reads with no discount. Events are unchanged: TotalNetAmount is the net after discounts.",
     "response": ["number", "purchaseOrderByCustomer", "partnerId", "lines", "currency", "total", "status", "header", "shipments", "invoice", "creditStatus", "creditReason", "creditDecidedAt", "history", "createdAt", "salesOrg", "salesOrgName"],
     "referenceNote": "version 16: the ERP keeps the customer's references as a real ERP does, not the web shop's ids: purchaseOrderByCustomer is the customer's order number (SAP's PurchaseOrderByCustomer; POST orders is idempotent on it) and each line's customerLineReference is the customer's own reference for the line. A sales order stored before version 16 reads with them, from the shop's order number and item ids it kept",
     "spellingNote": "version 10: American English on the wire. An order's status and header read canceled (was cancelled). The old spellings are refused, not accepted alongside: the ERP and the integration are deployed together. Orders and journal entries an ERP stored with the old spellings read as the new ones",
@@ -96,14 +98,14 @@
     "request": ["customerReturnReference", "orderNumber", "lines", "origin"],
     "requestLine": ["customerLineReference", "qty", "reason"],
     "response": ["number", "customerReturnReference", "orderNumber", "partnerId", "status", "lines", "creditMemo", "history", "createdAt", "receivedAt"],
-    "responseLine": ["item", "sku", "qty", "price", "reason", "reasonCode", "customerLineReference"],
+    "responseLine": ["item", "sku", "qty", "price", "discount", "reason", "reasonCode", "customerLineReference"],
     "reasonNote": "version 15: each line carries reasonCode, one of the ERP's return reason codes (settings.sales.returnReasons). A reason whose words match a reason's description (any case) takes its code; a line with no reason takes the default reason's code and description; any other words are kept as sent, under the default code",
     "statuses": ["open", "received", "credited"]
   },
   "creditMemo": {
     "note": "version 13 (AB-26r, returns-design.md r1): the ERP's credit memo, numbered from 9500000001. POST orders/:number/credit-memo credits the order's invoice in full (owner O5 2026-09-24: full credit only; the invoice must exist and not be credited already; the invoice then reads credited). POST returns/:number/credit-memo credits a received return's lines. Either raises BillingDocument.Created (BillingDocumentType CreditMemo), whose items are exactly the credited lines, so the subscriber credits only those. A credit memo cannot be undone.",
     "response": ["number", "createdAt", "orderNumber", "invoiceNumber", "returnNumber", "lines", "net", "tax", "total"],
-    "line": ["item", "sku", "qty", "price", "amount", "customerLineReference"]
+    "line": ["item", "sku", "qty", "price", "discount", "amount", "customerLineReference"]
   },
   "payments": {
     "note": "version 14 (AB-26s, payment-leg-design.md): an invoice is an OPEN ITEM until paid. POST invoices/:number/payments { amount, reference? } posts an incoming payment against it (Business Central's cash receipt applied to the invoice; SAP's incoming payment clearing the open item): amount is more than 0 and at most the invoice's open amount, so a partial payment leaves the rest open. A credit memo against the invoice lowers its open amount too. Each payment is a document numbered from 7000000001 and raises IncomingPayment.Posted. A customer's credit exposure is its open orders plus its open items (owner, 2026-09-27). A payment cannot be undone in the ERP.",

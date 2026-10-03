@@ -342,6 +342,92 @@ describe("Given an order's lines", () => {
   });
 });
 
+// AB-16l: a cart price rule's discount reaches the ERP's order line, so the ERP's lines add
+// up to what the buyer paid. Commerce's order item carries it as base_discount_amount, the
+// amount off the whole row; the ERP's contract (version 17) takes it as the line's `discount`.
+describe("Given an order with a promotion on a line", () => {
+  const ORDER = {
+    base_grand_total: 61.5,
+    increment_id: "5000000020",
+    items: [
+      {
+        base_discount_amount: 10,
+        base_price: 20,
+        base_tax_amount: 4,
+        item_id: 41,
+        qty_ordered: 3,
+        sku: "A1",
+      },
+      {
+        base_price: 5,
+        base_tax_amount: 0.5,
+        item_id: 42,
+        qty_ordered: 1,
+        sku: "B2",
+      },
+    ],
+  };
+
+  test("Then the discounted line carries its discount, and a line with none carries no discount field", () => {
+    expect(erpOrderFrom(ORDER).lines).toStrictEqual([
+      {
+        customerLineReference: "41",
+        discount: 10,
+        price: 20,
+        qty: 3,
+        sku: "A1",
+      },
+      { customerLineReference: "42", price: 5, qty: 1, sku: "B2" },
+    ]);
+  });
+
+  test("Then a part's total is its lines' net (quantity × price − discount) plus their tax", () => {
+    const part = erpOrderFrom(ORDER, {}, { shared: true });
+    const net = part.lines.reduce(
+      (sum, line) => sum + line.qty * line.price - (line.discount ?? 0),
+      0,
+    );
+    expect(net).toBe(55);
+    expect(part.total).toBe(59.5);
+  });
+
+  test("Then a part of a split order carries only its own lines' discounts", () => {
+    const own = { ...ORDER, items: [ORDER.items[1]] };
+    const part = erpOrderFrom(own, {}, { shared: true });
+    expect(part.lines).toStrictEqual([
+      { customerLineReference: "42", price: 5, qty: 1, sku: "B2" },
+    ]);
+    expect(part.total).toBe(5.5);
+  });
+
+  test("Then an order read without the base amount uses the row's discount_amount, and a discount of 0 is not sent", () => {
+    const request = erpOrderFrom({
+      increment_id: "5000000021",
+      items: [
+        {
+          discount_amount: 2.5,
+          item_id: 1,
+          price: 10,
+          qty_ordered: 1,
+          sku: "A1",
+        },
+        {
+          base_discount_amount: 0,
+          base_price: 5,
+          item_id: 2,
+          qty_ordered: 1,
+          sku: "B2",
+        },
+      ],
+    });
+    expect(request.lines.map((line) => line.discount)).toStrictEqual([
+      2.5,
+      undefined,
+    ]);
+    expect("discount" in request.lines[1]).toBe(false);
+  });
+});
+
 // Live on Justrite 2026-10-02 (order 5000000008): each ERP's part was sent with the WHOLE
 // order's grand total (332.28), so the Justrite ERP invoiced 332.28 for a 274.86 part (the gap
 // read as tax) and Accuform 332.28 for 42.42. With payments that double-counts what is owed.

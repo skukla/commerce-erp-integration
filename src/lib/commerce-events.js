@@ -32,7 +32,6 @@ const DOCUMENTS = {
   [COMMERCE_EVENTS.companySaved]: "company",
   [COMMERCE_EVENTS.invoiceSaved]: "invoice",
   [COMMERCE_EVENTS.orderSaved]: "order",
-  [COMMERCE_EVENTS.productDeleted]: "product",
   [COMMERCE_EVENTS.productSaved]: "product",
   [COMMERCE_EVENTS.returnSaved]: "return",
   [COMMERCE_EVENTS.shipmentSaved]: "shipment",

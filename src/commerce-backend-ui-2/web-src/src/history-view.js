@@ -67,6 +67,13 @@ const KINDS = {
   "order-status": { label: "Order status", opens: "trace", type: "orders" },
   payment: { label: "Payment", opens: "trace", type: "orders" },
   price: { label: "Price", opens: "product", type: "prices" },
+  // Recorded only: no ERP is told (AB-26y step 5). No filter chip of its own; it shows
+  // under "All".
+  "product-deleted": {
+    label: "Product deleted",
+    opens: "product",
+    type: "products",
+  },
   reset: { label: "Demo reset", opens: "reset", type: "reset" },
   return: { label: "Return received", opens: "trace", type: "orders" },
   returned: { label: "Return", opens: "order", type: "orders" },
@@ -277,6 +284,8 @@ function openOf(entry) {
 }
 
 const DIRECTIONS = {
+  // Made in Commerce and told to no ERP (a product delete).
+  commerce: ["commerce", "In Commerce"],
   "from-erp": ["from", "From ERP"],
   reset: ["reset", "Demo Builder"],
   "to-erp": ["to", "To ERP"],

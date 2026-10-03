@@ -34,8 +34,9 @@ Record each row's result inline: `PASS <date>`, or `FAIL <date> — <what happen
    shows the new name and price.
 3. **Do:** on the ERP's Products screen, change the item's price (and name). **Expect:** the
    Commerce product shows the ERP's value (this write is ledgered).
-4. **GAP G1 — Do:** delete the product in Commerce Admin. **Expect (current):** the ERP still
-   lists it; the record lingers until reset. Record as G1, not a regression.
+4. **Do:** delete the product in Commerce Admin. **Expect:** the Admin page's Activity shows
+   a "Product deleted" row for the SKU (In Commerce, Done); the ERP still lists the product
+   until the next reset. This is by design (AB-26y step 5), not a gap.
 5. **Reset:** run a reset. **Expect:** the ERP's product records match Commerce as it stands;
    the ledgered ERP price edit is reverted.
 

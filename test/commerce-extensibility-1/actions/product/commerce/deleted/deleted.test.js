@@ -1,52 +1,67 @@
-vi.mock("#lib/erp", () => ({
-  erp: { deleteProduct: vi.fn() },
+/*
+ * A product deleted in Commerce (AB-26y step 5): the integration records it in its history
+ * and calls no ERP. A real ERP's material master is not deleted because a web shop dropped a
+ * product. Products pair by SKU, so there is no key-map row to unlink (lib/key-map.js).
+ */
+import { fakeState } from "../../../../../box/state.js";
+
+const state = fakeState();
+vi.mock("@adobe/aio-lib-state", () => ({
+  default: { init: async () => state },
 }));
 
-import { erp } from "#lib/erp";
+import { readHistory, resetHistoryClient } from "#lib/history";
 import * as deleted from "#src/product/commerce/deleted/index";
 
+const fetchSpy = vi.fn();
+
+beforeEach(() => {
+  state.reset();
+  resetHistoryClient(state);
+  vi.stubGlobal("fetch", fetchSpy);
+});
 afterEach(() => {
+  vi.unstubAllGlobals();
   vi.clearAllMocks();
 });
 
 describe("Given a product deleted in Commerce", () => {
-  test("Then the ERP is told to remove it, naming the event for its journal", async () => {
-    erp.deleteProduct.mockResolvedValueOnce({
-      data: { sku: "A1", unlinked: [] },
-      ok: true,
-      status: 200,
-    });
+  test("Then it is recorded in the history as made in Commerce, and no ERP is called", async () => {
     const res = await deleted.main({
       data: { value: { id: 9, sku: "A1" } },
       id: "evt-1",
     });
+
     expect(res.statusCode).toBe(200);
-    expect(erp.deleteProduct).toHaveBeenCalledWith(expect.anything(), "A1", {
-      origin: {
-        document: "product A1",
-        eventId: "evt-1",
-        system: "Adobe Commerce",
-      },
+    expect(fetchSpy).not.toHaveBeenCalled();
+    const history = await readHistory();
+    expect(history).toHaveLength(1);
+    expect(history[0]).toMatchObject({
+      attempts: 1,
+      direction: "commerce",
+      kind: "product-deleted",
+      message:
+        "Product A1 was deleted in Commerce. The ERP keeps it until its next reset",
+      outcome: "done",
+      ref: "A1",
     });
   });
-  test("Then a SKU the ERP never had is nothing to do, not a failure; a refusal is one; no sku is refused", async () => {
-    erp.deleteProduct.mockResolvedValueOnce({
-      data: {},
-      ok: false,
-      status: 404,
-    });
-    expect((await deleted.main({ data: { sku: "ZZ" } })).statusCode).toBe(200);
-    erp.deleteProduct.mockResolvedValueOnce({
-      data: { errorMessage: "down" },
-      ok: false,
-      status: 503,
-    });
-    expect((await deleted.main({ data: { sku: "A1" } })).error.statusCode).toBe(
-      500,
-    );
+
+  test("Then a redelivered delete updates its own row, and a SKU outside State's key alphabet is still recorded", async () => {
+    const event = { data: { value: { sku: "Knit/Red 01" } } };
+    await deleted.main(event);
+    await deleted.main(event);
+
+    const history = await readHistory();
+    expect(history).toHaveLength(1);
+    expect(history[0]).toMatchObject({ attempts: 2, ref: "Knit/Red 01" });
+  });
+
+  test("Then an event with no sku is refused and nothing is recorded", async () => {
     expect((await deleted.main({ data: { value: {} } })).error.statusCode).toBe(
       400,
     );
-    expect(erp.deleteProduct).toHaveBeenCalledTimes(2);
+    expect(await readHistory()).toHaveLength(0);
+    expect(fetchSpy).not.toHaveBeenCalled();
   });
 });
