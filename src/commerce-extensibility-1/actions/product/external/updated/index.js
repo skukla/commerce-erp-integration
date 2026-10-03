@@ -11,6 +11,7 @@ import { currentPriceEvent, currentProduct } from "#lib/erp-current";
 import { recordingErpEvent } from "#lib/erp-event-history";
 import { eventErpId, loadErps } from "#lib/erps";
 import { recordProductWrite } from "#lib/ledger";
+import { noteProductWrite } from "#lib/own-writes";
 import { stringParameters } from "#lib/utils";
 import { paramsOfEvent, UNATTRIBUTED } from "#router/erp-params";
 
@@ -60,6 +61,9 @@ async function handle(params) {
     // back: Commerce is the permanent system and the ERP is transient (lib/ledger.js).
     const beforePrice = await priceOf(params, transformed.product.sku);
     const beforeName = await nameOf(params, transformed.product.sku);
+    // Commerce raises a save event for this write; recorded first, so that event is known as
+    // this integration's own and is not imported back into the ERP (lib/own-writes.js).
+    await noteProductWrite(transformed.product.sku, transformed.product);
     logger.debug(`Start sending data: ${JSON.stringify(transformed)}`);
     const result = await sendData(current, transformed, preProcessed, logger);
     if (!result.success) {

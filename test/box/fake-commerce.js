@@ -609,6 +609,17 @@ export function createFakeCommerce() {
       data: { value: { ...clone(order(orderId)), _isNew: isNew } },
       type: "observer.sales_order_save_commit_after",
     }),
+    /** Commerce's product save: the product as it is at this moment, which a late delivery still carries. */
+    productSaved: (sku) => ({
+      data: {
+        value: {
+          ...clone(db.products.get(sku)),
+          created_at: "2026-09-24 10:00:00",
+          updated_at: "2026-10-02 16:06:34",
+        },
+      },
+      type: "observer.catalog_product_save_commit_after",
+    }),
     returnSaved: (returnId) => returns.returnSaved(returnId),
     shipmentSaved: (shipmentId) => {
       const s = db.shipments.find((x) => x.entity_id === Number(shipmentId));

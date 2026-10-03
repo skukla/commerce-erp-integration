@@ -94,4 +94,6 @@ a retry timer every minute, so an ERP event survives the integration being brief
 Commerce's own events for what the integration just did (a shipment it created, an invoice it
 posted) come back to the integration. The handlers match them to the ERP document that caused
 them and do not echo them to the ERP; the entity matrix in `test/box/journeys.test.js` pins
-each of those round trips.
+each of those round trips. A product write is matched by its values instead: the integration
+records the name and price it writes for two minutes (`src/lib/own-writes.js`), and a product
+save carrying the same values is its own write coming back and is not imported into the ERP.

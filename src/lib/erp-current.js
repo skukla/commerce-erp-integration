@@ -13,6 +13,12 @@ import { erp } from "#lib/erp";
  * of arrival can leave Commerce behind the ERP. The hold handler already works this way
  * (rule M2). Reading a product is a standard ERP API (SAP's product API, Business Central's
  * items), so nothing is asked of the ERP that a real one lacks.
+ *
+ * Kept when the ERP's events became full records (contract version 16), and after AB-62
+ * (Justrite, 2026-10-02), where reading NOW picked up a name that Commerce's own save event
+ * had just put back into the ERP. What was wrong there was the import of that event, which
+ * is now dropped (lib/own-writes.js); writing each event's own values instead would bring the
+ * 2026-09-25 defect back, because late and repeated deliveries still happen.
  */
 
 /**

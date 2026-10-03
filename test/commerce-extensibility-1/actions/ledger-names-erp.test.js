@@ -60,8 +60,11 @@ vi.mock("#src/stock/external/updated/sender", () => ({
 
 import { loadErps } from "#lib/erps";
 import { recordProductWrite } from "#lib/ledger";
+import { resetOwnWritesClient } from "#lib/own-writes";
 import * as productUpdated from "#src/product/external/updated/index";
 import * as stockUpdated from "#src/stock/external/updated/index";
+
+import { fakeState } from "../../box/state.js";
 
 const entry = (id) => ({
   adapter: "demo-erp",
@@ -70,7 +73,12 @@ const entry = (id) => ({
   name: `${id} ERP`,
 });
 
-afterEach(() => vi.clearAllMocks());
+// The product handler records each write before sending it (lib/own-writes.js), in State.
+beforeEach(() => resetOwnWritesClient(fakeState()));
+afterEach(() => {
+  vi.clearAllMocks();
+  resetOwnWritesClient();
+});
 
 const writtenErps = () =>
   recordProductWrite.mock.calls.map(([w]) => [w.sku, w.field, w.erpId]);

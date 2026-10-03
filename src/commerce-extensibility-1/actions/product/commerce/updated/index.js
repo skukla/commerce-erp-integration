@@ -6,6 +6,7 @@ import {
 } from "@adobe/aio-commerce-sdk/core/responses";
 import AioLogger from "@adobe/aio-lib-core-logging";
 
+import { isOwnProductWrite } from "#lib/own-writes";
 import { checkMissingRequestInputs, stringParameters } from "#lib/utils";
 
 import { postProcess } from "./post.js";
@@ -54,6 +55,17 @@ async function main(params) {
     }
     logger.debug(`Transform data: ${JSON.stringify(params.data)}`);
     const transformedData = transformData(params.data);
+    // The save Commerce raises for a write this integration made for an ERP event is not a
+    // change made here, and importing it can undo a later ERP edit (lib/own-writes.js).
+    const [row] = transformedData.products;
+    if (
+      await isOwnProductWrite(row.sku, { name: row.name, price: row.listPrice })
+    ) {
+      logger.info(
+        `Product ${row.sku}: the save of this integration's own write; not imported`,
+      );
+      return ok("Skipped: the save of this integration's own write");
+    }
     logger.debug(`Preprocess data: ${stringParameters(params)}`);
     const preProcessed = preProcess(params, transformedData);
     logger.debug(`Start sending data: ${stringParameters(params)}`);

@@ -18,8 +18,14 @@ import {
   HTTP_OK,
 } from "@adobe/aio-commerce-sdk/core/responses";
 
+import { isOwnProductWrite, resetOwnWritesClient } from "#lib/own-writes";
 import * as action from "#src/product/external/updated/index";
 import { sendData } from "#src/product/external/updated/sender";
+
+import { fakeState } from "../../../../../box/state.js";
+
+beforeEach(() => resetOwnWritesClient(fakeState()));
+afterEach(() => resetOwnWritesClient());
 
 describe("Given product external updated action", () => {
   describe("When method main is defined", () => {
@@ -88,6 +94,24 @@ describe("Given product external updated action", () => {
       expect(sendData.mock.calls.at(-1)[1]).toEqual({
         product: { name: "Now", price: 10, sku: "S1" },
       });
+    });
+    // AB-62: the save event this write raises must be known as the integration's own before
+    // Commerce can raise it, so it is recorded before the write is sent.
+    test("Then what is about to be written is recorded as the integration's own write before it is sent", async () => {
+      validateData.mockReturnValue({ success: true });
+      const knownWhenSent = [];
+      sendData.mockImplementation(async () => {
+        knownWhenSent.push(
+          await isOwnProductWrite("S1", { name: "Now", price: 10 }),
+        );
+        return { success: true };
+      });
+      await action.main({ data: { name: "Old name", price: 55, sku: "S1" } });
+      expect(knownWhenSent).toEqual([true]);
+      // The event's own values were not written, so a save carrying them is not an echo.
+      expect(
+        await isOwnProductWrite("S1", { name: "Old name", price: 55 }),
+      ).toBe(false);
     });
     test("Then a SKU the ERP no longer has is refused, not written", async () => {
       const { currentProduct } = await import("#lib/erp-current");

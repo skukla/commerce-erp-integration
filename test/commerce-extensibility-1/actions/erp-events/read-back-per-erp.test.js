@@ -39,6 +39,7 @@ vi.mock("#lib/commerce", () => ({
 import { resetErpTokenCache } from "#lib/erp";
 import { resetErpsClient } from "#lib/erps";
 import { resetOrderPartsClient, writeOrderParts } from "#lib/order-parts";
+import { resetOwnWritesClient } from "#lib/own-writes";
 import { main as orderHold } from "#src/order/external/hold/index";
 import { main as productUpdated } from "#src/product/external/updated/index";
 import { sendData as productSent } from "#src/product/external/updated/sender";
@@ -61,11 +62,14 @@ beforeEach(() => {
   resetErpTokenCache();
   erp = erpFetch(() => ({ body: PRODUCT }));
   vi.stubGlobal("fetch", erp.fetch);
+  // The product handler records each write before sending it (lib/own-writes.js), in State.
+  resetOwnWritesClient(fakeState());
 });
 afterEach(() => {
   vi.unstubAllGlobals();
   vi.clearAllMocks();
   resetErpsClient();
+  resetOwnWritesClient();
 });
 
 const stored = (list) =>

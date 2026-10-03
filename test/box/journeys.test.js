@@ -59,6 +59,7 @@ import * as orderCreated from "#src/order/commerce/created/index";
 import * as orderInvoiced from "#src/order/commerce/invoiced/index";
 import * as orderShipped from "#src/order/commerce/shipped/index";
 import * as productDeleted from "#src/product/commerce/deleted/index";
+import * as productSaved from "#src/product/commerce/updated/index";
 import * as stockSaved from "#src/stock/commerce/updated/index";
 
 import { deliverErpEvents as deliverThrough } from "./deliver-erp-events.js";
@@ -372,6 +373,57 @@ describe("Pair in a box: the entity matrix, both directions", () => {
     expect(box.commerce.db.orders.get(55).ext_order_id).toBe("");
     expect(await ledger.readLedger()).toEqual([]);
     expect(number).toBeTruthy();
+  });
+
+  // Justrite, 2026-10-02 (AB-62): Commerce raised two save events for the first rename, the
+  // second after the ERP had renamed back, and it put the first name back into the ERP.
+  test("Sellable item, ERP → Commerce → ERP: a rename, its echo, a rename back and the first rename's late second echo leave both systems on the second name; a rename made in Commerce still reaches the ERP", async () => {
+    await seeded();
+    const rename = (name) =>
+      box.erp.call("products", {
+        body: { name },
+        method: "PATCH",
+        path: "/A1",
+      });
+    const erpName = async () =>
+      (await box.erp.call("products", { path: "/A1" })).data.name;
+
+    await rename("Trouser (test)");
+    await deliverErpEvents();
+    expect(box.commerce.db.products.get("A1").name).toBe("Trouser (test)");
+    // Commerce raises more than one save event for the one write; each carries the first name.
+    const firstEcho = box.commerce.events.productSaved("A1");
+    const lateEcho = box.commerce.events.productSaved("A1");
+    expect((await productSaved.main(firstEcho)).statusCode).toBe(200);
+
+    await rename("Trouser");
+    // The late echo arrives before the ERP's second event is handled, as it did live.
+    expect((await productSaved.main(lateEcho)).statusCode).toBe(200);
+    expect(await erpName()).toBe("Trouser");
+    await deliverErpEvents();
+    expect(box.commerce.db.products.get("A1").name).toBe("Trouser");
+    expect(
+      (await productSaved.main(box.commerce.events.productSaved("A1")))
+        .statusCode,
+    ).toBe(200);
+    expect(await erpName()).toBe("Trouser");
+    expect(box.commerce.db.products.get("A1").name).toBe("Trouser");
+    // The ERP was told nothing by Commerce: none of the four saves was a change made there.
+    const importsFromCommerce = async () =>
+      (await box.erp.cols.events.find({}).toArray()).filter(
+        (e) => e.direction === "in" && e.origin?.document === "product A1",
+      ).length;
+    expect(await importsFromCommerce()).toBe(0);
+
+    // Commerce stays the master a demo is prepared in: a name typed in Admin inside the
+    // window is not one of the integration's writes, so it is imported.
+    box.commerce.db.products.get("A1").name = "Trouser (Admin)";
+    expect(
+      (await productSaved.main(box.commerce.events.productSaved("A1")))
+        .statusCode,
+    ).toBe(200);
+    expect(await erpName()).toBe("Trouser (Admin)");
+    expect(await importsFromCommerce()).toBe(1);
   });
 
   test("Inventory, Commerce → ERP: a stock item save reaches the ERP with the quantity at every source, not only the default", async () => {
