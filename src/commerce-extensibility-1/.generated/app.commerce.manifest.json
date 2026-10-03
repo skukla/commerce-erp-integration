@@ -408,6 +408,9 @@
                 "name": "items[].base_discount_amount"
               },
               {
+                "name": "items[].base_tax_amount"
+              },
+              {
                 "name": "items[].parent_item_id"
               }
             ],

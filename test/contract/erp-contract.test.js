@@ -92,6 +92,10 @@ describe("Given the ERP contract", () => {
     expect(orderSaved.fields.map((f) => f.name)).toContain(
       "items[].base_discount_amount",
     );
+    // The row's tax, so a split order's part total includes it.
+    expect(orderSaved.fields.map((f) => f.name)).toContain(
+      "items[].base_tax_amount",
+    );
   });
 
   // Contract version 18 (AB-26s, the card half): an order paid at checkout carries the

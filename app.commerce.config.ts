@@ -400,6 +400,9 @@ export default defineConfig({
               // A cart price rule's discount on the row, sent to the ERP as the line's
               // discount (AB-16l). Adding a field needs a redeploy and a reinstall.
               field("items[].base_discount_amount"),
+              // The row's tax, so a split order's part total includes it (the part total is
+              // lines + tax - discount, lib/order-sync.js partTotal). Same redeploy and reinstall.
+              field("items[].base_tax_amount"),
               field("items[].parent_item_id"),
             ],
             label: "Order Saved",
