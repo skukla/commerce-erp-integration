@@ -16,7 +16,10 @@ export const COMPANY_STATUS = {
 };
 
 import { createFakeBalance } from "./fake-commerce-balance.js";
-import { createFakeReturns } from "./fake-commerce-returns.js";
+import {
+  createFakeReturns,
+  INVOICED_LATER_AT,
+} from "./fake-commerce-returns.js";
 
 const clone = (v) => JSON.parse(JSON.stringify(v));
 
@@ -573,13 +576,14 @@ export function createFakeCommerce() {
    * Invoice what every line has left, the way a whole-order invoice does: Commerce's own
    * invoice lists the lines it bills (GET invoices/{id}).
    */
-  function billRemainder(o) {
+  function billRemainder(o, createdAt = INVOICED_LATER_AT) {
     const id = db.nextId;
     db.nextId += 1;
     const billed = o.items
       .map((i) => ({ order_item_id: i.item_id, qty: qtyToInvoice(i) }))
       .filter((i) => i.qty > 0);
     db.invoices.push({
+      created_at: createdAt,
       entity_id: id,
       increment_id: String(id),
       items: billed,
@@ -741,12 +745,13 @@ export function createFakeCommerce() {
     /**
      * An order placed with a card on Authorize and Capture: the gateway captured the money and
      * Commerce invoiced every line at checkout, in its own invoice (not an integration write, so
-     * not in `writes`). The order is Processing, paid in full, nothing left to invoice.
+     * not in `writes`). The order is Processing, paid in full, nothing left to invoice. The
+     * invoice is saved in the same request as the order, so it carries the order's `created_at`.
      */
     captureAtCheckout(orderId, payment) {
       const o = order(orderId);
       o.payment = clone(payment);
-      const id = billRemainder(o);
+      const id = billRemainder(o, o.created_at);
       o.state = "processing";
       o.status = "processing";
       return id;

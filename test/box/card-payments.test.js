@@ -49,10 +49,12 @@ vi.mock("#src/stock/commerce-stock-api-client", () => box.commerce.stockClient);
 
 import { erp } from "#lib/erp";
 import { replaceErps, resetErpsClient } from "#lib/erps";
+import { readHistory } from "#lib/history";
 import * as keyMap from "#lib/key-map";
 import * as ledger from "#lib/ledger";
 import { readOrderParts } from "#lib/order-parts";
 import * as orderCreated from "#src/order/commerce/created/index";
+import * as orderInvoiced from "#src/order/commerce/invoiced/index";
 import * as returnSaved from "#src/order/commerce/return-saved/index";
 
 import { deliverErpEvents as deliverThrough } from "./deliver-erp-events.js";
@@ -145,6 +147,10 @@ beforeEach(async () => {
   };
   // Authorize and Capture: the card is captured AND the order invoiced in Commerce at checkout.
   checkoutInvoice = String(box.commerce.captureAtCheckout(ORDER_ID, CAPTURED));
+});
+
+afterEach(() => {
+  vi.restoreAllMocks();
 });
 
 describe("Pair in a box: a split order paid by card at checkout", () => {
@@ -274,6 +280,34 @@ describe("Pair in a box: a split order paid by card at checkout", () => {
       "paid",
     ]);
     expect(writesOf("increaseBalance")).toEqual([]);
+  });
+
+  test("The checkout invoice's event arrives after both parts reached their ERPs: neither ERP is told; 200, and the Activity says why (AB-66)", async () => {
+    await orderCreated.main(
+      box.commerce.events.orderSaved(ORDER_ID, { isNew: true }),
+    );
+    const told = vi.spyOn(erp.fromCommerce, "invoice");
+
+    const res = await orderInvoiced.main(
+      box.commerce.events.invoiceSaved(checkoutInvoice),
+    );
+
+    const message = `Commerce invoice ${checkoutInvoice} was made at checkout, when the card payment was captured: no ERP is told of it, as each ERP records that payment from the order's payment reference.`;
+    expect(res).toMatchObject({ body: { message }, statusCode: 200 });
+    expect(told).not.toHaveBeenCalled();
+    const invoices = [
+      (await salesOrderIn(box.erpA)).invoice ?? null,
+      (await salesOrderIn(box.erpB)).invoice ?? null,
+    ];
+    expect(invoices).toEqual([null, null]);
+    expect(
+      (await readHistory({ ref: checkoutInvoice })).map((r) => [
+        r.kind,
+        r.outcome,
+        r.message,
+        r.orderRef,
+      ]),
+    ).toEqual([["invoiced", "done", message, ORDER]]);
   });
 
   test("Every part canceled in its ERP: the order is held, and the note says the card payment is refunded in the web shop, never to cancel it", async () => {

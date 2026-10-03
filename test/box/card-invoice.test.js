@@ -36,15 +36,25 @@ vi.mock(
 vi.mock("#src/stock/commerce-stock-api-client", () => box.commerce.stockClient);
 
 import { erp } from "#lib/erp";
+import { readHistory } from "#lib/history";
 import * as keyMap from "#lib/key-map";
 import * as ledger from "#lib/ledger";
 import { splitExtOrderId } from "#lib/structure";
 import * as orderCreated from "#src/order/commerce/created/index";
+import * as orderInvoiced from "#src/order/commerce/invoiced/index";
 
 import { deliverErpEvents } from "./deliver-erp-events.js";
 import { fillErp } from "./fill-erp.js";
 
 const ORDER_ID = 55;
+/** Commerce's payment record for a card captured at checkout (Authorize and Capture). */
+const CAPTURED = {
+  base_amount_paid: 140,
+  cc_last4: "4242",
+  cc_type: "VI",
+  last_trans_id: "8FK21345TX901234A",
+  method: "payment_services_paypal_hosted_fields",
+};
 const writesOf = (kind) => box.commerce.writes.filter((w) => w.kind === kind);
 
 /** Send order 55 to the ERP; answers its sales order number there. */
@@ -132,5 +142,78 @@ describe("Pair in a box: the ERP invoices an order Commerce invoiced already", (
     expect(writesOf("comment").at(-1).comment).toBe(
       `Invoiced in the ERP (ERP sales order ${number}, invoice ${invoiceNumber}); A1 already invoiced in Commerce (Commerce invoice ${before}), so only the rest was invoiced`,
     );
+  });
+});
+
+/*
+ * AB-66: Commerce raises Invoice Saved for the invoice it made at checkout, and I/O Events can
+ * deliver it late, after the order reached the ERP and before the ERP confirmed it. Passed on,
+ * the ERP is asked to invoice an order it has not confirmed, refuses, and the event fails.
+ */
+describe("Pair in a box: the checkout invoice's event arrives after the order reached the ERP", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  test("A card captured at checkout: the ERP is not told of the checkout invoice; 200, and the Activity says why", async () => {
+    const checkout = box.commerce.captureAtCheckout(ORDER_ID, CAPTURED);
+    const number = await placed();
+    const told = vi.spyOn(erp.fromCommerce, "invoice");
+
+    const res = await orderInvoiced.main(
+      box.commerce.events.invoiceSaved(checkout),
+    );
+
+    const message = `Commerce invoice ${checkout} was made at checkout, when the card payment was captured: no ERP is told of it, as each ERP records that payment from the order's payment reference.`;
+    expect(res).toMatchObject({ body: { message }, statusCode: 200 });
+    expect(told).not.toHaveBeenCalled();
+    const inErp = (await box.erp.call("orders", { path: `/${number}` })).data;
+    expect(inErp.invoice ?? null).toBeNull();
+    expect(
+      (await readHistory({ ref: String(checkout) })).map((r) => [
+        r.kind,
+        r.outcome,
+        r.message,
+        r.orderRef,
+      ]),
+    ).toEqual([["invoiced", "done", message, "000000042"]]);
+  });
+
+  test("An invoice a merchant makes later, capturing a card authorized at checkout, is still passed to the ERP", async () => {
+    box.commerce.db.orders.get(ORDER_ID).payment = {
+      base_amount_authorized: 140,
+      method: "payment_services_paypal_hosted_fields",
+    };
+    const number = await placed();
+    await box.erp.call("orders", {
+      method: "POST",
+      path: `/${number}/confirm`,
+    });
+    await box.erp.call("orders", {
+      body: { status: "shipped" },
+      method: "POST",
+      path: `/${number}/status`,
+    });
+    await deliverErpEvents(box.erp);
+    // Staff invoice in Commerce Admin, capturing the card: the order now reads paid.
+    const invoiceId = await box.commerce.adminInvoice(ORDER_ID);
+    Object.assign(box.commerce.db.orders.get(ORDER_ID).payment, {
+      base_amount_paid: 140,
+      last_trans_id: "9QX55512AB0000001",
+    });
+    const told = vi.spyOn(erp.fromCommerce, "invoice");
+
+    const res = await orderInvoiced.main(
+      box.commerce.events.invoiceSaved(invoiceId),
+    );
+
+    expect(res.statusCode).toBe(200);
+    expect(told).toHaveBeenCalledWith(
+      expect.anything(),
+      number,
+      expect.objectContaining({ externalReference: String(invoiceId) }),
+    );
+    const inErp = (await box.erp.call("orders", { path: `/${number}` })).data;
+    expect(inErp.invoice.externalReference).toBe(String(invoiceId));
   });
 });

@@ -10,6 +10,14 @@
 const clone = (v) => JSON.parse(JSON.stringify(v));
 
 /**
+ * When an invoice made after checkout is created: an hour and a half after the seeded order
+ * (fake-commerce.js, created 10:00:00). Commerce's invoice carries `created_at` (REST
+ * sales-data-invoice-interface, read 2026-10-03, NOT captured live), which tells the
+ * checkout invoice from one made later (lib/checkout-invoice.js).
+ */
+export const INVOICED_LATER_AT = "2026-09-24 11:30:00";
+
+/**
  * @param {{ db: () => object, fulfilmentState: (order: object) => string,
  *   invoiceRefusal: (order: object, items: object[]) => Error|null,
  *   order: (id: number) => object, record: Function }} store the fake's own database (a getter:
@@ -54,6 +62,7 @@ export function createFakeReturns({
       }
       const id = nextId();
       db().invoices.push({
+        created_at: INVOICED_LATER_AT,
         entity_id: id,
         increment_id: String(id),
         items: clone(items),
