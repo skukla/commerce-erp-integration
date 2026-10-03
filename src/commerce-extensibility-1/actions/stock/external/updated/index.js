@@ -6,7 +6,11 @@ import {
 } from "@adobe/aio-commerce-sdk/core/responses";
 import AioLogger from "@adobe/aio-lib-core-logging";
 
-import { productAttributes, sourceCodesOf } from "#lib/commerce";
+import {
+  productAttributes,
+  sourceCodesOf,
+  websiteCodesOf,
+} from "#lib/commerce";
 import { quantityOf } from "#lib/commerce-before";
 import { currentProducts, currentStockLines } from "#lib/erp-current";
 import { recordingErpEvent } from "#lib/erp-event-history";
@@ -57,7 +61,11 @@ async function handle(params) {
     // ERP that was is kept for the ledger, so that ERP's reset puts the stock back (AB-16c).
     const { erpIdOf, paramsOfSku } = rememberingErps(
       stockErpOf(params, await loadErps(params), (p, sku, settings) =>
-        ownsSku(p, sku, settings, { productAttributes, sourceCodesOf }),
+        ownsSku(p, sku, settings, {
+          productAttributes,
+          sourceCodesOf,
+          websiteCodesOf,
+        }),
       ),
     );
     const lines = currentStockLines(

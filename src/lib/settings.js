@@ -80,6 +80,10 @@ export const TEXT_RULES = Object.freeze({
     words:
       "comma-separated inventory source codes, like default, east, or blank",
   },
+  structure_owns_websites: {
+    pattern: /^[a-z][a-z0-9_]*(,\s*[a-z][a-z0-9_]*)*$/u,
+    words: "comma-separated website codes, like base, eu, or blank",
+  },
   structure_sales_org: {
     blankAllowed: false,
     pattern: /^[A-Z0-9]{4}$/u,

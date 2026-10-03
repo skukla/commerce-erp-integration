@@ -11,6 +11,8 @@ import {
   productAttributesOfSkus,
   sourceCodesOf,
   sourceCodesOfSkus,
+  websiteCodesOf,
+  websiteCodesOfSkus,
 } from "#lib/commerce";
 
 /** Commerce matches a SKU without regard to case, so its answer may differ in case. */
@@ -50,7 +52,8 @@ function batchedReader(readMany, whenAbsent, expected) {
 /**
  * @returns {{ expect(skus: string[]): void,
  *   productAttributes(params: object, sku: string): Promise<object>,
- *   sourceCodesOf(params: object, sku: string): Promise<string[]> }} `expect` names SKUs
+ *   sourceCodesOf(params: object, sku: string): Promise<string[]>,
+ *   websiteCodesOf(params: object, sku: string): Promise<string[]> }} `expect` names SKUs
  *   the next reads should carry; the readers stand in for lib/commerce.js's per-SKU ones
  */
 export function ownershipReaders() {
@@ -76,5 +79,7 @@ export function ownershipReaders() {
         String(sku).includes(",") ? sourceCodesOf(params, sku) : [],
       expected,
     ),
+    // Absent from the search: read on its own, as the attributes are.
+    websiteCodesOf: batchedReader(websiteCodesOfSkus, websiteCodesOf, expected),
   };
 }

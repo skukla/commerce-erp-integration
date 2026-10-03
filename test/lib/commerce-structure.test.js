@@ -16,6 +16,8 @@ import {
   productAttributes,
   readCompanyRow,
   sourceCodesOf,
+  websiteCodesOf,
+  websiteCodesOfSkus,
 } from "#lib/commerce";
 
 /** Answer by path: a page for search endpoints, a document otherwise. */
@@ -120,5 +122,44 @@ describe("Given the store's structure", () => {
     });
     expect(await sourceCodesOf({}, "A1")).toEqual(["default", "east"]);
     expect(await productAttributes({}, "A1")).toEqual({ erp_owner: "ACME" });
+  });
+});
+
+describe("Given an ERP that owns the products sold on named websites (AB-64)", () => {
+  const WEBSITES = [
+    { code: "admin", id: 0, name: "Admin" },
+    { code: "base", id: 1, name: "Main Website" },
+    { code: "eu", id: 2, name: "Europe" },
+  ];
+  test("Then a SKU's websites are read as codes, and a product on no website has none", async () => {
+    answers({
+      "products/A1": {
+        extension_attributes: { website_ids: [2, 1] },
+        sku: "A1",
+      },
+      "products/B2": { sku: "B2" },
+      "store/websites": WEBSITES,
+    });
+    expect(await websiteCodesOf({}, "A1")).toEqual(["eu", "base"]);
+    expect(await websiteCodesOf({}, "B2")).toEqual([]);
+    // The website list is read once for both.
+    expect(
+      mockGet.mock.calls.filter(([path]) => path === "store/websites"),
+    ).toHaveLength(1);
+  });
+  test("Then many SKUs' websites come from one products search", async () => {
+    answers({
+      products: [
+        { extension_attributes: { website_ids: [1] }, sku: "A1" },
+        { extension_attributes: { website_ids: [2] }, sku: "B2" },
+      ],
+      "store/websites": WEBSITES,
+    });
+    expect(await websiteCodesOfSkus({}, ["A1", "B2", "GONE"])).toEqual(
+      new Map([
+        ["A1", ["base"]],
+        ["B2", ["eu"]],
+      ]),
+    );
   });
 });

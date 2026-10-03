@@ -38,6 +38,16 @@ const ERPS = [
       websites: { bodea: { structure_sales_org: "2100" } },
     },
   },
+  {
+    adapter: "demo-erp",
+    connection: { baseUrl: "https://c.example" },
+    id: "brand-c",
+    name: "C",
+    settings: {
+      structure_owns: "websites",
+      structure_owns_websites: "bodea, eu",
+    },
+  },
 ];
 
 beforeEach(() => {
@@ -49,6 +59,23 @@ beforeEach(() => {
 });
 
 describe("Given the resolved settings asked for one ERP", () => {
+  test("Then an ERP owning the products sold on named websites answers that mode and its website codes, so Demo Builder fills it from those websites (AB-64)", async () => {
+    const res = await main({
+      __ow_method: "get",
+      erp: "brand-c",
+      websites: "base,bodea",
+    });
+    expect(res.statusCode).toBe(200);
+    expect(res.body.default).toMatchObject({
+      structure_owns: "websites",
+      structure_owns_websites: "bodea, eu",
+    });
+    expect(res.body.websites.base).toMatchObject({
+      structure_owns: "websites",
+      structure_owns_websites: "bodea, eu",
+    });
+  });
+
   test("Then that ERP's own settings sit on top of the integration's, per website", async () => {
     const res = await main({
       __ow_method: "get",

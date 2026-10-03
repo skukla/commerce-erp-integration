@@ -18,6 +18,7 @@ vi.mock("#lib/commerce", () => ({
     erp_owner: { CAB1: "brand-a", SIGN1: "brand-b" }[sku],
   })),
   sourceCodesOf: vi.fn(async () => []),
+  websiteCodesOf: vi.fn(async () => []),
 }));
 
 import { getProduct, productAttributes } from "#lib/commerce";

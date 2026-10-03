@@ -16,6 +16,7 @@ vi.mock("#lib/commerce-before", () => ({
 vi.mock("#lib/commerce", () => ({
   productAttributes: vi.fn(async () => ({})),
   sourceCodesOf: vi.fn(async () => []),
+  websiteCodesOf: vi.fn(async () => []),
 }));
 vi.mock("#lib/structure", async (importOriginal) => ({
   ...(await importOriginal()),

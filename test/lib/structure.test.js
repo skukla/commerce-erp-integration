@@ -1,6 +1,8 @@
 import {
+  OWNS,
   orderPrefix,
   ownershipFilter,
+  ownsLine,
   ownsSku,
   salesOrgOf,
   splitExtOrderId,
@@ -139,6 +141,66 @@ describe("Given which products belong to this ERP (rule M3)", () => {
         {
           structure_owns: "attribute",
           structure_owns_attribute: "erp_owner=NW",
+        },
+        readers,
+      ),
+    ).toBe(false);
+  });
+});
+
+describe("Given an ERP that owns the products sold on named websites (AB-64)", () => {
+  const onBase = {
+    structure_owns: "websites",
+    structure_owns_websites: "base, eu",
+  };
+  test("Then the filter owns a product by the websites it is sold on, and says which", () => {
+    const byWebsite = ownershipFilter(onBase);
+    expect(byWebsite.mode).toBe(OWNS.WEBSITES);
+    expect(byWebsite.owns({ websiteCodes: ["eu"] })).toBe(true);
+    expect(byWebsite.owns({ websiteCodes: ["us"] })).toBe(false);
+    expect(byWebsite.owns({})).toBe(false);
+    expect(byWebsite.describe).toBe("products sold on base, eu");
+    const blank = ownershipFilter({ structure_owns: "websites" });
+    expect(blank.owns({ websiteCodes: ["base"] })).toBe(false);
+    expect(blank.describe).toMatch(BLANK);
+  });
+  test("Then a line with the order's website is decided by that website, with no read", async () => {
+    const readers = {
+      productAttributes: vi.fn(async () => ({})),
+      sourceCodesOf: vi.fn(async () => []),
+      websiteCodesOf: vi.fn(async () => ["us"]),
+    };
+    expect(
+      await ownsLine({}, { sku: "A1", websiteCode: "eu" }, onBase, readers),
+    ).toBe(true);
+    expect(
+      await ownsLine({}, { sku: "A1", websiteCode: "us" }, onBase, readers),
+    ).toBe(false);
+    expect(readers.websiteCodesOf).not.toHaveBeenCalled();
+  });
+  test("Then a SKU with no order website is decided by the websites the product is sold on", async () => {
+    const readers = {
+      productAttributes: vi.fn(async () => ({})),
+      sourceCodesOf: vi.fn(async () => []),
+      websiteCodesOf: vi.fn(async () => ["us", "eu"]),
+    };
+    expect(await ownsSku({}, "A1", onBase, readers)).toBe(true);
+    expect(readers.websiteCodesOf).toHaveBeenCalledWith({}, "A1");
+    readers.websiteCodesOf.mockResolvedValue(["us"]);
+    expect(await ownsSku({}, "A1", onBase, readers)).toBe(false);
+  });
+  test("Then the order's website never decides a product-rule ERP", async () => {
+    const readers = {
+      productAttributes: vi.fn(async () => ({ erp_owner: "NW" })),
+      sourceCodesOf: vi.fn(async () => []),
+    };
+    expect(
+      await ownsLine(
+        {},
+        { sku: "A1", websiteCode: "eu" },
+        {
+          structure_owns: "attribute",
+          structure_owns_attribute: "erp_owner=ACME",
         },
         readers,
       ),

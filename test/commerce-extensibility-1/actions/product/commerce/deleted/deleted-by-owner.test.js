@@ -75,6 +75,24 @@ describe("Given a product deleted in Commerce and two ERPs", () => {
     expect(calledAt()).toEqual(["https://a.example", "https://b.example"]);
   });
 
+  test("Then an ERP owning the products sold on named websites is told too: the event cannot say which websites the product was on (AB-64)", async () => {
+    loadErps.mockResolvedValue([
+      {
+        ...ERPS[0],
+        settings: {
+          structure_owns: "websites",
+          structure_owns_websites: "base",
+        },
+      },
+      ERPS[1],
+    ]);
+    const res = await deleted.main({
+      data: { value: { erp_owner: "brand-b", sku: "SIGN1" } },
+    });
+    expect(res.statusCode).toBe(200);
+    expect(calledAt()).toEqual(["https://a.example", "https://b.example"]);
+  });
+
   test("Then an owning ERP that refuses fails the event, so it is delivered again", async () => {
     erp.deleteProduct.mockResolvedValueOnce({
       data: { errorMessage: "down" },

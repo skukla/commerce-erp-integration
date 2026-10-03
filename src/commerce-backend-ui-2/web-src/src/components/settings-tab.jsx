@@ -34,6 +34,7 @@ const EMPTY_IS_UNSET = new Set([
   "structure_owns",
   "structure_owns_attribute",
   "structure_owns_sources",
+  "structure_owns_websites",
 ]);
 
 /** The fields as shown: an ERP's own, or the integration's at the scope. */

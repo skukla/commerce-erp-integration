@@ -34,11 +34,12 @@ export function SalesOrgCard({ note, row }) {
 
 /** Which products the ERP owns, and its order-number prefix: at Default Config only. */
 export function ProductsCard({ fields, row }) {
-  // The sources and the attribute show only under the mode that reads them.
+  // The sources, the attribute and the websites show only under the mode that reads them.
   const mode = fields.get("structure_owns")?.value;
   const hidden = {
     structure_owns_attribute: mode !== "attribute",
     structure_owns_sources: mode !== "sources",
+    structure_owns_websites: mode !== "websites",
   };
   const names = groupNames("products").filter((name) => !hidden[name]);
   return (

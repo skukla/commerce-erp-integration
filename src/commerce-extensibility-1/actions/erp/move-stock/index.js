@@ -13,6 +13,7 @@ import {
   transferAllStock,
   transferSomeStock,
   warehousesOfSku,
+  websiteCodesOf,
 } from "#lib/commerce";
 import { erp } from "#lib/erp";
 import { loadErps } from "#lib/erps";
@@ -62,7 +63,11 @@ async function main(params) {
       importStock: erp.importRecords,
       // Several ERPs: each product's stock goes to the ERP that owns it.
       ownerOf: ownerWithParams(await loadErps(params), (p, sku, settings) =>
-        ownsSku(p, sku, settings, { productAttributes, sourceCodesOf }),
+        ownsSku(p, sku, settings, {
+          productAttributes,
+          sourceCodesOf,
+          websiteCodesOf,
+        }),
       ),
       skusForProductIds,
       transferAll: transferAllStock,

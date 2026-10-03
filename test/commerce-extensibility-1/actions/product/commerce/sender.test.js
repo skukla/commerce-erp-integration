@@ -6,6 +6,7 @@ vi.mock("#lib/commerce", () => ({
     { code: "northwind", name: "Northwind Warehouse", quantity: 994 },
     { code: "east", name: "East Warehouse", quantity: 25 },
   ]),
+  websiteCodesOf: vi.fn(async () => []),
 }));
 
 import { erp } from "#lib/erp";

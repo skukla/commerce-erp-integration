@@ -18,6 +18,7 @@ vi.mock("#lib/commerce", () => ({
   transferAllStock: vi.fn(async () => true),
   transferSomeStock: vi.fn(async () => []),
   warehousesOfSku: vi.fn(async () => [{ code: "east", quantity: 5 }]),
+  websiteCodesOf: vi.fn(async () => []),
 }));
 vi.mock("#lib/settings", () => ({ settingsFor: vi.fn(async () => ({})) }));
 

@@ -13,7 +13,7 @@ import { erpCustomerOf } from "#lib/key-map";
 import { orderSyncDeps } from "#lib/order-deps";
 import { ownershipReaders } from "#lib/ownership-readers";
 import { assessPlacement, creditVerdict } from "#lib/placement-checks";
-import { ownsSku } from "#lib/structure";
+import { ownsLine } from "#lib/structure";
 import { readPayload } from "#lib/webhook";
 import { linesOf, splitLines } from "#router/route-order";
 
@@ -64,7 +64,12 @@ export function placementDeps(params, logger) {
   // check (one read per configurable) is the router's, run when the order is sent.
   const readers = ownershipReaders();
   const split = {
-    ownsSku: (p, sku, settings) => ownsSku(p, sku, settings, readers),
+    logger,
+    ownsSku: (p, sku, settings, websiteCode) =>
+      ownsLine(p, { sku, websiteCode }, settings, readers),
+    // The order's website, for an ERP that owns by website (AB-64): the same cached store
+    // read the send uses.
+    websiteCodeOf: sync.websiteCodeOf,
   };
   return {
     // The same call the router makes when it records the promise on the part

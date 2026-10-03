@@ -5,7 +5,7 @@
  * belongs to the ERP whose id its `erp_owner` attribute holds (design v1 §2, §3.2).
  */
 import { orderPartsKey, resetOrderPartsClient } from "#lib/order-parts";
-import { OWNS, ownsSku } from "#lib/structure";
+import { OWNS, ownsLine, ownsSku } from "#lib/structure";
 import { routeOrder, splitLines } from "#router/route-order";
 
 /** Two ERPs of the demo kind, each owning the products whose erp_owner names it. */
@@ -230,5 +230,69 @@ describe("Given an order not yet saved (the placement check's payload)", () => {
     expect([...byErp.keys()]).toEqual(["brand-a", "brand-b"]);
     expect(byErp.get("brand-a").map((l) => l.sku)).toEqual(["CAB1"]);
     expect(byErp.get("brand-b").map((l) => l.sku)).toEqual(["SIGN1"]);
+  });
+});
+
+/*
+ * AB-64 (owner, 2026-10-02): an ERP may own the products sold on named websites; an order
+ * comes from one website, and a product rule beats a website rule.
+ */
+describe("Given ERP A owning website base and ERP B owning products by attribute", () => {
+  const BY_WEBSITE = [
+    {
+      ...ERPS[0],
+      settings: { structure_owns: "websites", structure_owns_websites: "base" },
+    },
+    ERPS[1],
+  ];
+  /** SIGN1 is tagged for B; the cabinets are tagged for no one. */
+  const TAGS = { SIGN1: "brand-b" };
+  const readLine = (p, sku, settings, websiteCode) =>
+    ownsLine(p, { sku, websiteCode }, settings, {
+      productAttributes: async (_p, s) =>
+        TAGS[s] ? { erp_owner: TAGS[s] } : {},
+      sourceCodesOf: async () => [],
+      // The products themselves are sold on eu only: the ORDER's website must decide.
+      websiteCodesOf: async () => ["eu"],
+    });
+  const websiteCodeOf = vi.fn(async (_p, storeId) =>
+    Number(storeId) === 3 ? "base" : "eu",
+  );
+
+  test("Then an order from base splits: B gets the line its attribute names, A gets the rest", async () => {
+    const { byErp, unrouted, conflicts } = await splitLines(
+      {},
+      ORDER,
+      BY_WEBSITE,
+      {
+        ownsSku: readLine,
+        websiteCodeOf,
+      },
+    );
+    expect(websiteCodeOf).toHaveBeenCalledWith({}, 3);
+    expect(byErp.get("brand-a").map((l) => l.item_id)).toEqual([1, 3, 4]);
+    expect(byErp.get("brand-b").map((l) => l.item_id)).toEqual([2]);
+    expect(unrouted).toEqual([]);
+    expect(conflicts).toEqual([]);
+  });
+
+  test("Then an order from another website leaves the untagged lines with no owner", async () => {
+    const { byErp, unrouted } = await splitLines(
+      {},
+      { ...ORDER, store_id: 9 },
+      BY_WEBSITE,
+      { ownsSku: readLine, websiteCodeOf },
+    );
+    expect([...byErp.keys()]).toEqual(["brand-b"]);
+    expect(unrouted).toEqual(["CAB1", "CAB2"]);
+  });
+
+  test("Then the store list is not read when no ERP owns by website", async () => {
+    const read = vi.fn(async () => "base");
+    await splitLines({}, ORDER, ERPS, {
+      ownsSku: readLine,
+      websiteCodeOf: read,
+    });
+    expect(read).not.toHaveBeenCalled();
   });
 });

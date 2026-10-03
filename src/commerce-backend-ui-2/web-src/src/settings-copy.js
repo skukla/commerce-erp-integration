@@ -79,7 +79,7 @@ const TEXT = {
   structure_owns: (erp) => ({
     help: "Which products this ERP sells and ships.",
     label: "Products this ERP owns",
-    more: `All products: every product (one ERP only). Inventory sources: the products stocked in the sources named below. Attribute: the products whose attribute names this ERP.${erp ? ` When not set: products whose erp_owner is ${erp.id}.` : ""}`,
+    more: `All products: every product (one ERP only). Inventory sources: the products stocked in the sources named below. Attribute: the products whose attribute names this ERP. Websites: the products sold on the websites named below; an order from one of them goes whole to this ERP, unless another ERP owns a line by attribute or source.${erp ? ` When not set: products whose erp_owner is ${erp.id}.` : ""}`,
   }),
   structure_owns_attribute: (erp) => {
     const example = `erp_owner=${erp?.id ?? "ACME"}`;
@@ -94,6 +94,11 @@ const TEXT = {
     help: "Source codes, comma-separated.",
     label: "Inventory sources",
     more: "The inventory source codes this ERP ships from, as default, east. Used with “Products in these inventory sources”.",
+  }),
+  structure_owns_websites: () => ({
+    help: "Website codes, comma-separated.",
+    label: "Websites",
+    more: "The Commerce website codes this ERP sells on, as base, eu. Used with “Products sold on these websites”.",
   }),
   structure_sales_org: (erp) => ({
     help: "The ERP’s code for this website’s sales, e.g. 1000.",
@@ -148,6 +153,7 @@ const OWNS = [
   { label: "All products", value: "all" },
   { label: "Products in these inventory sources", value: "sources" },
   { label: "Products whose attribute names this ERP", value: "attribute" },
+  { label: "Products sold on these websites", value: "websites" },
 ];
 
 /**

@@ -205,6 +205,38 @@ export async function listWebsites(params) {
 }
 
 const websiteOfStore = new Map();
+/** Website id → code, read once per activation (websiteCodesOf). */
+const websiteCodeById = new Map();
+
+async function websiteCodes(params) {
+  if (websiteCodeById.size === 0) {
+    for (const site of await listWebsites(params)) {
+      websiteCodeById.set(site.id, site.code);
+    }
+  }
+  return websiteCodeById;
+}
+
+/** The codes of the websites a product (as Commerce answers it) is sold on. */
+function websiteCodesOfProduct(product, codeById) {
+  return (product?.extension_attributes?.website_ids ?? [])
+    .map((id) => codeById.get(Number(id)))
+    .filter(Boolean);
+}
+
+/**
+ * The websites one SKU is sold on, as codes: the ownership check of an ERP that owns the
+ * products sold on named websites (lib/structure.js, AB-64), asked about a SKU with no order.
+ * @returns {Promise<string[]>}
+ */
+export async function websiteCodesOf(params, sku) {
+  const client = await commerceClient(params);
+  const [product, codeById] = await Promise.all([
+    client.get(`products/${encodeURIComponent(sku)}`).json(),
+    websiteCodes(params),
+  ]);
+  return websiteCodesOfProduct(product, codeById);
+}
 
 /**
  * The code of the website a store view belongs to: an order carries its store view, and an
@@ -357,6 +389,25 @@ export async function productAttributesOfSkus(params, skus) {
     const products = await readAllPages(client, "products", skuIn(list));
     for (const product of products) {
       found.set(product.sku, attributesOf(product));
+    }
+  }
+  return found;
+}
+
+/**
+ * Many SKUs' websites in one products search per hundred SKUs, as codes (lib/ownership-
+ * readers.js). A SKU Commerce does not have, or one holding a comma, is absent.
+ * @returns {Promise<Map<string, string[]>>} Commerce's SKU → website codes
+ */
+export async function websiteCodesOfSkus(params, skus) {
+  const client = await commerceClient(params);
+  const codeById = await websiteCodes(params);
+  const found = new Map();
+  for (const list of skuLists(skus)) {
+    // biome-ignore lint/performance/noAwaitInLoops: one search at a time on a slow store
+    const products = await readAllPages(client, "products", skuIn(list));
+    for (const product of products) {
+      found.set(product.sku, websiteCodesOfProduct(product, codeById));
     }
   }
   return found;

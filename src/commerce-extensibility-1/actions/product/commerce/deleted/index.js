@@ -9,9 +9,9 @@ import { paramsForErp } from "#adapters/contract";
 import { COMMERCE_EVENTS, originOf } from "#lib/commerce-events";
 import { erp } from "#lib/erp";
 import { loadErps } from "#lib/erps";
-import { ownsSku } from "#lib/structure";
+import { OWNS, ownsSku } from "#lib/structure";
 import { stringParameters } from "#lib/utils";
-import { OWNER_ATTRIBUTE, ownersOf } from "#router/ownership";
+import { OWNER_ATTRIBUTE, ownershipOf, ownersOf } from "#router/ownership";
 
 /** Commerce answers 404 for a SKU the ERP never had or already removed: nothing to do twice. */
 const GONE = 404;
@@ -21,6 +21,8 @@ const GONE = 404;
  * read from the event, since the product is already gone from Commerce (its attributes and its
  * sources with it). An event that does not carry the owner attribute cannot name the owner,
  * so every ERP is told: an ERP that never had the SKU answers 404, which is nothing to do.
+ * An ERP owning the products sold on named websites is always told, for the same reason: the
+ * event does not say which websites the product was on (AB-64).
  */
 async function erpsToTell(params, product, erps) {
   if (!(OWNER_ATTRIBUTE in product)) {
@@ -31,11 +33,16 @@ async function erpsToTell(params, product, erps) {
       [OWNER_ATTRIBUTE]: product[OWNER_ATTRIBUTE],
     }),
     sourceCodesOf: async () => [],
+    websiteCodesOf: async () => [],
   };
   const owners = await ownersOf(params, product.sku, erps, (p, s, settings) =>
     ownsSku(p, s, settings, readers),
   );
-  return erps.filter((entry) => owners.includes(entry.id));
+  return erps.filter(
+    (entry) =>
+      owners.includes(entry.id) ||
+      ownershipOf(entry).structure_owns === OWNS.WEBSITES,
+  );
 }
 
 /** Tell one ERP (at its own address when there are several) to remove the SKU. */

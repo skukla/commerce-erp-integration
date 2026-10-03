@@ -13,6 +13,7 @@ import {
   sourceCodesOf,
   variantsOfProduct,
   websiteCodeOfStore,
+  websiteCodesOf,
 } from "#lib/commerce";
 import { erp } from "#lib/erp";
 import { availabilityOf } from "#lib/erp-availability";
@@ -20,7 +21,7 @@ import { loadErps } from "#lib/erps";
 import { recordOrderOutcome } from "#lib/history";
 import { erpCustomerOf } from "#lib/key-map";
 import { settingsFor } from "#lib/settings";
-import { ownsSku } from "#lib/structure";
+import { ownsLine } from "#lib/structure";
 import { routeOrder } from "#router/route-order";
 
 /**
@@ -37,8 +38,13 @@ export function orderSyncDeps(logger) {
     getOrder: getOrderByIncrementId,
     loadErps,
     logger,
-    ownsSku: (p, sku, settings) =>
-      ownsSku(p, sku, settings, { productAttributes, sourceCodesOf }),
+    // The router asks with the order's website (router/ownership.js ownersOfLine, AB-64).
+    ownsSku: (p, sku, settings, websiteCode) =>
+      ownsLine(p, { sku, websiteCode }, settings, {
+        productAttributes,
+        sourceCodesOf,
+        websiteCodesOf,
+      }),
     // Available-to-promise, asked of each ERP just before its part is sent and recorded on
     // the part (router/route-order.js; AB-19). Never a reason to hold: a failed ask leaves
     // no promise and the send goes on.
@@ -52,7 +58,8 @@ export function orderSyncDeps(logger) {
     // The router's variant check, with several ERPs only (router/route-order.js). Wrapped,
     // so a path that never checks variants never touches the binding.
     variantsOf: (p, productId) => variantsOfProduct(p, productId),
-    // Read only when a part of a split order is sent (lib/erp-settings.js).
+    // Read when a part of a split order is sent (lib/erp-settings.js) and, when an ERP owns
+    // by website, before the split (router/route-order.js).
     websiteCodeOf: async (p, storeId) => websiteCodeOfStore(p, storeId),
   };
 }

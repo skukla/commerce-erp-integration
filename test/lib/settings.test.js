@@ -98,6 +98,7 @@ describe("Given the declared settings", () => {
       structure_owns: "all",
       structure_owns_attribute: "",
       structure_owns_sources: "",
+      structure_owns_websites: "",
       structure_sales_org: "1000",
       structure_sales_org_name: "",
     });
@@ -316,7 +317,7 @@ describe("Given the settings page", () => {
 const FOUR_CHARS = /exactly four upper-case letters or digits/u;
 const TEXT_OR_NULL = /must be text or null/u;
 const PREFIX_WORDS = /one to six upper-case/u;
-const ONE_OF_OWNS = /must be one of all, sources, attribute/u;
+const ONE_OF_OWNS = /must be one of all, sources, attribute, websites/u;
 const ATTRIBUTE_WORDS = /attribute code and a value/u;
 const BOOLEAN_WORDS = /true, false or null/u;
 
@@ -337,6 +338,14 @@ describe("Given the Structure settings (business-structure plan, step 02)", () =
       PREFIX_WORDS,
     );
     expect(lib.saveProblem({ structure_owns: "sources" })).toBeNull();
+    expect(lib.saveProblem({ structure_owns: "websites" })).toBeNull();
+    expect(
+      lib.saveProblem({ structure_owns_websites: "base, justrite_b2b" }),
+    ).toBeNull();
+    expect(lib.saveProblem({ structure_owns_websites: "" })).toBeNull();
+    expect(lib.saveProblem({ structure_owns_websites: "Base Site" })).toMatch(
+      WEBSITES_WORDS,
+    );
     expect(lib.saveProblem({ structure_owns: "everything" })).toMatch(
       ONE_OF_OWNS,
     );
@@ -360,6 +369,7 @@ describe("Given the Structure settings (business-structure plan, step 02)", () =
       "structure_order_prefix",
       "structure_owns_sources",
       "structure_owns_attribute",
+      "structure_owns_websites",
     ]) {
       expect(lib.SETTING_DEFAULTS[name]).toBe("");
     }
@@ -390,6 +400,7 @@ describe("Given Demo Builder asking for the settings in force before it fills th
   });
 });
 
+const WEBSITES_WORDS = /comma-separated website codes/u;
 const TIMEZONE_WORDS = /an IANA timezone name, like UTC or America\/Chicago/u;
 const TIME_WORDS = /a time of day as HH:MM/u;
 const ONE_OF_FREQUENCIES = /must be one of hourly, daily, weekly/u;

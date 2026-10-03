@@ -33,6 +33,7 @@ vi.mock("#lib/commerce", () => ({
     erp_owner: sku.startsWith("C") ? "contoso" : "erp",
   })),
   sourceCodesOf: vi.fn(async () => []),
+  websiteCodesOf: vi.fn(async () => []),
 }));
 
 import { resetErpTokenCache } from "#lib/erp";

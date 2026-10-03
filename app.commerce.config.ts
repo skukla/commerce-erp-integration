@@ -205,7 +205,7 @@ export default defineConfig({
       {
         default: "all",
         description:
-          "Which products belong to this ERP. All: every product (one ERP). Inventory sources: the products stocked in the sources named below. Attribute: the products whose attribute names this ERP. Set at Default Config.",
+          "Which products belong to this ERP. All: every product (one ERP). Inventory sources: the products stocked in the sources named below. Attribute: the products whose attribute names this ERP. Websites: the products sold on the websites named below; an order from one of them goes whole to this ERP unless another ERP owns a line by attribute or source. Set at Default Config.",
         label: "Which products belong to this ERP",
         name: "structure_owns",
         options: [
@@ -217,6 +217,10 @@ export default defineConfig({
           {
             label: "Products whose attribute names this ERP",
             value: "attribute",
+          },
+          {
+            label: "Products sold on the websites named below",
+            value: "websites",
           },
         ],
         selectionMode: "single",
@@ -236,6 +240,14 @@ export default defineConfig({
           "A product attribute and value that names this ERP, as erp_owner=ACME (used with Attribute above).",
         label: "Product attribute that names this ERP",
         name: "structure_owns_attribute",
+        type: "text",
+      },
+      {
+        default: "",
+        description:
+          "Comma-separated Commerce website codes this ERP sells on, as base, eu (used with Websites above).",
+        label: "Websites this ERP sells on",
+        name: "structure_owns_websites",
         type: "text",
       },
       // Schedules (AB-38): when the scheduled jobs run, set at Default Config for the whole

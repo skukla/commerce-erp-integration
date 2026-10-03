@@ -17,6 +17,7 @@ export const PER_ERP_KEYS = Object.freeze([
   "structure_owns",
   "structure_owns_sources",
   "structure_owns_attribute",
+  "structure_owns_websites",
   "structure_order_prefix",
   "structure_sales_org",
   "structure_sales_org_name",

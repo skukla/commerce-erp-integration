@@ -48,11 +48,18 @@ describe("Given an ERP entry's own settings", () => {
       "structure_owns",
       "structure_owns_sources",
       "structure_owns_attribute",
+      "structure_owns_websites",
       "structure_order_prefix",
       "structure_sales_org",
       "structure_sales_org_name",
     ]);
     expect(erpSettingsProblem({ structure_order_prefix: "X" })).toBeNull();
+    expect(
+      erpSettingsProblem({
+        structure_owns: "websites",
+        structure_owns_websites: "base, eu",
+      }),
+    ).toBeNull();
     expect(erpSettingsProblem({ orders_send: false })).toContain("orders_send");
     expect(erpSettingsProblem({ structure_owns: "everything" })).toContain(
       "structure_owns",

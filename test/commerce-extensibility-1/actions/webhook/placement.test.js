@@ -25,12 +25,16 @@ vi.mock("#lib/erps", () => ({
   ]),
 }));
 vi.mock("#lib/key-map", () => ({ erpCustomerOf: vi.fn(async () => "C1") }));
+const websiteCodeOf = vi.fn(async (_p, storeId) =>
+  Number(storeId) === 2 ? "eu" : "base",
+);
 vi.mock("#lib/order-deps", () => ({
   orderSyncDeps: () => ({
     companyIdOf: vi.fn(async () => "7"),
     ownsSku: vi.fn(async () => true),
     // Present on the real deps: the placement split must not use it (one read per variant).
     variantsOf: vi.fn(async () => ({ parentSku: null, skus: [] })),
+    websiteCodeOf,
   }),
 }));
 // The batched ownership readers (lib/ownership-readers.js): one Commerce search for the
@@ -161,6 +165,32 @@ test("the order's SKUs are named to the batched readers, so ownership is one Com
   erpAnswers({ availability: [], credit: { status: "approved" } });
   await main(order());
   expect(readers.expect).toHaveBeenCalledWith(["A1", "A1-child"]);
+});
+
+test("with an ERP owning the products sold on a website, the order's website decides which ERP is asked (AB-64)", async () => {
+  loadErps.mockResolvedValue([
+    {
+      connection: { baseUrl: "https://us.example" },
+      id: "us",
+      name: "US ERP",
+      settings: { structure_owns: "websites", structure_owns_websites: "base" },
+    },
+    {
+      connection: { baseUrl: "https://eu.example" },
+      id: "eu",
+      name: "EU ERP",
+      settings: { structure_owns: "websites", structure_owns_websites: "eu" },
+    },
+  ]);
+  erpAnswers({ availability: [], credit: { status: "approved" } });
+  await main(order({ store_id: 2 }));
+  expect(websiteCodeOf).toHaveBeenCalledWith(expect.anything(), 2);
+  const asked = [
+    ...new Set(erpRequest.mock.calls.map(([p]) => p.ERP_BASE_URL)),
+  ];
+  expect(asked).toEqual(["https://eu.example"]);
+  // No product read: the order's website answered.
+  expect(readers.productAttributes).not.toHaveBeenCalled();
 });
 
 test("checks that outrun the deadline let the order through before Commerce gives up (AB-55)", async () => {

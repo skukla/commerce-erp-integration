@@ -12,6 +12,7 @@ vi.mock("#lib/commerce", () => ({
   warehousesOfSku: vi.fn(async () => [
     { code: "default", name: "Default Source", quantity: 1000 },
   ]),
+  websiteCodesOf: vi.fn(async () => []),
 }));
 vi.mock("#lib/settings", () => ({ settingsFor: vi.fn(async () => ({})) }));
 vi.mock("#lib/structure", async (importOriginal) => ({

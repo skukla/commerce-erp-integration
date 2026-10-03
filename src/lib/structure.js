@@ -76,7 +76,15 @@ export const OWNS = Object.freeze({
   ALL: "all",
   ATTRIBUTE: "attribute",
   SOURCES: "sources",
+  WEBSITES: "websites",
 });
+
+/** The modes that decide by the product itself, not by the website an order came from. */
+export const PRODUCT_MODES = Object.freeze([
+  OWNS.ALL,
+  OWNS.ATTRIBUTE,
+  OWNS.SOURCES,
+]);
 
 /** "default, east" → ["default", "east"] */
 const codesOf = (text) =>
@@ -99,9 +107,11 @@ function attributeOf(text) {
 
 /**
  * Which products belong to this ERP, from the pair's settings (rule M3). `owns` takes a
- * product as Commerce describes it: `sourceCodes` (the inventory sources it is stocked in)
- * and `customAttributes` (code → value). Under `all` every product is owned, which is
- * today's single-pair behaviour; a mode whose setting is blank owns nothing, loudly.
+ * product as Commerce describes it: `sourceCodes` (the inventory sources it is stocked in),
+ * `customAttributes` (code → value) and `websiteCodes` (the websites it is sold on, or for
+ * an order line the one website the order came from; AB-64). Under `all` every product is
+ * owned, which is today's single-pair behaviour; a mode whose setting is blank owns nothing,
+ * loudly.
  * @returns {{ mode: string, owns: (product: object) => boolean, describe: string }}
  */
 export function ownershipFilter(settings) {
@@ -113,6 +123,15 @@ export function ownershipFilter(settings) {
       mode,
       owns: (product) =>
         (product.sourceCodes ?? []).some((code) => codes.has(code)),
+    };
+  }
+  if (mode === OWNS.WEBSITES) {
+    const codes = new Set(codesOf(settings?.structure_owns_websites));
+    return {
+      describe: `products sold on ${codes.size ? [...codes].join(", ") : "no website (the setting is blank)"}`,
+      mode,
+      owns: (product) =>
+        (product.websiteCodes ?? []).some((code) => codes.has(code)),
     };
   }
   if (mode === OWNS.ATTRIBUTE) {
@@ -132,11 +151,20 @@ export function ownershipFilter(settings) {
 }
 
 /**
- * Does this ERP own a SKU, asked of Commerce (a product or stock event names a SKU and
- * little else). `all` answers without a read.
- * @param {object} readers `{ sourceCodesOf(params, sku), productAttributes(params, sku) }`
+ * Does this ERP own a line: a SKU, with the website the order came from when there is an
+ * order (AB-64). `all` answers without a read. Under `websites` the order's website decides
+ * without a read; a SKU asked about on its own (a product or stock event, a price publish)
+ * is decided by the websites the product is sold on.
+ * @param {{ sku: string, websiteCode?: string }} line
+ * @param {object} readers `{ sourceCodesOf(params, sku), productAttributes(params, sku),
+ *   websiteCodesOf(params, sku) }`
  */
-export async function ownsSku(params, sku, settings, readers) {
+export async function ownsLine(
+  params,
+  { sku, websiteCode },
+  settings,
+  readers,
+) {
   const filter = ownershipFilter(settings);
   if (filter.mode === OWNS.ALL) {
     return true;
@@ -146,7 +174,23 @@ export async function ownsSku(params, sku, settings, readers) {
       sourceCodes: await readers.sourceCodesOf(params, sku),
     });
   }
+  if (filter.mode === OWNS.WEBSITES) {
+    return filter.owns({
+      websiteCodes: websiteCode
+        ? [websiteCode]
+        : await readers.websiteCodesOf(params, sku),
+    });
+  }
   return filter.owns({
     customAttributes: await readers.productAttributes(params, sku),
   });
+}
+
+/**
+ * Does this ERP own a SKU, asked of Commerce (a product or stock event names a SKU and
+ * little else).
+ * @param {object} readers as ownsLine's
+ */
+export function ownsSku(params, sku, settings, readers) {
+  return ownsLine(params, { sku }, settings, readers);
 }

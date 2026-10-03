@@ -366,9 +366,23 @@ export function createFakeCommerce() {
           const [, code] = key.split("|");
           return { code, name: db.sources.get(code) || code, quantity };
         }),
-    // The store's one view (store 1) is on the one website listWebsites answers.
+    // The store's one view (store 1) is on the one website listWebsites answers; store view 2
+    // is on a second website, eu, that a journey moves an order to (AB-64).
     websiteCodeOfStore: async (_p, storeId) =>
-      Number(storeId) === 1 ? "base" : undefined,
+      ({ 1: "base", 2: "eu" })[Number(storeId)],
+    // The websites a product is sold on: every seeded product is on base unless a journey
+    // says otherwise (`websites` on the product).
+    websiteCodesOf: async (_p, sku) =>
+      clone(db.products.get(sku)?.websites ?? ["base"]),
+    websiteCodesOfSkus: async (_p, skus) =>
+      new Map(
+        skus
+          .filter((sku) => db.products.has(sku))
+          .map((sku) => [
+            sku,
+            clone(db.products.get(sku).websites ?? ["base"]),
+          ]),
+      ),
   };
 
   /** The shared catalog and tier-price calls (the shape #lib/commerce-tier-prices answers). */

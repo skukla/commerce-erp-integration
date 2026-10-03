@@ -16,6 +16,7 @@ vi.mock("#lib/commerce", () => ({
   skuForProductId: vi.fn(async (_params, id) => (id === 7 ? "C7" : "N8")),
   sourceCodesOf: vi.fn(async () => []),
   warehousesOfSku: vi.fn(async () => [{ code: "main", quantity: 3 }]),
+  websiteCodesOf: vi.fn(async () => []),
 }));
 vi.mock("#lib/settings", () => ({ settingsFor: vi.fn(async () => ({})) }));
 

@@ -74,12 +74,17 @@ describe("Given which products an ERP owns", () => {
       { label: "All products", value: "all" },
       { label: "Products in these inventory sources", value: "sources" },
       { label: "Products whose attribute names this ERP", value: "attribute" },
+      { label: "Products sold on these websites", value: "websites" },
     ]);
     expect(ownsOptions(null).map((o) => o.value)).toStrictEqual([
       "all",
       "sources",
       "attribute",
+      "websites",
     ]);
+    expect(settingText("structure_owns_websites", null)).toMatchObject({
+      label: "Websites",
+    });
   });
 });
 

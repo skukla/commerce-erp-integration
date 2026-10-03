@@ -10,7 +10,9 @@
  * - a line's owner is the ERP whose ownership setting owns its product, read through the one
  *   ownership rule the integration has (lib/structure.js). An ERP's ownership defaults to
  *   "the products whose erp_owner attribute holds this ERP's id": the attribute a product
- *   information system would master, holding the id that never changes (design v1 §2, §3.2);
+ *   information system would master, holding the id that never changes (design v1 §2, §3.2).
+ *   An ERP may instead own the products sold on named websites (AB-64): then the website the
+ *   order was placed on decides, and a product rule beats it (router/ownership.js);
  * - a line no ERP owns is held back and recorded; a line two ERPs claim is a setup error,
  *   recorded and sent to neither;
  * - each part is recorded (lib/order-parts.js) and sent once: a redelivered order event sends
@@ -28,8 +30,9 @@ import {
   readOrderParts,
   writeOrderParts,
 } from "#lib/order-parts";
+import { OWNS } from "#lib/structure";
 import { applyCombinedStatus } from "#router/combined-status";
-import { ownersOf } from "#router/ownership";
+import { ownershipOf, ownersOfLine } from "#router/ownership";
 
 const SERVER_UNAVAILABLE = 503;
 const BAD_REQUEST = 400;
@@ -41,14 +44,39 @@ export function linesOf(order) {
 }
 
 /**
+ * The website the order was placed on, read only when an ERP owns by website (one store-list
+ * read per activation, lib/commerce.js websiteCodeOfStore). Unknown (no reader, or a store
+ * view Commerce does not list), a website ERP decides by the product's own websites.
+ * @returns {Promise<string|undefined>}
+ */
+async function websiteOfOrder(params, order, erps, deps) {
+  const byWebsite = erps.some(
+    (entry) => ownershipOf(entry).structure_owns === OWNS.WEBSITES,
+  );
+  if (!(byWebsite && deps?.websiteCodeOf) || order?.store_id === undefined) {
+    return;
+  }
+  try {
+    return (await deps.websiteCodeOf(params, order.store_id)) ?? undefined;
+  } catch (error) {
+    deps.logger?.warn?.(
+      `order ${order.increment_id ?? ""}: website of store ${order.store_id} not read: ${error.message}`,
+    );
+  }
+}
+
+/**
  * Group an order's lines by owning ERP. A configurable's child line travels with its parent.
  * Exported for the placement checks (webhook/placement), which ask each owning ERP about its
  * own part before the order exists — the one split, used by both.
+ * @param {object} deps `{ ownsSku(params, sku, settings, websiteCode), websiteCodeOf?(params,
+ *   storeId), variantsOf?, logger? }`
  * @returns {Promise<{ byErp: Map<string, object[]>, unrouted: string[], conflicts: object[],
  *   warnings: Map<string, string[]> }>}
  */
 export async function splitLines(params, order, erps, deps) {
   const lines = linesOf(order);
+  const websiteCode = await websiteOfOrder(params, order, erps, deps);
   const byErp = new Map();
   const unrouted = [];
   const conflicts = [];
@@ -59,7 +87,12 @@ export async function splitLines(params, order, erps, deps) {
   const keyOf = (line) => line.item_id ?? `line-${lines.indexOf(line)}`;
   for (const line of lines.filter((l) => !l.parent_item_id && l.sku)) {
     // biome-ignore lint/performance/noAwaitInLoops: a few lines, in order
-    const owners = await ownersOf(params, line.sku, erps, deps.ownsSku);
+    const owners = await ownersOfLine(
+      params,
+      { sku: line.sku, websiteCode },
+      erps,
+      deps.ownsSku,
+    );
     if (owners.length === 0) {
       unrouted.push(line.sku);
     } else if (owners.length > 1) {
@@ -76,8 +109,7 @@ export async function splitLines(params, order, erps, deps) {
   }
   const warnings = await variantWarnings(
     params,
-    lines,
-    ownerOfItem,
+    { lines, ownerOfItem, websiteCode },
     erps,
     deps,
   );
@@ -91,7 +123,8 @@ export async function splitLines(params, order, erps, deps) {
  * order is never held for it.
  * @returns {Promise<Map<string, string[]>>} warnings by the ERP id of the part
  */
-async function variantWarnings(params, lines, ownerOfItem, erps, deps) {
+async function variantWarnings(params, split, erps, deps) {
+  const { lines, ownerOfItem, websiteCode } = split;
   const warnings = new Map();
   if (!deps?.variantsOf) {
     return warnings;
@@ -104,7 +137,12 @@ async function variantWarnings(params, lines, ownerOfItem, erps, deps) {
   );
   for (const line of configurables) {
     // biome-ignore lint/performance/noAwaitInLoops: few configurable lines, in order
-    const warning = await variantWarning(params, line, erps, deps);
+    const warning = await variantWarning(
+      params,
+      { line, websiteCode },
+      erps,
+      deps,
+    );
     if (warning) {
       const owner = ownerOfItem.get(line.item_id);
       warnings.set(owner, [...(warnings.get(owner) ?? []), warning]);
@@ -113,12 +151,19 @@ async function variantWarnings(params, lines, ownerOfItem, erps, deps) {
   return warnings;
 }
 
-async function variantWarning(params, line, erps, deps) {
+async function variantWarning(params, { line, websiteCode }, erps, deps) {
   try {
     const { parentSku, skus } = await deps.variantsOf(params, line.product_id);
     const byOwner = new Map();
     for (const sku of skus) {
-      for (const owner of await ownersOf(params, sku, erps, deps.ownsSku)) {
+      // biome-ignore lint/performance/noAwaitInLoops: few variants, one read each, in order
+      const owners = await ownersOfLine(
+        params,
+        { sku, websiteCode },
+        erps,
+        deps.ownsSku,
+      );
+      for (const owner of owners) {
         byOwner.set(owner, [...(byOwner.get(owner) ?? []), sku]);
       }
     }
