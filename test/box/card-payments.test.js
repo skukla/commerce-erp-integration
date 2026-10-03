@@ -51,6 +51,7 @@ import { erp } from "#lib/erp";
 import { replaceErps, resetErpsClient } from "#lib/erps";
 import * as keyMap from "#lib/key-map";
 import * as ledger from "#lib/ledger";
+import { readOrderParts } from "#lib/order-parts";
 import * as orderCreated from "#src/order/commerce/created/index";
 import * as returnSaved from "#src/order/commerce/return-saved/index";
 
@@ -62,6 +63,8 @@ const ORDER = "000000042";
 const ORDER_ID = 55;
 const COMPANY = 7;
 const CARD_NUMBER = "4111111111111111";
+/** The invoice Commerce made at checkout, each journey's own. */
+let checkoutInvoice;
 
 /** Commerce's payment record for a card captured at checkout (Authorize and Capture). */
 const CAPTURED = {
@@ -140,7 +143,8 @@ beforeEach(async () => {
   box.commerce.db.products.get("B2").custom_attributes = {
     erp_owner: "brand-b",
   };
-  box.commerce.db.orders.get(ORDER_ID).payment = { ...CAPTURED };
+  // Authorize and Capture: the card is captured AND the order invoiced in Commerce at checkout.
+  checkoutInvoice = String(box.commerce.captureAtCheckout(ORDER_ID, CAPTURED));
 });
 
 describe("Pair in a box: a split order paid by card at checkout", () => {
@@ -211,6 +215,30 @@ describe("Pair in a box: a split order paid by card at checkout", () => {
         [share, CAPTURED.last_trans_id],
       ]);
     }
+    // Commerce invoiced every line at checkout, so neither the shipments nor the invoices ask
+    // it again (it refuses: "The order does not allow an invoice to be created."). Each ERP's
+    // invoice is recorded against the checkout invoice, and each part reads invoiced.
+    expect(writesOf("invoice")).toEqual([]);
+    expect(writesOf("ship")).toHaveLength(2);
+    const notes = writesOf("comment").map((w) => w.comment);
+    for (const [erpBox, name] of [
+      [box.erpA, "ERP A"],
+      [box.erpB, "ERP B"],
+    ]) {
+      // biome-ignore lint/performance/noAwaitInLoops: one ERP after the other
+      const { invoice } = await salesOrderIn(erpBox);
+      expect(notes).toContain(
+        `${name}'s invoice ${invoice.number}: already invoiced in the web shop at checkout (Commerce invoice ${checkoutInvoice}), so no second invoice was made.`,
+      );
+    }
+    const { parts } = await readOrderParts(ORDER);
+    expect(
+      ["erp", "brand-b"].map((id) => [parts[id].status, parts[id].invoiced]),
+    ).toEqual([
+      ["invoiced", { 1: 12 }],
+      ["invoiced", { 2: 4 }],
+    ]);
+
     // Commerce already holds the money: no company credit given back, nothing ledgered.
     expect(writesOf("increaseBalance")).toEqual([]);
     expect(box.commerce.db.credits.get(COMPANY).balance).toBe(0);
@@ -246,5 +274,35 @@ describe("Pair in a box: a split order paid by card at checkout", () => {
       "paid",
     ]);
     expect(writesOf("increaseBalance")).toEqual([]);
+  });
+
+  test("Every part canceled in its ERP: the order is held, and the note says the card payment is refunded in the web shop, never to cancel it", async () => {
+    await orderCreated.main(
+      box.commerce.events.orderSaved(ORDER_ID, { isNew: true }),
+    );
+    let last = [];
+    for (const [erpBox, erpId] of [
+      [box.erpA, "erp"],
+      [box.erpB, "brand-b"],
+    ]) {
+      // biome-ignore lint/performance/noAwaitInLoops: one ERP after the other, as staff would
+      const { number } = await salesOrderIn(erpBox);
+      await erpBox.call("orders", {
+        body: { reason: "Customer request" },
+        method: "POST",
+        path: `/${number}/cancel`,
+      });
+      last = await deliver(erpBox, erpId);
+    }
+    expect(last.map((d) => [d.event, d.status])).toEqual([
+      ["be-observer.sales_order_cancel", 200],
+    ]);
+    // Commerce keeps an order its checkout invoiced (Order::canCancel): held, never canceled.
+    expect(box.commerce.db.orders.get(ORDER_ID).state).toBe("holded");
+    expect(writesOf("cancel")).toEqual([]);
+    const { number: numberB } = await salesOrderIn(box.erpB);
+    expect(writesOf("comment").at(-1).comment).toBe(
+      `ERP B: ERP sales order ${numberB} canceled in the ERP: Customer request. Order put On Hold: every part was canceled in its ERP. The card payment was captured at checkout, so Commerce keeps the order: the card payment is refunded in the web shop, with a credit memo from its invoice.`,
+    );
   });
 });

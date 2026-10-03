@@ -49,6 +49,30 @@ async function getInvoice(params, invoiceId) {
 }
 
 /**
+ * The invoices of an order, with their lines: GET invoices filtered on `order_id` (Commerce's
+ * invoice list, sales-invoice-repository getList, answers `{ items, total_count }`).
+ * @param {object} params - Environment params from the IO Runtime request
+ * @param {number} orderId - the order's entity id
+ * @returns {Promise<object[]>} the invoices
+ */
+async function listOrderInvoices(params, orderId) {
+  const client = await getCommerceClient(
+    resolveImsAuthParams(params),
+    COMMERCE_FETCH_OPTIONS,
+  );
+  const page = await client
+    .get("invoices", {
+      searchParams: {
+        "searchCriteria[filter_groups][0][filters][0][condition_type]": "eq",
+        "searchCriteria[filter_groups][0][filters][0][field]": "order_id",
+        "searchCriteria[filter_groups][0][filters][0][value]": String(orderId),
+      },
+    })
+    .json();
+  return page?.items ?? [];
+}
+
+/**
  * Invoice an order (capture).
  * @param {object} params - Environment params from the IO Runtime request
  * @param {number} orderId - order id
@@ -239,6 +263,7 @@ export {
   holdOrder,
   invoiceOrder,
   invoiceOrderItems,
+  listOrderInvoices,
   refundOrderItems,
   returnReasonLabels,
   unholdOrder,

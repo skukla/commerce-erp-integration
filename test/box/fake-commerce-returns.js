@@ -11,10 +11,18 @@ const clone = (v) => JSON.parse(JSON.stringify(v));
 
 /**
  * @param {{ db: () => object, fulfilmentState: (order: object) => string,
+ *   invoiceRefusal: (order: object, items: object[]) => Error|null,
  *   order: (id: number) => object, record: Function }} store the fake's own database (a getter:
- *   a reset replaces it), the state an order takes after an invoice, order lookup and write log
+ *   a reset replaces it), the state an order takes after an invoice, why Commerce refuses an
+ *   invoice, order lookup and write log
  */
-export function createFakeReturns({ db, fulfilmentState, order, record }) {
+export function createFakeReturns({
+  db,
+  fulfilmentState,
+  invoiceRefusal,
+  order,
+  record,
+}) {
   const nextId = () => {
     const id = db().nextId;
     db().nextId += 1;
@@ -40,6 +48,10 @@ export function createFakeReturns({ db, fulfilmentState, order, record }) {
     /** POST order/{id}/invoice with items: a partial invoice of those lines. */
     invoiceOrderItems: async (_p, orderId, items) => {
       const o = order(orderId);
+      const refusal = invoiceRefusal(o, items);
+      if (refusal) {
+        throw refusal;
+      }
       const id = nextId();
       db().invoices.push({
         entity_id: id,

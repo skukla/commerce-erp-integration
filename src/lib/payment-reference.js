@@ -13,6 +13,16 @@
  * Account is never a reference: the company's credit paid, and the ERP collects it.
  */
 
+/*
+ * What staff are told when the ERP cancels an order a card paid for at checkout (AB-26s; owner
+ * 2026-10-02, flow 1): Authorize and Capture invoiced it in Commerce, which will then not cancel
+ * it, and the card money is the web shop's to give back. One sentence for the single-ERP cancel
+ * (order/external/cancelled) and for a split order whose every part was canceled
+ * (router/combined-status.js), so the two never say different things.
+ */
+export const CARD_KEPT =
+  "The card payment was captured at checkout, so Commerce keeps the order: the card payment is refunded in the web shop, with a credit memo from its invoice";
+
 /** Commerce's payment method code for Payment on Account. */
 const ON_ACCOUNT = "companycredit";
 

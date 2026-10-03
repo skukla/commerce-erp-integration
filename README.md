@@ -124,7 +124,7 @@ order number answers 503, so the ERP delivers it again.
 | `be-observer.catalog_stock_update` | `stock-backoffice/updated` | `POST inventory/source-items` |
 | `be-observer.sales_order_status_update` | `order-backoffice/updated` | `POST orders/{id}/comments` |
 | `be-observer.sales_order_shipment_create` | `order-backoffice/shipment-created` | `POST order/{id}/ship` |
-| `be-observer.sales_order_invoice_create` | `order-backoffice/invoice-created` | `POST order/{id}/invoice`, `POST orders/{id}/comments` |
+| `be-observer.sales_order_invoice_create` | `order-backoffice/invoice-created` | `GET orders/{id}`, `POST order/{id}/invoice` for what Commerce has not invoiced yet, `POST orders/{id}/comments`; lines Commerce invoiced already (a card captured at checkout invoices every line there) are not invoiced again: `GET invoices` on the order names the Commerce invoice that covers them in the note, with the ERP's invoice number, and the event succeeds |
 | `be-observer.sales_order_cancel` | `order-backoffice/cancelled` | `GET orders/{id}`, `POST orders/{id}/unhold` when On Hold, `POST orders/{id}/cancel`; an order Commerce keeps (invoiced or shipped) is put On Hold, and one whose card was captured at checkout says the card payment is refunded in the web shop, with a credit memo from its invoice (nothing here refunds it) |
 | `be-observer.sales_order_hold` | `order-backoffice/hold` | asks the ERP `GET orders/{number}` first (rule M2); `GET orders/{id}`, `POST orders/{id}/hold` or `/unhold`, `POST orders/{id}/comments` |
 | `be-observer.company_credit_update` | `company-backoffice/credit-updated` | `GET companyCredits/company/{id}`, `PUT companyCredits/{id}` (ledgered) |

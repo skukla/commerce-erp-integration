@@ -6,7 +6,7 @@ import {
 import AioLogger from "@adobe/aio-lib-core-logging";
 
 import { recordingErpEvent } from "#lib/erp-event-history";
-import { paymentReferenceOf } from "#lib/payment-reference";
+import { CARD_KEPT, paymentReferenceOf } from "#lib/payment-reference";
 import { stringParameters } from "#lib/utils";
 import { handlePartMessage } from "#router/part-outcomes";
 import {
@@ -19,14 +19,6 @@ import {
 
 const REFUSED =
   "Commerce did not cancel this order because part of it is already invoiced or shipped.";
-
-/*
- * A card captured at checkout (Authorize and Capture) invoiced the order in Commerce, so
- * Commerce keeps it, and the money is the web shop's to give back (AB-26s; owner 2026-10-02,
- * flow 1: the web shop owns the gateway, nothing in the ERP or here moves card money).
- */
-const CARD_KEPT =
-  "The card payment was captured at checkout, so Commerce keeps the order: the card payment is refunded in the web shop, with a credit memo from its invoice.";
 
 /**
  * be-observer.sales_order_cancel: cancel the Commerce order the ERP cancelled, and say
@@ -111,7 +103,7 @@ async function holdForStaff(params, orderId, logger, paidByCard) {
     held = false;
   }
   if (paidByCard) {
-    return `${CARD_KEPT} ${held ? "It is On Hold so nothing ships; take it off hold to make the credit memo." : "It could not be put On Hold."}`;
+    return `${CARD_KEPT}. ${held ? "It is On Hold so nothing ships; take it off hold to make the credit memo." : "It could not be put On Hold."}`;
   }
   return `${REFUSED} ${held ? "It is On Hold" : "It could not be put On Hold"}: close the rest with a credit memo.`;
 }

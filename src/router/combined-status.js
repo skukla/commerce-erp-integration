@@ -22,6 +22,7 @@
  * With one ERP the whole order is its one part: a held part is every part, so the order goes On
  * Hold, as before (setWholeOrderHold for the single-ERP handlers).
  */
+import { CARD_KEPT, paymentReferenceOf } from "#lib/payment-reference";
 import {
   addComment,
   getOrder,
@@ -77,10 +78,20 @@ function waitingPieces(record) {
 }
 
 /**
+ * Every part canceled: what staff do. A card paid at checkout invoiced the order in Commerce,
+ * which then will not cancel it, so its card payment is refunded there instead.
+ */
+const allCancelledReason = (paidByCard) =>
+  paidByCard
+    ? `every part was canceled in its ERP. ${CARD_KEPT}`
+    : "every part was canceled in its ERP; cancel the order in Commerce";
+
+/**
  * @param {{ parts: object, unrouted?: string[], conflicts?: object[] }} record the order's parts
+ * @param {{ paidByCard?: boolean }} [order] what the Commerce order says of itself
  * @returns {{ status: "on-hold"|"partially-held"|"pending"|"processing", reason: string }}
  */
-export function combinedStatus(record) {
+export function combinedStatus(record, { paidByCard = false } = {}) {
   const statuses = Object.values(record?.parts ?? {}).map((p) => p.status);
   const waiting = waitingPieces(record);
   const moving = statuses.filter((s) => !WAITS.includes(s));
@@ -89,7 +100,7 @@ export function combinedStatus(record) {
       statuses.length > 0 && statuses.every((s) => s === "cancelled");
     return {
       reason: allCancelled
-        ? "every part was canceled in its ERP; cancel the order in Commerce"
+        ? allCancelledReason(paidByCard)
         : waiting.join("; "),
       status: "on-hold",
     };
@@ -214,8 +225,10 @@ export async function applyCombinedStatus(
   commerce = commerceCalls(),
   logger = console,
 ) {
-  const combined = combinedStatus(record);
   const order = await commerce.getOrder(params, orderId);
+  const combined = combinedStatus(record, {
+    paidByCard: paymentReferenceOf(order?.payment) !== null,
+  });
   const action = decideOrderAction(
     combined.status,
     order?.state,

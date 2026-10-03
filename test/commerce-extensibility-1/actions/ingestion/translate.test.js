@@ -233,7 +233,9 @@ describe("Given an ERP event in the ERP's own words", () => {
     TransactionCurrency: "USD",
   };
 
-  test("When an invoice is created, Then the invoice is published", async () => {
+  // The ERP's invoice number travels too: an invoice whose lines Commerce already invoiced at
+  // checkout is recorded against it in the order's history (order/external/invoice-created).
+  test("When an invoice is created, Then the invoice is published with the ERP's invoice number", async () => {
     const { events } = await translate("BillingDocument.Created", {
       ...BILLING,
       BillingDocument: "9000000001",
@@ -248,6 +250,7 @@ describe("Given an ERP event in the ERP's own words", () => {
         event: "be-observer.sales_order_invoice_create",
         payload: {
           ...HEAD,
+          invoiceNumber: "9000000001",
           items: OLD_ITEMS,
           notifyCustomer: false,
           status: "invoiced",

@@ -255,3 +255,43 @@ describe("Given one ERP and the whole order", () => {
     expect(c.holdOrder).toHaveBeenCalledOnce();
   });
 });
+
+describe("Given every part of a split order was canceled in its ERP", () => {
+  // Commerce will not cancel an order a card paid for at checkout: Authorize and Capture
+  // invoiced it there, so the note says what staff do instead (the single-ERP card cancel's words).
+  test("Then a card-paid order's note says the card payment is refunded in the web shop with a credit memo, never to cancel it", async () => {
+    const c = client("processing");
+    c.order.payment = {
+      base_amount_paid: 140,
+      last_trans_id: "8FK21345TX901234A",
+      method: "payment_services_paypal_hosted_fields",
+    };
+    const result = await applyCombinedStatus(
+      {},
+      55,
+      { parts: parts("cancelled", "cancelled") },
+      c,
+    );
+    expect(result).toMatchObject({
+      action: "hold",
+      reason:
+        "every part was canceled in its ERP. The card payment was captured at checkout, so Commerce keeps the order: the card payment is refunded in the web shop, with a credit memo from its invoice",
+      status: "on-hold",
+    });
+    expect(result.reason).not.toMatch(CANCEL_THE_ORDER);
+  });
+
+  test("Then an order paid on account still asks staff to cancel it in Commerce", async () => {
+    const c = client("processing");
+    c.order.payment = { method: "companycredit" };
+    const result = await applyCombinedStatus(
+      {},
+      55,
+      { parts: parts("cancelled", "cancelled") },
+      c,
+    );
+    expect(result.reason).toBe(
+      "every part was canceled in its ERP; cancel the order in Commerce",
+    );
+  });
+});

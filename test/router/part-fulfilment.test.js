@@ -3,6 +3,21 @@
  * invoices and ships only its own lines, an invoice comes before its shipment, and invoice
  * calls on one order run one at a time.
  */
+/*
+ * Commerce's order as the invoice step reads it: nothing invoiced yet, unless a test hands its
+ * own `getOrder` (a card captured at checkout invoiced the order in Commerce already).
+ */
+vi.mock("#src/order/commerce-order-api-client", () => ({
+  getInvoice: vi.fn(),
+  getOrder: vi.fn(async () => ({
+    items: [
+      { item_id: 1, qty_ordered: 3, sku: "CAB1" },
+      { item_id: 2, qty_ordered: 5, sku: "SIGN1" },
+    ],
+  })),
+  invoiceOrderItems: vi.fn(),
+}));
+
 import {
   readOrderParts,
   resetOrderPartsClient,
@@ -156,6 +171,81 @@ describe("Given an ERP invoices its part", () => {
       invoiceItems: vi.fn(),
     });
     expect(res).toMatchObject({ matched: false });
+  });
+});
+
+/** Commerce's order with some of each line invoiced already (at checkout, or in Admin). */
+const invoicedInCommerce = (one, two) => async () => ({
+  items: [
+    { item_id: 1, qty_invoiced: one, qty_ordered: 3, sku: "CAB1" },
+    { item_id: 2, qty_invoiced: two, qty_ordered: 5, sku: "SIGN1" },
+  ],
+});
+
+describe("Given Commerce already invoiced a part's lines (a card captured at checkout)", () => {
+  test("Then the ERP's invoice invoices nothing in Commerce, the part's lines read invoiced, and the lines Commerce had are named", async () => {
+    const invoiceItems = vi.fn();
+    const res = await invoicePart(
+      {},
+      ORDER_ID,
+      message("brand-a", "A-100", [{ orderItemId: 1, qty: 3, sku: "CAB1" }]),
+      { erps: ERPS, getOrder: invoicedInCommerce(3, 5), invoiceItems },
+    );
+    expect(invoiceItems).not.toHaveBeenCalled();
+    expect(res).toMatchObject({
+      before: [{ order_item_id: 1, qty: 3, sku: "CAB1" }],
+      erpName: "Brand A ERP",
+      invoiced: [],
+      matched: true,
+    });
+    expect((await readOrderParts(ORDER)).parts["brand-a"].invoiced).toEqual({
+      1: 3,
+    });
+  });
+
+  test("Then with some of a line invoiced already, only the rest is invoiced", async () => {
+    const invoiceItems = vi.fn(async () => 903);
+    const res = await invoicePart(
+      {},
+      ORDER_ID,
+      message("brand-b", "B-200", [{ orderItemId: 2, qty: 5, sku: "SIGN1" }]),
+      { erps: ERPS, getOrder: invoicedInCommerce(0, 2), invoiceItems },
+    );
+    expect(invoiceItems).toHaveBeenCalledExactlyOnceWith({}, ORDER_ID, [
+      { order_item_id: 2, qty: 3 },
+    ]);
+    expect(res.before).toEqual([{ order_item_id: 2, qty: 2, sku: "SIGN1" }]);
+    expect((await readOrderParts(ORDER)).parts["brand-b"].invoiced).toEqual({
+      2: 5,
+    });
+  });
+
+  test("Then a shipment before the invoice invoices nothing either, and the invoice after it still names what Commerce had", async () => {
+    const invoiceItems = vi.fn();
+    const deps = {
+      erps: ERPS,
+      getOrder: invoicedInCommerce(3, 5),
+      invoiceItems,
+    };
+    const msg = message("brand-a", "A-100", [
+      { orderItemId: 1, qty: 3, sku: "CAB1" },
+    ]);
+    const shipped = await prepareShipment(
+      {},
+      ORDER_ID,
+      msg,
+      { items: [{ order_item_id: 1, qty: 3 }] },
+      deps,
+    );
+    expect(shipped).toMatchObject({
+      items: [{ order_item_id: 1, qty: 3 }],
+      matched: true,
+    });
+    const invoiced = await invoicePart({}, ORDER_ID, msg, deps);
+    expect(invoiceItems).not.toHaveBeenCalled();
+    expect(invoiced.before).toEqual([
+      { order_item_id: 1, qty: 3, sku: "CAB1" },
+    ]);
   });
 });
 

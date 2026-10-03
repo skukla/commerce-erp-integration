@@ -152,6 +152,59 @@ function canCancel(o) {
   );
 }
 
+/** What of a line is still to invoice: Commerce's OrderItem::getQtyToInvoice for a simple line. */
+const qtyToInvoice = (i) =>
+  Number(i.qty_ordered) -
+  Number(i.qty_invoiced ?? 0) -
+  Number(i.qty_canceled ?? 0);
+
+/** Commerce's refusal of a REST call: the client throws, the way ky's HTTPError carries it. */
+function refusal400(message) {
+  const error = new Error(
+    `Request failed with status code 400 Bad Request: ${message}`,
+  );
+  error.response = { status: 400, statusCode: 400 };
+  return error;
+}
+
+/**
+ * Why Commerce refuses POST order/{id}/invoice, or null when it invoices: its InvoiceOrder
+ * service runs the CanInvoice validator (an order in payment review, on hold, canceled,
+ * complete or closed, or with nothing left to invoice, refuses) and the invoice quantity
+ * validator (a line asked for more than it has left). The rule is Magento 2.4's
+ * (Sales/Model/Order/Validation/CanInvoice.php, InvoiceQuantityValidator.php); the words are
+ * as read from that source, NOT captured from a live store.
+ * @param {object} o the order
+ * @param {Array<{order_item_id: number, qty: number}>} [items] the lines asked; none = all
+ */
+function invoiceRefusal(o, items) {
+  if (
+    ["payment_review", "holded", "canceled", "complete", "closed"].includes(
+      o.state,
+    )
+  ) {
+    return refusal400(
+      `Invoice Document Validation Error(s):\nAn invoice cannot be created when an order has a status of ${o.status}`,
+    );
+  }
+  if (!o.items.some((i) => qtyToInvoice(i) > 0)) {
+    return refusal400(
+      "Invoice Document Validation Error(s):\nThe order does not allow an invoice to be created.",
+    );
+  }
+  const over = (items ?? []).find((asked) => {
+    const line = o.items.find((i) => i.item_id === Number(asked.order_item_id));
+    return line && Number(asked.qty) > qtyToInvoice(line);
+  });
+  if (over) {
+    const line = o.items.find((i) => i.item_id === Number(over.order_item_id));
+    return refusal400(
+      `Invoice Document Validation Error(s):\nThe quantity to invoice must not be greater than the uninvoiced quantity for product SKU "${line.sku}".`,
+    );
+  }
+  return null;
+}
+
 /**
  * The state Commerce gives an order after a shipment or an invoice: Complete once every line
  * is both invoiced and shipped in full, Processing until then.
@@ -435,6 +488,7 @@ export function createFakeCommerce() {
   const returns = createFakeReturns({
     db: () => db,
     fulfilmentState,
+    invoiceRefusal,
     order,
     record,
   });
@@ -491,26 +545,18 @@ export function createFakeCommerce() {
     },
     invoiceOrder: async (_p, orderId) => {
       const o = order(orderId);
-      const id = db.nextId;
-      db.nextId += 1;
-      db.invoices.push({
-        entity_id: id,
-        increment_id: String(id),
-        // Commerce's own invoice lists every line it bills (GET invoices/{id}).
-        items: o.items.map((i) => ({
-          order_item_id: i.item_id,
-          qty: i.qty_ordered,
-        })),
-        order_id: o.entity_id,
-        state: 2,
-      });
-      o.state = "complete";
-      for (const item of o.items) {
-        item.qty_invoiced = item.qty_ordered;
+      const refusal = invoiceRefusal(o);
+      if (refusal) {
+        throw refusal;
       }
+      const id = billRemainder(o);
+      o.state = "complete";
       record("invoice", { invoiceId: id, orderId: String(orderId) });
       return id;
     },
+    /** GET invoices filtered on the order (Commerce's invoice list: `{ items, total_count }`). */
+    listOrderInvoices: async (_p, orderId) =>
+      clone(db.invoices.filter((i) => i.order_id === Number(orderId))),
     unholdOrder: async (_p, orderId) => {
       const o = order(orderId);
       if (o.state !== "holded") {
@@ -522,6 +568,30 @@ export function createFakeCommerce() {
       return true;
     },
   };
+
+  /**
+   * Invoice what every line has left, the way a whole-order invoice does: Commerce's own
+   * invoice lists the lines it bills (GET invoices/{id}).
+   */
+  function billRemainder(o) {
+    const id = db.nextId;
+    db.nextId += 1;
+    const billed = o.items
+      .map((i) => ({ order_item_id: i.item_id, qty: qtyToInvoice(i) }))
+      .filter((i) => i.qty > 0);
+    db.invoices.push({
+      entity_id: id,
+      increment_id: String(id),
+      items: billed,
+      order_id: o.entity_id,
+      state: 2,
+    });
+    for (const line of billed) {
+      const item = o.items.find((i) => i.item_id === line.order_item_id);
+      item.qty_invoiced = Number(item.qty_invoiced ?? 0) + line.qty;
+    }
+    return id;
+  }
 
   const shipmentClient = {
     createShipment: async (_p, orderId, data) => {
@@ -668,6 +738,19 @@ export function createFakeCommerce() {
     },
     balance,
     before,
+    /**
+     * An order placed with a card on Authorize and Capture: the gateway captured the money and
+     * Commerce invoiced every line at checkout, in its own invoice (not an integration write, so
+     * not in `writes`). The order is Processing, paid in full, nothing left to invoice.
+     */
+    captureAtCheckout(orderId, payment) {
+      const o = order(orderId);
+      o.payment = clone(payment);
+      const id = billRemainder(o);
+      o.state = "processing";
+      o.status = "processing";
+      return id;
+    },
     get db() {
       return db;
     },

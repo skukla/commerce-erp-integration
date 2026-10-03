@@ -152,6 +152,7 @@ const ORDER_TYPES = {
             event: EVENTS.invoice,
             payload: {
               ...head(d, id),
+              invoiceNumber: d.BillingDocument,
               items: orderItems(d.Items),
               notifyCustomer: false,
               status: "invoiced",

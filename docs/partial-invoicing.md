@@ -20,11 +20,16 @@ Two details that matter for the customization:
   the named lines has not been invoiced yet, under the order's lock. Several invoices from
   one ERP against one order would therefore each become a Commerce invoice of their own
   quantities without double billing.
-- **There is no invoice-level join.** The ERP's invoice event carries the order, its sales
-  order number and the invoiced lines, but no invoice number (contract version 13,
-  `be-observer.sales_order_invoice_create`), and the integration keeps no ERP invoice number
-  against the Commerce invoice it made. The only join is the order's (`ext_order_id`, and per
-  part its `erpNumber`).
+- **There is no stored invoice-level join.** The ERP's invoice event carries the order, its
+  sales order number, the invoiced lines and (since 2026-10-03) the ERP's invoice number
+  (`invoiceNumber`, from the ERP's `BillingDocument`), but the integration stores no ERP
+  invoice number against the Commerce invoice it made; the number appears only in the order
+  note written when Commerce had invoiced the lines already (a card captured at checkout).
+  The only stored join is the order's (`ext_order_id`, and per part its `erpNumber`).
+- **Commerce's own invoices count.** A line Commerce invoiced before the ERP did (Authorize
+  and Capture invoices every line at checkout) is not invoiced again, which Commerce refuses;
+  the part records it as invoiced (`part.invoiced`, with what Commerce had in
+  `part.invoicedBefore`) and only the rest is invoiced.
 
 Commerce side, as measured: an order paid on account took two partial invoices and two
 partial credit memos (orders 5000000003 and 5000000005). Not measured: an order paid through

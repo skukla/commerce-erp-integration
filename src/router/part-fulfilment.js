@@ -19,6 +19,7 @@ import { paramsForErp } from "#adapters/contract";
 import { COMMERCE_EVENTS, originOf } from "#lib/commerce-events";
 import { erp as erpClient } from "#lib/erp";
 import { erpById, loadErps } from "#lib/erps";
+import { openToInvoice } from "#lib/invoiced-in-commerce";
 import {
   lockOrder,
   readOrderParts,
@@ -87,15 +88,37 @@ const noLineOfPart = (data, found, kind, done) => ({
   reason: `order ${data.incrementId}: the ${kind} names no line of ${found.erpName}'s part; nothing was ${done} in Commerce`,
 });
 
+/**
+ * Of what `items` asks that this part has not had yet, what Commerce still has to invoice
+ * (`due`) and what Commerce had invoiced already (`before`): a card captured at checkout
+ * invoiced every line there (lib/invoiced-in-commerce.js), and Commerce refuses to invoice a
+ * line twice. Both count as the part's invoiced quantity from now on.
+ */
+function splitDue(items, part, open) {
+  const invoiced = { ...(part.invoiced ?? {}) };
+  const before = { ...(part.invoicedBefore ?? {}) };
+  const due = [];
+  for (const item of items) {
+    const id = Number(item.order_item_id);
+    const wanted = Number(item.qty) - Number(invoiced[id] ?? 0);
+    if (wanted > 0) {
+      // A line Commerce does not list is asked for whole, as before: Commerce answers for it.
+      const now = Math.min(wanted, open.get(id) ?? wanted);
+      if (now > 0) {
+        due.push({ order_item_id: id, qty: now });
+      }
+      if (wanted > now) {
+        before[id] = Number(before[id] ?? 0) + wanted - now;
+      }
+      invoiced[id] = Number(invoiced[id] ?? 0) + wanted;
+    }
+  }
+  return { before, due, invoiced };
+}
+
 /** Invoice what of `items` this part has not had invoiced yet, under the order's lock. */
-async function invoiceUnderLock(
-  params,
-  orderId,
-  incrementId,
-  erpId,
-  items,
-  deps,
-) {
+async function invoiceUnderLock(params, orderId, found, items, deps) {
+  const { incrementId, erpId } = found;
   const token = await lockOrder(incrementId, {
     attempts: deps.attempts,
     wait: deps.wait,
@@ -109,23 +132,28 @@ async function invoiceUnderLock(
   try {
     const record = await readOrderParts(incrementId);
     const part = record.parts[erpId];
-    const invoiced = { ...(part.invoiced ?? {}) };
-    const due = items
-      .map((item) => ({
-        order_item_id: Number(item.order_item_id),
-        qty: Number(item.qty) - Number(invoiced[item.order_item_id] ?? 0),
-      }))
-      .filter((item) => item.qty > 0);
+    const order = await (deps.getOrder ?? getOrder)(params, orderId);
+    const { before, due, invoiced } = splitDue(
+      items,
+      part,
+      openToInvoice(order),
+    );
     if (due.length > 0) {
       await (deps.invoiceItems ?? invoiceOrderItems)(params, orderId, due);
-      for (const item of due) {
-        invoiced[item.order_item_id] =
-          Number(invoiced[item.order_item_id] ?? 0) + item.qty;
-      }
-      record.parts[erpId] = { ...part, invoiced };
+    }
+    if (JSON.stringify(invoiced) !== JSON.stringify(part.invoiced ?? {})) {
+      record.parts[erpId] = { ...part, invoiced, invoicedBefore: before };
       await writeOrderParts(incrementId, record);
     }
-    return { erpId, invoiced: due, matched: true };
+    // What of this message's lines Commerce had invoiced before the part asked, now or earlier.
+    const had = items
+      .filter((item) => Number(before[item.order_item_id] ?? 0) > 0)
+      .map((item) => ({
+        order_item_id: Number(item.order_item_id),
+        qty: Number(before[item.order_item_id]),
+        sku: item.sku,
+      }));
+    return { before: had, erpId, invoiced: due, matched: true };
   } finally {
     await unlockOrder(incrementId, token);
   }
@@ -136,9 +164,11 @@ async function invoiceUnderLock(
  * @param {object} params action params
  * @param {number} orderId the Commerce order id
  * @param {object} data the ERP's message (`incrementId`, `erpNumber`, `erpId`, `items[{orderItemId, qty, sku}]`)
- * @param {object} [deps] `{ erps, invoiceItems, attempts, wait }` (test seam)
- * @returns {Promise<null | {matched: false, reason: string} | {busy: true, reason: string} | {matched: true, erpId: string, invoiced: object[]}>}
- *   null with one ERP (the handler invoices the whole order, as before)
+ * @param {object} [deps] `{ erps, getOrder, invoiceItems, attempts, wait }` (test seam)
+ * @returns {Promise<null | {matched: false, reason: string} | {busy: true, reason: string} |
+ *   {matched: true, erpId: string, erpName: string, invoiced: object[], before: object[]}>}
+ *   null with one ERP (the handler invoices the whole order, as before); `invoiced` is what
+ *   Commerce invoiced now, `before` the lines of this invoice Commerce had invoiced already
  */
 export async function invoicePart(params, orderId, data, deps = {}) {
   const found = await findSplitPart(params, data, deps);
@@ -150,18 +180,19 @@ export async function invoicePart(params, orderId, data, deps = {}) {
     .map((item) => ({
       order_item_id: Number(item.orderItemId),
       qty: Number(item.qty),
+      sku: item.sku,
     }));
   if (items.length === 0) {
     return noLineOfPart(data, found, "invoice", "invoiced");
   }
-  return invoiceUnderLock(
+  const done = await invoiceUnderLock(
     params,
     orderId,
-    data.incrementId,
-    found.erpId,
+    { erpId: found.erpId, incrementId: data.incrementId },
     items,
     deps,
   );
+  return "busy" in done ? done : { ...done, erpName: found.erpName };
 }
 
 /**
@@ -170,7 +201,7 @@ export async function invoicePart(params, orderId, data, deps = {}) {
  * @param {number} orderId the Commerce order id
  * @param {object} data the ERP's message
  * @param {{ items?: Array<{order_item_id: number, qty: number}> }} shipment the Commerce shipment body
- * @param {object} [deps] `{ erps, invoiceItems, attempts, wait }` (test seam)
+ * @param {object} [deps] `{ erps, getOrder, invoiceItems, attempts, wait }` (test seam)
  * @returns {Promise<null | {matched: false, reason: string} | {busy: true, reason: string} | {matched: true, erpId: string, items: object[]}>}
  *   null with one ERP (the shipment is left as it was)
  */
@@ -201,8 +232,7 @@ export async function prepareShipment(
   const invoiced = await invoiceUnderLock(
     params,
     orderId,
-    data.incrementId,
-    found.erpId,
+    { erpId: found.erpId, incrementId: data.incrementId },
     own,
     deps,
   );

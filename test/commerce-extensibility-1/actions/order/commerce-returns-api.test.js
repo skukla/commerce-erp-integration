@@ -22,6 +22,7 @@ vi.mock("@adobe/aio-commerce-sdk/auth", () => ({
 import {
   addReturnComment,
   getReturn,
+  listOrderInvoices,
   refundOrderItems,
   updateReturn,
 } from "#src/order/commerce-order-api-client";
@@ -60,6 +61,23 @@ describe("Given a credit memo of some of an order's lines", () => {
         },
         items: [{ order_item_id: 38, qty: 2 }],
         notify: false,
+      },
+    });
+  });
+});
+
+describe("Given an order's invoices are read", () => {
+  // An ERP invoice of lines Commerce invoiced at checkout is recorded against these.
+  test("Then it is GET invoices filtered on the order id, and answers the list's items", async () => {
+    const invoice = { entity_id: 9, increment_id: "000000009", items: [] };
+    mockGet.mockReturnValueOnce(answer({ items: [invoice], total_count: 1 }));
+
+    expect(await listOrderInvoices({}, 55)).toEqual([invoice]);
+    expect(mockGet).toHaveBeenCalledExactlyOnceWith("invoices", {
+      searchParams: {
+        "searchCriteria[filter_groups][0][filters][0][condition_type]": "eq",
+        "searchCriteria[filter_groups][0][filters][0][field]": "order_id",
+        "searchCriteria[filter_groups][0][filters][0][value]": "55",
       },
     });
   });
