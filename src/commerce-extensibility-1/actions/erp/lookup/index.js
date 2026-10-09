@@ -135,11 +135,7 @@ async function lookupSkuAcross(params, sku, erps) {
   // With no order to ask about, an ERP owning by website owns the SKU by the websites the
   // product is sold on; an order's own website may still send it elsewhere (AB-64).
   const owners = await ownersOf(params, sku, erps, (p, s, settings) =>
-    ownsSku(p, s, settings, {
-      productAttributes,
-      sourceCodesOf,
-      websiteCodesOf,
-    }),
+    ownsSku(p, s, settings, { productAttributes, websiteCodesOf }),
   );
   const owner =
     owners.length === 1 ? erps.find((e) => e.id === owners[0]) : null;

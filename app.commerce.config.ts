@@ -205,15 +205,11 @@ export default defineConfig({
       {
         default: "all",
         description:
-          "Which products belong to this ERP. All: every product (one ERP). Inventory sources: the products stocked in the sources named below. Attribute: the products whose attribute names this ERP. Websites: the products sold on the websites named below; an order from one of them goes whole to this ERP unless another ERP owns a line by attribute or source. Set at Default Config.",
+          "Which products belong to this ERP. All: every product (one ERP). Attribute: the products whose attribute names this ERP. Websites: the products sold on the websites named below; an order from one of them goes whole to this ERP unless another ERP owns a line by attribute. Set at Default Config.",
         label: "Which products belong to this ERP",
         name: "structure_owns",
         options: [
           { label: "All products", value: "all" },
-          {
-            label: "Products in the inventory sources named below",
-            value: "sources",
-          },
           {
             label: "Products whose attribute names this ERP",
             value: "attribute",
@@ -225,14 +221,6 @@ export default defineConfig({
         ],
         selectionMode: "single",
         type: "list",
-      },
-      {
-        default: "",
-        description:
-          "Comma-separated inventory source codes this ERP ships from (used with Inventory sources above).",
-        label: "Inventory sources this ERP ships from",
-        name: "structure_owns_sources",
-        type: "text",
       },
       {
         default: "",

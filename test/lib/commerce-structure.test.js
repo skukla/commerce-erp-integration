@@ -109,7 +109,7 @@ describe("Given the store's structure", () => {
       { code: "eu", id: 2, name: "Europe" },
     ]);
   });
-  test("Then a SKU's sources and attributes are read for the ownership check", async () => {
+  test("Then a SKU's sources are read for the lookup, and its attributes for the ownership check", async () => {
     answers({
       "inventory/source-items": [
         { quantity: 1, sku: "A1", source_code: "default" },

@@ -1,8 +1,11 @@
 import { HTTP_INTERNAL_SERVER_ERROR } from "@adobe/aio-commerce-sdk/core/responses";
+import AioLogger from "@adobe/aio-lib-core-logging";
 
 import { warehousesOfSku } from "#lib/commerce";
 import { withEventId } from "#lib/commerce-events";
+import { discontinueElsewhere } from "#lib/discontinue-elsewhere";
 import { erp } from "#lib/erp";
+import { loadErps } from "#lib/erps";
 import { ownerParams } from "#lib/owner-params";
 
 /**
@@ -36,6 +39,22 @@ async function sendData(params, data) {
         statusCode: res.status,
         success: false,
       };
+    }
+    // The owner has it; an ERP that used to (its erp_owner or websites changed) discontinues
+    // it (AB-70). Best-effort: the delivery stands whatever the others answer.
+    if (sku && to.ownerId) {
+      const discontinued = await discontinueElsewhere(
+        params,
+        sku,
+        to.ownerId,
+        await loadErps(params),
+        AioLogger("product-commerce-updated", {
+          level: params.LOG_LEVEL || "info",
+        }),
+      );
+      if (discontinued.length > 0) {
+        return { discontinuedIn: discontinued, success: true };
+      }
     }
     return { success: true };
   } catch (error) {

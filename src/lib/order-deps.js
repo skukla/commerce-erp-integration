@@ -10,7 +10,6 @@ import {
   orders,
   productAttributes,
   setExtOrderId,
-  sourceCodesOf,
   variantsOfProduct,
   websiteCodeOfStore,
   websiteCodesOf,
@@ -42,7 +41,6 @@ export function orderSyncDeps(logger) {
     ownsSku: (p, sku, settings, websiteCode) =>
       ownsLine(p, { sku, websiteCode }, settings, {
         productAttributes,
-        sourceCodesOf,
         websiteCodesOf,
       }),
     // Available-to-promise, asked of each ERP just before its part is sent and recorded on

@@ -179,7 +179,7 @@ The event provider id Commerce's eventing configuration needs is set by the inst
 
 One ERP needs nothing beyond a store: every setting has a default. The business-structure
 story (two websites as two sales organizations) and the two-ERP story (products split by
-inventory source or by an `erp_owner` attribute, a prefix per pair) need things prepared in
+websites it is sold on or by an `erp_owner` attribute, a prefix per pair) need things prepared in
 Commerce first. [`docs/demo-setup.md`](docs/demo-setup.md) says what, where in the Admin, how to
 check it over the API, and how to undo each one.
 

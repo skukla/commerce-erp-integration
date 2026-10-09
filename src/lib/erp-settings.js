@@ -15,7 +15,6 @@ import { OWNS } from "#lib/structure";
 /** The settings an ERP entry may set, in the order the Admin page shows them. */
 export const PER_ERP_KEYS = Object.freeze([
   "structure_owns",
-  "structure_owns_sources",
   "structure_owns_attribute",
   "structure_owns_websites",
   "structure_order_prefix",

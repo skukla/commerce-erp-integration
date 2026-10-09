@@ -46,7 +46,6 @@ describe("Given an ERP entry's own settings", () => {
   test("Then only the per-ERP settings can be set on an entry", () => {
     expect(PER_ERP_KEYS).toEqual([
       "structure_owns",
-      "structure_owns_sources",
       "structure_owns_attribute",
       "structure_owns_websites",
       "structure_order_prefix",
@@ -76,10 +75,10 @@ describe("Given an ERP entry's own settings", () => {
     const next = applyErpSettingChanges(
       { structure_order_prefix: "BRB", structure_sales_org: "2000" },
       undefined,
-      { structure_order_prefix: null, structure_owns: "sources" },
+      { structure_order_prefix: null, structure_owns: "websites" },
     );
     expect(next).toEqual({
-      structure_owns: "sources",
+      structure_owns: "websites",
       structure_sales_org: "2000",
     });
     expect(

@@ -413,28 +413,6 @@ export async function websiteCodesOfSkus(params, skus) {
   return found;
 }
 
-/**
- * Many SKUs' inventory sources in one source-items search per hundred SKUs. A SKU with no
- * source, or one holding a comma, is absent from the answer.
- * @returns {Promise<Map<string, string[]>>} Commerce's SKU → source codes
- */
-export async function sourceCodesOfSkus(params, skus) {
-  const client = await commerceClient(params);
-  const found = new Map();
-  for (const list of skuLists(skus)) {
-    // biome-ignore lint/performance/noAwaitInLoops: one search at a time on a slow store
-    const items = await readAllPages(
-      client,
-      "inventory/source-items",
-      skuIn(list),
-    );
-    for (const item of items) {
-      found.set(item.sku, [...(found.get(item.sku) ?? []), item.source_code]);
-    }
-  }
-  return found;
-}
-
 /** @returns {Promise<string|null>} the SKU of a product id, null when unknown */
 export async function skuForProductId(params, productId) {
   const client = await commerceClient(params);

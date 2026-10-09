@@ -75,16 +75,11 @@ export function salesOrgOf(settings) {
 export const OWNS = Object.freeze({
   ALL: "all",
   ATTRIBUTE: "attribute",
-  SOURCES: "sources",
   WEBSITES: "websites",
 });
 
 /** The modes that decide by the product itself, not by the website an order came from. */
-export const PRODUCT_MODES = Object.freeze([
-  OWNS.ALL,
-  OWNS.ATTRIBUTE,
-  OWNS.SOURCES,
-]);
+export const PRODUCT_MODES = Object.freeze([OWNS.ALL, OWNS.ATTRIBUTE]);
 
 /** "default, east" → ["default", "east"] */
 const codesOf = (text) =>
@@ -107,24 +102,17 @@ function attributeOf(text) {
 
 /**
  * Which products belong to this ERP, from the pair's settings (rule M3). `owns` takes a
- * product as Commerce describes it: `sourceCodes` (the inventory sources it is stocked in),
- * `customAttributes` (code → value) and `websiteCodes` (the websites it is sold on, or for
+ * product as Commerce describes it: `customAttributes` (code → value) and `websiteCodes` (the websites it is sold on, or for
  * an order line the one website the order came from; AB-64). Under `all` every product is
  * owned, which is today's single-pair behaviour; a mode whose setting is blank owns nothing,
  * loudly.
  * @returns {{ mode: string, owns: (product: object) => boolean, describe: string }}
  */
 export function ownershipFilter(settings) {
+  // The "sources" mode (a product stocked in named inventory sources) was deleted on
+  // 2026-10-09 (Demo Builder AB-70): a product in two named sources was owned by two ERPs and
+  // nothing resolved it. An entry still carrying it reads as "all", as any unknown mode does.
   const mode = settings?.structure_owns || OWNS.ALL;
-  if (mode === OWNS.SOURCES) {
-    const codes = new Set(codesOf(settings?.structure_owns_sources));
-    return {
-      describe: `products stocked in ${codes.size ? [...codes].join(", ") : "no source (the setting is blank)"}`,
-      mode,
-      owns: (product) =>
-        (product.sourceCodes ?? []).some((code) => codes.has(code)),
-    };
-  }
   if (mode === OWNS.WEBSITES) {
     const codes = new Set(codesOf(settings?.structure_owns_websites));
     return {
@@ -156,7 +144,7 @@ export function ownershipFilter(settings) {
  * without a read; a SKU asked about on its own (a product or stock event, a price publish)
  * is decided by the websites the product is sold on.
  * @param {{ sku: string, websiteCode?: string }} line
- * @param {object} readers `{ sourceCodesOf(params, sku), productAttributes(params, sku),
+ * @param {object} readers `{ productAttributes(params, sku),
  *   websiteCodesOf(params, sku) }`
  */
 export async function ownsLine(
@@ -168,11 +156,6 @@ export async function ownsLine(
   const filter = ownershipFilter(settings);
   if (filter.mode === OWNS.ALL) {
     return true;
-  }
-  if (filter.mode === OWNS.SOURCES) {
-    return filter.owns({
-      sourceCodes: await readers.sourceCodesOf(params, sku),
-    });
   }
   if (filter.mode === OWNS.WEBSITES) {
     return filter.owns({

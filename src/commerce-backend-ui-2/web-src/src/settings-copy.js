@@ -90,11 +90,6 @@ const TEXT = {
       placeholder: example,
     };
   },
-  structure_owns_sources: () => ({
-    help: "Source codes, comma-separated.",
-    label: "Inventory sources",
-    more: "The inventory source codes this ERP ships from, as default, east. Used with “Products in these inventory sources”.",
-  }),
   structure_owns_websites: () => ({
     help: "Website codes, comma-separated.",
     label: "Websites",
@@ -151,7 +146,6 @@ export function confirmStatusOptions(statuses, current) {
 
 const OWNS = [
   { label: "All products", value: "all" },
-  { label: "Products in these inventory sources", value: "sources" },
   { label: "Products whose attribute names this ERP", value: "attribute" },
   { label: "Products sold on these websites", value: "websites" },
 ];

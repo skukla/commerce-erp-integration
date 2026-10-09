@@ -32,7 +32,7 @@ const sameValue = (a, b) =>
  * @param {object} params action params
  * @param {object[]} erps the ERP list
  * @param {string} erpId the ERP
- * @param {object} readers `{ productAttributes, sourceCodesOf }`
+ * @param {object} readers `{ productAttributes, websiteCodesOf }`
  * @returns {(sku: string) => Promise<boolean>}
  */
 export function ownedByErp(params, erps, erpId, readers) {

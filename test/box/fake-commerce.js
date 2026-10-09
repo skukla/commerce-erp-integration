@@ -393,16 +393,6 @@ export function createFakeCommerce() {
       [...db.sourceItems.keys()]
         .filter((key) => key.startsWith(`${sku}|`))
         .map((key) => key.split("|")[1]),
-    sourceCodesOfSkus: async (_p, skus) => {
-      const found = new Map();
-      for (const key of db.sourceItems.keys()) {
-        const [sku, code] = key.split("|");
-        if (skus.includes(sku)) {
-          found.set(sku, [...(found.get(sku) ?? []), code]);
-        }
-      }
-      return found;
-    },
     storeConfigs: async () =>
       new Map([[1, { currency: "USD", locale: "en_US" }]]),
     unholdIfHeld: async (_p, orderId) => {

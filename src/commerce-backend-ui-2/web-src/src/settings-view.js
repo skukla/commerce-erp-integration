@@ -112,7 +112,6 @@ export const SETTING_GROUPS = Object.freeze([
     id: "products",
     names: [
       "structure_owns",
-      "structure_owns_sources",
       "structure_owns_attribute",
       "structure_owns_websites",
       "structure_order_prefix",
@@ -197,7 +196,6 @@ export function dressField(field, held, scopeLevel) {
  */
 export const ERP_SETTING_NAMES = Object.freeze([
   "structure_owns",
-  "structure_owns_sources",
   "structure_owns_attribute",
   "structure_owns_websites",
   "structure_order_prefix",

@@ -61,11 +61,7 @@ async function handle(params) {
     // ERP that was is kept for the ledger, so that ERP's reset puts the stock back (AB-16c).
     const { erpIdOf, paramsOfSku } = rememberingErps(
       stockErpOf(params, await loadErps(params), (p, sku, settings) =>
-        ownsSku(p, sku, settings, {
-          productAttributes,
-          sourceCodesOf,
-          websiteCodesOf,
-        }),
+        ownsSku(p, sku, settings, { productAttributes, websiteCodesOf }),
       ),
     );
     const lines = currentStockLines(

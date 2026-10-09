@@ -13,8 +13,7 @@ import { OWNER_ATTRIBUTE, ownersOf } from "#router/ownership";
 
 /**
  * The ERPs that owned the product, with several ERPs: by the router's ownership rule, read
- * from the event, since the product is already gone from Commerce (its attributes and its
- * sources with it). Null when the event does not carry the owner attribute: it cannot say.
+ * from the event, since the product is already gone from Commerce (its attributes with it). Null when the event does not carry the owner attribute: it cannot say.
  */
 async function ownersNamed(params, product, erps) {
   if (!(OWNER_ATTRIBUTE in product)) {
@@ -24,7 +23,6 @@ async function ownersNamed(params, product, erps) {
     productAttributes: async () => ({
       [OWNER_ATTRIBUTE]: product[OWNER_ATTRIBUTE],
     }),
-    sourceCodesOf: async () => [],
     websiteCodesOf: async () => [],
   };
   const owners = await ownersOf(params, product.sku, erps, (p, s, settings) =>

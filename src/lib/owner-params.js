@@ -3,11 +3,7 @@
  * settings and ERP list (router/erp-params.js ownerParamsOf). Shared by the product created,
  * product updated and stock item senders.
  */
-import {
-  productAttributes,
-  sourceCodesOf,
-  websiteCodesOf,
-} from "#lib/commerce";
+import { productAttributes, websiteCodesOf } from "#lib/commerce";
 import { loadErps } from "#lib/erps";
 import { settingsFor } from "#lib/settings";
 import { ownsSku } from "#lib/structure";
@@ -22,11 +18,7 @@ export async function ownerParams(params, sku) {
   return ownerParamsOf(params, sku, {
     erps: await loadErps(params),
     ownsSku: (p, s, settings) =>
-      ownsSku(p, s, settings, {
-        productAttributes,
-        sourceCodesOf,
-        websiteCodesOf,
-      }),
+      ownsSku(p, s, settings, { productAttributes, websiteCodesOf }),
     settingsFor,
   });
 }

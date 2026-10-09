@@ -9,7 +9,6 @@ import { OWNS, PRODUCT_MODES } from "#lib/structure";
 
 const OWNERSHIP_KEYS = [
   "structure_owns",
-  "structure_owns_sources",
   "structure_owns_attribute",
   "structure_owns_websites",
 ];

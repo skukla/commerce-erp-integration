@@ -13,7 +13,6 @@ const OWN_OR_EMPTY = new Set([
   "structure_order_prefix",
   "structure_owns",
   "structure_owns_attribute",
-  "structure_owns_sources",
   "structure_owns_websites",
 ]);
 

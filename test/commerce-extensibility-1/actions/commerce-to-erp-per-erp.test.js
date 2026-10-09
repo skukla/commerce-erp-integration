@@ -57,13 +57,27 @@ describe("Given two ERPs", () => {
     expect(sent()).toEqual([["contoso-client", `https://b.example${IMPORT}`]]);
   });
 
-  test("Then a product updated in Commerce goes to the ERP that owns it", async () => {
-    await productUpdated(OWN, product("N1"));
+  test("Then a product updated in Commerce goes to the ERP that owns it, and the other ERP, still holding it, discontinues it (AB-70)", async () => {
+    const result = await productUpdated(OWN, product("N1"));
     await productUpdated(OWN, product("C1"));
+    // After each send, the OTHER ERP is asked whether it holds the product (the harness
+    // answers every route 200), and told it is discontinued (lib/discontinue-elsewhere.js).
     expect(sent()).toEqual([
       ["integration-client", `https://a.example${IMPORT}`],
+      ["contoso-client", "https://b.example/api/v1/web/demo-erp/products/N1"],
+      ["contoso-client", "https://b.example/api/v1/web/demo-erp/products/N1"],
       ["contoso-client", `https://b.example${IMPORT}`],
+      [
+        "integration-client",
+        "https://a.example/api/v1/web/demo-erp/products/C1",
+      ],
+      [
+        "integration-client",
+        "https://a.example/api/v1/web/demo-erp/products/C1",
+      ],
     ]);
+    expect(erp.calls[2].body).toEqual({ salesStatus: "discontinued" });
+    expect(result).toEqual({ discontinuedIn: ["contoso"], success: true });
   });
 
   test("Then a stock item saved in Commerce goes to the ERP that owns the product", async () => {

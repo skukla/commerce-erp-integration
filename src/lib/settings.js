@@ -75,11 +75,6 @@ export const TEXT_RULES = Object.freeze({
     pattern: /^[a-z0-9_]+=[^=\s]+$/u,
     words: "an attribute code and a value, as erp_owner=ACME, or blank",
   },
-  structure_owns_sources: {
-    pattern: /^[a-z0-9_-]+(,\s*[a-z0-9_-]+)*$/u,
-    words:
-      "comma-separated inventory source codes, like default, east, or blank",
-  },
   structure_owns_websites: {
     pattern: /^[a-z][a-z0-9_]*(,\s*[a-z][a-z0-9_]*)*$/u,
     words: "comma-separated website codes, like base, eu, or blank",

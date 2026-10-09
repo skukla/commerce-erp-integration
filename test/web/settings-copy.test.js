@@ -72,13 +72,11 @@ describe("Given which products an ERP owns", () => {
     expect(ownsOptions({ id: "contoso", name: "Contoso ERP" })).toStrictEqual([
       { label: "Not set: erp_owner is contoso", value: "" },
       { label: "All products", value: "all" },
-      { label: "Products in these inventory sources", value: "sources" },
       { label: "Products whose attribute names this ERP", value: "attribute" },
       { label: "Products sold on these websites", value: "websites" },
     ]);
     expect(ownsOptions(null).map((o) => o.value)).toStrictEqual([
       "all",
-      "sources",
       "attribute",
       "websites",
     ]);

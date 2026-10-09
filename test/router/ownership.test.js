@@ -21,11 +21,14 @@ describe("Given an ERP entry", () => {
         id: "brand-a",
         settings: {
           structure_order_prefix: "BRA",
-          structure_owns: "sources",
-          structure_owns_sources: "east",
+          structure_owns: "attribute",
+          structure_owns_attribute: "erp_owner=BRA",
         },
       }),
-    ).toEqual({ structure_owns: "sources", structure_owns_sources: "east" });
+    ).toEqual({
+      structure_owns: "attribute",
+      structure_owns_attribute: "erp_owner=BRA",
+    });
   });
 
   test("Then its websites setting is carried with the mode", () => {

@@ -1,85 +1,368 @@
 {
   "name": "demo-erp",
-  "contractVersion": 19,
+  "contractVersion": 20,
   "description": "What the ERP promises its subscribers: the routes it serves, the shapes it accepts, and the events it publishes. The Commerce integration vendors this file and its tests fail when the two disagree.",
   "routes": {
-    "health": ["GET"],
-    "settings": ["GET", "PATCH", "GET /setup", "PATCH /setup", "POST /sales-organizations", "PATCH /sales-organizations/:code", "POST /maintenance", "DELETE /maintenance"],
-    "admin": ["POST /wipe", "POST /import"],
-    "products": ["GET", "GET /:sku", "PATCH /:sku", "POST /availability"],
-    "partners": ["GET", "GET /:id", "PATCH /:id", "POST /:id/credit-check"],
-    "pricing": ["GET", "POST", "DELETE /:id", "POST /quote"],
-    "contracts": ["GET", "GET /in-force", "GET /:number", "POST", "PATCH /:number", "POST /:number/activate", "POST /:number/deactivate", "GET /price-groups", "POST /price-groups", "DELETE /price-groups/:code"],
-    "orders": ["GET", "GET /:number", "POST", "POST /:number/confirm", "POST /:number/cancel", "POST /:number/shipments", "POST /:number/shipments/:shipment/post", "POST /:number/lines/:item/close", "POST /:number/invoice", "POST /:number/credit/release", "POST /:number/credit/reject", "POST /:number/credit/hold", "POST /:number/external-shipment", "POST /:number/external-invoice", "POST /:number/credit-memo", "POST /:number/repeat", "POST /:number/status"],
-    "returns": ["GET", "GET /:number", "POST", "POST /:number/receive", "POST /:number/credit-memo"],
-    "credit-memos": ["GET", "GET /:number"],
-    "shipments": ["GET", "GET /:number"],
-    "invoices": ["GET", "GET /:number", "POST /:number/payments"],
-    "payments": ["GET", "GET /:number"],
-    "events": ["GET", "POST /retry", "POST /requeue"],
-    "search": ["GET"]
+    "health": [
+      "GET"
+    ],
+    "settings": [
+      "GET",
+      "PATCH",
+      "GET /setup",
+      "PATCH /setup",
+      "POST /sales-organizations",
+      "PATCH /sales-organizations/:code",
+      "POST /maintenance",
+      "DELETE /maintenance"
+    ],
+    "admin": [
+      "POST /wipe",
+      "POST /import"
+    ],
+    "products": [
+      "GET",
+      "GET /:sku",
+      "PATCH /:sku",
+      "POST /availability"
+    ],
+    "partners": [
+      "GET",
+      "GET /:id",
+      "PATCH /:id",
+      "POST /:id/credit-check"
+    ],
+    "pricing": [
+      "GET",
+      "POST",
+      "DELETE /:id",
+      "POST /quote"
+    ],
+    "contracts": [
+      "GET",
+      "GET /in-force",
+      "GET /:number",
+      "POST",
+      "PATCH /:number",
+      "POST /:number/activate",
+      "POST /:number/deactivate",
+      "GET /price-groups",
+      "POST /price-groups",
+      "DELETE /price-groups/:code"
+    ],
+    "orders": [
+      "GET",
+      "GET /:number",
+      "POST",
+      "POST /:number/confirm",
+      "POST /:number/cancel",
+      "POST /:number/shipments",
+      "POST /:number/shipments/:shipment/post",
+      "POST /:number/lines/:item/close",
+      "POST /:number/invoice",
+      "POST /:number/credit/release",
+      "POST /:number/credit/reject",
+      "POST /:number/credit/hold",
+      "POST /:number/external-shipment",
+      "POST /:number/external-invoice",
+      "POST /:number/credit-memo",
+      "POST /:number/repeat",
+      "POST /:number/status"
+    ],
+    "returns": [
+      "GET",
+      "GET /:number",
+      "POST",
+      "POST /:number/receive",
+      "POST /:number/credit-memo"
+    ],
+    "credit-memos": [
+      "GET",
+      "GET /:number"
+    ],
+    "shipments": [
+      "GET",
+      "GET /:number"
+    ],
+    "invoices": [
+      "GET",
+      "GET /:number",
+      "POST /:number/payments"
+    ],
+    "payments": [
+      "GET",
+      "GET /:number"
+    ],
+    "events": [
+      "GET",
+      "POST /retry",
+      "POST /requeue"
+    ],
+    "search": [
+      "GET"
+    ]
   },
   "productsNote": "version 17: the ERP has no product delete (DELETE products/:sku is gone). A product is not removed from the ERP because another system dropped it; a subscriber that sees a product deleted on its side records that on its side. Filling the ERP again (admin wipe and import) is what removes a product.",
+  "salesStatusNote": "version 20: salesStatus takes discontinued beside sellable and blocked. A discontinued product is one this ERP no longer carries because another ERP owns it (the web shop's product data decides which; Demo Builder sets it when ownership changes); the record stays, it ships nothing, and an import never resets it, as with blocked. PATCH products/:sku { salesStatus } takes all three; a parent has no sales status of its own.",
   "import": {
-    "products": ["sku", "name", "listPrice", "warehouses", "type", "parentSku", "variantAttributes"],
-    "productTypes": ["simple", "configurable"],
-    "variantAttribute": ["label", "value"],
-    "warehouse": ["code", "name", "quantity"],
-    "partners": ["id", "name", "creditLimit", "websiteAccountClosed", "salesOrgs", "legalName", "vatTaxId", "resellerId", "legalAddress"],
+    "products": [
+      "sku",
+      "name",
+      "listPrice",
+      "warehouses",
+      "type",
+      "parentSku",
+      "variantAttributes"
+    ],
+    "productTypes": [
+      "simple",
+      "configurable"
+    ],
+    "variantAttribute": [
+      "label",
+      "value"
+    ],
+    "warehouse": [
+      "code",
+      "name",
+      "quantity"
+    ],
+    "partners": [
+      "id",
+      "name",
+      "creditLimit",
+      "websiteAccountClosed",
+      "salesOrgs",
+      "legalName",
+      "vatTaxId",
+      "resellerId",
+      "legalAddress"
+    ],
     "partnersNote": "version 3: the ERP holds no Commerce id (no commerceCompanyId, customerGroupId, emailDomain or website); which Commerce company is which customer is the integration's key map. version 5: websiteAccountClosed is Commerce's company Active/Blocked switch, stored as the ERP's read-only website account; it never changes the ERP's own credit block (blocking), which only the ERP sets. Either one stops an order. An import from an integration built before version 5 sends the same switch as blocked, read the same way",
-    "legalAddress": ["street", "city", "region", "postcode", "countryId", "telephone"],
-    "structure": ["websites"],
-    "structureWebsite": ["code", "name", "salesOrg", "salesOrgName", "storeInfo"],
-    "storeInfo": ["currency", "countryId", "vatNumber", "address"],
-    "stock": ["sku", "warehouses"],
+    "legalAddress": [
+      "street",
+      "city",
+      "region",
+      "postcode",
+      "countryId",
+      "telephone"
+    ],
+    "structure": [
+      "websites"
+    ],
+    "structureWebsite": [
+      "code",
+      "name",
+      "salesOrg",
+      "salesOrgName",
+      "storeInfo"
+    ],
+    "storeInfo": [
+      "currency",
+      "countryId",
+      "vatNumber",
+      "address"
+    ],
+    "stock": [
+      "sku",
+      "warehouses"
+    ],
     "stockNote": "quantities per warehouse for products the ERP already has (the integration sends a product's quantity at every source on Commerce's product and stock item events); a SKU the ERP does not have is reported under stock.unknown and not created; a stock-only import does not move lastImportAt",
     "projectName": "optional",
-    "seed": ["priceGroups", "partnerGroups", "contracts"],
+    "seed": [
+      "priceGroups",
+      "partnerGroups",
+      "contracts"
+    ],
     "seedNote": "version 10: the ONE-TIME setup seed of pricing from Commerce's custom shared catalogs (Demo Builder's fill, AB-44), sent after products and partners exist. priceGroups [{code,name}] is a group per custom shared catalog; partnerGroups [{id,priceGroup}] sets each customer's price group from its catalog membership; contracts [{priceGroup,description,startingDate,lines}] is the catalog's tier prices as the group's ACTIVE price list. Silent: the prices are Commerce's already, so nothing is echoed back (no contract.changed); a seed-only import journals nothing and does not move lastImportAt"
   },
   "availability": {
-    "request": ["lines"],
-    "requestLine": ["sku", "qty"],
-    "responseLine": ["sku", "requested", "availableNow", "canPromiseNow", "promiseDate", "leadTimeDays"],
-    "unknownLine": ["sku", "unknown"],
-    "note": "version 11: POST products/availability — available-to-promise per line (AB-19): what is available now (on hand less committed) ships today, a shortfall after the product's lead time. The integration asks it in the placement webhook (an early signal) and again just before each part is sent, recording the answer on the order's part; it never blocks an order. Version 11 also carries the import.seed block, which landed under version 10 without a bump."
+    "request": [
+      "lines"
+    ],
+    "requestLine": [
+      "sku",
+      "qty"
+    ],
+    "responseLine": [
+      "sku",
+      "requested",
+      "availableNow",
+      "canPromiseNow",
+      "promiseDate",
+      "leadTimeDays"
+    ],
+    "unknownLine": [
+      "sku",
+      "unknown"
+    ],
+    "note": "version 11: POST products/availability \u2014 available-to-promise per line (AB-19): what is available now (on hand less committed) ships today, a shortfall after the product's lead time. The integration asks it in the placement webhook (an early signal) and again just before each part is sent, recording the answer on the order's part; it never blocks an order. Version 11 also carries the import.seed block, which landed under version 10 without a bump."
   },
   "creditCheck": {
-    "request": ["net", "currency"],
-    "response": ["partnerId", "status", "reason", "requested", "exposure", "limit", "available"],
-    "note": "version 11: POST partners/:id/credit-check — the live credit check at placement (AB-20): can this customer carry this amount now. The same verdict the order create would reach, asked WITHOUT creating the order, so Commerce can refuse before committing (the placement webhook). status approved | held | null (no credit relationship); limit and available are null for the walk-in customer."
+    "request": [
+      "net",
+      "currency"
+    ],
+    "response": [
+      "partnerId",
+      "status",
+      "reason",
+      "requested",
+      "exposure",
+      "limit",
+      "available"
+    ],
+    "note": "version 11: POST partners/:id/credit-check \u2014 the live credit check at placement (AB-20): can this customer carry this amount now. The same verdict the order create would reach, asked WITHOUT creating the order, so Commerce can refuse before committing (the placement webhook). status approved | held | null (no credit relationship); limit and available are null for the walk-in customer."
   },
   "quote": {
-    "request": ["partnerId", "lines", "date", "salesOrg"],
-    "requestLine": ["sku", "qty"],
-    "responseLine": ["sku", "qty", "listPrice", "contractPrice", "discountPercent", "maxDiscountPercent", "source", "lineTotal", "notApplied", "contractNumber"],
-    "unknownLine": ["sku", "qty", "unknown"],
+    "request": [
+      "partnerId",
+      "lines",
+      "date",
+      "salesOrg"
+    ],
+    "requestLine": [
+      "sku",
+      "qty"
+    ],
+    "responseLine": [
+      "sku",
+      "qty",
+      "listPrice",
+      "contractPrice",
+      "discountPercent",
+      "maxDiscountPercent",
+      "source",
+      "lineTotal",
+      "notApplied",
+      "contractNumber"
+    ],
+    "unknownLine": [
+      "sku",
+      "qty",
+      "unknown"
+    ],
     "contractNote": "version 6: contractNumber names the price list whose line priced this one, or is null. version 7: most specific first, the customer's own price lists, then its price group's, then the loose contract prices and discounts, then the list price; when a price list prices a SKU for the customer, the loose ones are set aside for that SKU; the maximum discount still bounds the result"
   },
   "contracts": {
     "note": "version 6: a customer price list (route contracts, record contract: the name the integration calls; people read price list). version 7: a list applies to one customer or to one customer price group (appliesTo), and each line has dates of its own. A list prices only when active and between its starting and ending dates, and a line only between its own too (both days included, either end open). Per customer, most specific first: its own lists, then its price group's lists for the SKU and minimum quantity its own do not price. Within one level, for one SKU and minimum quantity, the line that started later wins (its own starting date, else its list's), then the higher list number",
-    "contract": ["number", "appliesTo", "partnerId", "priceGroup", "description", "startingDate", "endingDate", "status", "lines", "createdAt", "updatedAt"],
-    "appliesTo": ["customer", "priceGroup"],
-    "statuses": ["draft", "active", "inactive"],
-    "line": ["sku", "kind", "price", "percent", "minQty", "startingDate", "endingDate"],
-    "lineKinds": ["price", "discount"],
-    "priceGroup": ["code", "name"],
-    "priceGroupNote": "version 7: a customer belongs to at most one price group, priceGroup on the business partner: the ERP's own, set on its screen or with PATCH partners/:id, never from the ongoing mirror import (partners). version 10: the ONE-TIME setup seed (import.seed.partnerGroups, AB-44) is the sanctioned exception — Demo Builder may set the group once at fill time from Commerce's shared-catalog membership; the ongoing mirror still never touches it",
-    "inForce": ["items"],
-    "inForceItem": ["partnerId", "lines"],
+    "contract": [
+      "number",
+      "appliesTo",
+      "partnerId",
+      "priceGroup",
+      "description",
+      "startingDate",
+      "endingDate",
+      "status",
+      "lines",
+      "createdAt",
+      "updatedAt"
+    ],
+    "appliesTo": [
+      "customer",
+      "priceGroup"
+    ],
+    "statuses": [
+      "draft",
+      "active",
+      "inactive"
+    ],
+    "line": [
+      "sku",
+      "kind",
+      "price",
+      "percent",
+      "minQty",
+      "startingDate",
+      "endingDate"
+    ],
+    "lineKinds": [
+      "price",
+      "discount"
+    ],
+    "priceGroup": [
+      "code",
+      "name"
+    ],
+    "priceGroupNote": "version 7: a customer belongs to at most one price group, priceGroup on the business partner: the ERP's own, set on its screen or with PATCH partners/:id, never from the ongoing mirror import (partners). version 10: the ONE-TIME setup seed (import.seed.partnerGroups, AB-44) is the sanctioned exception \u2014 Demo Builder may set the group once at fill time from Commerce's shared-catalog membership; the ongoing mirror still never touches it",
+    "inForce": [
+      "items"
+    ],
+    "inForceItem": [
+      "partnerId",
+      "lines"
+    ],
     "inForceNote": "GET contracts/in-force answers today's prices in force for every customer with at least one line, price groups resolved in the ERP; with ?partnerId= it answers exactly that customer, lines possibly empty. version 9: the lines are what the ERP would charge the customer, by the same precedence as a quote: its own price lists, then its price group's, then its loose pricing conditions (its contract price or discount for the SKU, before its all-products discount), then the list price; the maximum discount bounds every result. A loose pricing condition counts on today's date and from its minimum quantity, as a list line does, and an all-products discount is one line per product the ERP sells. A discount stays a discountLine, so it follows the list price; a result the maximum discount cut is a discountLine at the maximum discount's percent. A product's quantity breaks are a line only where the charged price moves. version 12: a condition scoped to a sales organization (AB-46) is published per organization: the customer's lines come as one whole set per sales organization the store sells through, each tagged salesOrg, for the subscriber to write to that organization's websites; a customer with no such condition keeps one untagged set for every website",
-    "priceLine": ["sku", "kind", "price", "minQty", "contractNumber", "appliesTo", "salesOrg"],
-    "discountLine": ["sku", "kind", "percent", "minQty", "contractNumber", "appliesTo", "salesOrg"],
-    "lineNote": "contractNumber is the price list the line came from; appliesTo says whether that list is the customer's own (customer) or its price group's (priceGroup). version 9: a line a loose pricing condition set has contractNumber is null and appliesTo customer; a line the maximum discount cut keeps the list or condition it cut. version 12: salesOrg, when present, names the sales organization the line is for (AB-46) — the subscriber writes it to that organization's websites only, never to every website; salesOrg null is for every website (every line carries the key). A customer with any organization-scoped condition is sent one whole set per organization, all lines tagged, and no untagged line"
+    "priceLine": [
+      "sku",
+      "kind",
+      "price",
+      "minQty",
+      "contractNumber",
+      "appliesTo",
+      "salesOrg"
+    ],
+    "discountLine": [
+      "sku",
+      "kind",
+      "percent",
+      "minQty",
+      "contractNumber",
+      "appliesTo",
+      "salesOrg"
+    ],
+    "lineNote": "contractNumber is the price list the line came from; appliesTo says whether that list is the customer's own (customer) or its price group's (priceGroup). version 9: a line a loose pricing condition set has contractNumber is null and appliesTo customer; a line the maximum discount cut keeps the list or condition it cut. version 12: salesOrg, when present, names the sales organization the line is for (AB-46) \u2014 the subscriber writes it to that organization's websites only, never to every website; salesOrg null is for every website (every line carries the key). A customer with any organization-scoped condition is sent one whole set per organization, all lines tagged, and no untagged line"
   },
-
   "order": {
-    "request": ["purchaseOrderByCustomer", "partnerId", "lines", "currency", "total", "salesOrg", "salesOrgName", "payment"],
-    "requestLine": ["sku", "qty", "price", "discount", "customerLineReference"],
+    "request": [
+      "purchaseOrderByCustomer",
+      "partnerId",
+      "lines",
+      "currency",
+      "total",
+      "salesOrg",
+      "salesOrgName",
+      "payment"
+    ],
+    "requestLine": [
+      "sku",
+      "qty",
+      "price",
+      "discount",
+      "customerLineReference"
+    ],
     "discountNote": "version 17: a line may carry discount, the amount the customer's web shop took off the WHOLE line (a promotion there), in the order's currency: a number from 0 to the line's qty x price, anything else is refused (400); none sent is 0. The ERP keeps it as sent and does not reprice the order. A line's net amount is qty x price - discount, the order's net is the sum of its lines' net amounts, and its tax is still total - net. Every order line answers its discount (0 when none). The invoice's lines carry the same discount and bill the net (lines: item, sku, qty, price, discount, amount). A return order's line carries the part of the discount its quantity takes (discount x returned qty / ordered qty, worked out on the running quantity so partial returns add up to the line's discount to the cent), and a credit memo credits qty x price - discount for each line. An order, invoice, return or credit memo stored before version 17 reads with no discount. Events are unchanged: TotalNetAmount is the net after discounts.",
-    "payment": ["method", "reference", "cardBrand", "cardLastFour", "amount"],
+    "payment": [
+      "method",
+      "reference",
+      "cardBrand",
+      "cardLastFour",
+      "amount"
+    ],
     "paymentNote": "version 18 (AB-26s, the card half; owner 2026-10-02): an order PAID AT CHECKOUT may carry payment, the web shop's payment reference: reference (the payment gateway's transaction id; required) and amount (what the gateway captured for this order, a number more than 0; required), and optionally method (the web shop's name for how it was paid), cardBrand (a name, such as Visa) and cardLastFour (exactly four digits, as text). The ERP never holds a card number: only these five fields are kept, anything else in payment is dropped, and a cardLastFour that is not four digits or a cardBrand that is not a name is refused (400). Send it only for money the gateway CAPTURED (a sale or capture; an authorization alone is not a payment). An order with a payment reference asks for none of the customer's credit: it is not counted in exposure and adds nothing to the credit-limit check (a blocked customer is still held). When its invoice is posted (in the ERP, or external-invoice) the ERP posts an incoming payment against it for the amount captured, at most the invoice's total, under the reference, so the invoice reads paid with nothing open; a capture smaller than the invoice leaves the rest open. The order and the invoice document answer payment (null for an order not paid at checkout, and for one stored before version 18). The ERP moves no card money: a credit memo or return on such an invoice is refunded by the web shop, which owns the gateway.",
-    "response": ["number", "purchaseOrderByCustomer", "partnerId", "lines", "currency", "total", "status", "header", "shipments", "invoice", "creditStatus", "creditReason", "creditDecidedAt", "history", "createdAt", "salesOrg", "salesOrgName", "payment", "repeatOf", "repeatedAs"],
+    "response": [
+      "number",
+      "purchaseOrderByCustomer",
+      "partnerId",
+      "lines",
+      "currency",
+      "total",
+      "status",
+      "header",
+      "shipments",
+      "invoice",
+      "creditStatus",
+      "creditReason",
+      "creditDecidedAt",
+      "history",
+      "createdAt",
+      "salesOrg",
+      "salesOrgName",
+      "payment",
+      "repeatOf",
+      "repeatedAs"
+    ],
     "cardCancelNote": "version 19 (AB-26s, owner 2026-10-02 flow 1): an order paid at checkout (payment) that is not invoiced in the ERP is canceled as any other: the ERP has posted no payment for it and moves no money. Its canceled history entry carries note, saying the card payment is refunded in the web shop, which owns the gateway. A subscriber whose web shop invoiced the order when it captured the card cannot cancel it there either; the refund is its own to make.",
     "repeatNote": "version 19 (AB-26r; owner O4 2026-09-24: a canceled order is terminal, never reinstated): POST orders/:number/repeat on a CANCELED order creates a NEW sales order with the same lines (each line's sku, qty, price and discount), the same customer, sales organization, currency and total, and answers its document (201). It is the ERP's own order, which the customer's web shop never had: purchaseOrderByCustomer is null and every line's customerLineReference is null, so every event about it carries PurchaseOrderByCustomer null and CustomerLineReference null; a subscriber has no order of its own to change for it. It carries no payment (the web shop owns the card gateway; the repeat is an order on account) and goes through the credit check like any order, so it may be created on credit hold. Only a canceled order is repeated, and only once (400 otherwise, in words). Every order answers repeatOf (the canceled order a repeat was made from) and repeatedAs (the order a canceled one was repeated as), each null when there is none.",
     "referenceNote": "version 16: the ERP keeps the customer's references as a real ERP does, not the web shop's ids: purchaseOrderByCustomer is the customer's order number (SAP's PurchaseOrderByCustomer; POST orders is idempotent on it) and each line's customerLineReference is the customer's own reference for the line. A sales order stored before version 16 reads with them, from the shop's order number and item ids it kept",
@@ -87,78 +370,384 @@
     "goodsIssueNote": "Posting a shipment is the goods issue: it takes the shipped quantity out of the shipment's warehouse, and is refused (400) when that warehouse holds less than the shipment needs. It raises OutboundDelivery.GoodsIssueStatusChanged and NO ProductStock.Changed: the delivery says what left, and a receiver that deducts on the delivery must not be told the new quantity as well. A shipment posted in another system first (external-shipment) reduces stock once per external reference and is never refused for a shortfall.",
     "external": {
       "note": "version 16: a move made IN ANOTHER SYSTEM (the customer's web shop) carries origin: { system, document?, eventId? }, naming that system and its document in its own words. The ERP records it and journals it as received. A shipment or invoice made there keeps that system's reference for it (externalReference). version 19 (AB-26y step 5): the ERP raises its outbound event for such a move exactly as for its own, as a real ERP raises its events for every change whoever made it: a NEW shipment recorded by external-shipment raises OutboundDelivery.GoodsIssueStatusChanged (PrevGoodsMovementStatus open), external-invoice BillingDocument.Created, cancel SalesOrder.Changed with its reason, credit/hold SalesOrder.Changed with CreditBlock true and the hold's reason, credit/release SalesOrder.Changed with CreditBlock false. Until version 18 the ERP held these back. A move that changes nothing raises nothing: the ERP's own shipment coming back (matched by its lines), a redelivery (the same externalReference), a cancel of a canceled order, a hold of a held one, a release of an order not held, an invoice of an invoiced one. Telling an event that echoes a change the subscriber itself sent is the subscriber's business; the event carries nothing to say so. external-shipment and external-invoice answer 201 when they record a new document and 200 when it was already recorded, so a caller can tell whether an event will follow.",
-      "origin": ["system", "document", "eventId"],
-      "externalShipment": ["externalReference", "lines", "warehouse", "origin"],
-      "externalShipmentLine": ["customerLineReference", "qty"],
-      "externalInvoice": ["externalReference", "origin"],
-      "cancel": ["reason", "origin"],
+      "origin": [
+        "system",
+        "document",
+        "eventId"
+      ],
+      "externalShipment": [
+        "externalReference",
+        "lines",
+        "warehouse",
+        "origin"
+      ],
+      "externalShipmentLine": [
+        "customerLineReference",
+        "qty"
+      ],
+      "externalInvoice": [
+        "externalReference",
+        "origin"
+      ],
+      "cancel": [
+        "reason",
+        "origin"
+      ],
       "cancelReasonFromWebShop": "Canceled in the web shop",
-      "hold": ["reason", "origin"],
-      "release": ["origin"]
+      "hold": [
+        "reason",
+        "origin"
+      ],
+      "release": [
+        "origin"
+      ]
     }
   },
   "returns": {
     "note": "version 13 (AB-16e, returns-design.md r1): a RETURN ORDER is made from a customer's return for this ERP's lines only, referencing this ERP's own sales order (orderNumber, the part's ERP number). version 16: POST returns is idempotent on the customer's reference for the return (customerReturnReference): a second call answers the existing return order, 200. Lines name the customer's line reference (customerLineReference) as the sales order's lines do; a line not on that sales order, or more than its invoiced quantity less what earlier returns took, is refused. The goods come back with POST returns/:number/receive (all lines; stock goes up at the order's shipping warehouse, sent out by ProductStock.Changed; raises CustomerReturn.Changed), then POST returns/:number/credit-memo credits the received lines (raises BillingDocument.Created, a credit memo naming the return). A return order is open, received, then credited. A return order stored before version 16 reads with customerReturnReference from the shop's return id it kept.",
-    "request": ["customerReturnReference", "orderNumber", "lines", "origin"],
-    "requestLine": ["customerLineReference", "qty", "reason"],
-    "response": ["number", "customerReturnReference", "orderNumber", "partnerId", "status", "lines", "creditMemo", "history", "createdAt", "receivedAt"],
-    "responseLine": ["item", "sku", "qty", "price", "discount", "reason", "reasonCode", "customerLineReference"],
+    "request": [
+      "customerReturnReference",
+      "orderNumber",
+      "lines",
+      "origin"
+    ],
+    "requestLine": [
+      "customerLineReference",
+      "qty",
+      "reason"
+    ],
+    "response": [
+      "number",
+      "customerReturnReference",
+      "orderNumber",
+      "partnerId",
+      "status",
+      "lines",
+      "creditMemo",
+      "history",
+      "createdAt",
+      "receivedAt"
+    ],
+    "responseLine": [
+      "item",
+      "sku",
+      "qty",
+      "price",
+      "discount",
+      "reason",
+      "reasonCode",
+      "customerLineReference"
+    ],
     "reasonNote": "version 15: each line carries reasonCode, one of the ERP's return reason codes (settings.sales.returnReasons). A reason whose words match a reason's description (any case) takes its code; a line with no reason takes the default reason's code and description; any other words are kept as sent, under the default code",
-    "statuses": ["open", "received", "credited"]
+    "statuses": [
+      "open",
+      "received",
+      "credited"
+    ]
   },
   "creditMemo": {
     "note": "version 13 (AB-26r, returns-design.md r1): the ERP's credit memo, numbered from 9500000001. POST orders/:number/credit-memo credits the order's invoice in full (owner O5 2026-09-24: full credit only; the invoice must exist and not be credited already; the invoice then reads credited). POST returns/:number/credit-memo credits a received return's lines. Either raises BillingDocument.Created (BillingDocumentType CreditMemo), whose items are exactly the credited lines, so the subscriber credits only those. A credit memo cannot be undone.",
-    "response": ["number", "createdAt", "orderNumber", "invoiceNumber", "returnNumber", "lines", "net", "tax", "total"],
-    "line": ["item", "sku", "qty", "price", "discount", "amount", "customerLineReference"]
+    "response": [
+      "number",
+      "createdAt",
+      "orderNumber",
+      "invoiceNumber",
+      "returnNumber",
+      "lines",
+      "net",
+      "tax",
+      "total"
+    ],
+    "line": [
+      "item",
+      "sku",
+      "qty",
+      "price",
+      "discount",
+      "amount",
+      "customerLineReference"
+    ]
   },
   "payments": {
     "note": "version 14 (AB-26s, payment-leg-design.md): an invoice is an OPEN ITEM until paid. POST invoices/:number/payments { amount, reference? } posts an incoming payment against it (Business Central's cash receipt applied to the invoice; SAP's incoming payment clearing the open item): amount is more than 0 and at most the invoice's open amount, so a partial payment leaves the rest open. A credit memo against the invoice lowers its open amount too. Each payment is a document numbered from 7000000001 and raises IncomingPayment.Posted. A customer's credit exposure is its open orders plus its open items (owner, 2026-09-27). A payment cannot be undone in the ERP.",
-    "request": ["amount", "reference"],
-    "response": ["number", "createdAt", "partnerId", "orderNumber", "invoiceNumber", "amount", "currency", "reference", "paidInWebShop"],
-    "paidInWebShop": ["method", "cardBrand", "cardLastFour"],
+    "request": [
+      "amount",
+      "reference"
+    ],
+    "response": [
+      "number",
+      "createdAt",
+      "partnerId",
+      "orderNumber",
+      "invoiceNumber",
+      "amount",
+      "currency",
+      "reference",
+      "paidInWebShop"
+    ],
+    "paidInWebShop": [
+      "method",
+      "cardBrand",
+      "cardLastFour"
+    ],
     "paidInWebShopNote": "version 18: a payment answers paidInWebShop, null for a payment posted in the ERP. The payment the ERP posts with the invoice of an order paid at checkout (order.paymentNote) carries the order's method, cardBrand and cardLastFour there, and the gateway's transaction id as its reference. That payment raises NO IncomingPayment.Posted: the money was taken in the web shop, which already has it, so a subscriber must give no credit back for it.",
-    "invoiceFields": ["openAmount", "paidAmount", "paymentStatus", "payments"],
-    "paymentStatuses": ["open", "partly paid", "paid", "credited"]
+    "invoiceFields": [
+      "openAmount",
+      "paidAmount",
+      "paymentStatus",
+      "payments"
+    ],
+    "paymentStatuses": [
+      "open",
+      "partly paid",
+      "paid",
+      "credited"
+    ]
   },
   "settings": {
     "note": "version 15 (AB-59): the ERP's setup, its Settings page. GET settings/setup answers the four sections; PATCH settings/setup { company?, sales?, numberSeries? } changes one or more, every field checked before any is kept, and answers the setup; POST settings/sales-organizations { code, name, currency, websiteCode? } adds a sales organization (201) and PATCH settings/sales-organizations/:code { name?, currency?, websiteCode? } changes one (its code is fixed), each answering the setup. A refusal is a 400 whose errorMessage is the words to show. company: the seller on every invoice and the company code and currency health answers; a field never set falls back to the home website's Store Information, the name to the ERP's own. sales.defaultPaymentTerms (NET and a number of days) is taken by a customer the ERP creates and bills a customer with none; sales.creditWarnings decides what a new order's credit decision and POST partners/:id/credit-check check besides the credit block and the website account: creditLimit (the default, as before), overdue (open items past their due date: held with the reason Overdue balance), both, or none; sales.returnReasons codes return lines (returns.reasonNote). numberSeries: each document type's next number moves forward only, refused when lowered or past the series' end. salesOrganizations: the ERP's own, seeded from the first fill's structure while it has none and never overwritten by a fill; they name the sales organizations on the customer document, the invoice's seller block and health's structure.salesOrgs (which also carries each one's currency). The prices in force are still published per the sales organizations the fill's websites name. Wipe, maintenance and appearance are Demo Builder's and keep their routes (POST admin/wipe, POST and DELETE settings/maintenance, PATCH settings { appearance }); the ERP's screen no longer shows them",
-    "setup": ["company", "sales", "numberSeries", "salesOrganizations"],
-    "company": ["code", "name", "address", "taxId", "currency"],
-    "address": ["street", "city", "region", "postcode", "countryId"],
-    "sales": ["defaultPaymentTerms", "creditWarnings", "returnReasons", "defaultReturnReason"],
-    "creditWarnings": ["both", "creditLimit", "overdue", "none"],
-    "returnReason": ["code", "description"],
-    "numberSeriesRow": ["type", "starting", "next", "ending"],
-    "numberSeriesTypes": ["salesOrder", "shipment", "invoice", "contract", "creditMemo", "returnOrder", "payment"],
-    "salesOrganization": ["code", "name", "currency", "websiteCode"]
+    "setup": [
+      "company",
+      "sales",
+      "numberSeries",
+      "salesOrganizations"
+    ],
+    "company": [
+      "code",
+      "name",
+      "address",
+      "taxId",
+      "currency"
+    ],
+    "address": [
+      "street",
+      "city",
+      "region",
+      "postcode",
+      "countryId"
+    ],
+    "sales": [
+      "defaultPaymentTerms",
+      "creditWarnings",
+      "returnReasons",
+      "defaultReturnReason"
+    ],
+    "creditWarnings": [
+      "both",
+      "creditLimit",
+      "overdue",
+      "none"
+    ],
+    "returnReason": [
+      "code",
+      "description"
+    ],
+    "numberSeriesRow": [
+      "type",
+      "starting",
+      "next",
+      "ending"
+    ],
+    "numberSeriesTypes": [
+      "salesOrder",
+      "shipment",
+      "invoice",
+      "contract",
+      "creditMemo",
+      "returnOrder",
+      "payment"
+    ],
+    "salesOrganization": [
+      "code",
+      "name",
+      "currency",
+      "websiteCode"
+    ]
   },
   "events": {
     "note": "version 16 (AB-26y): every event is a CloudEvents 1.0 envelope (delivery.envelope), and its type is object + action in the ERP's own words. data is the ERP's record in its own words, the whole record (a data event, not a notice to read back): no web shop name or id appears. A subscriber translates. An item is events.item. A field with nothing to say is null, never absent",
-    "item": ["SalesOrderItem", "Material", "Quantity", "CustomerLineReference"],
+    "item": [
+      "SalesOrderItem",
+      "Material",
+      "Quantity",
+      "CustomerLineReference"
+    ],
     "types": {
-      "SalesOrder.Changed": { "data": ["SalesOrder", "PurchaseOrderByCustomer", "SoldToParty", "SalesOrganization", "TransactionCurrency", "OverallStatus", "PrevOverallStatus", "CreditBlock", "PrevCreditBlock", "Reason", "Items"], "note": "raised when an order is confirmed, canceled, put on credit hold (at creation, or from another system: order.external) or released. OverallStatus is the order's outward status word (order.response status) and PrevOverallStatus what it was before (null for a new order); CreditBlock true while the order is on credit hold, PrevCreditBlock what it was. Reason is the cancellation reason or the credit reason, else null. A reject is a cancel: OverallStatus canceled, the credit block unchanged" },
-      "OutboundDelivery.GoodsIssueStatusChanged": { "data": ["OutboundDelivery", "SalesOrder", "PurchaseOrderByCustomer", "SoldToParty", "GoodsMovementStatus", "PrevGoodsMovementStatus", "Plant", "Carrier", "TrackingNumber", "Items"], "note": "a shipment posted: its goods left the plant. Items are THAT shipment's quantities, not the whole order; Plant names the warehouse it shipped from, or is null. GoodsMovementStatus posted, PrevGoodsMovementStatus open. The ERP keeps no carrier or tracking number: both null" },
-      "BillingDocument.Created": { "data": ["BillingDocument", "BillingDocumentType", "SalesOrder", "PurchaseOrderByCustomer", "SoldToParty", "ReferenceBillingDocument", "CustomerReturn", "CustomerReturnReference", "TotalNetAmount", "TaxAmount", "TotalGrossAmount", "TransactionCurrency", "Items"], "documentTypes": ["Invoice", "CreditMemo"], "note": "an invoice (BillingDocumentType Invoice; Items are the order's lines as invoiced) or a credit memo (CreditMemo; Items are the CREDITED lines only, ReferenceBillingDocument the invoice it credits, CustomerReturn and CustomerReturnReference the return order it credits and the customer's reference for that return, or null for an invoice credited without a return)" },
-      "CustomerReturn.Changed": { "data": ["CustomerReturn", "CustomerReturnReference", "SalesOrder", "PurchaseOrderByCustomer", "SoldToParty", "Status", "PrevStatus", "Items"], "note": "raised when a return order's goods are received (Status received, PrevStatus open); Items are the received lines" },
-      "IncomingPayment.Posted": { "data": ["Payment", "BillingDocument", "SalesOrder", "PurchaseOrderByCustomer", "Customer", "Amount", "Currency", "PaymentReference"], "note": "an incoming payment posted against one invoice (BillingDocument); Amount is that payment only (a partial payment raises one event per payment). version 18: raised only for a payment posted in the ERP, never for the payment of an order paid at checkout" },
-      "Product.Changed": { "data": ["Product", "ProductName", "ProductType", "ParentProduct", "BaseUnit", "ListPrice", "SalesStatus", "ChangedFields"], "changedFields": ["ProductName", "ListPrice", "SalesStatus"], "note": "the whole product record after an edit on the ERP, and which of its fields the edit changed (a name change is not a price change). SalesStatus is null for a configurable product" },
-      "ProductStock.Changed": { "data": ["Product", "Plant", "Quantity", "PrevQuantity"], "note": "one product's quantity in one plant; an edit of several plants raises one per plant" },
-      "Customer.Changed": { "data": ["Customer", "CustomerName", "CreditLimit", "BlockingLevel", "PrevBlockingLevel", "PaymentTerms", "PriceGroup", "ChangedFields"], "changedFields": ["CreditLimit", "BlockingLevel", "PaymentTerms", "PriceGroup"], "blockingLevels": ["open", "shipping", "invoicing", "all"], "note": "the customer record after an edit on the ERP, and which fields changed. BlockingLevel is the ERP's own credit block (Business Central's Blocked, in plainer words) and PrevBlockingLevel what it was; what a level means on the subscriber's side is the subscriber's to decide" },
-      "PriceList.Changed": { "data": ["Customer", "Lines"], "note": "version 16: raised whenever a change moves a customer's prices in force today. Lines is that customer's whole set (contracts.priceLine or contracts.discountLine each), so a replay is harmless. version 6: an empty list means no list price is left. version 7: a price group's list raises one for every member customer whose prices moved, and moving a customer into or out of a price group raises one for that customer. A list or line starting or ending with the calendar raises nothing: read GET contracts/in-force to follow dates. version 9: lines are the prices in force as contracts.inForceNote says, pricing conditions and the maximum discount included, and the event is also raised for each customer whose set moved when a pricing condition is created, changed or deleted (one naming no customer, such as a store-wide maximum discount, can move any customer) and when a product's list price changes on the ERP (a fixed price the maximum discount holds up moves with it). An empty list means the customer pays list price for everything. version 12: a customer with a sales-organization-scoped condition is sent one whole set per sales organization, each line tagged salesOrg (contracts.lineNote), so the subscriber writes each set to that organization's websites; the event is raised when any organization's set moved" }
+      "SalesOrder.Changed": {
+        "data": [
+          "SalesOrder",
+          "PurchaseOrderByCustomer",
+          "SoldToParty",
+          "SalesOrganization",
+          "TransactionCurrency",
+          "OverallStatus",
+          "PrevOverallStatus",
+          "CreditBlock",
+          "PrevCreditBlock",
+          "Reason",
+          "Items"
+        ],
+        "note": "raised when an order is confirmed, canceled, put on credit hold (at creation, or from another system: order.external) or released. OverallStatus is the order's outward status word (order.response status) and PrevOverallStatus what it was before (null for a new order); CreditBlock true while the order is on credit hold, PrevCreditBlock what it was. Reason is the cancellation reason or the credit reason, else null. A reject is a cancel: OverallStatus canceled, the credit block unchanged"
+      },
+      "OutboundDelivery.GoodsIssueStatusChanged": {
+        "data": [
+          "OutboundDelivery",
+          "SalesOrder",
+          "PurchaseOrderByCustomer",
+          "SoldToParty",
+          "GoodsMovementStatus",
+          "PrevGoodsMovementStatus",
+          "Plant",
+          "Carrier",
+          "TrackingNumber",
+          "Items"
+        ],
+        "note": "a shipment posted: its goods left the plant. Items are THAT shipment's quantities, not the whole order; Plant names the warehouse it shipped from, or is null. GoodsMovementStatus posted, PrevGoodsMovementStatus open. The ERP keeps no carrier or tracking number: both null"
+      },
+      "BillingDocument.Created": {
+        "data": [
+          "BillingDocument",
+          "BillingDocumentType",
+          "SalesOrder",
+          "PurchaseOrderByCustomer",
+          "SoldToParty",
+          "ReferenceBillingDocument",
+          "CustomerReturn",
+          "CustomerReturnReference",
+          "TotalNetAmount",
+          "TaxAmount",
+          "TotalGrossAmount",
+          "TransactionCurrency",
+          "Items"
+        ],
+        "documentTypes": [
+          "Invoice",
+          "CreditMemo"
+        ],
+        "note": "an invoice (BillingDocumentType Invoice; Items are the order's lines as invoiced) or a credit memo (CreditMemo; Items are the CREDITED lines only, ReferenceBillingDocument the invoice it credits, CustomerReturn and CustomerReturnReference the return order it credits and the customer's reference for that return, or null for an invoice credited without a return)"
+      },
+      "CustomerReturn.Changed": {
+        "data": [
+          "CustomerReturn",
+          "CustomerReturnReference",
+          "SalesOrder",
+          "PurchaseOrderByCustomer",
+          "SoldToParty",
+          "Status",
+          "PrevStatus",
+          "Items"
+        ],
+        "note": "raised when a return order's goods are received (Status received, PrevStatus open); Items are the received lines"
+      },
+      "IncomingPayment.Posted": {
+        "data": [
+          "Payment",
+          "BillingDocument",
+          "SalesOrder",
+          "PurchaseOrderByCustomer",
+          "Customer",
+          "Amount",
+          "Currency",
+          "PaymentReference"
+        ],
+        "note": "an incoming payment posted against one invoice (BillingDocument); Amount is that payment only (a partial payment raises one event per payment). version 18: raised only for a payment posted in the ERP, never for the payment of an order paid at checkout"
+      },
+      "Product.Changed": {
+        "data": [
+          "Product",
+          "ProductName",
+          "ProductType",
+          "ParentProduct",
+          "BaseUnit",
+          "ListPrice",
+          "SalesStatus",
+          "ChangedFields"
+        ],
+        "changedFields": [
+          "ProductName",
+          "ListPrice",
+          "SalesStatus"
+        ],
+        "note": "the whole product record after an edit on the ERP, and which of its fields the edit changed (a name change is not a price change). SalesStatus is null for a configurable product"
+      },
+      "ProductStock.Changed": {
+        "data": [
+          "Product",
+          "Plant",
+          "Quantity",
+          "PrevQuantity"
+        ],
+        "note": "one product's quantity in one plant; an edit of several plants raises one per plant"
+      },
+      "Customer.Changed": {
+        "data": [
+          "Customer",
+          "CustomerName",
+          "CreditLimit",
+          "BlockingLevel",
+          "PrevBlockingLevel",
+          "PaymentTerms",
+          "PriceGroup",
+          "ChangedFields"
+        ],
+        "changedFields": [
+          "CreditLimit",
+          "BlockingLevel",
+          "PaymentTerms",
+          "PriceGroup"
+        ],
+        "blockingLevels": [
+          "open",
+          "shipping",
+          "invoicing",
+          "all"
+        ],
+        "note": "the customer record after an edit on the ERP, and which fields changed. BlockingLevel is the ERP's own credit block (Business Central's Blocked, in plainer words) and PrevBlockingLevel what it was; what a level means on the subscriber's side is the subscriber's to decide"
+      },
+      "PriceList.Changed": {
+        "data": [
+          "Customer",
+          "Lines"
+        ],
+        "note": "version 16: raised whenever a change moves a customer's prices in force today. Lines is that customer's whole set (contracts.priceLine or contracts.discountLine each), so a replay is harmless. version 6: an empty list means no list price is left. version 7: a price group's list raises one for every member customer whose prices moved, and moving a customer into or out of a price group raises one for that customer. A list or line starting or ending with the calendar raises nothing: read GET contracts/in-force to follow dates. version 9: lines are the prices in force as contracts.inForceNote says, pricing conditions and the maximum discount included, and the event is also raised for each customer whose set moved when a pricing condition is created, changed or deleted (one naming no customer, such as a store-wide maximum discount, can move any customer) and when a product's list price changes on the ERP (a fixed price the maximum discount holds up moves with it). An empty list means the customer pays list price for everything. version 12: a customer with a sales-organization-scoped condition is sent one whole set per sales organization, each line tagged salesOrg (contracts.lineNote), so the subscriber writes each set to that organization's websites; the event is raised when any organization's set moved"
+      }
     }
   },
   "delivery": {
     "webhookPath": "/api/v1/web/ingestion/webhook",
-    "envelope": ["specversion", "id", "source", "type", "time", "datacontenttype", "data"],
+    "envelope": [
+      "specversion",
+      "id",
+      "source",
+      "type",
+      "time",
+      "datacontenttype",
+      "data"
+    ],
     "envelopeNote": "version 16: the body is a CloudEvents 1.0 envelope (structured mode, Content-Type application/json): specversion 1.0, id the journal entry's own id (the same on every redelivery), source who spoke (delivery.erpId), type one of events.types, time when the ERP raised it (ISO 8601), datacontenttype application/json, data the event's data",
     "maxAttempts": 10,
     "erpId": "version 4: a delivered event names the ERP that spoke, the id the integration's ERP list gives this ERP (set at deploy as ERP_ID), when the ERP was deployed with one. version 16: it is the envelope's source, /erp/<ERP_ID>; an ERP deployed without one speaks as /erp, the single ERP. The integration matches an order message to that ERP's part and a customer message to that ERP's key-map pairs"
   },
   "maintenance": {
     "note": "version 8: the ERP's maintenance window. POST settings/maintenance { minutes? } starts it (a whole number from 1 to 1440; 30 when absent; a second start restarts it from now), DELETE settings/maintenance ends it, and it ends by itself when the time passes. While it runs, every route of every action but the open ones answers the refusal below, reads and writes alike, and outbound events wait; a caller treats it as an ERP that is down and tries again later. health answers maintenance: null, or the window below",
-    "openRoutes": ["health", "settings"],
-    "health": ["until", "message"],
+    "openRoutes": [
+      "health",
+      "settings"
+    ],
+    "health": [
+      "until",
+      "message"
+    ],
     "healthNote": "until is when the window ends (ISO 8601); message says so in the ERP's own time zone, e.g. Contoso ERP is in maintenance until 14:30 UTC.",
-    "refusal": { "statusCode": 503, "errorCode": "ERP_MAINTENANCE", "body": ["status", "errorCode", "errorMessage", "maintenanceUntil"] }
+    "refusal": {
+      "statusCode": 503,
+      "errorCode": "ERP_MAINTENANCE",
+      "body": [
+        "status",
+        "errorCode",
+        "errorMessage",
+        "maintenanceUntil"
+      ]
+    }
   }
 }

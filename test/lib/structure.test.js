@@ -65,15 +65,15 @@ describe("Given the sales organization of an order", () => {
 });
 
 describe("Given which products belong to this ERP (rule M3)", () => {
-  test("Then all owns every product; sources owns what is stocked in the named sources; attribute owns what names this ERP", () => {
-    expect(ownershipFilter({}).owns({ sourceCodes: [] })).toBe(true);
+  test("Then all owns every product; attribute owns what names this ERP; the deleted sources mode reads as all", () => {
+    expect(ownershipFilter({}).owns({})).toBe(true);
+    // Deleted 2026-10-09 (Demo Builder AB-70): an entry still carrying it owns everything.
     const bySource = ownershipFilter({
       structure_owns: "sources",
       structure_owns_sources: "east, west",
     });
-    expect(bySource.owns({ sourceCodes: ["default", "east"] })).toBe(true);
-    expect(bySource.owns({ sourceCodes: ["default"] })).toBe(false);
-    expect(bySource.describe).toBe("products stocked in east, west");
+    expect(bySource.mode).toBe(OWNS.ALL);
+    expect(bySource.owns({ customAttributes: {} })).toBe(true);
     const byAttribute = ownershipFilter({
       structure_owns: "attribute",
       structure_owns_attribute: "erp_owner=ACME",
@@ -89,10 +89,10 @@ describe("Given which products belong to this ERP (rule M3)", () => {
   });
   test("Then a mode with a blank setting owns nothing, and says so", () => {
     const blank = ownershipFilter({
-      structure_owns: "sources",
-      structure_owns_sources: "",
+      structure_owns: "websites",
+      structure_owns_websites: "",
     });
-    expect(blank.owns({ sourceCodes: ["default"] })).toBe(false);
+    expect(blank.owns({ websiteCodes: ["base"] })).toBe(false);
     expect(blank.describe).toMatch(BLANK);
     expect(
       ownershipFilter({ structure_owns: "attribute" }).owns({
@@ -103,23 +103,25 @@ describe("Given which products belong to this ERP (rule M3)", () => {
   test("Then a SKU named by an event is asked of Commerce only when the mode needs it", async () => {
     const readers = {
       productAttributes: vi.fn(async () => ({ erp_owner: "ACME" })),
-      sourceCodesOf: vi.fn(async () => ["east"]),
+      websiteCodesOf: vi.fn(async () => ["eu"]),
     };
     expect(await ownsSku({}, "A1", {}, readers)).toBe(true);
-    expect(readers.sourceCodesOf).not.toHaveBeenCalled();
+    expect(readers.productAttributes).not.toHaveBeenCalled();
+    expect(readers.websiteCodesOf).not.toHaveBeenCalled();
     expect(
       await ownsSku(
         {},
         "A1",
-        { structure_owns: "sources", structure_owns_sources: "east" },
+        { structure_owns: "websites", structure_owns_websites: "eu" },
         readers,
       ),
     ).toBe(true);
+    expect(readers.productAttributes).not.toHaveBeenCalled();
     expect(
       await ownsSku(
         {},
         "A1",
-        { structure_owns: "sources", structure_owns_sources: "west" },
+        { structure_owns: "websites", structure_owns_websites: "us" },
         readers,
       ),
     ).toBe(false);

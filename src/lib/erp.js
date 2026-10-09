@@ -175,6 +175,18 @@ export const erp = {
       path: `/${encodeURIComponent(id)}`,
       timeoutMs,
     }),
+  /**
+   * Change one product in the ERP (contract `PATCH products/:sku`): here, its sales status —
+   * `discontinued` (contract version 20) when this ERP no longer carries it because another
+   * ERP owns it now.
+   */
+  patchProduct: (params, sku, body, timeoutMs) =>
+    erpRequest(params, "products", {
+      body,
+      method: "PATCH",
+      path: `/${encodeURIComponent(sku)}`,
+      timeoutMs,
+    }),
   /** One product's document by SKU (with committed and available). */
   product: (params, sku, timeoutMs) =>
     erpRequest(params, "products", {

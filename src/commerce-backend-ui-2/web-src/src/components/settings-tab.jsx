@@ -33,7 +33,6 @@ const EMPTY_IS_UNSET = new Set([
   "structure_order_prefix",
   "structure_owns",
   "structure_owns_attribute",
-  "structure_owns_sources",
   "structure_owns_websites",
 ]);
 

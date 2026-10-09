@@ -38,7 +38,6 @@ export function ProductsCard({ fields, row }) {
   const mode = fields.get("structure_owns")?.value;
   const hidden = {
     structure_owns_attribute: mode !== "attribute",
-    structure_owns_sources: mode !== "sources",
     structure_owns_websites: mode !== "websites",
   };
   const names = groupNames("products").filter((name) => !hidden[name]);

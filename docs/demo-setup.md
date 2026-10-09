@@ -107,7 +107,7 @@ What the integration does with what you created:
 - With one ERP, every product goes to it; the values change nothing.
 
 `erp_owner` must be a Text Field: a Dropdown's API value is the option's number, not its label.
-Each ERP can instead own products by inventory source or by another attribute (the ERP's own
+Each ERP can instead own products by the websites they are sold on or by another attribute (the ERP's own
 settings on the Settings page, "Which products belong to this ERP"), for a store whose
 warehouses already map one-to-one onto ERPs.
 

@@ -97,7 +97,6 @@ describe("Given the declared settings", () => {
       structure_order_prefix: "",
       structure_owns: "all",
       structure_owns_attribute: "",
-      structure_owns_sources: "",
       structure_owns_websites: "",
       structure_sales_org: "1000",
       structure_sales_org_name: "",
@@ -317,7 +316,7 @@ describe("Given the settings page", () => {
 const FOUR_CHARS = /exactly four upper-case letters or digits/u;
 const TEXT_OR_NULL = /must be text or null/u;
 const PREFIX_WORDS = /one to six upper-case/u;
-const ONE_OF_OWNS = /must be one of all, sources, attribute, websites/u;
+const ONE_OF_OWNS = /must be one of all, attribute, websites/u;
 const ATTRIBUTE_WORDS = /attribute code and a value/u;
 const BOOLEAN_WORDS = /true, false or null/u;
 
@@ -337,7 +336,8 @@ describe("Given the Structure settings (business-structure plan, step 02)", () =
     expect(lib.saveProblem({ structure_order_prefix: "acme-erp" })).toMatch(
       PREFIX_WORDS,
     );
-    expect(lib.saveProblem({ structure_owns: "sources" })).toBeNull();
+    // The sources mode was deleted (Demo Builder AB-70): a save of it is refused in words.
+    expect(lib.saveProblem({ structure_owns: "sources" })).toMatch(ONE_OF_OWNS);
     expect(lib.saveProblem({ structure_owns: "websites" })).toBeNull();
     expect(
       lib.saveProblem({ structure_owns_websites: "base, justrite_b2b" }),
@@ -349,9 +349,10 @@ describe("Given the Structure settings (business-structure plan, step 02)", () =
     expect(lib.saveProblem({ structure_owns: "everything" })).toMatch(
       ONE_OF_OWNS,
     );
-    expect(
-      lib.saveProblem({ structure_owns_sources: "default, east" }),
-    ).toBeNull();
+    // Deleted with its mode (Demo Builder AB-70): no longer a setting.
+    expect(lib.saveProblem({ structure_owns_sources: "default, east" })).toBe(
+      "structure_owns_sources is not a setting",
+    );
     expect(
       lib.saveProblem({ structure_owns_attribute: "erp_owner=ACME" }),
     ).toBeNull();
@@ -367,7 +368,6 @@ describe("Given the Structure settings (business-structure plan, step 02)", () =
     for (const name of [
       "structure_sales_org_name",
       "structure_order_prefix",
-      "structure_owns_sources",
       "structure_owns_attribute",
       "structure_owns_websites",
     ]) {

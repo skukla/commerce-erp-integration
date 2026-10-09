@@ -32,6 +32,7 @@ const externalEvents = manifest.eventing.external.flatMap((p) => p.events);
 /** A DELETE sent to the ERP's products route: gone at contract version 17. */
 const NO_PAYMENT_EVENT = /NO IncomingPayment\.Posted/u;
 /** A repeat order is the ERP's own (contract version 19). */
+const DISCONTINUED = /discontinued/u;
 const NO_CUSTOMER_REFERENCE = /purchaseOrderByCustomer is null/u;
 const PRODUCT_DELETE_CALL = /erpRequest\(params, "products", \{[^}]*DELETE/u;
 
@@ -121,10 +122,18 @@ describe("Given the ERP contract", () => {
 
   // Contract version 19 (AB-26r): a repeat order is the ERP's own, with no customer reference;
   // the translator answers its events without publishing anything (translate.test.js).
-  test("Then the contract is at version 19: a repeat order carries no customer reference", () => {
-    expect(contract.contractVersion).toBe(19);
+  test("Then from version 19 a repeat order carries no customer reference", () => {
+    expect(contract.contractVersion).toBeGreaterThanOrEqual(19);
     expect(contract.routes.orders).toContain("POST /:number/repeat");
     expect(contract.order.repeatNote).toMatch(NO_CUSTOMER_REFERENCE);
+  });
+
+  // Contract version 20 (Demo Builder AB-70): a product this ERP no longer carries is
+  // discontinued, through the PATCH the old owner is sent (lib/discontinue-elsewhere.js).
+  test("Then from version 20 a product can be discontinued through PATCH products/:sku", () => {
+    expect(contract.contractVersion).toBeGreaterThanOrEqual(20);
+    expect(contract.routes.products).toContain("PATCH /:sku");
+    expect(contract.salesStatusNote).toMatch(DISCONTINUED);
   });
 
   test("Then the ERP routes this app calls are routes the ERP serves", () => {

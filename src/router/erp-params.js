@@ -88,7 +88,8 @@ export function stockErpOf(params, erps, ownsSku) {
  * @param {object} params action params
  * @param {string} sku the product
  * @param {object} deps `{ erps, ownsSku(params, sku, settings), settingsFor(storeId) }`
- * @returns {Promise<{ params: object } | { skip: string }>} the params, or why no ERP hears it
+ * @returns {Promise<{ params: object, ownerId?: string } | { skip: string }>} the params (and,
+ *   with several ERPs, the owner's id, so the others can be told), or why no ERP hears it
  */
 export async function ownerParamsOf(
   params,
@@ -102,7 +103,7 @@ export async function ownerParamsOf(
   }
   const owner = await ownerOfSku(params, sku, erps, ownsSku);
   return owner
-    ? { params: paramsForErp(params, owner) }
+    ? { ownerId: owner.id, params: paramsForErp(params, owner) }
     : { skip: `no one ERP owns ${sku}` };
 }
 

@@ -33,8 +33,8 @@ const ERPS = [
     id: "brand-b",
     name: "B",
     settings: {
-      structure_owns: "sources",
-      structure_owns_sources: "east",
+      structure_owns: "attribute",
+      structure_owns_attribute: "erp_owner=brand-b",
       websites: { bodea: { structure_sales_org: "2100" } },
     },
   },
@@ -84,8 +84,8 @@ describe("Given the resolved settings asked for one ERP", () => {
     });
     expect(res.statusCode).toBe(200);
     expect(res.body.default).toMatchObject({
-      structure_owns: "sources",
-      structure_owns_sources: "east",
+      structure_owns: "attribute",
+      structure_owns_attribute: "erp_owner=brand-b",
       structure_sales_org: "1000",
     });
     expect(res.body.websites.bodea.structure_sales_org).toBe("2100");
