@@ -14,9 +14,9 @@ vi.mock("#lib/detach", () => ({
 }));
 vi.mock("#lib/erps", () => ({ loadErps: vi.fn() }));
 
+import { readRun, resetRunsClient } from "#lib/action-runs";
 import * as companyBalance from "#lib/company-balance";
 import { detach } from "#lib/detach";
-import { readDetachRun, resetDetachRunsClient } from "#lib/detach-runs";
 import { loadErps } from "#lib/erps";
 import * as orderParts from "#lib/order-parts";
 import * as action from "#src/erp/detach/index";
@@ -39,11 +39,11 @@ let state;
 beforeEach(() => {
   loadErps.mockResolvedValue(ERPS);
   state = fakeState();
-  resetDetachRunsClient(state);
+  resetRunsClient(state);
 });
 afterEach(() => {
   vi.clearAllMocks();
-  resetDetachRunsClient();
+  resetRunsClient();
 });
 
 describe("Given the detach action", () => {
@@ -117,7 +117,7 @@ describe("Given the detach action asked to close the orders", () => {
 
 /*
  * A web action's HTTP answer is cut off at 60 seconds while the action runs on, so a caller
- * that names its run (`run`) can ask afterwards how it went (lib/detach-runs.js). Asking is a
+ * that names its run (`run`) can ask afterwards how it went (lib/action-runs.js). Asking is a
  * GET, and a GET never detaches: before this the action ignored the method, so a GET ran one.
  */
 describe("Given a detach a caller named a run for", () => {
@@ -228,7 +228,7 @@ describe("Given a caller asking how a named detach went", () => {
     const res = await get({ run: RUN });
 
     expect(res.statusCode).toBe(200);
-    expect(res.body).toEqual(await readDetachRun(RUN));
+    expect(res.body).toEqual(await readRun("detach", RUN));
     expect(res.body).toMatchObject({
       result: posted.body,
       run: RUN,

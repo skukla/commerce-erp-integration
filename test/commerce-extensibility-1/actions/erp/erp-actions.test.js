@@ -48,6 +48,14 @@ describe("Given the status action", () => {
     const res = await status.main({});
     expect(res.body.detachRuns).toBe(true);
   });
+  // A deployment from before a price publish could be asked about answers GET prices?run= with a
+  // 400 ("prices answers POST only") and ignores `run` on POST, so Demo Builder asks this before
+  // it names a run and polls one.
+  test("Then it says a price publish run can be asked about", async () => {
+    erp.health.mockResolvedValue({ data: {}, ok: true, status: 200 });
+    const res = await status.main({});
+    expect(res.body.priceRuns).toBe(true);
+  });
   test("Then an unreachable ERP is reported, not thrown", async () => {
     erp.health.mockRejectedValue(new Error("ERP_BASE_URL is not set"));
     const res = await status.main({});

@@ -37,17 +37,30 @@ async function publishOne(params, erps, entry, readers) {
 }
 
 /**
+ * The ERPs a publish is for, resolved before any work so a refusal costs nothing.
  * @param {object} params action params
  * @param {string} [erpId] one ERP, or every ERP when absent
- * @returns {Promise<{ problem: string } | { erps: string[], written: number,
- *   removed: number, unchanged: number, skipped: object[], failed: object[] }>}
+ * @returns {Promise<{ problem: string } | { erps: object[], targets: object[] }>} the whole
+ *   list and the entries to publish, or why the asked-for ERP cannot be
  */
-export async function publishPrices(params, erpId) {
+export async function pickErps(params, erpId) {
   const erps = await loadErps(params);
   const targets = erpId ? [erpById(erps, erpId)] : erps;
   if (targets.some((entry) => !entry)) {
     return { problem: `no ERP ${erpId} in the list` };
   }
+  return { erps, targets };
+}
+
+/**
+ * Publish the picked ERPs' prices in force, one ERP at a time.
+ * @param {object} params action params
+ * @param {object[]} erps the whole ERP list (a SKU's owner may be any of them)
+ * @param {object[]} targets the entries to publish
+ * @returns {Promise<{ erps: string[], written: number, removed: number, unchanged: number,
+ *   skipped: object[], failed: object[] }>}
+ */
+export async function publishTo(params, erps, targets) {
   const total = {
     erps: targets.map((e) => e.id),
     failed: [],
@@ -68,6 +81,20 @@ export async function publishPrices(params, erpId) {
     total.failed.push(...result.failed);
   }
   return total;
+}
+
+/**
+ * `pickErps` then `publishTo` in one call, for erp/scheduled.
+ * @param {object} params action params
+ * @param {string} [erpId] one ERP, or every ERP when absent
+ * @returns {Promise<{ problem: string } | { erps: string[], written: number,
+ *   removed: number, unchanged: number, skipped: object[], failed: object[] }>}
+ */
+export async function publishPrices(params, erpId) {
+  const picked = await pickErps(params, erpId);
+  return picked.problem
+    ? picked
+    : publishTo(params, picked.erps, picked.targets);
 }
 
 /** One line for the logs. */

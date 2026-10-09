@@ -6,11 +6,11 @@ import {
 } from "@adobe/aio-commerce-sdk/core/responses";
 import AioLogger from "@adobe/aio-lib-core-logging";
 
+import { readRun, runProblem, trackRun } from "#lib/action-runs";
 import * as commerce from "#lib/commerce";
 import * as tierPrices from "#lib/commerce-tier-prices";
 import * as balance from "#lib/company-balance";
 import { detach } from "#lib/detach";
-import { readDetachRun, runProblem, trackDetachRun } from "#lib/detach-runs";
 import { erp } from "#lib/erp";
 import { loadErps } from "#lib/erps";
 import { clearHistory, recordReset } from "#lib/history";
@@ -69,7 +69,7 @@ async function answerRun(params) {
   if (problem) {
     return badRequest(problem);
   }
-  const record = await readDetachRun(String(params.run));
+  const record = await readRun("detach", String(params.run));
   if (!record) {
     return buildErrorResponse(NOT_FOUND, {
       body: { message: `no detach run ${params.run}` },
@@ -102,7 +102,7 @@ async function undo(params, logger) {
     });
   const result = await (params.run === undefined
     ? work()
-    : trackDetachRun(String(params.run), work));
+    : trackRun("detach", String(params.run), work));
   logger.info(
     `detach${result.erp ? ` of ${result.erp}` : ""}: reverted ${result.reverted.reverted} Commerce change(s), cleared ${result.orders.cleared} order number(s)${closedSummary(result.closed)}`,
   );
@@ -121,7 +121,7 @@ async function undo(params, logger) {
  *
  * With `run` (query or body: an id the caller chooses, 8 to 64 letters, digits, hyphens and
  * underscores; anything else is refused), the detach can be asked about afterwards
- * (lib/detach-runs.js). A web action's HTTP answer is cut off at 60 seconds while the action
+ * (lib/action-runs.js). A web action's HTTP answer is cut off at 60 seconds while the action
  * runs on, so a caller of a long detach sees a 504 for one that then finishes; the POST's own
  * answer is the same with or without `run`.
  *

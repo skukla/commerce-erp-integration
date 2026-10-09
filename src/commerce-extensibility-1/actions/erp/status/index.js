@@ -114,8 +114,11 @@ async function healthOf(params) {
  * `closesOrdersOnReset` says erp/detach honours `closeOrders` (AB-16n): a deployment from before
  * it ignores the flag and leaves every order open, so a reset checks this first.
  * `detachRuns` says erp/detach answers `GET detach?run=<id>` with how a named run went
- * (lib/detach-runs.js): a deployment from before it ignores the method and would RUN a detach
+ * (lib/action-runs.js): a deployment from before it ignores the method and would RUN a detach
  * on that GET, so a caller checks this before it polls.
+ * `priceRuns` says erp/prices tracks a POSTed `run` and answers `GET prices?run=<id>` with how
+ * it went: a deployment from before it ignores `run` on POST and answers that GET with a 400
+ * ("prices answers POST only"), so a caller checks this before it names a run and polls.
  */
 async function main(params) {
   const logger = AioLogger("erp-status", { level: params.LOG_LEVEL || "info" });
@@ -140,6 +143,7 @@ async function main(params) {
         erpBaseUrl: target.ERP_BASE_URL || null,
         ...(erps ? { erps } : {}),
         ledger: { entries: ledger.length },
+        priceRuns: true,
       },
     });
   } catch (error) {

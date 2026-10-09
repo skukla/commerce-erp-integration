@@ -1,17 +1,19 @@
 /*
- * A detach a caller can ask about afterwards. erp/detach is a web action: its HTTP answer is
- * cut off at 60 seconds while the action runs on to its own limit, so a caller that names its
- * run (`run`) finds how it went in State under that name: running, done with the answer, or
- * failed with why.
+ * A run a caller can ask about afterwards. erp/detach and erp/prices are web actions: their
+ * HTTP answer is cut off at 60 seconds while the action runs on to its own limit, so a caller
+ * that names its run (`run`) finds how it went in State under that name and the action's kind:
+ * running, done with the answer, or failed with why. The detach assertions below are the ones
+ * the record kept when it was detach's alone (AB-61): its key and records
+ * are unchanged, so a detach run stored before this still reads.
  */
 // biome-ignore-all lint/suspicious/useAwait: the fakes answer promises without waiting on anything; the real collaborators are async and the run awaits them
 import {
-  detachRunKey,
-  readDetachRun,
-  resetDetachRunsClient,
+  readRun,
+  resetRunsClient,
+  runKey,
   runProblem,
-  trackDetachRun,
-} from "#lib/detach-runs";
+  trackRun,
+} from "#lib/action-runs";
 
 import { fakeState } from "../box/state.js";
 
@@ -36,9 +38,9 @@ let state;
 beforeEach(() => {
   state = fakeState();
   vi.spyOn(state, "put");
-  resetDetachRunsClient(state);
+  resetRunsClient(state);
 });
-afterEach(() => resetDetachRunsClient());
+afterEach(() => resetRunsClient());
 
 describe("Given the id a caller names its detach run by", () => {
   test.each([
@@ -63,8 +65,18 @@ describe("Given the id a caller names its detach run by", () => {
     );
   });
 
-  test("Then its record's key carries it", () => {
-    expect(detachRunKey(RUN)).toBe(KEY);
+  test("Then its record's key carries it, under detach's prefix as before", () => {
+    expect(runKey("detach", RUN)).toBe(KEY);
+  });
+
+  test("Then a price publish's record has its own key, so the two kinds never read each other's", () => {
+    expect(runKey("prices", RUN)).toBe("prices-run-reset-2026-10-02_a1");
+  });
+
+  test("Then a kind nothing tracks is refused in words", () => {
+    expect(() => runKey("wipe", RUN)).toThrow(
+      "wipe is not a kind of run; the kinds are detach, prices",
+    );
   });
 });
 
@@ -72,11 +84,11 @@ describe("Given a detach run under a caller's id", () => {
   test("Then it is recorded as running before any work, kept for one day", async () => {
     let during;
     const work = vi.fn(async () => {
-      during = await readDetachRun(RUN);
+      during = await readRun("detach", RUN);
       return RESULT;
     });
 
-    await trackDetachRun(RUN, work, clock(STARTED, FINISHED));
+    await trackRun("detach", RUN, work, clock(STARTED, FINISHED));
 
     expect(during).toEqual({ run: RUN, startedAt: STARTED, status: "running" });
     expect(state.put.mock.calls[0]).toEqual([
@@ -87,14 +99,15 @@ describe("Given a detach run under a caller's id", () => {
   });
 
   test("Then once it returns it is done, with what the detach answered", async () => {
-    const answered = await trackDetachRun(
+    const answered = await trackRun(
+      "detach",
       RUN,
       async () => RESULT,
       clock(STARTED, FINISHED),
     );
 
     expect(answered).toBe(RESULT);
-    expect(await readDetachRun(RUN)).toEqual({
+    expect(await readRun("detach", RUN)).toEqual({
       finishedAt: FINISHED,
       result: RESULT,
       run: RUN,
@@ -111,10 +124,10 @@ describe("Given a detach run under a caller's id", () => {
     };
 
     await expect(
-      trackDetachRun(RUN, work, clock(STARTED, FINISHED)),
+      trackRun("detach", RUN, work, clock(STARTED, FINISHED)),
     ).rejects.toThrow("Commerce answered 503");
 
-    expect(await readDetachRun(RUN)).toEqual({
+    expect(await readRun("detach", RUN)).toEqual({
       error: "Commerce answered 503",
       finishedAt: FINISHED,
       run: RUN,
@@ -124,12 +137,14 @@ describe("Given a detach run under a caller's id", () => {
   });
 
   test("Then a run that cannot be recorded as started does no work: nobody could ask about it", async () => {
-    resetDetachRunsClient({
+    resetRunsClient({
       put: () => Promise.reject(new Error("State is down")),
     });
     const work = vi.fn(async () => RESULT);
 
-    await expect(trackDetachRun(RUN, work)).rejects.toThrow("State is down");
+    await expect(trackRun("detach", RUN, work)).rejects.toThrow(
+      "State is down",
+    );
 
     expect(work).not.toHaveBeenCalled();
   });
@@ -140,7 +155,7 @@ describe("Given a detach run under a caller's id", () => {
       return RESULT;
     };
 
-    expect(await trackDetachRun(RUN, work)).toBe(RESULT);
+    expect(await trackRun("detach", RUN, work)).toBe(RESULT);
   });
 
   test("Then a failure that cannot be recorded still reaches the caller as the detach's own error", async () => {
@@ -149,7 +164,7 @@ describe("Given a detach run under a caller's id", () => {
       throw new Error("Commerce answered 503");
     };
 
-    await expect(trackDetachRun(RUN, work)).rejects.toThrow(
+    await expect(trackRun("detach", RUN, work)).rejects.toThrow(
       "Commerce answered 503",
     );
   });
@@ -157,6 +172,17 @@ describe("Given a detach run under a caller's id", () => {
 
 describe("Given a caller asking how a run went", () => {
   test("Then a run nobody started has no record", async () => {
-    expect(await readDetachRun("never-started")).toBeNull();
+    expect(await readRun("detach", "never-started")).toBeNull();
+  });
+
+  test("Then a price publish's run is recorded and read under its own kind, apart from a detach's", async () => {
+    await trackRun("prices", RUN, async () => RESULT, clock(STARTED, FINISHED));
+
+    expect(await readRun("prices", RUN)).toMatchObject({
+      result: RESULT,
+      status: "done",
+    });
+    expect(await readRun("detach", RUN)).toBeNull();
+    expect(state.put.mock.calls[0][0]).toBe("prices-run-reset-2026-10-02_a1");
   });
 });
