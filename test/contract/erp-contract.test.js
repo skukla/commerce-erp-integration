@@ -34,6 +34,9 @@ const NO_PAYMENT_EVENT = /NO IncomingPayment\.Posted/u;
 /** A repeat order is the ERP's own (contract version 19). */
 const DISCONTINUED = /discontinued/u;
 const NO_CUSTOMER_REFERENCE = /purchaseOrderByCustomer is null/u;
+/** A shipment posted in Commerce is recorded whatever the ERP's waiting shipments carry (contract version 21). */
+const EXTERNAL_SHIPMENT_RECORDED = /external-shipment\) is still recorded/u;
+const CANCEL_REMOVES_WAITING = /removes the shipments waiting to be posted/u;
 const PRODUCT_DELETE_CALL = /erpRequest\(params, "products", \{[^}]*DELETE/u;
 
 /** Commerce's names the ERP stopped accepting at contract version 16. */
@@ -134,6 +137,17 @@ describe("Given the ERP contract", () => {
     expect(contract.contractVersion).toBeGreaterThanOrEqual(20);
     expect(contract.routes.products).toContain("PATCH /:sku");
     expect(contract.salesStatusNote).toMatch(DISCONTINUED);
+  });
+
+  // Contract version 21 (owner 2026-10-09): quantity on an ERP shipment waiting to be posted is
+  // reserved for it. This app never creates ERP shipments; the shipment it sends is one posted
+  // in Commerce (external-shipment), which the ERP records whatever its waiting shipments carry,
+  // taking those goods off them instead. A cancel it sends removes them.
+  test("Then from version 21 a shipment posted in Commerce is never refused for an ERP shipment waiting to be posted", () => {
+    expect(contract.contractVersion).toBeGreaterThanOrEqual(21);
+    expect(contract.routes.orders).toContain("POST /:number/external-shipment");
+    expect(contract.order.nextStepNote).toMatch(EXTERNAL_SHIPMENT_RECORDED);
+    expect(contract.order.nextStepNote).toMatch(CANCEL_REMOVES_WAITING);
   });
 
   test("Then the ERP routes this app calls are routes the ERP serves", () => {
