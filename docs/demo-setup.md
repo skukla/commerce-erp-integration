@@ -102,8 +102,9 @@ their product information system writes both; in the demo you set them in Commer
 What the integration does with what you created:
 
 - A product whose `erp_owner` names a listed ERP routes to it.
-- A product with no owner, or naming an ERP that is not listed, is held on the order and shown
-  to staff; the rest of the order still goes.
+- A product with no owner, or naming an ERP that is not listed, goes to the ERP whose setting
+  is *All products* (the catch-all) when there is one; otherwise it is held on the order and
+  shown to staff, and the rest of the order still goes.
 - With one ERP, every product goes to it; the values change nothing.
 
 `erp_owner` must be a Text Field: a Dropdown's API value is the option's number, not its label.

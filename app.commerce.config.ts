@@ -205,7 +205,7 @@ export default defineConfig({
       {
         default: "all",
         description:
-          "Which products belong to this ERP. All: every product (one ERP). Attribute: the products whose attribute names this ERP. Websites: the products sold on the websites named below; an order from one of them goes whole to this ERP unless another ERP owns a line by attribute. Set at Default Config.",
+          "Which products belong to this ERP. All: every product no other ERP claims by attribute (the catch-all; with one ERP, everything). Attribute: the products whose attribute names this ERP. Websites: the products sold on the websites named below; an order from one of them goes whole to this ERP unless another ERP owns a line by attribute or as the catch-all. Set at Default Config.",
         label: "Which products belong to this ERP",
         name: "structure_owns",
         options: [

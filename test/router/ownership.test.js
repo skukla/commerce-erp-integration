@@ -88,8 +88,14 @@ describe("Given a website ERP A on base and an attribute ERP B", () => {
     ).toEqual([]);
   });
 
-  test("Then two product-rule ERPs claiming a line are both its owners, and the website ERP is not", async () => {
-    const C = { id: "c", settings: { structure_owns: "all" } };
+  test("Then two attribute ERPs claiming a line are both its owners, and the website ERP is not", async () => {
+    const C = {
+      id: "c",
+      settings: {
+        structure_owns: "attribute",
+        structure_owns_attribute: "erp_owner=b",
+      },
+    };
     expect(
       await ownersOfLine(
         {},
@@ -107,5 +113,89 @@ describe("Given a website ERP A on base and an attribute ERP B", () => {
       settings: { ...A.settings, structure_owns_websites: "base, eu" },
     };
     expect(await ownersOf({}, "PLAIN", [onBase, B], owns)).toEqual(["a"]);
+  });
+});
+
+/*
+ * Owner, 2026-10-09: an ERP whose rule is `all` is the CATCH-ALL. It owns every product no
+ * other ERP claims by a product rule, and never competes with an attribute ERP for a tagged
+ * product. Measured on Justrite: Justrite owns `all`, Accuform owns erp_owner=accuform, and
+ * an order for an Accuform sign was refused as "claimed by justrite and accuform".
+ */
+describe("Given Justrite owning all and Accuform owning by attribute", () => {
+  const JUSTRITE = { id: "justrite", settings: { structure_owns: "all" } };
+  const ACCUFORM = {
+    id: "accuform",
+    settings: {
+      structure_owns: "attribute",
+      structure_owns_attribute: "erp_owner=accuform",
+    },
+  };
+  const owns = (p, sku, settings, websiteCode) =>
+    ownsLine(p, { sku, websiteCode }, settings, {
+      productAttributes: async (_p, s) =>
+        s === "ACC-MADC-AL" ? { erp_owner: "accuform" } : {},
+      websiteCodesOf: async () => ["base"],
+    });
+
+  test("Then a tagged product is Accuform's alone: the catch-all does not compete", async () => {
+    expect(
+      await ownersOfLine(
+        {},
+        { sku: "ACC-MADC-AL", websiteCode: "base" },
+        [JUSTRITE, ACCUFORM],
+        owns,
+      ),
+    ).toEqual(["accuform"]);
+    expect(
+      await ownersOf({}, "ACC-MADC-AL", [ACCUFORM, JUSTRITE], owns),
+    ).toEqual(["accuform"]);
+  });
+
+  test("Then an untagged product is Justrite's alone", async () => {
+    expect(
+      await ownersOfLine(
+        {},
+        { sku: "CAB1", websiteCode: "base" },
+        [JUSTRITE, ACCUFORM],
+        owns,
+      ),
+    ).toEqual(["justrite"]);
+    expect(await ownersOf({}, "CAB1", [ACCUFORM, JUSTRITE], owns)).toEqual([
+      "justrite",
+    ]);
+  });
+
+  test("Then two all ERPs both claim an untagged product: a setup error, as two attribute claims are", async () => {
+    const SECOND = { id: "second", settings: { structure_owns: "all" } };
+    expect(
+      await ownersOf({}, "CAB1", [JUSTRITE, ACCUFORM, SECOND], owns),
+    ).toEqual(["justrite", "second"]);
+    expect(
+      await ownersOf({}, "ACC-MADC-AL", [JUSTRITE, ACCUFORM, SECOND], owns),
+    ).toEqual(["accuform"]);
+  });
+
+  test("Then a website ERP still comes last: the catch-all takes an untagged line from its website", async () => {
+    const SITE = {
+      id: "site",
+      settings: { structure_owns: "websites", structure_owns_websites: "base" },
+    };
+    expect(
+      await ownersOfLine(
+        {},
+        { sku: "CAB1", websiteCode: "base" },
+        [SITE, ACCUFORM, JUSTRITE],
+        owns,
+      ),
+    ).toEqual(["justrite"]);
+    expect(
+      await ownersOfLine(
+        {},
+        { sku: "CAB1", websiteCode: "base" },
+        [SITE, ACCUFORM],
+        owns,
+      ),
+    ).toEqual(["site"]);
   });
 });

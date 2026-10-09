@@ -296,3 +296,42 @@ describe("Given ERP A owning website base and ERP B owning products by attribute
     expect(read).not.toHaveBeenCalled();
   });
 });
+
+/*
+ * Owner, 2026-10-09: an ERP owning `all` is the catch-all. Measured on Justrite: Justrite owns
+ * all, Accuform owns erp_owner=accuform, and the Accuform sign on an order was refused as
+ * "claimed by justrite and accuform". Now the sign goes to Accuform and the rest to Justrite.
+ */
+describe("Given Justrite owning all and Accuform owning products by attribute", () => {
+  const JUSTRITE_FIRST = [
+    { ...ERPS[0], settings: { structure_owns: OWNS.ALL } },
+    {
+      ...ERPS[1],
+      settings: {
+        structure_owns: OWNS.ATTRIBUTE,
+        structure_owns_attribute: "erp_owner=brand-b",
+      },
+    },
+  ];
+
+  test("Then a tagged line goes to the attribute ERP alone and the untagged lines to the catch-all, with no conflict", async () => {
+    const d = deps({ SIGN1: "brand-b" });
+    const result = await routeOrder({}, ORDER, d, JUSTRITE_FIRST);
+    expect(sentLines(d)).toEqual([
+      { erp: "https://a.example", skus: ["CAB1", "CAB2"] },
+      { erp: "https://b.example", skus: ["SIGN1"] },
+    ]);
+    const stored = JSON.parse(state.store.get(orderPartsKey("000000042")));
+    expect(stored.conflicts).toEqual([]);
+    expect(stored.unrouted).toEqual([]);
+    expect(result.message).not.toContain("claimed by");
+  });
+
+  test("Then an order of untagged lines only goes whole to the catch-all", async () => {
+    const d = deps({});
+    await routeOrder({}, ORDER, d, JUSTRITE_FIRST);
+    expect(sentLines(d)).toEqual([
+      { erp: "https://a.example", skus: ["CAB1", "SIGN1", "CAB2"] },
+    ]);
+  });
+});

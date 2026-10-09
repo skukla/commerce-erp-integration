@@ -16,6 +16,12 @@ import { erpValues } from "#web/settings-view.js";
 
 const NON_BLANK = /\S/u;
 
+/** What "All products" means with several ERPs (owner, 2026-10-09): the catch-all. */
+const CATCH_ALL_WORDS =
+  /^All products: every product no other ERP claims by attribute \(the catch-all/u;
+/** Words of the one-ERP-only reading and the deleted sources mode. */
+const DELETED_WORDS = /one ERP only|Inventory sources|or source/u;
+
 describe("Given each setting's words", () => {
   test("Then every setting the app declares has a label, a help line and more to read", () => {
     for (const { name } of appConfig.businessConfig.schema) {
@@ -38,6 +44,16 @@ describe("Given each setting's words", () => {
     });
     expect(derivedPrefix("Contoso ERP")).toBe("CONT");
     expect(derivedPrefix("")).toBe("ERP");
+  });
+
+  test("Then the ownership choices say what All products means with several ERPs: the catch-all (owner, 2026-10-09)", () => {
+    const erp = { id: "justrite", name: "Justrite ERP" };
+    const { more } = settingText("structure_owns", erp);
+    expect(more).toMatch(CATCH_ALL_WORDS);
+    expect(more).not.toMatch(DELETED_WORDS);
+    expect(more).toContain(
+      "When not set: products whose erp_owner is justrite.",
+    );
   });
 });
 

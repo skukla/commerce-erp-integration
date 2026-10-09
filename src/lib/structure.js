@@ -104,8 +104,9 @@ function attributeOf(text) {
  * Which products belong to this ERP, from the pair's settings (rule M3). `owns` takes a
  * product as Commerce describes it: `customAttributes` (code → value) and `websiteCodes` (the websites it is sold on, or for
  * an order line the one website the order came from; AB-64). Under `all` every product is
- * owned, which is today's single-pair behaviour; a mode whose setting is blank owns nothing,
- * loudly.
+ * owned, which is today's single-pair behaviour; with several ERPs the router gives an `all`
+ * ERP only what no attribute ERP claims (router/ownership.js, the catch-all). A mode whose
+ * setting is blank owns nothing, loudly.
  * @returns {{ mode: string, owns: (product: object) => boolean, describe: string }}
  */
 export function ownershipFilter(settings) {

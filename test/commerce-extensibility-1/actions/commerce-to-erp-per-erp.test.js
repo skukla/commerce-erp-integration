@@ -129,6 +129,74 @@ describe("Given two ERPs", () => {
   });
 });
 
+/*
+ * Owner, 2026-10-09: an ERP owning `all` is the catch-all. The product's owner is the one
+ * ownership rule (router/ownership.js) names, so the sender needs no rule of its own: a
+ * tagged product goes to the attribute ERP and the catch-all is told it is discontinued; an
+ * untagged product goes to the catch-all alone.
+ */
+describe("Given a catch-all ERP (all) and an attribute ERP", () => {
+  const CATCH_ALL_AND_ATTRIBUTE = [
+    { ...BOTH[0], settings: { structure_owns: "all" } },
+    {
+      ...BOTH[1],
+      settings: {
+        structure_owns: "attribute",
+        structure_owns_attribute: "erp_owner=contoso",
+      },
+    },
+  ];
+  beforeEach(() =>
+    resetErpsClient({
+      get: async () => ({ value: JSON.stringify(CATCH_ALL_AND_ATTRIBUTE) }),
+    }),
+  );
+
+  test("Then a tagged product goes to the attribute ERP, and the catch-all, still holding it, discontinues it", async () => {
+    const result = await productUpdated(OWN, product("C1"));
+    expect(sent()).toEqual([
+      ["contoso-client", `https://b.example${IMPORT}`],
+      ["contoso-client", "https://b.example/api/v1/web/demo-erp/products/C1"],
+      [
+        "integration-client",
+        "https://a.example/api/v1/web/demo-erp/products/C1",
+      ],
+      [
+        "integration-client",
+        "https://a.example/api/v1/web/demo-erp/products/C1",
+      ],
+    ]);
+    expect(erp.calls[3].method).toBe("PATCH");
+    expect(erp.calls[3].body).toEqual({ salesStatus: "discontinued" });
+    expect(result).toEqual({ discontinuedIn: ["erp"], success: true });
+  });
+
+  test("Then an untagged product goes to the catch-all alone", async () => {
+    // The attribute ERP does not hold it, so there is nothing to discontinue there.
+    erp = erpFetch((url, init) =>
+      init.method === "GET" && url.startsWith("https://b.example")
+        ? { body: { error: "not found" }, status: 404 }
+        : undefined,
+    );
+    vi.stubGlobal("fetch", erp.fetch);
+
+    const result = await productUpdated(OWN, product("ORPHAN"));
+
+    expect(sent()).toEqual([
+      ["integration-client", `https://a.example${IMPORT}`],
+      [
+        "integration-client",
+        "https://a.example/api/v1/web/demo-erp/products/ORPHAN",
+      ],
+      [
+        "contoso-client",
+        "https://b.example/api/v1/web/demo-erp/products/ORPHAN",
+      ],
+    ]);
+    expect(result).toEqual({ success: true });
+  });
+});
+
 describe("Given one ERP", () => {
   test("Then every product goes to it, as before", async () => {
     await productUpdated(OWN, product("C1"));

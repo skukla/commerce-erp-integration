@@ -193,6 +193,34 @@ test("with an ERP owning the products sold on a website, the order's website dec
   expect(readers.productAttributes).not.toHaveBeenCalled();
 });
 
+test("with a catch-all ERP (all) and an attribute ERP, a tagged product is asked of the attribute ERP alone (owner, 2026-10-09)", async () => {
+  loadErps.mockResolvedValue([
+    {
+      connection: { baseUrl: "https://justrite.example" },
+      id: "justrite",
+      name: "Justrite ERP",
+      settings: { structure_owns: "all" },
+    },
+    {
+      connection: { baseUrl: "https://accuform.example" },
+      id: "accuform",
+      name: "Accuform ERP",
+      settings: {
+        structure_owns: "attribute",
+        structure_owns_attribute: "erp_owner=accuform",
+      },
+    },
+  ]);
+  readers.productAttributes.mockResolvedValueOnce({ erp_owner: "accuform" });
+  erpAnswers({ availability: [], credit: { status: "approved" } });
+  const res = await main(order());
+  expect(res).toEqual(ALLOW);
+  const asked = [
+    ...new Set(erpRequest.mock.calls.map(([p]) => p.ERP_BASE_URL)),
+  ];
+  expect(asked).toEqual(["https://accuform.example"]);
+});
+
 test("checks that outrun the deadline let the order through before Commerce gives up (AB-55)", async () => {
   vi.useFakeTimers();
   try {

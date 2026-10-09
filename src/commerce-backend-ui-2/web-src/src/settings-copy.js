@@ -79,7 +79,7 @@ const TEXT = {
   structure_owns: (erp) => ({
     help: "Which products this ERP sells and ships.",
     label: "Products this ERP owns",
-    more: `All products: every product (one ERP only). Inventory sources: the products stocked in the sources named below. Attribute: the products whose attribute names this ERP. Websites: the products sold on the websites named below; an order from one of them goes whole to this ERP, unless another ERP owns a line by attribute or source.${erp ? ` When not set: products whose erp_owner is ${erp.id}.` : ""}`,
+    more: `All products: every product no other ERP claims by attribute (the catch-all; with one ERP, everything). Attribute: the products whose attribute names this ERP. Websites: the products sold on the websites named below; an order from one of them goes whole to this ERP, unless another ERP owns a line by attribute or as the catch-all.${erp ? ` When not set: products whose erp_owner is ${erp.id}.` : ""}`,
   }),
   structure_owns_attribute: (erp) => {
     const example = `erp_owner=${erp?.id ?? "ACME"}`;
