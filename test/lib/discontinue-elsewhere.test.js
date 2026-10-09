@@ -1,7 +1,8 @@
 /**
  * discontinue-elsewhere (Demo Builder AB-70): after a product went to its owner, the other
- * listed ERPs that still carry it are told it is discontinued. Asserted on the ERP calls each
- * is handed (its own params, the SKU, the PATCH body) and on what is left alone.
+ * listed ERPs that still carry it are told it is discontinued, and the owner, if it had
+ * discontinued the product itself, is told it is sellable again. Asserted on the ERP calls
+ * each is handed (its own params, the SKU, the PATCH body) and on what is left alone.
  */
 import { beforeEach, describe, expect, test, vi } from "vitest";
 
@@ -9,7 +10,10 @@ vi.mock("#lib/erp", () => ({
   erp: { patchProduct: vi.fn(), product: vi.fn() },
 }));
 
-import { discontinueElsewhere } from "#lib/discontinue-elsewhere";
+import {
+  discontinueElsewhere,
+  restoreAtOwner,
+} from "#lib/discontinue-elsewhere";
 import { erp } from "#lib/erp";
 
 const ERPS = [
@@ -112,6 +116,78 @@ describe("Given a product that now belongs to one of several ERPs", () => {
     expect(await discontinueElsewhere(PARAMS, "W1", "erp", [ERPS[0]])).toEqual(
       [],
     );
+    expect(erp.product).not.toHaveBeenCalled();
+  });
+});
+
+describe("Given a product that came back to an ERP that had discontinued it", () => {
+  const held = (salesStatus) => ({
+    data: { salesStatus, sku: "W1", type: "simple" },
+    ok: true,
+    status: 200,
+  });
+
+  test("Then the owner, holding it discontinued, is told it is sellable at its own address", async () => {
+    erp.product.mockResolvedValue(held("discontinued"));
+    erp.patchProduct.mockResolvedValue({ data: {}, ok: true, status: 200 });
+
+    expect(await restoreAtOwner(PARAMS, "W1", "kukla", ERPS)).toEqual([
+      "kukla",
+    ]);
+    expect(erp.product).toHaveBeenCalledTimes(1);
+    expect(erp.product).toHaveBeenCalledWith(
+      expect.objectContaining({ ERP_BASE_URL: "https://b.example/erp" }),
+      "W1",
+    );
+    expect(erp.patchProduct).toHaveBeenCalledWith(
+      expect.objectContaining({
+        ERP_BASE_URL: "https://b.example/erp",
+        ERP_DISPLAY_NAME: "Kukla ERP",
+      }),
+      "W1",
+      { salesStatus: "sellable" },
+    );
+  });
+
+  test("Then one sellable, blocked (the ERP's own decision) or unknown there is left alone", async () => {
+    for (const answer of [
+      held("sellable"),
+      held("blocked"),
+      { data: {}, ok: false, status: 404 },
+    ]) {
+      erp.product.mockResolvedValue(answer);
+      // biome-ignore lint/performance/noAwaitInLoops: one answer at a time
+      expect(await restoreAtOwner(PARAMS, "W1", "kukla", ERPS)).toEqual([]);
+    }
+    expect(erp.patchProduct).not.toHaveBeenCalled();
+  });
+
+  test("Then an owner that refuses, or cannot be asked, is logged and nothing is restored", async () => {
+    const logger = { warn: vi.fn() };
+    erp.product.mockRejectedValueOnce(new Error("ECONNRESET"));
+    expect(await restoreAtOwner(PARAMS, "W1", "kukla", ERPS, logger)).toEqual(
+      [],
+    );
+    expect(logger.warn).toHaveBeenCalledWith(
+      "Kukla ERP: W1 could not be restored (ECONNRESET)",
+    );
+
+    erp.product.mockResolvedValue(held("discontinued"));
+    erp.patchProduct.mockResolvedValue({
+      data: { error: "salesStatus must be sellable or blocked" },
+      ok: false,
+      status: 400,
+    });
+    expect(await restoreAtOwner(PARAMS, "W1", "kukla", ERPS, logger)).toEqual(
+      [],
+    );
+    expect(logger.warn).toHaveBeenCalledWith(
+      "Kukla ERP: W1 could not be restored (400: salesStatus must be sellable or blocked)",
+    );
+  });
+
+  test("Then with one ERP nothing is asked", async () => {
+    expect(await restoreAtOwner(PARAMS, "W1", "erp", [ERPS[0]])).toEqual([]);
     expect(erp.product).not.toHaveBeenCalled();
   });
 });

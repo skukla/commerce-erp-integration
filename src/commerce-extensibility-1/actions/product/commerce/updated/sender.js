@@ -3,10 +3,38 @@ import AioLogger from "@adobe/aio-lib-core-logging";
 
 import { warehousesOfSku } from "#lib/commerce";
 import { withEventId } from "#lib/commerce-events";
-import { discontinueElsewhere } from "#lib/discontinue-elsewhere";
+import {
+  discontinueElsewhere,
+  restoreAtOwner,
+} from "#lib/discontinue-elsewhere";
 import { erp } from "#lib/erp";
 import { loadErps } from "#lib/erps";
 import { ownerParams } from "#lib/owner-params";
+
+/**
+ * With several ERPs, the owner sells the product again if it had discontinued it, and every
+ * other ERP still carrying it discontinues it (lib/discontinue-elsewhere.js).
+ *
+ * @returns {Promise<{ restoredIn?: string[], discontinuedIn?: string[] }>} the ERPs changed
+ */
+async function reconcileSalesStatus(params, sku, ownerId) {
+  const erps = await loadErps(params);
+  const logger = AioLogger("product-commerce-updated", {
+    level: params.LOG_LEVEL || "info",
+  });
+  const restored = await restoreAtOwner(params, sku, ownerId, erps, logger);
+  const discontinued = await discontinueElsewhere(
+    params,
+    sku,
+    ownerId,
+    erps,
+    logger,
+  );
+  return {
+    ...(restored.length > 0 ? { restoredIn: restored } : {}),
+    ...(discontinued.length > 0 ? { discontinuedIn: discontinued } : {}),
+  };
+}
 
 /**
  * Send the product to the ERP's import route.
@@ -40,21 +68,14 @@ async function sendData(params, data) {
         success: false,
       };
     }
-    // The owner has it; an ERP that used to (its erp_owner or websites changed) discontinues
-    // it (AB-70). Best-effort: the delivery stands whatever the others answer.
+    // The owner has it: if it had discontinued the product while another ERP owned it, it
+    // sells it again; an ERP that used to own it (its erp_owner or websites changed)
+    // discontinues it (AB-70). Best-effort: the delivery stands whatever the ERPs answer.
     if (sku && to.ownerId) {
-      const discontinued = await discontinueElsewhere(
-        params,
-        sku,
-        to.ownerId,
-        await loadErps(params),
-        AioLogger("product-commerce-updated", {
-          level: params.LOG_LEVEL || "info",
-        }),
-      );
-      if (discontinued.length > 0) {
-        return { discontinuedIn: discontinued, success: true };
-      }
+      return {
+        success: true,
+        ...(await reconcileSalesStatus(params, sku, to.ownerId)),
+      };
     }
     return { success: true };
   } catch (error) {

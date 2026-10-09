@@ -1,20 +1,89 @@
 /*
- * When a product's owner changes, the ERP that used to carry it discontinues it (Demo Builder
- * AB-70). Commerce's product event says only who owns the product NOW (its `erp_owner`, or
- * the websites it is sold on); nothing names the owner it had. So after a product change is
- * sent to its owner, every OTHER listed ERP is asked whether it holds the product
- * (`GET products/:sku`), and one that does, and has not discontinued it, is told to
- * (`PATCH products/:sku { salesStatus: "discontinued" }`, contract version 20). The record
- * stays there, as a real ERP keeps it; it ships nothing.
+ * When a product's owner changes, the ERP that used to carry it discontinues it, and the ERP
+ * that carries it again sells it again (Demo Builder AB-70). Commerce's product event says
+ * only who owns the product NOW (its `erp_owner`, or the websites it is sold on); nothing
+ * names the owner it had. So after a product change is sent to its owner:
  *
- * Best-effort, after the send: an ERP that cannot be asked or refuses is logged, and the
- * product's delivery to its owner stands. Nothing to do with one ERP.
+ * - every OTHER listed ERP is asked whether it holds the product (`GET products/:sku`), and
+ *   one that does, and has not discontinued it, is told to
+ *   (`PATCH products/:sku { salesStatus: "discontinued" }`, contract version 20). The record
+ *   stays there, as a real ERP keeps it; it ships nothing.
+ * - the OWNER is asked whether it holds the product discontinued (from a time it was not the
+ *   owner), and if so is told it is sellable again (`PATCH products/:sku
+ *   { salesStatus: "sellable" }`). The owner receives the product through `POST admin/import`,
+ *   and the ERP's import never resets a sales status, so without this the product would stay
+ *   discontinued in an ERP that owns it again and ship nothing. Only `discontinued` is
+ *   reversed: `blocked` is the ERP user's own decision and stays.
+ *
+ * Both are best-effort, after the send: an ERP that cannot be asked or refuses is logged, and
+ * the product's delivery to its owner stands. Nothing to do with one ERP.
  */
 import { paramsForErp } from "#adapters/contract";
 import { erp } from "#lib/erp";
 
 const DISCONTINUED = "discontinued";
+const SELLABLE = "sellable";
 const NOT_FOUND = 404;
+
+/** Why a PATCH was refused, for the log. */
+function refusal(patched) {
+  const detail =
+    patched.data?.errorMessage ?? patched.data?.error ?? "no detail";
+  return `${patched.status}: ${detail}`;
+}
+
+/**
+ * Set one product's sales status in one ERP, when its record there is in `from` status.
+ * Answers whether the status was changed; a refusal or a failed read is logged as `verb`.
+ *
+ * @param {object} to the ERP's params
+ * @param {import("#adapters/contract").ErpEntry} entry the ERP
+ * @param {string} sku the product
+ * @param {{ from: (held: object) => boolean, to: string, verb: string }} change
+ * @param {{ warn: (message: string) => void }} [logger]
+ * @returns {Promise<boolean>}
+ */
+async function setSalesStatus(to, entry, sku, change, logger) {
+  try {
+    const held = await erp.product(to, sku);
+    if (held.status === NOT_FOUND) {
+      return false;
+    }
+    if (!held.ok) {
+      logger?.warn(
+        `${entry.name}: products/${sku} answered ${held.status}; not ${change.verb} there`,
+      );
+      return false;
+    }
+    if (held.data?.type === "configurable" || !change.from(held.data ?? {})) {
+      return false;
+    }
+    const patched = await erp.patchProduct(to, sku, { salesStatus: change.to });
+    if (patched.ok) {
+      return true;
+    }
+    logger?.warn(
+      `${entry.name}: ${sku} could not be ${change.verb} (${refusal(patched)})`,
+    );
+  } catch (error) {
+    logger?.warn(
+      `${entry.name}: ${sku} could not be ${change.verb} (${error.message})`,
+    );
+  }
+  return false;
+}
+
+const DISCONTINUE = {
+  from: (held) => held.salesStatus !== DISCONTINUED,
+  to: DISCONTINUED,
+  verb: "discontinued",
+};
+
+const RESTORE = {
+  from: (held) => held.salesStatus === DISCONTINUED,
+  to: SELLABLE,
+  verb: "restored",
+};
 
 /**
  * @param {object} params action params
@@ -30,42 +99,42 @@ export async function discontinueElsewhere(params, sku, ownerId, erps, logger) {
   }
   const done = [];
   for (const entry of erps.filter((e) => e.id !== ownerId)) {
-    const to = paramsForErp(params, entry);
-    try {
-      // biome-ignore lint/performance/noAwaitInLoops: one ERP at a time, a handful of them
-      const held = await erp.product(to, sku);
-      if (held.status === NOT_FOUND) {
-        continue;
-      }
-      if (!held.ok) {
-        logger?.warn(
-          `${entry.name}: products/${sku} answered ${held.status}; not discontinued there`,
-        );
-        continue;
-      }
-      if (
-        held.data?.salesStatus === DISCONTINUED ||
-        held.data?.type === "configurable"
-      ) {
-        continue;
-      }
-      const patched = await erp.patchProduct(to, sku, {
-        salesStatus: DISCONTINUED,
-      });
-      if (patched.ok) {
-        done.push(entry.id);
-      } else {
-        const detail =
-          patched.data?.errorMessage ?? patched.data?.error ?? "no detail";
-        logger?.warn(
-          `${entry.name}: ${sku} could not be discontinued (${patched.status}: ${detail})`,
-        );
-      }
-    } catch (error) {
-      logger?.warn(
-        `${entry.name}: ${sku} could not be discontinued (${error.message})`,
-      );
+    // biome-ignore lint/performance/noAwaitInLoops: one ERP at a time, a handful of them
+    const changed = await setSalesStatus(
+      paramsForErp(params, entry),
+      entry,
+      sku,
+      DISCONTINUE,
+      logger,
+    );
+    if (changed) {
+      done.push(entry.id);
     }
   }
   return done;
+}
+
+/**
+ * @param {object} params action params
+ * @param {string} sku the product
+ * @param {string} ownerId the ERP the product went to
+ * @param {import("#adapters/contract").ErpEntry[]} erps the ERP list
+ * @param {{ warn: (message: string) => void }} [logger]
+ * @returns {Promise<string[]>} the owner's id when it had discontinued the product and sells
+ *   it again now; empty otherwise
+ */
+export async function restoreAtOwner(params, sku, ownerId, erps, logger) {
+  const owner =
+    erps.length > 1 ? erps.find((e) => e.id === ownerId) : undefined;
+  if (!owner) {
+    return [];
+  }
+  const changed = await setSalesStatus(
+    paramsForErp(params, owner),
+    owner,
+    sku,
+    RESTORE,
+    logger,
+  );
+  return changed ? [owner.id] : [];
 }

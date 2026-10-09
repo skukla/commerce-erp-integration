@@ -178,7 +178,7 @@ export const erp = {
   /**
    * Change one product in the ERP (contract `PATCH products/:sku`): here, its sales status —
    * `discontinued` (contract version 20) when this ERP no longer carries it because another
-   * ERP owns it now.
+   * ERP owns it now, and back to `sellable` when it owns it again.
    */
   patchProduct: (params, sku, body, timeoutMs) =>
     erpRequest(params, "products", {
