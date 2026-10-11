@@ -22,10 +22,10 @@ import { ago, clockTime } from "#web/time-view.js";
 const TICK_MS = 30 * 1000;
 
 /**
- * What shows until everything the page needs has arrived. In the real Admin the SDK's own
- * Suspense boundary keeps its "Connecting to Commerce Admin" spinner up while MainPage's first
- * read suspends it, so this never draws there — it is the SAME Spectrum ProgressCircle, so the
- * local preview (which has no such boundary) and the order-parts subpage match it exactly.
+ * What shows until everything the page needs has arrived: MainPage's own Suspense fallback in
+ * the Admin, and the local preview's. It is the SAME Spectrum ProgressCircle, laid out the same
+ * way, as the Admin SDK's "Connecting to Commerce Admin" spinner that comes just before it, so
+ * the two read as one.
  */
 export function PageLoading() {
   return (
