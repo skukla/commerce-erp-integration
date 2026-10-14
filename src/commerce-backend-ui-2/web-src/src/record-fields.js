@@ -35,7 +35,7 @@ const MONEY = new Intl.NumberFormat("en-US", {
 const COUNT = new Intl.NumberFormat("en-US");
 
 /** A money amount as the Admin writes one: "25,000.00", or the value as given if not a number. */
-function money(value, currency) {
+export function money(value, currency) {
   const n = Number(value);
   const shown = Number.isFinite(n) ? MONEY.format(n) : String(value);
   return currency ? `${shown} ${currency}` : shown;
@@ -74,7 +74,8 @@ const salesOrders = (numbers) =>
   numbers.includes(",") ? `Sales orders ${numbers}` : salesOrder(numbers);
 
 /** A count with its noun: "1 customer price", "3 customer prices". */
-const counted = (n, one, many) => `${COUNT.format(n)} ${n === 1 ? one : many}`;
+export const counted = (n, one, many) =>
+  `${COUNT.format(n)} ${n === 1 ? one : many}`;
 
 /**
  * A company: by its Commerce name, and the ERP's customer number it is paired with. A customer
@@ -163,10 +164,38 @@ const FROM_ERP = {
   // A product is the same SKU on both sides: the ERP's side adds nothing.
   price: (e, d) =>
     row(d.sku ?? e.ref, "", `Price changed to ${money(d.price)}`),
+  // A run, not one record: the prices in force on the ERP's side, the shared catalogs'
+  // tier prices on Commerce's (lib/history.js recordPricePublish).
+  "price-publish": (e) =>
+    row("Shared catalog prices", "Customer prices", publishDetails(e)),
   return: (e, d) => erpOrder(e, `Return order ${d.returnNumber} received`),
   shipment: (e) => erpOrder(e, "Order shipped"),
   stock: (e) => stockRow(e),
 };
+
+/** "Prices published: 12 written, 3 removed", or a run that only failed. */
+function publishDetails(e) {
+  const done = [
+    e.written ? `${COUNT.format(e.written)} written` : "",
+    e.removed ? `${COUNT.format(e.removed)} removed` : "",
+  ].filter(Boolean);
+  if (done.length > 0) {
+    return `Prices published: ${done.join(", ")}`;
+  }
+  // A failure with no customer is a whole ERP that did not answer.
+  const failed = e.failed ?? [];
+  const erps = failed.filter((f) => !f.partnerId).length;
+  const customers = new Set(
+    failed.filter((f) => f.partnerId).map((f) => f.partnerId),
+  ).size;
+  const who = [
+    erps ? counted(erps, "ERP", "ERPs") : "",
+    customers ? counted(customers, "customer", "customers") : "",
+  ].filter(Boolean);
+  return who.length > 0
+    ? `Prices not published for ${who.join(" and ")}`
+    : "Prices published";
+}
 
 /**
  * The event fields each kind is shown by. A record without them (an old one, or one written
@@ -187,6 +216,39 @@ const NEEDS = {
 const hasAll = (data, names) =>
   names.every((name) => data[name] !== undefined && data[name] !== null);
 
+/** "name, price and stock": a list as a sentence writes one. */
+function listed(words) {
+  return words.length > 1
+    ? `${words.slice(0, -1).join(", ")} and ${words.at(-1)}`
+    : (words[0] ?? "");
+}
+
+/** "Product changed: name, price and stock sent", once the ERP took it. */
+const productSent = (done, e) =>
+  e.outcome === "sent" && e.sent?.length
+    ? `${done}: ${listed(e.sent)} sent`
+    : done;
+
+/** A stock change made in Commerce: each source's quantity, as the ERP was told it. */
+function stockSent(stock) {
+  if (!stock?.length) {
+    return "Stock changed";
+  }
+  const at = (line) => `${COUNT.format(line.quantity)} at ${line.name}`;
+  return stock.length === 1
+    ? `Stock changed to ${at(stock[0])}`
+    : `Stock changed: ${stock.map(at).join(", ")}`;
+}
+
+/** A company's customer number in the ERPs: "Customer C21", or a split's "Customers C21, 100042". */
+function customersOf(customers = []) {
+  if (customers.length === 0) {
+    return "";
+  }
+  const noun = customers.length === 1 ? "Customer" : "Customers";
+  return `${noun} ${customers.join(", ")}`;
+}
+
 /** A Commerce shipment, invoice or return: the document, and that it was created. */
 const commerceDocument = (noun, erpSide) => (e) =>
   row(`${noun} ${e.ref}`, erpSide(e), `${noun} created`);
@@ -201,6 +263,12 @@ const OWN = {
       done ? `Order ${done[1]}` : "Order changed",
     );
   },
+  "company-saved": (e) =>
+    row(
+      e.company?.name ?? `Company ${e.ref}`,
+      customersOf(e.customers),
+      "Company saved",
+    ),
   invoiced: commerceDocument("Invoice", (e) =>
     salesOrder(RECORDED_ON.exec(message(e))?.[1]),
   ),
@@ -214,8 +282,10 @@ const OWN = {
       notInErp(numbers, e.outcome),
     );
   },
-  // A save sends the name and price whatever changed, so it reads "changed", not "renamed".
-  "product-changed": (e) => row(e.ref, "", "Product changed"),
+  // A save sends the same fields whatever changed (Commerce's event does not say which
+  // attribute did), so it reads "changed", not "renamed", and names what the ERP was told.
+  "product-changed": (e) => row(e.ref, "", productSent("Product changed", e)),
+  "product-created": (e) => row(e.ref, "", productSent("Product created", e)),
   "product-deleted": (e) => row(e.ref, "", "Product deleted"),
   reset: (e) => {
     // "21 orders canceled, 3 noted as closed" or "no orders to close" (lib/detach.js).
@@ -229,6 +299,7 @@ const OWN = {
   shipped: commerceDocument("Shipment", (e) =>
     salesOrder(RECORDED_ON.exec(message(e))?.[1]),
   ),
+  "stock-changed": (e) => row(e.ref, "", stockSent(e.stock)),
 };
 
 /**

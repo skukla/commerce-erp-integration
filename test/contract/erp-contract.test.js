@@ -188,7 +188,7 @@ describe("Given the ERP contract", () => {
       "utf8",
     );
     expect(contract.import.stock).toEqual(["sku", "warehouses"]);
-    expect(stockSender).toContain("stock: [{ sku, warehouses:");
+    expect(stockSender).toContain("stock: [{ sku, warehouses }]");
     const orderSync = readFileSync("src/lib/order-sync.js", "utf8");
     for (const key of [
       "purchaseOrderByCustomer",

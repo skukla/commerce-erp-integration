@@ -2,12 +2,15 @@ import { HTTP_INTERNAL_SERVER_ERROR } from "@adobe/aio-commerce-sdk/core/respons
 
 import { withEventId } from "#lib/commerce-events";
 import { erp } from "#lib/erp";
+import { erpTold } from "#lib/erps";
 import { ownerParams } from "#lib/owner-params";
 
 /**
  * Send the product to the ERP's import route.
  *
- * @returns {Promise<{ success: true } | { success: false, statusCode: number, message: string }>}
+ * @returns {Promise<{ success: true, erp?: { id: string, name: string } } |
+ *   { success: true, skipped: true, message: string } |
+ *   { success: false, statusCode: number, message: string }>}
  */
 async function sendData(params, data) {
   try {
@@ -30,7 +33,8 @@ async function sendData(params, data) {
         success: false,
       };
     }
-    return { success: true };
+    const told = await erpTold(params, to.ownerId);
+    return { success: true, ...(told ? { erp: told } : {}) };
   } catch (error) {
     return {
       message: error.message,

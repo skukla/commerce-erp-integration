@@ -49,20 +49,22 @@ beforeEach(() => {
 afterEach(() => resetOwnWritesClient());
 
 describe("Given a product saved in Commerce", () => {
-  test("Then Activity names the ERP told and the new name, one row however often it is saved", async () => {
+  test("Then Activity names the ERP told and what it was told, one row however often it is saved", async () => {
     await action.main(saveOf("Cabinet (Admin)"));
     await action.main(saveOf("Cabinet (Admin 2)"));
 
     const history = await readHistory();
     expect(history).toHaveLength(1);
     expect(history[0]).toMatchObject({
-      attempts: 2,
+      // A second save that got through is a new change, not a second try.
+      attempts: 1,
       direction: "to-erp",
       kind: "product-changed",
       message:
-        'Product 51BSCU-BLBK: told Demo ERP its name ("Cabinet (Admin 2)") and price.',
+        'Product 51BSCU-BLBK: told Demo ERP its name ("Cabinet (Admin 2)"), price and stock.',
       outcome: "sent",
       ref: "51BSCU-BLBK",
+      sent: ["name", "price", "stock"],
     });
   });
 
@@ -81,6 +83,20 @@ describe("Given a product saved in Commerce", () => {
       message: "Product 51BSCU-BLBK: not sent to the ERP: unknown SKU",
       outcome: "failed",
     });
+  });
+
+  test("Then a redelivery of a save the ERP refused counts as another try", async () => {
+    erp.importRecords.mockResolvedValue({
+      data: { errorMessage: "unknown SKU" },
+      ok: false,
+      status: 422,
+    });
+
+    await action.main(saveOf("Cabinet (Admin)"));
+    await action.main(saveOf("Cabinet (Admin)"));
+
+    const [row] = await readHistory();
+    expect(row).toMatchObject({ attempts: 2, outcome: "failed" });
   });
 
   test("Then a product another ERP owns is sent nowhere and leaves no row", async () => {

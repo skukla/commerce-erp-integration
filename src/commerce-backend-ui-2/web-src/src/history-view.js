@@ -5,6 +5,7 @@
  * click on it opens in the side panel.
  */
 
+import { publishProblems, STARTED_BY } from "#web/publish-view.js";
 import { recordFields, recordLine } from "#web/record-fields.js";
 import { dayOf } from "#web/time-view.js";
 
@@ -34,7 +35,7 @@ const REFUSED_BY = { dropped: "Not sent", refused: "Refused by Commerce" };
 /** The ERP's word for its customer; the page calls it a customer everywhere. */
 const PARTNER_WORD = /\bpartner\b/gu;
 
-/** The badge's color for each outcome. */
+/** The status light's tone for each outcome (admin-status.jsx). */
 const TONE = {
   applied: "ok",
   done: "neutral",
@@ -68,6 +69,12 @@ const KINDS = {
   block: { label: "Company block", opens: "company", type: "companies" },
   cancel: { label: "Cancel", opens: "trace", type: "orders" },
   changed: { label: "Order change", opens: "trace", type: "orders" },
+  // A company saved in Commerce, sent to every ERP (2026-10-14).
+  "company-saved": {
+    label: "Company saved",
+    opens: "company",
+    type: "companies",
+  },
   contract: { label: "Customer prices", opens: "company", type: "prices" },
   credit: { label: "Credit", opens: "company", type: "companies" },
   "credit-memo": { label: "Credit memo", opens: "trace", type: "orders" },
@@ -78,9 +85,17 @@ const KINDS = {
   "order-status": { label: "Order status", opens: "trace", type: "orders" },
   payment: { label: "Payment", opens: "trace", type: "orders" },
   price: { label: "Price", opens: "product", type: "prices" },
+  // A price publish: one run, its rows moved in its panel (2026-10-14).
+  "price-publish": { label: "Price publish", opens: "publish", type: "prices" },
   // A save in Commerce told to the product's ERP (2026-10-13).
   "product-changed": {
     label: "Product changed",
+    opens: "product",
+    type: "products",
+  },
+  // A product made in Commerce, sent to its ERP (2026-10-14).
+  "product-created": {
+    label: "Product created",
     opens: "product",
     type: "products",
   },
@@ -96,16 +111,22 @@ const KINDS = {
   shipment: { label: "Shipment", opens: "trace", type: "orders" },
   shipped: { label: "Shipment", opens: "order", type: "orders" },
   stock: { label: "Stock", opens: "product", type: "stock" },
+  // A stock quantity saved in Commerce, sent to the product's ERP (2026-10-14).
+  "stock-changed": { label: "Stock changed", opens: "product", type: "stock" },
 };
 
 /** A change made in Commerce Admin, in the words of the row's second line. */
 const MADE_IN_COMMERCE = {
   changed: "Changed in Commerce Admin",
+  // A buyer can make a company on the storefront, so not "in Commerce Admin".
+  "company-saved": "Saved in Commerce",
   invoiced: "Invoiced in Commerce Admin",
   "product-changed": "Changed in Commerce Admin",
+  "product-created": "Created in Commerce Admin",
   // A buyer can ask for a return on the storefront, so not "in Commerce Admin".
   returned: "Returned in Commerce",
   shipped: "Shipped in Commerce Admin",
+  "stock-changed": "Changed in Commerce Admin",
 };
 
 const NOT_APPLIED = " — not applied: ";
@@ -278,6 +299,9 @@ function triesText(entry) {
 
 /** The row's second line: what the message says after its first sentence, and the tries. */
 function detailOf(entry, split, now, said) {
+  if (entry.kind === "price-publish") {
+    return asSentences([STARTED_BY[entry.by] ?? "", triesText(entry)]);
+  }
   const stuck =
     entry.outcome === "sending" && canRetry(entry, now)
       ? "Still sending after 2 minutes"
@@ -298,7 +322,15 @@ function detailOf(entry, split, now, said) {
  * Why a record did not get through, as one line under its Result: the reason Commerce or the
  * ERP gave, or what it waits for. Retries and attempts are the side panel's (`detail`).
  */
-function reasonOf(entry, split, now, line, named) {
+function reasonOf(entry, split, now, line, named, erps) {
+  if (entry.kind === "price-publish") {
+    // The first failure, and how many more: the panel lists them all.
+    const erpName = (id) => erps.find((e) => e.id === id)?.name ?? `ERP ${id}`;
+    const [first, ...more] = publishProblems({ failed: entry.failed }, erpName);
+    return more.length > 0
+      ? `${first} (and ${more.length} more)`
+      : (first ?? "");
+  }
   if (entry.outcome === "sending") {
     return canRetry(entry, now) ? "Still sending after 2 minutes" : "";
   }
@@ -338,6 +370,9 @@ function openOf(entry) {
   }
   if (opens === "company" && entry.company?.id) {
     return { id: entry.company.id, kind: "company" };
+  }
+  if (opens === "publish") {
+    return { kind: "publish" };
   }
   return opens === "reset" ? { kind: "reset" } : { kind: "record" };
 }
@@ -385,17 +420,15 @@ export function eventRow(entry, { erps, now }) {
     erpIds,
     erpRecord: fields?.erp ?? "",
     everyErp: entry.kind === "reset",
-    key:
-      entry.direction === "from-erp"
-        ? `erp.${entry.eventId}`
-        : `${entry.kind}.${entry.ref}`,
+    // An ERP event by its id; anything else (a price publish has none) by kind and ref.
+    key: entry.eventId ? `erp.${entry.eventId}` : `${entry.kind}.${entry.ref}`,
     // A side that is absent where its absence is the point: "Not paired", "Not in the ERP".
     missing: fields?.missing ?? {},
     open: openOf(entry),
     problem: isProblem(entry, at),
     // Why a record did not get through, in one line; the whole story is `detail`.
     reason: isProblem(entry, at)
-      ? reasonOf(entry, split, now, line, named)
+      ? reasonOf(entry, split, now, line, named, erps)
       : "",
     result: RESULT[entry.outcome] ?? entry.outcome,
     retriable: retry !== null && canRetry(entry, at),

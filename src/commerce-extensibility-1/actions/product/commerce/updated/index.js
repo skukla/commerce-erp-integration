@@ -10,6 +10,7 @@ import { recordProductChange } from "#lib/history";
 import { isOwnProductWrite } from "#lib/own-writes";
 import { checkMissingRequestInputs, stringParameters } from "#lib/utils";
 
+import { activityOf, SAVE_SENDS } from "../activity.js";
 import { postProcess } from "./post.js";
 import { preProcess } from "./pre.js";
 import { sendData } from "./sender.js";
@@ -78,7 +79,7 @@ async function main(params) {
       await recordProductChange(
         "product-changed",
         row.sku,
-        activityOf(row, result),
+        activityOf(row, result, SAVE_SENDS),
         logger,
       );
     }
@@ -96,23 +97,6 @@ async function main(params) {
     logger.error(`Error processing the request: ${error.message}`);
     return internalServerError(error.message);
   }
-}
-
-/** The Activity row for a save: what the ERP was told, or why it was not. */
-function activityOf(row, result) {
-  const product = `Product ${row.sku}`;
-  if (!result.success) {
-    return {
-      message: `${product}: not sent to the ERP: ${result.message}`,
-      outcome: "failed",
-    };
-  }
-  const to = result.erp?.name ?? "the ERP";
-  return {
-    message: `${product}: told ${to} its name ("${row.name}") and price.`,
-    outcome: "sent",
-    ...(result.erp ? { erpIds: [result.erp.id] } : {}),
-  };
 }
 
 export { main };

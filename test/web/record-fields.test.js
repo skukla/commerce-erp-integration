@@ -203,6 +203,51 @@ describe("Given a record the integration made", () => {
       }),
       ["AB1", "", "Product changed"],
     ],
+    // Since 2026-10-14 the record names what was sent, and the row says it.
+    [
+      own("product-changed", "AB1", {
+        outcome: "sent",
+        sent: ["name", "price", "stock"],
+      }),
+      ["AB1", "", "Product changed: name, price and stock sent"],
+    ],
+    [
+      own("product-changed", "AB1", { outcome: "failed", sent: undefined }),
+      ["AB1", "", "Product changed"],
+    ],
+    [
+      own("product-created", "AB2", {
+        outcome: "sent",
+        sent: ["name", "price"],
+      }),
+      ["AB2", "", "Product created: name and price sent"],
+    ],
+    [
+      own("stock-changed", "AB1", {
+        stock: [{ name: "Default Source", quantity: 1200 }],
+      }),
+      ["AB1", "", "Stock changed to 1,200 at Default Source"],
+    ],
+    [
+      own("stock-changed", "AB1", {
+        stock: [
+          { name: "East", quantity: 4 },
+          { name: "West", quantity: 0 },
+        ],
+      }),
+      ["AB1", "", "Stock changed: 4 at East, 0 at West"],
+    ],
+    [
+      own("company-saved", "21", {
+        company: { id: 21, name: "Kukla Studios" },
+        customers: ["C21"],
+      }),
+      ["Kukla Studios", "Customer C21", "Company saved"],
+    ],
+    [
+      own("company-saved", "21", { company: { id: 21 } }),
+      ["Company 21", "", "Company saved"],
+    ],
     [
       { direction: "commerce", kind: "product-deleted", ref: "AB1" },
       ["AB1", "", "Product deleted"],

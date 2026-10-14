@@ -14,6 +14,7 @@ import {
   ResetPanel,
   ScheduledPanel,
 } from "#web/components/panel-misc.jsx";
+import { PublishPanel } from "#web/components/panel-publish.jsx";
 import { TracePanel } from "#web/components/panel-trace.jsx";
 
 /** Retry of the record that opened the panel, and what it answered. */
@@ -107,6 +108,8 @@ export function PanelContent({
           text={panel.text}
         />
       );
+    case "publish":
+      return <PublishPanel {...common} row={row} />;
     case "reset":
       return <ResetPanel {...common} row={row} />;
     case "scheduled":

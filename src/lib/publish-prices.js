@@ -16,6 +16,7 @@ async function publishOne(params, erps, entry, readers) {
   const res = await erp.inForce(paramsForErp(params, entry));
   if (!res.ok) {
     return {
+      changes: [],
       failed: [
         {
           erpId: entry.id,
@@ -58,10 +59,12 @@ export async function pickErps(params, erpId) {
  * @param {object[]} erps the whole ERP list (a SKU's owner may be any of them)
  * @param {object[]} targets the entries to publish
  * @returns {Promise<{ erps: string[], written: number, removed: number, unchanged: number,
- *   skipped: object[], failed: object[] }>}
+ *   changes: object[], skipped: object[], failed: object[] }>} `changes` is each price row
+ *   moved, before and after (lib/contract-prices.js)
  */
 export async function publishTo(params, erps, targets) {
   const total = {
+    changes: [],
     erps: targets.map((e) => e.id),
     failed: [],
     removed: 0,
@@ -77,6 +80,7 @@ export async function publishTo(params, erps, targets) {
     total.written += result.written;
     total.removed += result.removed;
     total.unchanged += result.unchanged;
+    total.changes.push(...result.changes);
     total.skipped.push(...result.skipped);
     total.failed.push(...result.failed);
   }

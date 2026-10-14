@@ -54,7 +54,8 @@ describe("Given a product deleted in Commerce", () => {
 
     const history = await readHistory();
     expect(history).toHaveLength(1);
-    expect(history[0]).toMatchObject({ attempts: 2, ref: "Knit/Red 01" });
+    // A delete that is recorded only cannot fail, so its redelivery is not another try.
+    expect(history[0]).toMatchObject({ attempts: 1, ref: "Knit/Red 01" });
   });
 
   test("Then an event with no sku is refused and nothing is recorded", async () => {

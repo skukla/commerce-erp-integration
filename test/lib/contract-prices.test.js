@@ -124,7 +124,12 @@ describe("Given one customer's prices in force", () => {
       row("accessmesh", 40),
       row("rackmount", 12.5, { price_type: "discount", quantity: 10 }),
     ]);
-    expect(result).toEqual({ removed: 0, unchanged: 0, written: 2 });
+    expect(result).toEqual({
+      changes: expect.any(Array),
+      removed: 0,
+      unchanged: 0,
+      written: 2,
+    });
     expect((await ledger.readLedger()).map((e) => e.before)).toEqual([
       null,
       null,
@@ -143,7 +148,12 @@ describe("Given one customer's prices in force", () => {
     tp.writeTierPrices.mockClear();
     const again = await applyCustomerPrices({}, customer, deps);
     expect(tp.writeTierPrices).not.toHaveBeenCalled();
-    expect(again).toEqual({ removed: 0, unchanged: 1, written: 0 });
+    expect(again).toEqual({
+      changes: [],
+      removed: 0,
+      unchanged: 1,
+      written: 0,
+    });
   });
 
   test("Then a changed price is rewritten, a withdrawn one deleted, and a row that held a price before gets it back", async () => {
@@ -165,7 +175,24 @@ describe("Given one customer's prices in force", () => {
       { erpId: "erp", lines: [price("accessmesh", 38)], partnerId: "C21" },
       deps,
     );
-    expect(result).toEqual({ removed: 1, unchanged: 0, written: 1 });
+    // Each row moved, for the publish's Activity record: the changed price from the ERP's last
+    // value, the withdrawn one back to the SC's own.
+    const moved = (sku, from, to) => ({
+      companyId: "21",
+      erpId: "erp",
+      from: { price: from, priceType: "fixed" },
+      partnerId: "C21",
+      quantity: 1,
+      sku,
+      to: { price: to, priceType: "fixed" },
+      websiteId: 0,
+    });
+    expect(result).toEqual({
+      changes: [moved("accessmesh", 40, 38), moved("rackmount", 30, 45)],
+      removed: 1,
+      unchanged: 0,
+      written: 1,
+    });
     expect([...tp.db.values()]).toEqual([
       row("rackmount", 45),
       row("accessmesh", 38),
@@ -195,6 +222,7 @@ describe("Given one customer's prices in force", () => {
       row("accessmesh", 40),
     ]);
     expect(result).toEqual({
+      changes: expect.any(Array),
       notOwned: ["other"],
       removed: 0,
       unchanged: 0,
@@ -217,6 +245,7 @@ describe("Given one customer's prices in force", () => {
         deps,
       ),
     ).toEqual({
+      changes: expect.any(Array),
       removed: 0,
       skipped: "partner C404 is paired with no Commerce company",
       unchanged: 0,
@@ -277,6 +306,7 @@ describe("Given every customer's prices in force for one ERP", () => {
     );
     expect(tp.db.size).toBe(0);
     expect(result).toEqual({
+      changes: expect.any(Array),
       failed: [],
       removed: 1,
       skipped: [

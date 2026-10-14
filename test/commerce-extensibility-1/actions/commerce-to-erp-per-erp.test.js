@@ -53,7 +53,11 @@ describe("Given two ERPs", () => {
   );
 
   test("Then a product created in Commerce goes to the ERP that owns it, with its own credential", async () => {
-    expect(await productCreated(OWN, product("C1"))).toEqual({ success: true });
+    // The owner comes back too, for the Activity row (2026-10-14).
+    expect(await productCreated(OWN, product("C1"))).toEqual({
+      erp: { id: "contoso", name: "Contoso ERP" },
+      success: true,
+    });
     expect(sent()).toEqual([["contoso-client", `https://b.example${IMPORT}`]]);
   });
 

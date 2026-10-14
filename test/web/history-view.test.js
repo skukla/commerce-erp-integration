@@ -590,3 +590,101 @@ describe("Given the feed's filters", () => {
     ).toStrictEqual(["order.3000000024", "erp.ev-1"]);
   });
 });
+
+describe("Given a price publish under Activity", () => {
+  const publish = (extra = {}) => ({
+    attempts: 1,
+    by: "schedule",
+    changes: [],
+    direction: "from-erp",
+    erpIds: ["erp", "contoso"],
+    failed: [],
+    kind: "price-publish",
+    lastAt: "2026-09-28T14:05:30.000Z",
+    message:
+      "Prices published: wrote 2, removed 1, unchanged 12, skipped 0, failed 0",
+    outcome: "applied",
+    ref: "1759068330000",
+    removed: 1,
+    skipped: [],
+    unchanged: 12,
+    written: 2,
+    ...extra,
+  });
+
+  test("Then it is a Prices row that says what it did, opens its own panel, and is not retried", () => {
+    const row = eventRow(publish(), { erps: ERPS, now: NOW });
+    expect(row).toMatchObject({
+      commerce: "Shared catalog prices",
+      detail: "Run on its schedule.",
+      details: "Prices published: 2 written, 1 removed",
+      erpIds: ["erp", "contoso"],
+      erpRecord: "Customer prices",
+      key: "price-publish.1759068330000",
+      open: { kind: "publish" },
+      problem: false,
+      result: "Done",
+      retriable: false,
+      type: "prices",
+    });
+  });
+
+  test("Then runs that only failed read as a problem, with the first reason and how many more", () => {
+    const row = eventRow(
+      publish({
+        attempts: 3,
+        failed: [
+          { erpId: "contoso", error: "the ERP's prices in force answered 503" },
+          { erpId: "erp", error: "ERP away", partnerId: "C1" },
+        ],
+        outcome: "failed",
+        removed: 0,
+        written: 0,
+      }),
+      { erps: ERPS, now: NOW },
+    );
+    expect(row).toMatchObject({
+      detail: "Run on its schedule. 3 tries.",
+      details: "Prices not published for 1 ERP and 1 customer",
+      problem: true,
+      reason:
+        "Contoso ERP: the ERP's prices in force answered 503 (and 1 more)",
+      result: "Failed",
+      retriable: false,
+    });
+  });
+});
+
+describe("Given changes made in Commerce under Activity", () => {
+  test("Then a new product, a stock change and a company save each have their type and say where they were made", () => {
+    const rowOf = (kind, extra) =>
+      eventRow(
+        {
+          ...order("sent"),
+          kind,
+          message: "",
+          ...extra,
+        },
+        { erps: ERPS, now: NOW },
+      );
+    expect(rowOf("product-created", { ref: "smartcable" })).toMatchObject({
+      detail: "Created in Commerce Admin.",
+      open: { kind: "product", sku: "smartcable" },
+      type: "products",
+    });
+    expect(rowOf("stock-changed", { ref: "accesspoint" })).toMatchObject({
+      detail: "Changed in Commerce Admin.",
+      type: "stock",
+    });
+    expect(
+      rowOf("company-saved", {
+        company: { id: 4, name: "Kukla Studios" },
+        ref: "4",
+      }),
+    ).toMatchObject({
+      detail: "Saved in Commerce.",
+      open: { id: 4, kind: "company" },
+      type: "companies",
+    });
+  });
+});

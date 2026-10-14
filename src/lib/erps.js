@@ -129,6 +129,21 @@ export async function loadErps(params = {}) {
   return stored.length > 0 ? stored : listErps(params);
 }
 
+/**
+ * The ERP a change made in Commerce went to, for its Activity record: the owner, or the only
+ * ERP there is. Its id and name only: the entry also holds the ERP's connection.
+ * @param {object} params action params
+ * @param {string} [ownerId] the owning ERP, when there are several
+ * @returns {Promise<{ id: string, name: string } | undefined>}
+ */
+export async function erpTold(params, ownerId) {
+  const erps = await loadErps(params);
+  const told =
+    erps.find((e) => e.id === ownerId) ??
+    (erps.length === 1 ? erps[0] : undefined);
+  return told ? { id: told.id, name: told.name } : undefined;
+}
+
 function entryProblem(entry, index) {
   if (!ID.test(String(entry?.id ?? ""))) {
     return `entry ${index}: id must be lower-case letters, digits and hyphens, starting with a letter`;

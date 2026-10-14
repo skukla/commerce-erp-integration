@@ -8,7 +8,7 @@ import {
   restoreAtOwner,
 } from "#lib/discontinue-elsewhere";
 import { erp } from "#lib/erp";
-import { loadErps } from "#lib/erps";
+import { erpTold, loadErps } from "#lib/erps";
 import { ownerParams } from "#lib/owner-params";
 
 /**
@@ -34,19 +34,6 @@ async function reconcileSalesStatus(params, sku, ownerId) {
     ...(restored.length > 0 ? { restoredIn: restored } : {}),
     ...(discontinued.length > 0 ? { discontinuedIn: discontinued } : {}),
   };
-}
-
-/**
- * The ERP a product went to, for its Activity record: the owner, or the only ERP there is.
- * @returns {Promise<{ id: string, name: string } | undefined>}
- */
-async function erpTold(params, ownerId) {
-  const erps = await loadErps(params);
-  const told =
-    erps.find((e) => e.id === ownerId) ??
-    (erps.length === 1 ? erps[0] : undefined);
-  // Its id and name only: the entry also holds the ERP's connection.
-  return told ? { id: told.id, name: told.name } : undefined;
 }
 
 /**

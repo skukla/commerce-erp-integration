@@ -6,8 +6,10 @@ import {
 } from "@adobe/aio-commerce-sdk/core/responses";
 import AioLogger from "@adobe/aio-lib-core-logging";
 
+import { recordProductChange } from "#lib/history";
 import { checkMissingRequestInputs, stringParameters } from "#lib/utils";
 
+import { activityOf, CREATE_SENDS } from "../activity.js";
 import { postProcess } from "./post.js";
 import { preProcess } from "./pre.js";
 import { sendData } from "./sender.js";
@@ -58,6 +60,18 @@ async function main(params) {
     const preProcessed = preProcess(params, transformedData);
     logger.debug(`Start sending data: ${stringParameters(params)}`);
     const result = await sendData(params, transformedData, preProcessed);
+    // Under Activity, a new product shows as what it told the ERP (2026-10-14). A product
+    // another ERP owns leaves no row.
+    // biome-ignore lint/suspicious/noUnnecessaryConditions: sendData answers skipped for a product another ERP owns; biome's inference misses it.
+    if (!result.skipped) {
+      const [row] = transformedData.products;
+      await recordProductChange(
+        "product-created",
+        row.sku,
+        activityOf(row, result, CREATE_SENDS),
+        logger,
+      );
+    }
     if (!result.success) {
       logger.error(`Send data failed: ${result.message}`);
       return buildErrorResponse(result.statusCode, {

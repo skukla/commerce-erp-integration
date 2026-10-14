@@ -26,7 +26,11 @@ describe("Given the stock event chain", () => {
     expect(transformed).toEqual({ productId: 12, stock: 7 });
     skuForProductId.mockResolvedValue("W1");
     erp.importRecords.mockResolvedValue({ data: {}, ok: true, status: 200 });
-    expect(await sendData({}, transformed)).toEqual({ success: true });
+    // The SKU, the quantities and the ERP come back for the Activity row (2026-10-14).
+    expect(await sendData({}, transformed)).toMatchObject({
+      sku: "W1",
+      success: true,
+    });
     expect(erp.importRecords).toHaveBeenCalledWith(
       {},
       {

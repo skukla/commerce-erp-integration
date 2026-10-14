@@ -19,6 +19,7 @@ import { readRun, resetRunsClient } from "#lib/action-runs";
 import { publishErpPrices } from "#lib/contract-prices";
 import { erp } from "#lib/erp";
 import { loadErps } from "#lib/erps";
+import { readHistory, resetHistoryClient } from "#lib/history";
 import { main } from "#src/erp/prices/index";
 
 import { fakeState } from "../../../box/state.js";
@@ -42,7 +43,19 @@ const post = (body = {}) => ({
   __ow_body: JSON.stringify(body),
   __ow_method: "post",
 });
+/** One price row a publish moved (lib/contract-prices.js changesOf). */
+const MOVED = {
+  companyId: "21",
+  erpId: "acme",
+  from: { price: 40, priceType: "fixed" },
+  partnerId: "C1",
+  quantity: 1,
+  sku: "A1",
+  to: { price: 38, priceType: "fixed" },
+  websiteId: 0,
+};
 const counts = (n) => ({
+  changes: Array.from({ length: n }, () => MOVED),
   failed: [],
   removed: n,
   skipped: [{ erpId: "x", partnerId: "C9", reason: "no catalog" }],
@@ -54,6 +67,7 @@ let state;
 beforeEach(() => {
   state = fakeState();
   resetRunsClient(state);
+  resetHistoryClient(fakeState());
   loadErps.mockResolvedValue(TWO);
   erp.inForce.mockImplementation(async (params) => ({
     data: { items: ITEMS[params.ERP_BASE_URL] },
@@ -65,6 +79,7 @@ beforeEach(() => {
 afterEach(() => {
   vi.clearAllMocks();
   resetRunsClient();
+  resetHistoryClient();
 });
 
 describe("Given erp/prices", () => {
@@ -97,6 +112,23 @@ describe("Given erp/prices", () => {
         { erpId: "x", partnerId: "C9", reason: "no catalog" },
       ],
       unchanged: 0,
+      written: 2,
+    });
+  });
+
+  test("Then the publish is an Activity row with each row it moved, and the answer keeps only the counts", async () => {
+    const res = await main(post());
+
+    expect(res.body).not.toHaveProperty("changes");
+    const [row] = await readHistory();
+    expect(row).toMatchObject({
+      by: "demo-builder",
+      changes: [MOVED, MOVED],
+      direction: "from-erp",
+      erpIds: ["acme", "globex"],
+      kind: "price-publish",
+      outcome: "applied",
+      removed: 2,
       written: 2,
     });
   });

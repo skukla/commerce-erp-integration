@@ -118,9 +118,16 @@ describe("Given a line scoped to a sales organization", () => {
       row("A1", 7, { price: 10, price_type: "discount" }),
     ]);
     expect([...tp.db.values()].map((r) => r.website_id).sort()).toEqual([5, 7]);
-    expect(result).toEqual({ removed: 0, unchanged: 0, written: 2 });
+    expect(result).toEqual({
+      changes: expect.any(Array),
+      removed: 0,
+      unchanged: 0,
+      written: 2,
+    });
     // The ledger knows which website each row is on, so a later set can take it back.
-    expect((await ledger.readLedger()).map((e) => e.websiteId).sort()).toEqual([5, 7]);
+    expect((await ledger.readLedger()).map((e) => e.websiteId).sort()).toEqual([
+      5, 7,
+    ]);
   });
 
   test("Then an unscoped line still goes to every website, beside the scoped ones", async () => {
@@ -130,11 +137,9 @@ describe("Given a line scoped to a sales organization", () => {
       customer([everywhere("B2", 40), eu("A1", 10)]),
       depsWith(tp, { websiteIdsOf: withSites }),
     );
-    expect([...tp.db.values()].map((r) => `${r.sku}@${r.website_id}`).sort()).toEqual([
-      "A1@5",
-      "A1@7",
-      "B2@0",
-    ]);
+    expect(
+      [...tp.db.values()].map((r) => `${r.sku}@${r.website_id}`).sort(),
+    ).toEqual(["A1@5", "A1@7", "B2@0"]);
   });
 
   test("Then an organization that sells through no website here is left out and named — never published everywhere", async () => {
@@ -146,6 +151,7 @@ describe("Given a line scoped to a sales organization", () => {
     );
     expect(tp.writeTierPrices).not.toHaveBeenCalled();
     expect(result).toEqual({
+      changes: expect.any(Array),
       removed: 0,
       unchanged: 0,
       unmapped: ["A1 (sales organization 3000)"],
@@ -160,7 +166,9 @@ describe("Given a line scoped to a sales organization", () => {
       customer([eu("A1", 10), everywhere("B2", 40)]),
       depsWith(tp),
     );
-    expect([...tp.db.values()].map((r) => `${r.sku}@${r.website_id}`)).toEqual(["B2@0"]);
+    expect([...tp.db.values()].map((r) => `${r.sku}@${r.website_id}`)).toEqual([
+      "B2@0",
+    ]);
     expect(result.unmapped).toEqual(["A1 (sales organization 2000)"]);
   });
 
@@ -169,7 +177,12 @@ describe("Given a line scoped to a sales organization", () => {
     const deps = depsWith(tp, { websiteIdsOf: withSites });
     await applyCustomerPrices({}, customer([eu("A1", 10)]), deps);
     const again = await applyCustomerPrices({}, customer([eu("A1", 10)]), deps);
-    expect(again).toEqual({ removed: 0, unchanged: 2, written: 0 });
+    expect(again).toEqual({
+      changes: [],
+      removed: 0,
+      unchanged: 2,
+      written: 0,
+    });
     const gone = await applyCustomerPrices({}, customer([]), deps);
     expect(gone.removed).toBe(2);
     expect(tp.db.size).toBe(0);

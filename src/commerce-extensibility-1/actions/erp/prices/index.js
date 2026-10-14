@@ -7,6 +7,7 @@ import {
 import AioLogger from "@adobe/aio-lib-core-logging";
 
 import { readRun, runProblem, trackRun } from "#lib/action-runs";
+import { recordPricePublish } from "#lib/history";
 import { describePublish, pickErps, publishTo } from "#lib/publish-prices";
 import { readPayload } from "#lib/webhook";
 
@@ -47,7 +48,17 @@ async function publish(params, logger) {
   if (picked.problem) {
     return badRequest(picked.problem);
   }
-  const work = () => publishTo(params, picked.erps, picked.targets);
+  // Each row moved goes to Activity; the answer keeps its counts, so a publish after a fill
+  // that writes thousands of rows does not answer them all.
+  const work = async () => {
+    const { changes, ...total } = await publishTo(
+      params,
+      picked.erps,
+      picked.targets,
+    );
+    await recordPricePublish({ ...total, changes }, "demo-builder", logger);
+    return total;
+  };
   const result = await (run === undefined
     ? work()
     : trackRun("prices", String(run), work));

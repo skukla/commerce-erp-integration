@@ -6,6 +6,7 @@ import {
 } from "@adobe/aio-commerce-sdk/core/responses";
 import AioLogger from "@adobe/aio-lib-core-logging";
 
+import { recordProductChange } from "#lib/history";
 import { stringParameters } from "#lib/utils";
 
 import { postProcess } from "./post.js";
@@ -39,6 +40,16 @@ async function main(params) {
     const preProcessed = preProcess(params, transformedData);
     logger.debug(`Start sending data: ${stringParameters(params)}`);
     const result = await sendData(params, transformedData, preProcessed);
+    // Under Activity, a stock change made in Commerce shows as what it told the ERP
+    // (2026-10-14). A product another ERP owns, or an id with no product, leaves no row.
+    if (result.sku) {
+      await recordProductChange(
+        "stock-changed",
+        result.sku,
+        activityOf(result),
+        logger,
+      );
+    }
     if (!result.success) {
       logger.error(`Send data failed: ${result.message}`);
       return buildErrorResponse(result.statusCode, {
@@ -53,6 +64,28 @@ async function main(params) {
     logger.error(`Error processing the request: ${error.message}`);
     return internalServerError(error.message);
   }
+}
+
+/** The Activity row for a stock change: each source's quantity told, or why it was not. */
+function activityOf(result) {
+  const product = `Product ${result.sku}`;
+  if (!result.success) {
+    return {
+      message: `${product}: stock not sent to the ERP: ${result.message}`,
+      outcome: "failed",
+    };
+  }
+  const to = result.erp?.name ?? "the ERP";
+  const stock = result.warehouses.map(({ name, quantity }) => ({
+    name,
+    quantity,
+  }));
+  return {
+    message: `${product}: told ${to} its stock.`,
+    outcome: "sent",
+    stock,
+    ...(result.erp ? { erpIds: [result.erp.id] } : {}),
+  };
 }
 
 export { main };

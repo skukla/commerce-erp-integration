@@ -11,6 +11,7 @@ import { COMMERCE_EVENTS, originOf } from "#lib/commerce-events";
 import { companyToErp } from "#lib/company-sync";
 import { erp } from "#lib/erp";
 import { loadErps, SINGLE_ERP_ID } from "#lib/erps";
+import { recordCompanySave } from "#lib/history";
 import { erpCustomerOf, pairCustomer } from "#lib/key-map";
 import { websiteSettings } from "#lib/settings";
 
@@ -19,7 +20,8 @@ import { websiteSettings } from "#lib/settings";
  * business partner in every ERP the integration serves (lib/company-sync.js), paired per ERP
  * in the key map (a company buying from several brands is a customer in each brand's ERP).
  * A failure answers 500 so I/O Events delivers the event again; an ERP that already has the
- * company is updated, not duplicated.
+ * company is updated, not duplicated. Under Activity it is one row per company: its name, the
+ * customer it is in each ERP, and how the send ended (2026-10-14; before, nothing recorded it).
  */
 async function main(params) {
   const logger = AioLogger("company-commerce-saved", {
@@ -32,9 +34,10 @@ async function main(params) {
   if (!(Number.isInteger(companyId) && companyId > 0)) {
     return badRequest("the company event carries no company id");
   }
+  let erps = [];
+  const partners = [];
   try {
-    const erps = await loadErps(params);
-    const partners = [];
+    erps = await loadErps(params);
     for (const entry of erps) {
       // biome-ignore lint/performance/noAwaitInLoops: one ERP at a time, each paired as it lands
       const partner = await companyToErp(
@@ -50,15 +53,40 @@ async function main(params) {
           websiteSettings: (code) => websiteSettings(code, logger),
         },
       );
-      partners.push(`${partner.id} in ${entry.name}`);
+      partners.push({ erp: entry, partner });
     }
-    return ok(
-      `Company ${companyId} is business partner ${partners.join(", ")}`,
-    );
+    const said = `Company ${companyId} is business partner ${partners
+      .map(({ erp: entry, partner }) => `${partner.id} in ${entry.name}`)
+      .join(", ")}`;
+    await recordCompanySave(companyId, savedOf(said, erps, partners), logger);
+    return ok(said);
   } catch (error) {
     logger.error(`company ${companyId} not sent: ${error.message}`);
+    const failed = {
+      ...savedOf(
+        `Company ${companyId}: not sent to the ERP: ${error.message}`,
+        erps,
+        partners,
+      ),
+      outcome: "failed",
+    };
+    await recordCompanySave(companyId, failed, logger);
     return internalServerError(error.message);
   }
+}
+
+/**
+ * The Activity record of a save: every ERP it was for, and the company's name and customer
+ * numbers as far as the ERPs took it.
+ */
+function savedOf(message, erps, partners) {
+  return {
+    customers: [...new Set(partners.map(({ partner }) => partner.id))],
+    erpIds: erps.map((entry) => entry.id),
+    message,
+    name: partners[0]?.partner.name,
+    outcome: "sent",
+  };
 }
 
 /** The params an ERP is called with: its own address and credential when there are several. */

@@ -4,6 +4,7 @@ import {
 } from "@adobe/aio-commerce-sdk/core/responses";
 import AioLogger from "@adobe/aio-lib-core-logging";
 
+import { recordPricePublish } from "#lib/history";
 import { describePublish, publishPrices } from "#lib/publish-prices";
 import { dueMoment, SCHEDULED_JOBS, scheduleOf } from "#lib/schedule";
 import { claimDueMoment, recordScheduledRun } from "#lib/scheduled-runs";
@@ -14,7 +15,20 @@ const JOBS = Object.freeze({
   // The ERP raises no event when a price line's start or end date arrives, so this run is
   // what makes the date take effect: every ERP's prices in force are published again,
   // exactly as erp/prices does. A publish is a replace that writes only changes.
-  prices: { describe: describePublish, run: (params) => publishPrices(params) },
+  // Each run that moved a row, or failed one, is also an Activity row with what it moved;
+  // the answer keeps the counts.
+  prices: {
+    describe: describePublish,
+    run: async (params, logger) => {
+      const published = await publishPrices(params);
+      if (published.problem) {
+        return published;
+      }
+      const { changes, ...total } = published;
+      await recordPricePublish({ ...total, changes }, "schedule", logger);
+      return total;
+    },
+  },
 });
 
 /** Run one job if it is due, recording how it ended; never throws. */
@@ -36,7 +50,7 @@ async function runIfDue(id, params, settings, now, logger) {
   }
   const at = moment.toISOString();
   try {
-    const result = await JOBS[id].run(params);
+    const result = await JOBS[id].run(params, logger);
     logger.info(`scheduled ${id} for ${at}: ${JOBS[id].describe(result)}`);
     // The Admin page's Activity shows when this last ran and what it changed.
     await recordScheduledRun(id, result);

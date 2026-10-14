@@ -6,6 +6,9 @@
  * the customer with the company, and Commerce names it. Each pair and each company is looked
  * up once per read, however many records name it. A record whose company cannot be found is
  * left as it was; the page then shows the customer number.
+ *
+ * A price publish names many companies, one per row it moved: it is given `companies`, each
+ * company id with its name, so its panel lists them by name (2026-10-14).
  */
 import { SINGLE_ERP_ID } from "#lib/erps";
 
@@ -46,8 +49,23 @@ export function nameCompanies(entries, { companyOf, nameOf }) {
       companyOf(partnerId, erpId),
     );
   };
+  const namesOf = async (entry) => {
+    const ids = [
+      ...new Set((entry.changes ?? []).map((c) => String(c.companyId))),
+    ].filter((id) => id !== "undefined");
+    const named = await Promise.all(
+      ids.map(async (id) => [id, await once(names, id, () => nameOf(id))]),
+    );
+    return {
+      ...entry,
+      companies: Object.fromEntries(named.filter(([, n]) => n)),
+    };
+  };
   return Promise.all(
     entries.map(async (entry) => {
+      if (entry.kind === "price-publish") {
+        return namesOf(entry);
+      }
       if (!(entry.direction === "from-erp" && COMPANY_KINDS.has(entry.kind))) {
         return entry;
       }

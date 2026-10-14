@@ -23,6 +23,7 @@ vi.mock("#lib/settings", () => ({ settingsFor: vi.fn() }));
 import { publishErpPrices } from "#lib/contract-prices";
 import { erp } from "#lib/erp";
 import { loadErps } from "#lib/erps";
+import { readHistory, resetHistoryClient } from "#lib/history";
 import {
   readScheduledRuns,
   resetScheduledRunsClient,
@@ -63,6 +64,7 @@ const publishedErps = () => publishErpPrices.mock.calls.map((c) => c[1].id);
 beforeEach(() => {
   vi.useFakeTimers({ toFake: ["Date"] });
   resetScheduledRunsClient(fakeState());
+  resetHistoryClient(fakeState());
   settingsFor.mockResolvedValue({ ...DEFAULTS });
   loadErps.mockResolvedValue([
     ERP("acme", "https://a.example"),
@@ -70,6 +72,7 @@ beforeEach(() => {
   ]);
   erp.inForce.mockResolvedValue({ data: { items: [] }, ok: true, status: 200 });
   publishErpPrices.mockResolvedValue({
+    changes: [],
     failed: [],
     removed: 1,
     skipped: [],
@@ -81,6 +84,7 @@ afterEach(() => {
   vi.clearAllMocks();
   vi.useRealTimers();
   resetScheduledRunsClient();
+  resetHistoryClient();
 });
 
 describe("Given the default schedule: the price publish every hour at :05, UTC", () => {
@@ -122,6 +126,61 @@ describe("Given the default schedule: the price publish every hour at :05, UTC",
       lastMoment: "2026-09-28T14:05:00.000Z",
       lastRun: { removed: 2, unchanged: 4, written: 0 },
     });
+  });
+});
+
+describe("Given a scheduled publish under Activity", () => {
+  test("Then a run that moved a row is a row of its own, said to be the schedule's", async () => {
+    await tickAt("2026-09-28T14:05:30Z");
+    await tickAt("2026-09-28T15:05:30Z");
+
+    const rows = await readHistory();
+    expect(rows).toHaveLength(2);
+    expect(rows[0]).toMatchObject({
+      by: "schedule",
+      kind: "price-publish",
+      outcome: "applied",
+      removed: 2,
+    });
+  });
+
+  test("Then a run that changed nothing and failed nothing leaves no row", async () => {
+    publishErpPrices.mockResolvedValue({
+      changes: [],
+      failed: [],
+      removed: 0,
+      skipped: [],
+      unchanged: 2,
+      written: 0,
+    });
+
+    await tickAt("2026-09-28T14:05:30Z");
+
+    expect(await readHistory()).toHaveLength(0);
+  });
+
+  test("Then runs that only fail share one row, counting them, until one fails nothing", async () => {
+    const failing = {
+      changes: [],
+      failed: [{ erpId: "acme", error: "ERP away", partnerId: "C1" }],
+      removed: 0,
+      skipped: [],
+      unchanged: 0,
+      written: 0,
+    };
+    publishErpPrices.mockResolvedValue(failing);
+    await tickAt("2026-09-28T14:05:30Z");
+    await tickAt("2026-09-28T15:05:30Z");
+
+    const [row] = await readHistory();
+    expect(await readHistory()).toHaveLength(1);
+    // Two ERPs each fail their customer, on each of two runs.
+    expect(row).toMatchObject({ attempts: 2, outcome: "failed" });
+    expect(row.failed).toHaveLength(2);
+
+    publishErpPrices.mockResolvedValue({ ...failing, failed: [] });
+    await tickAt("2026-09-28T16:05:30Z");
+    expect(await readHistory()).toHaveLength(0);
   });
 });
 

@@ -176,6 +176,36 @@ async function removeRows(params, entries, deps) {
 }
 
 /**
+ * Each row a publish moved, for its Activity record: the company and the price row, and its
+ * value before and after (`{ price, priceType }`, or null for no tier price). A row the ERP
+ * changed again moves from the ERP's last value; a new one from what Commerce had; a row taken
+ * back returns to what Commerce had before the ERP first wrote it.
+ */
+function changesOf(written, gone, heldByKey, target, customer) {
+  const about = (row, companyId) => ({
+    companyId,
+    erpId: customer.erpId,
+    partnerId: customer.partnerId,
+    quantity: row.quantity,
+    sku: row.sku,
+    websiteId: row.websiteId,
+  });
+  return [
+    ...written.map((r) => ({
+      ...about(r, target.companyId),
+      from: heldByKey.get(r.key)?.after ?? r.before ?? null,
+      to: r.after,
+    })),
+    // A ledger entry names its SKU `id` (lib/ledger.js recordTierPriceWrite).
+    ...gone.map((e) => ({
+      ...about({ ...e, sku: e.id }, e.companyId),
+      from: e.after ?? null,
+      to: e.before ?? null,
+    })),
+  ];
+}
+
+/**
  * Apply one customer's prices in force from one ERP.
  * @param {object} params action params
  * @param {{ erpId: string, partnerId: string, lines: object[] }} customer
@@ -183,8 +213,9 @@ async function removeRows(params, entries, deps) {
  *   websiteIdsOf?(salesOrg) }` — the last answers the website ids a sales organization sells
  *   through (lib/contract-price-deps.js); without it a scoped line maps to no website
  * @returns {Promise<{ written: number, removed: number, unchanged: number,
- *   skipped?: string, notOwned?: string[], unmapped?: string[] }>} `unmapped` names the
- *   scoped lines whose sales organization sells through no website here
+ *   changes: object[], skipped?: string, notOwned?: string[], unmapped?: string[] }>}
+ *   `changes` is each row moved ({@link changesOf}); `unmapped` names the scoped lines whose
+ *   sales organization sells through no website here
  */
 export async function applyCustomerPrices(params, customer, deps) {
   const held = await deps.ledger.tierPriceEntries({
@@ -220,6 +251,7 @@ export async function applyCustomerPrices(params, customer, deps) {
   const gone = held.filter((e) => !wanted.has(entryKey(e)));
   await removeRows(params, gone, deps);
   return {
+    changes: changesOf(toWrite, gone, heldByKey, target, customer),
     ...(notOwned.length > 0 ? { notOwned } : {}),
     removed: gone.length,
     ...(target.skip ? { skipped: target.skip } : {}),
@@ -240,6 +272,7 @@ export async function applyCustomerPrices(params, customer, deps) {
  */
 export async function publishErpPrices(params, erp, items, deps) {
   const total = {
+    changes: [],
     failed: [],
     removed: 0,
     skipped: [],
@@ -268,6 +301,7 @@ export async function publishErpPrices(params, erp, items, deps) {
       total.written += result.written;
       total.removed += result.removed;
       total.unchanged += result.unchanged;
+      total.changes.push(...result.changes);
       if (result.skipped) {
         total.skipped.push({
           erpId: erp.id,

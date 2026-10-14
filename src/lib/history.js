@@ -109,35 +109,82 @@ export async function recordCommerceChange(kind, value, result, options = {}) {
  *
  * - `product-deleted` (AB-26y step 5): recorded here and told to no ERP, so its direction
  *   is "commerce" and its outcome "done".
- * - `product-changed`: a save in Commerce told to the product's ERP (its name and price),
- *   "to-erp", "sent" or "failed". Before 2026-10-13 nothing recorded it, so a product
- *   renamed in Commerce reached its ERP and never showed under Activity.
+ * - `product-created`, `product-changed`: a product made or saved in Commerce, told to its
+ *   ERP, "to-erp", "sent" or "failed". A save sends the name, the price and the stock
+ *   whatever changed (Commerce's event does not say which attribute did), and `sent` names
+ *   them, so the row says what the ERP was told. Before 2026-10-13 a save left no record;
+ *   before 2026-10-14 a new product left none.
+ * - `stock-changed`: a stock quantity saved in Commerce, told to the ERP, with each
+ *   source's quantity (`stock`). Before 2026-10-14 it left no record.
+ *
+ * A save after one that got through is a new change, not another try: only a redelivery of
+ * one that failed counts as an attempt.
  *
  * The key carries the SKU in hex: State keys take only letters, digits, "-", "_" and ".",
  * and a SKU may hold anything.
- * @param {"product-deleted"|"product-changed"} kind
+ * @param {"product-created"|"product-changed"|"product-deleted"|"stock-changed"} kind
  * @param {string} sku the product
- * @param {{ message: string, outcome?: string, erpIds?: string[] }} result what the row
- *   says, how it ended (default "done"), and the ERPs concerned (several ERPs)
+ * @param {{ message: string, outcome?: string, erpIds?: string[], sent?: string[],
+ *   stock?: Array<{ name: string, quantity: number }> }} result what the row says, how it
+ *   ended (default "done"), the ERPs concerned (several ERPs), and what was sent
  * @param {object} [logger]
  * @returns {Promise<void>}
  */
 export async function recordProductChange(kind, sku, result, logger) {
+  const { erpIds, message, outcome = "done", sent, stock } = result;
   await updateRecord(
     `commerce.${kind}.${Buffer.from(sku, "utf8").toString("hex")}`,
     (before, now) => ({
-      attempts: (before?.attempts ?? 0) + 1,
+      ...tries(before, now),
       direction: kind === "product-deleted" ? "commerce" : "to-erp",
-      firstAt: before?.firstAt ?? now,
       kind,
       lastAt: now,
-      message: result.message,
-      outcome: result.outcome ?? "done",
+      message,
+      outcome,
       ref: sku,
-      ...(result.erpIds ? { erpIds: result.erpIds } : {}),
+      ...(erpIds ? { erpIds } : {}),
+      ...(sent ? { sent } : {}),
+      ...(stock ? { stock } : {}),
     }),
     logger,
   );
+}
+
+/**
+ * A company saved in Commerce, told to every ERP (actions/company/commerce/saved): one record
+ * per company, with its name and the customer it is in each ERP. Before 2026-10-14 it left no
+ * record, so a company sent to every ERP showed nowhere.
+ * @param {number} companyId the Commerce company
+ * @param {{ message: string, outcome: string, erpIds: string[], name?: string,
+ *   customers?: string[] }} result
+ * @param {object} [logger]
+ * @returns {Promise<void>}
+ */
+export async function recordCompanySave(companyId, result, logger) {
+  const { customers, erpIds, message, name, outcome } = result;
+  await updateRecord(
+    `commerce.company-saved.${companyId}`,
+    (before, now) => ({
+      ...tries(before, now),
+      company: { id: companyId, ...(name ? { name } : {}) },
+      direction: "to-erp",
+      erpIds,
+      kind: "company-saved",
+      lastAt: now,
+      message,
+      outcome,
+      ref: String(companyId),
+      ...(customers?.length ? { customers } : {}),
+    }),
+    logger,
+  );
+}
+
+/** A save after one that got through starts again; a redelivery of a failed one is a try. */
+function tries(before, now) {
+  return before && FAILED.has(before.outcome)
+    ? { attempts: before.attempts + 1, firstAt: before.firstAt }
+    : { attempts: 1, firstAt: now };
 }
 
 export async function recordOrderOutcome(order, result, options = {}) {
@@ -165,6 +212,72 @@ export async function recordOrderOutcome(order, result, options = {}) {
     }),
     options.logger,
   );
+}
+
+/** The most rows a publish's record keeps: State holds a value up to 1 MB. */
+const MAX_PUBLISH_CHANGES = 200;
+
+/**
+ * A price publish, for the Admin screen's history (2026-10-14): what it wrote and took back,
+ * each row moved before and after, and the customers it skipped or failed. Before, only its
+ * counts were kept, in the scheduled run's record (lib/scheduled-runs.js), and nothing showed
+ * under Activity.
+ *
+ * Most hourly runs change nothing, and a run that changes nothing and fails nothing leaves no
+ * row: it would bury the log. One that changed something is a row of its own. One that only
+ * failed updates a single row in place (`prices.failing`), its attempts counting the runs, so
+ * an ERP that stays away does not leave a row an hour; the next run that fails nothing
+ * removes it.
+ * @param {{ erps: string[], written: number, removed: number, unchanged: number,
+ *   changes?: object[], skipped: object[], failed: object[] }} total lib/publish-prices.js
+ * @param {"schedule"|"demo-builder"} by what started it
+ * @param {object} [logger]
+ * @returns {Promise<void>}
+ */
+export async function recordPricePublish(total, by, logger) {
+  const changes = total.changes ?? [];
+  const failed = total.failed ?? [];
+  const changed = total.written + total.removed > 0;
+  if (!changed && failed.length === 0) {
+    await forgetRecord("prices.failing", logger);
+    return;
+  }
+  const at = new Date().toISOString();
+  const key = changed ? `prices.${Date.parse(at)}` : "prices.failing";
+  await updateRecord(
+    key,
+    (before, now) => ({
+      ...(changed ? { attempts: 1, firstAt: now } : tries(before, now)),
+      by,
+      changes: changes.slice(0, MAX_PUBLISH_CHANGES),
+      direction: "from-erp",
+      erpIds: total.erps,
+      failed,
+      kind: "price-publish",
+      lastAt: now,
+      message: `Prices published: wrote ${total.written}, removed ${total.removed}, unchanged ${total.unchanged}, skipped ${total.skipped.length}, failed ${failed.length}`,
+      moreChanges: Math.max(0, changes.length - MAX_PUBLISH_CHANGES),
+      outcome: failed.length > 0 ? "failed" : "applied",
+      ref: key.slice("prices.".length),
+      removed: total.removed,
+      skipped: total.skipped,
+      unchanged: total.unchanged,
+      written: total.written,
+    }),
+    logger,
+  );
+  if (changed && failed.length === 0) {
+    await forgetRecord("prices.failing", logger);
+  }
+}
+
+/** Delete one record, if there is one. Never throws, as {@link updateRecord}. */
+async function forgetRecord(key, logger) {
+  try {
+    await (await state()).delete(`${PREFIX}${key}`);
+  } catch (error) {
+    logger?.warn(`history: ${key} not removed: ${error.message}`);
+  }
 }
 
 /**

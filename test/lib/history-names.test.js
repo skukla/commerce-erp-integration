@@ -86,3 +86,29 @@ describe("Given the history as read", () => {
     expect(named[2]).toBe(order);
   });
 });
+
+describe("Given a price publish in the history", () => {
+  test("Then it carries the name of each company it moved a price for, each read once", async () => {
+    const deps = readers();
+    const publish = {
+      changes: [
+        { companyId: "4", sku: "A1" },
+        { companyId: "4", sku: "B2" },
+        { companyId: "2", sku: "A1" },
+        { companyId: "9", sku: "A1" },
+      ],
+      direction: "from-erp",
+      kind: "price-publish",
+      ref: "1760450700000",
+    };
+
+    const [named] = await nameCompanies([publish], deps);
+
+    // Company 9 has no name to find, so it is left out and the panel shows its id.
+    expect(named.companies).toStrictEqual({
+      2: "ServerSavvy Solutions",
+      4: "Kukla Studios",
+    });
+    expect(deps.nameOf).toHaveBeenCalledTimes(3);
+  });
+});
