@@ -1,0 +1,21 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Band</title>
+<link href="https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@400;600;700&display=swap" rel="stylesheet">
+<link href="one-home.css" rel="stylesheet"><style>
+.id-erps { gap: 28px; }
+.erp-id { display: flex; gap: 10px; align-items: center; }
+.erp-id b { display: block; font-size: 14px; color: var(--text-strong); }
+.erp-logo { display: grid; width: 34px; height: 34px; place-items: center; background: var(--erp); border-radius: 4px; }
+.status.small { font-size: 12px; color: var(--muted); }
+.compare-band { margin-bottom: 28px; }
+.compare-band h3 { margin: 0 0 8px; font-size: 13px; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: .04em; }
+</style></head><body>
+<div class="admin"><nav class="rail"><div class="logo">A</div><a class="">Dashboard</a><a class="">Sales</a><a class="">Catalog</a><a class="">Customers</a><a class="">Marketing</a><a class="">Content</a><a class="">Reports</a><a class="">Stores</a><a class="">System</a><a class="on">Apps</a></nav><div class="content"><h1 class="page-title">ERP Integration: the band, two ways</h1>
+<div class="compare-band"><h3>Now: flat</h3><div class="band"><div class="band-erps">
+<span class="erp-name nw">Northwind ERP</span><span class="status ok">Connected</span>
+<span class="erp-name ct">Contoso ERP</span><span class="status warn">Not reachable: in maintenance until 15:55</span>
+</div><div class="band-right"><span>Next price publish <strong>8:05 AM</strong>. Last ran 7:05 AM, nothing changed.</span><span>Checked just now</span><span class="icon-refresh">⟳</span></div></div></div>
+<div class="compare-band"><h3>Proposed: each ERP's identity</h3><div class="band"><div class="band-erps id-erps">
+<div class="erp-id"><span class="erp-logo" style="--erp:var(--northwind)"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="#fff" stroke-width="1.8" stroke-linejoin="round"><path d="M12 3 20 7.5v9L12 21l-8-4.5v-9z"/><path d="M4 7.5 12 12l8-4.5M12 12v9"/></svg></span><span><b>Northwind ERP</b><span class="status ok small">Connected</span></span></div>
+<div class="erp-id"><span class="erp-logo" style="--erp:var(--contoso)"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="#fff" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><ellipse cx="12" cy="12" rx="9" ry="4" transform="rotate(-25 12 12)"/></svg></span><span><b>Contoso ERP</b><span class="status warn small">Not reachable until 15:55</span></span></div>
+</div><div class="band-right"><span>Next price publish <strong>8:05 AM</strong>. Last ran 7:05 AM, nothing changed.</span><span>Checked just now</span><span class="icon-refresh">⟳</span></div></div></div>
+<p class="foot">The logo marks stand in for each ERP's own (demo-erp's "cube" and "orbit"); the real ones would come from the ERP's appearance, as its color already does.</p></div></div></body></html>
