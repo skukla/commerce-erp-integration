@@ -131,40 +131,6 @@ code {
   gap: 12px;
   align-items: center;
 }
-.band-link strong {
-  color: var(--text-strong);
-}
-.band-link {
-  padding: 0;
-  font-family: inherit;
-  font-size: 13px;
-  color: var(--text-muted);
-  text-align: left;
-  cursor: pointer;
-  background: none;
-  border: 0;
-}
-.band-link:hover {
-  color: var(--link);
-  text-decoration: underline;
-}
-
-/* An ERP status chip: the ERP's color, its name, and whether it answers. */
-.dot {
-  display: inline-block;
-  flex: none;
-  width: 8px;
-  height: 8px;
-  background: var(--ok);
-  border-radius: 50%;
-}
-.dot.warn {
-  background: var(--warn-dot);
-}
-.dot.bad {
-  background: var(--bad);
-}
-
 /* Horizontal tabs, Admin-style: plain labels, the active one underlined. */
 .tabs {
   display: flex;
@@ -324,65 +290,8 @@ code {
   background: var(--erp);
   border-radius: 50%;
 }
-.chip-unnamed {
-  font-style: italic;
-  font-weight: 400;
-  color: var(--text-muted);
-  background: #f3f3f3;
-}
-.chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-}
-
-.badge {
-  display: inline-flex;
-  gap: 6px;
-  align-items: center;
-  height: 24px;
-  padding: 0 10px;
-  font-size: 13px;
-  font-weight: 600;
-  white-space: nowrap;
-  border-radius: 2px;
-}
-.badge-ok {
-  color: var(--ok);
-  background: var(--ok-bg);
-}
-.badge-warn {
-  color: var(--warn);
-  background: var(--warn-bg);
-}
-.badge-bad {
-  color: var(--bad);
-  background: var(--bad-bg);
-}
-.badge-neutral {
-  color: var(--text-muted);
-  background: var(--neutral-bg);
-}
 
 /* ───────────────────────── Tables and sections ───────────────────────── */
-
-.section-head {
-  display: flex;
-  gap: 12px;
-  align-items: baseline;
-  justify-content: space-between;
-  margin: 0 0 12px;
-}
-.section-head h2 {
-  margin: 0;
-  font-size: 18px;
-  font-weight: 700;
-  color: var(--text-strong);
-}
-.section-head .meta {
-  font-size: 13px;
-  color: var(--text-muted);
-}
 
 /* Commerce Admin's data grid: black heads, dashed column rules, striped rows. */
 .grid {
@@ -514,4 +423,28 @@ code {
   justify-content: center;
   min-height: calc(100dvh - 48px);
   padding: 24px;
+}
+
+/* The question before a switch drops unsaved changes. */
+.confirm {
+  position: fixed;
+  top: 20%;
+  left: 50%;
+  z-index: 60;
+  width: min(460px, 90vw);
+  padding: 22px 24px;
+  background: #fff;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.25);
+  transform: translateX(-50%);
+}
+.confirm h2 {
+  margin: 0 0 8px;
+  font-size: 18px;
+  color: var(--text-strong);
+}
+.confirm .confirm-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+  margin-top: 18px;
 }

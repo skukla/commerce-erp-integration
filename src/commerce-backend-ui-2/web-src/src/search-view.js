@@ -28,20 +28,3 @@ export function searchTarget(typed) {
   }
   return { kind: "text", text };
 }
-
-/**
- * The search box's hint: the newest order, SKU and named company in the records the page read,
- * so "Try …" offers things this store has.
- * @param {object[]} entries the Activity records, newest first
- * @returns {Array<{ label: string, text: string }>}
- */
-export function searchExamples(entries) {
-  const order = entries.find((e) => e.kind === "order" && e.ref)?.ref;
-  const sku = entries.find(
-    (e) => (e.kind === "price" || e.kind === "stock") && e.ref,
-  )?.ref;
-  const company = entries.find((e) => e.company?.name)?.company.name;
-  return [order, sku, company]
-    .filter(Boolean)
-    .map((text) => ({ label: text, text }));
-}

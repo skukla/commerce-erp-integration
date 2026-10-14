@@ -1,6 +1,6 @@
 /*
  * The page's own small parts, in Commerce Admin's look (index.css): an ERP's chip in its color,
- * a result badge, a spinner, a message, and the question before unsaved changes are dropped.
+ * a spinner, a message, and the question before unsaved changes are dropped.
  */
 import { useEffect, useRef } from "react";
 
@@ -33,40 +33,6 @@ export function ErpChip({ colors, erp, full = false }) {
       {full ? erp.name : shortName(erp.name)}
     </span>
   );
-}
-
-/** The ERPs a record concerns: each by name, every ERP for a reset, or "ERP not named". */
-export function RowErpChips({ erpInfo, row }) {
-  const { colors, erps, several } = erpInfo;
-  if (row.everyErp && several) {
-    return (
-      <span className="chips">
-        <span className="chip chip-erp">
-          {erps.length === 2 ? "Both ERPs" : "Every ERP"}
-        </span>
-      </span>
-    );
-  }
-  if (row.unnamed) {
-    return (
-      <span className="chips">
-        <span className="chip chip-unnamed">ERP not named</span>
-      </span>
-    );
-  }
-  return (
-    <span className="chips">
-      {row.erpIds.map((id) => {
-        const erp = erps.find((candidate) => candidate.id === id);
-        return erp ? <ErpChip colors={colors} erp={erp} key={id} /> : null;
-      })}
-    </span>
-  );
-}
-
-/** How a record ended, in the Admin's message colors. */
-export function Badge({ children, tone }) {
-  return <span className={`badge badge-${tone}`}>{children}</span>;
 }
 
 export function Spinner({ label }) {

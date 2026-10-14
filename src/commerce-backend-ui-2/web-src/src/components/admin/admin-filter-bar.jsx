@@ -39,17 +39,19 @@ function ActiveChip({ chip }) {
  *   the filters in force, as chips
  * @param {() => void} props.onClearAll remove them all
  * @param {object} props.refresh the page's refresh (AdminRefresh's props)
+ * @param {boolean} [props.initiallyOpen] the panel open at first (the parts gallery shows it)
  */
 export function AdminFilterBar({
   active,
   fields,
+  initiallyOpen = false,
   onApply,
   onClearAll,
   onOpen,
   refresh,
   search,
 }) {
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(initiallyOpen);
   const panelId = useId();
   const toggle = useCallback(() => {
     if (!open) {

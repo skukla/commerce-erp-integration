@@ -1,25 +1,30 @@
 /*
- * Settings: "Settings for [ERP ▾] on [website ▾]", then cards by topic, each setting's label and
- * help on the left and its control on the right; one Save Config in the band. "All ERPs" edits
- * the integration's configuration, every ERP's default; picking an ERP edits only what it sets
- * for itself, on its entry in the ERP list (erp/erps). A website shows only what can differ per
- * website, with Commerce's "Use Default Value". Switching with unsaved changes asks first.
+ * Settings, as Stores > Configuration (owner, 2026-10-14): which ERP and which scope, then the
+ * settings in collapsible groups by topic, each a Configuration row (admin-config.jsx); one
+ * Save Config in the band. "All ERPs" edits the integration's configuration, every ERP's
+ * default; picking an ERP edits only what it sets for itself, on its entry in the ERP list
+ * (erp/erps). A website shows only what can differ per website, with Commerce's "Use Default
+ * Value". Switching with unsaved changes asks first.
  */
 import { useCallback, useEffect, useState } from "react";
 
+import { AdminButton } from "#web/components/admin/admin-button.jsx";
+import { AdminPicker } from "#web/components/admin/admin-fields.jsx";
+import { AdminNotice } from "#web/components/admin/admin-notice.jsx";
 import { AdminRefresh } from "#web/components/admin/admin-refresh.jsx";
-import { Alert, ConfirmDialog, Spinner } from "#web/components/controls.jsx";
+import { AdminStatus } from "#web/components/admin/admin-status.jsx";
+import { ConfirmDialog, Spinner } from "#web/components/controls.jsx";
 import {
-  ConnectionCard,
-  ErpListCard,
-  OrdersCard,
-  ProductsCard,
+  ConnectionGroup,
+  ErpListGroup,
+  OrdersGroup,
+  ProductsGroup,
   rowMaker,
-  SalesOrgCard,
-  SchedulesCard,
+  SalesOrgGroup,
+  SchedulesGroup,
   WebsiteNote,
-} from "#web/components/settings-cards.jsx";
-import { cardsAt } from "#web/settings-copy.js";
+} from "#web/components/settings-groups.jsx";
+import { groupsAt } from "#web/settings-copy.js";
 import { erpFields, integrationFields } from "#web/settings-fields.js";
 import {
   ERP_WEBSITE_NAMES,
@@ -93,49 +98,41 @@ function useScopePage(api, initialPage, scopeId, onError, round) {
   return [page, setPage];
 }
 
-/** The scope bar: which ERP, on which website. */
+/** An ERP Picker's id for "every ERP": a collection's keys cannot be "". */
+const ALL_ERPS = "all";
+
+/** Which ERP, and which scope: the Configuration page's scope switcher, beside the ERP's. */
 function ScopeBar({ choices, erpId, erps, onErp, onScope, scopeId, several }) {
-  const changeErp = useCallback((event) => onErp(event.target.value), [onErp]);
-  const changeScope = useCallback(
-    (event) => onScope(event.target.value),
-    [onScope],
+  const erpOptions = [
+    { id: ALL_ERPS, label: "All ERPs" },
+    ...erps.map((erp) => ({ id: erp.id, label: erp.name })),
+  ];
+  // A choice's id is "" for Default Config; the Picker's is the label's own key.
+  const scopeOptions = choices.map((c) => ({
+    id: `s:${c.id}`,
+    label: c.label,
+  }));
+  const changeErp = useCallback(
+    (id) => onErp(id === ALL_ERPS ? "" : id),
+    [onErp],
   );
+  const changeScope = useCallback((id) => onScope(id.slice(2)), [onScope]);
   return (
-    <div className="scope-bar">
-      {several ? (
-        <>
-          <label htmlFor="for-erp">Settings for</label>
-          <select
-            className="select scope-select"
-            id="for-erp"
-            onChange={changeErp}
-            value={erpId}>
-            <option value="">All ERPs</option>
-            {erps.map((erp) => (
-              <option key={erp.id} value={erp.id}>
-                {erp.name}
-              </option>
-            ))}
-          </select>
-        </>
-      ) : (
-        <span>
-          Settings for <strong>{erps[0]?.name}</strong>
-        </span>
+    <div className="adm-scope-bar">
+      {several && (
+        <AdminPicker
+          label="ERP"
+          onChange={changeErp}
+          options={erpOptions}
+          value={erpId || ALL_ERPS}
+        />
       )}
-      <label htmlFor="for-website">on</label>
-      <select
-        aria-label="on website"
-        className="select scope-select"
-        id="for-website"
+      <AdminPicker
+        label="Scope"
         onChange={changeScope}
-        value={scopeId}>
-        {choices.map((choice) => (
-          <option key={choice.id} value={choice.id}>
-            {choice.label}
-          </option>
-        ))}
-      </select>
+        options={scopeOptions}
+        value={`s:${scopeId}`}
+      />
     </div>
   );
 }
@@ -144,56 +141,35 @@ function ScopeBar({ choices, erpId, erps, onErp, onScope, scopeId, several }) {
 function SaveActions({ changed, onSave, saved, saving }) {
   return (
     <>
-      {changed && (
-        <span className="dirty-flag">
-          <span className="dot warn" />
-          Unsaved changes
-        </span>
-      )}
+      {changed && <AdminStatus tone="warn">Unsaved changes</AdminStatus>}
       {saved && !changed && (
-        <span className="saved-flag" role="status">
-          Saved
+        <span role="status">
+          <AdminStatus tone="ok">Saved</AdminStatus>
         </span>
       )}
-      <button
-        className="btn btn-primary"
-        disabled={saving}
-        onClick={onSave}
-        type="button">
+      <AdminButton isDisabled={saving} onPress={onSave} variant="primary">
         {saving ? "Saving" : "Save Config"}
-      </button>
+      </AdminButton>
     </>
   );
 }
 
-/** The cards of the view, in two columns as the mockup lays them out. */
-function Cards({ cards, entries, entry, erpInfo, fields, row }) {
-  const card = {
-    connection: <ConnectionCard entry={entry ?? entries[0]} key="connection" />,
-    erpList: (
-      <ErpListCard colors={erpInfo.colors} entries={entries} key="erpList" />
+/** The groups of the view, one under another, as the Configuration page lists them. */
+function Groups({ entries, entry, erpInfo, fields, groups, row }) {
+  const group = {
+    connection: (
+      <ConnectionGroup entry={entry ?? entries[0]} key="connection" />
     ),
-    orders: <OrdersCard key="orders" row={row} />,
-    products: <ProductsCard fields={fields} key="products" row={row} />,
-    salesOrg: <SalesOrgCard key="salesOrg" row={row} />,
-    schedules: <SchedulesCard fields={fields} key="schedules" row={row} />,
+    erpList: (
+      <ErpListGroup colors={erpInfo.colors} entries={entries} key="erpList" />
+    ),
+    orders: <OrdersGroup key="orders" row={row} />,
+    products: <ProductsGroup fields={fields} key="products" row={row} />,
+    salesOrg: <SalesOrgGroup key="salesOrg" row={row} />,
+    schedules: <SchedulesGroup fields={fields} key="schedules" row={row} />,
     websiteNote: <WebsiteNote key="websiteNote" />,
   };
-  const wide = cards.filter((id) => id === "erpList");
-  const narrow = cards.filter((id) => id !== "erpList");
-  const [left, right] = entry
-    ? [narrow.slice(0, 2), narrow.slice(2)]
-    : [
-        narrow.filter((_id, i) => i % 2 === 0),
-        narrow.filter((_id, i) => i % 2 === 1),
-      ];
-  return (
-    <div className="settings-grid">
-      <div className="col">{left.map((id) => card[id])}</div>
-      <div className="col">{right.map((id) => card[id])}</div>
-      {wide.map((id) => card[id])}
-    </div>
-  );
+  return <div className="adm-config">{groups.map((id) => group[id])}</div>;
 }
 
 /**
@@ -351,7 +327,7 @@ export function SettingsTab({
     statuses,
     useDefaultFor: (name) => useDefaultLabel(name, Boolean(entry), atDefault),
   });
-  const cards = cardsAt({
+  const groups = groupsAt({
     atDefault,
     erp: Boolean(entry),
     several: erpInfo.several,
@@ -367,7 +343,7 @@ export function SettingsTab({
   return frame(
     actions,
     <>
-      {scopesNote && <Alert tone="warn">{scopesNote}</Alert>}
+      {scopesNote && <AdminNotice tone="warning">{scopesNote}</AdminNotice>}
       <div className="adm-tab-tools">
         <ScopeBar
           choices={choices}
@@ -386,12 +362,12 @@ export function SettingsTab({
         />
       </div>
       {page ? (
-        <Cards
-          cards={cards}
+        <Groups
           entries={entries}
           entry={entry}
           erpInfo={erpInfo}
           fields={fields}
+          groups={groups}
           row={row}
         />
       ) : (

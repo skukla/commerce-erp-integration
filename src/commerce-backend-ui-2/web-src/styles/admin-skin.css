@@ -1,3 +1,4 @@
+/* biome-ignore-all lint/style/noDescendingSpecificity: each component is scoped by its own class; the flagged pairs never match the same element */
 /*
  * The skin: Spectrum 2's parts dressed as Commerce Admin's (owner, 2026-10-14). Spectrum 2 puts
  * its own rules in cascade layers, so these plain rules win over them without !important; the
@@ -182,6 +183,7 @@
  */
 .adm-search [role="group"],
 .adm-picker > button,
+.adm-text > div[role="presentation"],
 .adm-date > div[role="presentation"] {
   box-sizing: border-box;
   height: 32px;
@@ -193,14 +195,22 @@
 }
 .adm-search [role="group"][data-hovered],
 .adm-picker > button[data-hovered],
+.adm-text > div[role="presentation"][data-hovered],
 .adm-date > div[role="presentation"][data-hovered] {
   background-color: #fff;
   border-color: var(--adm-field-border-hover);
 }
 .adm-search [role="group"]:focus-within,
 .adm-picker > button[data-focus-visible],
+.adm-text > div[role="presentation"]:focus-within,
 .adm-date > div[role="presentation"]:focus-within {
   border-color: var(--adm-focus);
+}
+/* A field that is off (a setting that uses its default), as the Admin's: half opacity. */
+.adm-picker > button:disabled,
+.adm-text > div[role="presentation"]:has(input:disabled) {
+  cursor: default;
+  opacity: 0.5;
 }
 .adm-search [role="group"] {
   width: 320px;
@@ -221,6 +231,11 @@
   font-weight: 600;
   border: 1px solid transparent;
   border-radius: 0;
+}
+/* Disabled, as the Admin's: half opacity (backend @disabled__opacity: .5). */
+.adm-btn[data-disabled] {
+  cursor: default;
+  opacity: 0.5;
 }
 .adm-btn-default {
   color: var(--adm-default-text);
@@ -260,6 +275,46 @@
 }
 .adm-btn-tertiary[data-hovered] {
   text-decoration: underline;
+}
+
+/*
+ * A tertiary button inside a line of text (a total's foot, a row's links): the Admin's link, at the text's own size and height, not a 32 px button.
+ */
+.adm-totals-foot .adm-btn,
+.adm-links .adm-btn {
+  display: inline;
+  min-width: 0;
+  height: auto;
+  padding: 0;
+  font-size: inherit;
+  font-weight: 400;
+}
+.adm-links {
+  display: inline-flex;
+  gap: var(--space-4);
+}
+
+/* The Overview's search: the field and Find side by side, its suggestions and misses under. */
+.adm-lookup {
+  display: block;
+}
+.adm-lookup-row {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+}
+.adm-lookup-row .adm-search,
+.adm-lookup-row .adm-search [role="group"] {
+  width: 420px;
+}
+/* A tools row whose left side is taller than one line keeps its right side level with the top. */
+.adm-tab-tools-top {
+  align-items: flex-start;
+}
+.adm-lookup-miss {
+  margin-top: var(--space-2);
+  font-size: var(--type-small);
+  color: var(--text-muted);
 }
 
 /*
@@ -446,6 +501,17 @@
 }
 
 /*
+ * The Dashboard's layout (admin-dashboard.jsx; Magento_Backend pages/_dashboard.less, backend
+ * _tables.less): blocks side by side 35 px apart, its columns' gutter.
+ */
+.adm-dashboard-row {
+  display: grid;
+  grid-auto-columns: minmax(0, 1fr);
+  grid-auto-flow: column;
+  gap: 35px;
+  align-items: start;
+}
+/*
  * Facts (admin-facts.jsx), as the Admin's secondary tables: 10 px inside each cell, the label in
  * #676056 regular, every other row #f1f1f1, a side's heading semibold.
  */
@@ -466,6 +532,10 @@
   color: #676056;
   white-space: nowrap;
 }
+/* An ERP named as a row's label reads as a name, not a grey label. */
+.adm-facts tbody th .erp-name {
+  color: #303030;
+}
 .adm-facts thead th {
   font-weight: 600;
   color: var(--text-strong);
@@ -473,6 +543,139 @@
 .adm-facts tbody tr:nth-child(odd) th,
 .adm-facts tbody tr:nth-child(odd) td {
   background-color: #f1f1f1;
+}
+
+/*
+ * Totals (admin-totals.jsx), as the Admin Dashboard's (Magento_Backend pages/_dashboard.less):
+ * equal cells with 10 px after each, a 13 px bold label over a 24 px semibold value. A problem's
+ * value is the Admin's error red: #e22626, @color-tomato-brick, its validation text and an
+ * invalid field's border (backend variables/_colors.less and _forms.less).
+ */
+.adm-totals {
+  display: flex;
+  padding: 0;
+  margin: 0 0 var(--space-6);
+  list-style: none;
+}
+.adm-totals-item {
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  padding: 0 10px 0 0;
+}
+.adm-totals-label {
+  font-size: 13px;
+  font-weight: 700;
+  color: #303030;
+}
+.adm-totals-value {
+  font-size: 24px;
+  font-weight: 600;
+  color: #303030;
+}
+.adm-totals-bad {
+  color: #e22626;
+}
+.adm-totals-foot {
+  font-size: var(--type-small);
+  color: var(--text-muted);
+}
+
+/*
+ * Stores > Configuration (admin-config.jsx), by its source's values (Magento_Backend
+ * main/_collapsible-blocks.less, forms/fields/_control-collapsible.less; 1 rem is 10 px):
+ * groups ruled #ccc, their titles 17 px semibold #303030 at .025em with 19 px over and under and
+ * the arrow on the right; rows 22 px apart, the label right-aligned in 14 px semibold at 33%
+ * with 30 px after it, the field at 44% with 40 px after it, its comment 12 px; "Use Default
+ * Value" 29 px down and the scope 31 px down, grey #999 12 px at .05em.
+ */
+.adm-config {
+  margin: 0 0 var(--space-6);
+}
+.adm-config-group {
+  border-bottom: 1px solid #ccc;
+}
+.adm-config-group h3 {
+  margin: 0;
+}
+.adm-config .adm-config-group h3 button {
+  flex-direction: row-reverse;
+  justify-content: space-between;
+  padding: 19px 13px 19px 0;
+  font-size: 17px;
+  font-weight: 600;
+  color: #303030;
+  letter-spacing: 0.025em;
+  background: none;
+}
+/* Spectrum's panel pads its content; the Configuration page's rows carry their own. */
+.adm-config-group [role="group"] > div {
+  padding: 0;
+}
+.adm-config-help {
+  flex: 0 0 24px;
+}
+.adm-config-note {
+  margin: 0;
+  font-size: 12px;
+  color: #303030;
+}
+.adm-config-rows {
+  padding-bottom: 26px;
+}
+.adm-config-row {
+  display: grid;
+  grid-template-columns: 33% 44% 1fr auto;
+  align-items: start;
+}
+.adm-config-rows > .adm-config-row > div {
+  padding: 22px 15px 0 0;
+}
+.adm-config-rows > .adm-config-row > .adm-config-label {
+  padding: 29px 30px 0 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: #303030;
+  text-align: right;
+}
+.adm-config-rows > .adm-config-row > .adm-config-value {
+  padding-right: 40px;
+}
+.adm-config-field {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+}
+.adm-config-field > .adm-field {
+  flex: 1 1 auto;
+  width: 100%;
+}
+.adm-config-comment {
+  margin: 5px 0;
+  font-size: 12px;
+  color: #303030;
+}
+.adm-config-rows > .adm-config-row > .adm-config-default {
+  padding-top: 29px;
+}
+.adm-config-rows > .adm-config-row > .adm-config-scope {
+  padding-top: 31px;
+  font-size: 12px;
+  color: #999;
+  letter-spacing: 0.05em;
+}
+.adm-checkbox {
+  font-size: 14px;
+  color: #303030;
+}
+/* Which ERP and which scope, above the groups: the Configuration page's scope switcher. */
+.adm-scope-bar {
+  display: flex;
+  gap: var(--space-4);
+  align-items: flex-end;
+}
+.adm-scope-bar .adm-picker {
+  width: 240px;
 }
 
 /*

@@ -1,0 +1,30 @@
+{
+  "overview": {
+    "elements": 309,
+    "hash": "4fbe306c90f7078ce6fc37f6490aa1dd21c02252c524640247dc6147962b5742"
+  },
+  "activity": {
+    "elements": 893,
+    "hash": "a05e1b4b5f15826a797e08445cd46d061cb6e7c01b510e967a0058d4a82f9085"
+  },
+  "activity:filters-open": {
+    "elements": 995,
+    "hash": "d4380fc75f37c4ed7b3810dc3ba99769e14eed0173e366afeb5640ba1639c681"
+  },
+  "activity:one-erp": {
+    "elements": 577,
+    "hash": "4094780bd3d2630e37249168b6be00b69934f6e5ee7fcc8bef780fcebd7005bb"
+  },
+  "settings": {
+    "elements": 427,
+    "hash": "ea09e292e0da6f1359483a516af7dfa14006779e59dbd3a731ab8ae423f6b5a0"
+  },
+  "data-map": {
+    "elements": 206,
+    "hash": "000cfe0d6b6fb2e7b641d9173c0b399dca51fe73e59d39f34e45f634ca5060dc"
+  },
+  "parts": {
+    "elements": 830,
+    "hash": "e12e7c7a1f279770cf865985385f367321f463150e562dbee78ab0c247844052"
+  }
+}

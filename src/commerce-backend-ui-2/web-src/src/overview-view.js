@@ -1,13 +1,13 @@
 /*
  * What the page says about each ERP, kept apart from the React that renders it (as
  * history-view.js is): the ERPs as one list whether there is one or several, each ERP's color,
- * the band's chip, the Overview's card, and today's counts. Each listed ERP comes from
+ * the band's status line, the Overview's row for each ERP, and today's counts. Each listed ERP comes from
  * erp/status `erps` (several) or `erp` (one): its name, whether the integration can use it, why
  * not (a maintenance window, a refusal such as "the ERP answered 401", or a network error), its
  * figures, and how it looks (demo-erp's `appearance`).
  */
 import { isProblem } from "#web/history-view.js";
-import { ago, dayAndTime, sameDay } from "#web/time-view.js";
+import { ago, sameDay } from "#web/time-view.js";
 
 const NONE = "–";
 const ENDED = /[.!?]$/u;
@@ -83,79 +83,40 @@ export function erpColors(erps) {
   return chosen;
 }
 
-/** A reason as a sentence: capitalized, with its period. */
-function sentence(text) {
-  const trimmed = String(text).trim();
-  const ended = ENDED.test(trimmed) ? trimmed : `${trimmed}.`;
-  return ended.charAt(0).toUpperCase() + ended.slice(1);
-}
-
 /**
- * Whether an ERP answers, for the band's chip (`text`) and its card (`card`).
+ * Whether an ERP answers, as the band and the Overview's ERPs table say it: "Connected", or
+ * "Not reachable" and why.
  * @param {{ reachable: boolean, error?: string }} entry one listed ERP
  */
 export function erpStatusLine(entry) {
   if (entry.reachable) {
-    return { card: "Connected", reachable: true, text: "Connected" };
+    return { reachable: true, text: "Connected" };
   }
   if (!entry.error) {
-    return { card: "Not reachable.", reachable: false, text: "Not reachable" };
+    return { reachable: false, text: "Not reachable" };
   }
   // The ERP's own reason often starts with its name; beside the name, it is not said twice.
   const own = `${entry.name} is `;
   const reason = String(entry.error).startsWith(own)
     ? String(entry.error).slice(own.length)
     : entry.error;
-  const why = sentence(reason);
   return {
-    card: `Not reachable. ${why}`,
     reachable: false,
     text: `Not reachable: ${String(reason).trim().replace(ENDED, "")}`,
   };
 }
 
-const count = (n, one, many) => `${n} ${n === 1 ? one : many}`;
-
-/** "3 products · 5 business partners · 3 sales orders", or a dash when the ERP gave none. */
-function inErp(counts) {
-  if (!counts) {
-    return NONE;
-  }
-  const parts = [
-    counts.products === undefined
-      ? null
-      : count(counts.products, "product", "products"),
-    counts.businessPartners === undefined
-      ? null
-      : count(counts.businessPartners, "business partner", "business partners"),
-    counts.salesOrders === undefined
-      ? null
-      : count(counts.salesOrders, "sales order", "sales orders"),
-  ].filter(Boolean);
-  return parts.length > 0 ? parts.join(" · ") : NONE;
-}
-
-/** When Demo Builder last filled and emptied the ERP. */
-function fillLine(entry, now, timeZone) {
-  if (!entry.lastImportAt) {
-    return "Never filled";
-  }
-  const filled = `Filled ${dayAndTime(entry.lastImportAt, now, timeZone)}`;
-  return entry.lastWipeAt
-    ? `${filled} · emptied ${dayAndTime(entry.lastWipeAt, now, timeZone)}`
-    : filled;
-}
-
 /**
- * The Overview's card for one ERP.
+ * The Overview's row for one ERP, in its ERPs list: when it last sent something, and how many
+ * of its events wait. Its counts and when Demo Builder filled it were dropped with the ERPs
+ * grid (owner, 2026-10-14: overkill).
  * @param {object} entry one listed ERP
  * @param {object[]} history the Activity records the page read (newest first)
  * @param {Date} now
- * @param {string} [timeZone]
  * @param {{ onlyErp?: boolean }} [options] with one ERP, every update from an ERP is its own
- * @returns {{ inErp: string, lastUpdate: string, waiting: string, foot: string }}
+ * @returns {{ key: string, lastUpdate: string, waiting: string }}
  */
-export function erpCard(entry, history, now, timeZone, options = {}) {
+export function erpRow(entry, history, now, options = {}) {
   const last = history.find(
     (record) =>
       record.direction === "from-erp" &&
@@ -163,15 +124,11 @@ export function erpCard(entry, history, now, timeZone, options = {}) {
   );
   const waiting = entry.counts?.events;
   return {
-    foot: fillLine(entry, now, timeZone),
-    inErp: inErp(entry.counts),
+    key: entry.id,
     lastUpdate: last ? ago(last.lastAt, now) : "Nothing yet",
     waiting: waiting === undefined ? NONE : String(waiting),
   };
 }
-
-/** A change made in Commerce Admin, told to the ERPs. */
-const COMMERCE_CHANGES = new Set(["changed", "invoiced", "shipped"]);
 
 /**
  * Today's counts, from today's Activity records.
@@ -185,8 +142,10 @@ export function todayCounts(history, now, timeZone) {
   );
   const counted = (test) => today.filter(test).length;
   return {
+    // Every change made in Commerce that reached an ERP, but orders, which have their own.
     commerceSent: counted(
-      (r) => COMMERCE_CHANGES.has(r.kind) && r.outcome === "sent",
+      (r) =>
+        r.direction === "to-erp" && r.kind !== "order" && r.outcome === "sent",
     ),
     erpApplied: counted(
       (r) => r.direction === "from-erp" && r.outcome === "applied",

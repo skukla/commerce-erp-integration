@@ -1,8 +1,8 @@
 /*
  * The words and shapes of the Settings tab (components/settings-tab.jsx), from the owner-approved
  * mockup (preview/mockups/settings.html): each setting's label, short help and the longer text
- * behind its ⓘ, the two lists' choices, which cards each view holds, and the read-only
- * Connection card. The controls' values are settings-view.js's.
+ * behind its help button, the two lists' choices, which groups each view holds, and the
+ * read-only Connection group. The controls' values are settings-view.js's.
  */
 
 const PREFIX_LENGTH = 4;
@@ -166,12 +166,12 @@ export function ownsOptions(erp) {
 }
 
 /**
- * The cards a view holds, in order.
+ * The groups a view holds, in order.
  * @param {{ several: boolean, erp: boolean, atDefault: boolean }} view several ERPs or one;
  *   one ERP picked or every ERP; Default Config or a website
  * @returns {string[]}
  */
-export function cardsAt({ atDefault, erp, several }) {
+export function groupsAt({ atDefault, erp, several }) {
   const products = atDefault ? "products" : "websiteNote";
   if (several && erp) {
     return ["salesOrg", "connection", products];
@@ -194,13 +194,13 @@ const shortId = (id) =>
   id.length > SHOWN * 2 ? `${id.slice(0, SHOWN)}…${id.slice(-SHOWN)}` : id;
 
 /**
- * The read-only Connection card: set by Demo Builder, never the secret.
+ * The read-only Connection group: set by Demo Builder, never the secret.
  * @param {object} entry the ERP's entry (erp/erps, its credential redacted)
  */
 export function connectionFacts(entry) {
   const auth = entry.connection?.auth;
   const credential = auth
-    ? `Its own · client id ${shortId(String(auth.clientId ?? ""))}${auth.hasSecret ? " · secret stored" : ""}`
+    ? `Its own, client id ${shortId(String(auth.clientId ?? ""))}${auth.hasSecret ? ", secret stored" : ""}`
     : "The integration’s own";
   return {
     address: entry.connection?.baseUrl ?? "–",

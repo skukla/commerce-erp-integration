@@ -22,6 +22,11 @@ import { useEffect, useRef, useState } from "react";
 /** Room for the head row and the border before the rows have measured themselves. */
 const FIRST_GUESS_PX = 400;
 const BORDER_PX = 2;
+/**
+ * An empty table's height: its head row and room for what it says instead. It measured to its
+ * head row alone and hid the words (seen in the parts gallery, 2026-10-14).
+ */
+const EMPTY_PX = 120;
 
 /**
  * The height of every row, as TableView's own layout sets it on the grid's sized box (its
@@ -67,11 +72,18 @@ function useFitHeight() {
  * @param {(row: object) => void} [props.onOpen] a row's click
  * @param {React.ReactNode} [props.empty] what an empty table says
  */
+/**
+ * A row's id in the table. Rows and columns share one collection, so a row keyed like a column
+ * ("erp", the single ERP's id, is also the ERP column's) broke the table: "Cell count must match
+ * column count" (the Overview's ERPs table, 2026-10-14). Row ids are kept apart by a prefix.
+ */
+const rowId = (key) => `row:${key}`;
+
 export function AdminTable({ cell, columns, empty, label, onOpen, rows }) {
   const [ref, height] = useFitHeight();
   const open = onOpen
-    ? (key) => {
-        const row = rows.find((r) => r.key === key);
+    ? (id) => {
+        const row = rows.find((r) => rowId(r.key) === id);
         if (row) {
           onOpen(row);
         }
@@ -85,7 +97,9 @@ export function AdminTable({ cell, columns, empty, label, onOpen, rows }) {
         onAction={open}
         overflowMode="wrap"
         UNSAFE_className="adm-table"
-        UNSAFE_style={{ height }}>
+        UNSAFE_style={{
+          height: rows.length === 0 ? Math.max(height, EMPTY_PX) : height,
+        }}>
         <TableHeader columns={columns}>
           {(column) => (
             <Column
@@ -100,7 +114,7 @@ export function AdminTable({ cell, columns, empty, label, onOpen, rows }) {
           items={rows}
           renderEmptyState={empty ? () => empty : undefined}>
           {(row) => (
-            <Row columns={columns} id={row.key}>
+            <Row columns={columns} id={rowId(row.key)}>
               {(column) => <Cell>{cell(row, column.id)}</Cell>}
             </Row>
           )}

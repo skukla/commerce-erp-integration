@@ -57,6 +57,7 @@
     "@vitest/coverage-istanbul": "^5.0.0",
     "@vitest/coverage-v8": "^5.0.0",
     "parcel": "^2.15.0",
+    "playwright": "^1.63.0",
     "prettier": "3.9.6",
     "ultracite": "7.11.1",
     "vitest": "^5.0.0"

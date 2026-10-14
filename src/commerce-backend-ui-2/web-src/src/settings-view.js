@@ -91,8 +91,8 @@ export function settingsPath(scope, { refresh = false } = {}) {
 }
 
 /**
- * The settings in the order the Settings tab's cards show them (components/settings-cards.jsx),
- * each card by its id. `scope` is where a setting can be set: `website` settings can be set per
+ * The settings in the order the Settings tab's groups show them (components/settings-groups.jsx),
+ * each group by its id. `scope` is where a setting can be set: `website` settings can be set per
  * website (and inherit Default Config), `global` ones only at Default Config, because the
  * integration reads them there (the order-number prefix and which products an ERP owns are the
  * pair's, not a website's).
@@ -133,9 +133,13 @@ export const SETTING_GROUPS = Object.freeze([
   },
 ]);
 
-/** A card's settings, by the card's id. */
+/** A group's settings, by the group's id. */
 export const groupNames = (id) =>
   SETTING_GROUPS.find((group) => group.id === id)?.names ?? [];
+
+/** Where a setting is set, as its row's scope says it: "website" or "global". */
+export const settingScope = (name) =>
+  SETTING_GROUPS.find((group) => group.names.includes(name))?.scope;
 
 /** Which of a job's settings each frequency reads (lib/schedule.js). */
 const READ_BY = {

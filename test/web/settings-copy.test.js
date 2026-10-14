@@ -5,10 +5,10 @@
  */
 import appConfig from "#app.commerce.config";
 import {
-  cardsAt,
   confirmStatusOptions,
   connectionFacts,
   derivedPrefix,
+  groupsAt,
   ownsOptions,
   settingText,
 } from "#web/settings-copy.js";
@@ -148,7 +148,7 @@ describe("Given the cards a view holds", () => {
       ["orders", "salesOrg", "websiteNote", "connection"],
     ],
   ])("Then %o holds %j", (view, cards) => {
-    expect(cardsAt(view)).toStrictEqual(cards);
+    expect(groupsAt(view)).toStrictEqual(cards);
   });
 });
 
@@ -182,7 +182,8 @@ describe("Given an ERP's connection", () => {
         id: "contoso",
         name: "Contoso ERP",
       }).credential,
-    ).toBe("Its own · client id 7c1e…42af · secret stored");
+      // Commas, not middle dots (owner, 2026-10-14).
+    ).toBe("Its own, client id 7c1e…42af, secret stored");
   });
 });
 

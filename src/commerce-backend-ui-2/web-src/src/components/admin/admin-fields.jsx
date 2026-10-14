@@ -1,28 +1,43 @@
 /*
- * The page's controls for choosing: Spectrum 2's Picker, SearchField, DatePicker and Switch,
- * dressed as Commerce Admin fields (styles/admin-skin.css, by the Admin's own values: 32 px,
- * white, a 1 px #adadad border, radius 1 px, #007bdb on focus; Magento backend
- * variables/_forms.less). A filter row is built from these, in AdminFilterBar's panel.
+ * The page's fields: Spectrum 2's Picker, SearchField, TextField, DatePicker, Checkbox and
+ * Switch, dressed as Commerce Admin fields (styles/admin-skin.css, by the Admin's own values:
+ * 32 px, white, a 1 px #adadad border, radius 1 px, #007bdb on focus; Magento backend
+ * variables/_forms.less). A filter row is built from these, in AdminFilterBar's panel, and a
+ * Configuration row, in AdminConfigRow.
  */
 import { parseDate } from "@internationalized/date";
+import { Checkbox } from "@react-spectrum/s2/Checkbox";
 import { DatePicker } from "@react-spectrum/s2/DatePicker";
 import { Picker, PickerItem } from "@react-spectrum/s2/Picker";
 import { SearchField } from "@react-spectrum/s2/SearchField";
 import { Switch } from "@react-spectrum/s2/Switch";
+import { TextField } from "@react-spectrum/s2/TextField";
 import { useCallback } from "react";
 
 /**
  * @param {object} props
- * @param {string} props.label the field's visible label, above it as the Admin's filters have
+ * @param {string} props.label the field's label: visible above it, as the Admin's filters have,
+ *   or, with `labelHidden`, for a screen reader only (a Configuration row labels it on its left)
  * @param {Array<{ id: string, label: string }>} props.options the first is "every"
  * @param {string} props.value the chosen id
  * @param {(id: string) => void} props.onChange
+ * @param {boolean} [props.labelHidden]
+ * @param {boolean} [props.isDisabled]
  */
-export function AdminPicker({ label, onChange, options, value }) {
+export function AdminPicker({
+  isDisabled = false,
+  label,
+  labelHidden = false,
+  onChange,
+  options,
+  value,
+}) {
   return (
     <Picker
+      aria-label={labelHidden ? label : undefined}
+      isDisabled={isDisabled}
       items={options}
-      label={label}
+      label={labelHidden ? undefined : label}
       onSelectionChange={onChange}
       selectedKey={value}
       UNSAFE_className="adm-field adm-picker">
@@ -31,12 +46,50 @@ export function AdminPicker({ label, onChange, options, value }) {
   );
 }
 
-/** The Admin grid's keyword search: filters as it is typed. */
-export function AdminSearch({ label, onChange, placeholder, value }) {
+/** A text field, labeled on its left by its Configuration row. */
+export function AdminTextField({
+  isDisabled = false,
+  label,
+  onChange,
+  placeholder,
+  value,
+}) {
+  return (
+    <TextField
+      aria-label={label}
+      isDisabled={isDisabled}
+      onChange={onChange}
+      placeholder={placeholder}
+      UNSAFE_className="adm-field adm-text"
+      value={value}
+    />
+  );
+}
+
+/** A checkbox and its words: the Configuration page's "Use Default Value". */
+export function AdminCheckbox({ children, isSelected, onChange }) {
+  return (
+    <Checkbox
+      isSelected={isSelected}
+      onChange={onChange}
+      UNSAFE_className="adm-checkbox">
+      {children}
+    </Checkbox>
+  );
+}
+
+/**
+ * The Admin grid's keyword search: filters as it is typed, or, with `onSubmit`, looks up what
+ * was typed on Enter (the Overview's search).
+ * @param {object} props
+ * @param {(text: string) => void} [props.onSubmit]
+ */
+export function AdminSearch({ label, onChange, onSubmit, placeholder, value }) {
   return (
     <SearchField
       aria-label={label}
       onChange={onChange}
+      onSubmit={onSubmit}
       placeholder={placeholder}
       UNSAFE_className="adm-field adm-search"
       value={value}

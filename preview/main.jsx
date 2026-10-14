@@ -4,7 +4,8 @@
  * real Admin draws around the page. `?section=` opens a tab (overview, activity, settings),
  * `?ok` shows the store with nothing wrong, `?one-erp` a store with one ERP, `?loading` what
  * the page shows until everything has arrived, `?crash` the crash screen, `?page=order-parts`
- * the order view's "ERP parts" page, and `?bare` the page without the Admin stand-in.
+ * the order view's "ERP parts" page, `?page=parts` every shared part in each of its states
+ * (parts-gallery.jsx), and `?bare` the page without the Admin stand-in.
  */
 import "@react-spectrum/s2/page.css";
 import "../src/commerce-backend-ui-2/web-src/index.css";
@@ -22,6 +23,7 @@ import {
 import { OrderParts } from "../src/commerce-backend-ui-2/web-src/src/components/order-parts.jsx";
 import { readFirst } from "../src/commerce-backend-ui-2/web-src/src/first-read.js";
 import { fakeApi } from "./fake-api.js";
+import { PartsGallery } from "./parts-gallery.jsx";
 
 const asked = new URLSearchParams(window.location.search);
 const api = fakeApi({ allGood: asked.has("ok"), oneErp: asked.has("one-erp") });
@@ -135,14 +137,25 @@ function Preview() {
   );
 }
 
+/** `?page=`: the order view's ERP parts page, or every shared part (`parts`); else the page. */
+function GalleryPreview() {
+  return (
+    <AdminChrome title="Parts">
+      <PartsGallery />
+    </AdminChrome>
+  );
+}
+
+const PAGES = { "order-parts": PartsPreview, parts: GalleryPreview };
+const Page = PAGES[asked.get("page")] ?? Preview;
+
 createRoot(document.getElementById("root")).render(
   // The Admin UI library wraps the page in Spectrum's Provider (which loads Adobe Clean);
   // Commerce Admin is always light, whatever the browser prefers.
   <Provider background="base" colorScheme="light">
     <CrashBoundary>
       {asked.has("crash") && <Crash />}
-      {!asked.has("crash") &&
-        (asked.get("page") === "order-parts" ? <PartsPreview /> : <Preview />)}
+      {!asked.has("crash") && <Page />}
     </CrashBoundary>
   </Provider>,
 );

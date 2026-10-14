@@ -1,7 +1,7 @@
 /*
  * What the page says about the integration's scheduled runs (erp/history?scheduled=true,
  * lib/scheduled-runs.js), kept apart from the React that renders it (as history-view.js is): the
- * band's one line and the side panel's table. Each run carries its schedule as the settings set
+ * Overview's Price publish block and the side panel's table. Each run carries its schedule as the settings set
  * it (AB-38), so the words and the next run follow the settings, read the way the heartbeat
  * reads them (lib/schedule.js).
  */
@@ -15,23 +15,33 @@ const RUNS = [
   },
 ];
 
-/** A run's figures in words, with the unchanged count only when asked. */
-function figures(run, withUnchanged) {
-  if (run.error) {
-    return `failed, ${run.error}.`;
-  }
-  const changed = [
+/** What a run moved: "3 written, 1 removed", or none. */
+function moved(run) {
+  return [
     run.written > 0 ? `${run.written} written` : null,
     run.removed > 0 ? `${run.removed} removed` : null,
   ].filter(Boolean);
-  const words = changed.length > 0 ? changed : ["nothing changed"];
-  if (withUnchanged) {
-    words.push(`${run.unchanged} unchanged`);
+}
+
+/**
+ * A run in words: "14 prices checked, none changed", "124 prices checked, 3 written, 1
+ * removed", and what it could not publish. It read "nothing changed, 14 unchanged" until
+ * 2026-10-14, which says nothing twice.
+ */
+function runWords(run) {
+  if (run.error) {
+    return `failed: ${run.error}`;
   }
+  const checked = run.written + run.removed + run.unchanged;
+  const changed = moved(run);
+  const words = [
+    `${checked} ${checked === 1 ? "price" : "prices"} checked`,
+    changed.length > 0 ? changed.join(", ") : "none changed",
+  ];
   if (run.failed > 0) {
     words.push(`${run.failed} not published`);
   }
-  return `${words.join(", ")}.`;
+  return words.join(", ");
 }
 
 /**
@@ -45,11 +55,11 @@ export function scheduledRunRows(runs, when) {
     return {
       ...known,
       lastChange: run?.lastChange
-        ? `${when(run.lastChange.at)}: ${figures(run.lastChange, false)}`
-        : "No change yet.",
+        ? `${when(run.lastChange.at)}, ${moved(run.lastChange).join(", ")}`
+        : "No change yet",
       lastRun: run?.lastRun
-        ? `${when(run.lastRun.at)}: ${figures(run.lastRun, true)}`
-        : "Has not run yet.",
+        ? `${when(run.lastRun.at)}, ${runWords(run.lastRun)}`
+        : "Has not run yet",
       schedule: run?.schedule ? scheduleWords(run.schedule) : "Not known.",
     };
   });
@@ -66,22 +76,14 @@ export function nextPublish(now, schedule) {
 }
 
 /**
- * The band's one line: "Next price publish 3:05 PM · last ran 2:05 PM, nothing changed".
+ * When the price publish next runs, in the page's words.
  * @param {object[]} runs erp/history?scheduled=true's `scheduled`
  * @param {Date} now
  * @param {(iso: string) => string} when how the page writes a time
- * @returns {{ next: string, last: string }}
+ * @returns {string} the time, or "not scheduled"
  */
-export function publishLine(runs, now, when) {
+export function nextPublishText(runs, now, when) {
   const prices = runs.find((r) => r.id === "prices");
-  const run = prices?.lastRun;
   const next = prices?.schedule ? nextPublish(now, prices.schedule) : null;
-  return {
-    last: run
-      ? `Last ran ${when(run.at)}, ${figures(run, false).replace(FULL_STOP, "")}.`
-      : "Not run yet.",
-    next: next ? when(next.toISOString()) : "not scheduled",
-  };
+  return next ? when(next.toISOString()) : "not scheduled";
 }
-
-const FULL_STOP = /\.$/u;

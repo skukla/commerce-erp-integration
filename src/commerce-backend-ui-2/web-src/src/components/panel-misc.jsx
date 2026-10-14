@@ -6,7 +6,7 @@ import { useCallback } from "react";
 
 import { ErpChip } from "#web/components/controls.jsx";
 import { SidePanel } from "#web/components/side-panel.jsx";
-import { publishLine, scheduledRunRows } from "#web/scheduled-view.js";
+import { nextPublishText, scheduledRunRows } from "#web/scheduled-view.js";
 import { clockTime, dayAndTime } from "#web/time-view.js";
 
 const capitalized = (text) => text.charAt(0).toUpperCase() + text.slice(1);
@@ -130,7 +130,7 @@ export function ResetPanel({ erpInfo, now, onClose, row }) {
 export function ScheduledPanel({ now, onClose, runs }) {
   const when = (iso) => capitalized(dayAndTime(iso, now));
   const [row] = scheduledRunRows(runs, when);
-  const line = publishLine(runs, now, (iso) => clockTime(iso));
+  const next = nextPublishText(runs, now, (iso) => clockTime(iso));
   return (
     <SidePanel
       kicker="Scheduled run"
@@ -156,7 +156,7 @@ export function ScheduledPanel({ now, onClose, runs }) {
           </tr>
           <tr>
             <th>Next run</th>
-            <td>{line.next}</td>
+            <td>{next}</td>
           </tr>
         </tbody>
       </table>

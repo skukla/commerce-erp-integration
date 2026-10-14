@@ -6,7 +6,6 @@
  * starts over on Overview.
  */
 import Refresh from "@react-spectrum/s2/icons/Refresh";
-import { ProgressCircle } from "@react-spectrum/s2/ProgressCircle";
 import { Text } from "@react-spectrum/s2/Text";
 
 import { AdminButton } from "#web/components/admin/admin-button.jsx";
@@ -22,13 +21,11 @@ export function AdminRefresh({ busy, disabled = false, onRefresh, updated }) {
   return (
     <span className="adm-refresh">
       <span className="adm-muted">Updated {updated}</span>
+      {/* While it reads it says so, and is off. A spinner squeezed in beside the word broke
+          the button's layout (seen in the parts gallery, 2026-10-14). */}
       <AdminButton isDisabled={busy || disabled} onPress={onRefresh}>
-        {busy ? (
-          <ProgressCircle aria-label="Refreshing" isIndeterminate size="S" />
-        ) : (
-          <Refresh />
-        )}
-        <Text>Refresh</Text>
+        <Refresh />
+        <Text>{busy ? "Refreshing" : "Refresh"}</Text>
       </AdminButton>
     </span>
   );

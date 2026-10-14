@@ -5,15 +5,14 @@
  */
 import { shortName } from "#web/history-view.js";
 import {
-  erpCard,
   erpColors,
+  erpRow,
   erpStatusLine,
   listedErps,
   PALETTES,
   todayCounts,
 } from "#web/overview-view.js";
 
-const UTC = "UTC";
 const NOW = new Date("2026-09-28T15:00:00Z");
 
 const NORTHWIND = {
@@ -102,24 +101,22 @@ describe("Given each ERP's color", () => {
 describe("Given an ERP's state", () => {
   test("Then the band says Connected, or Not reachable and why", () => {
     expect(erpStatusLine(NORTHWIND)).toStrictEqual({
-      card: "Connected",
       reachable: true,
       text: "Connected",
     });
     // The ERP's own reason names it; beside its name, the name is not said twice.
     expect(erpStatusLine(CONTOSO)).toStrictEqual({
-      card: "Not reachable. In maintenance until 15:55 UTC.",
       reachable: false,
       text: "Not reachable: in maintenance until 15:55 UTC",
     });
     expect(
-      erpStatusLine({ error: "the ERP answered 401", reachable: false }).card,
-    ).toBe("Not reachable. The ERP answered 401.");
+      erpStatusLine({ error: "the ERP answered 401", reachable: false }).text,
+    ).toBe("Not reachable: the ERP answered 401");
     expect(erpStatusLine({ reachable: false }).text).toBe("Not reachable");
   });
 });
 
-describe("Given the Overview's card for one ERP", () => {
+describe("Given the Overview's row for one ERP", () => {
   const history = [
     {
       direction: "from-erp",
@@ -130,19 +127,17 @@ describe("Given the Overview's card for one ERP", () => {
     { direction: "to-erp", erpIds: ["erp"], lastAt: "2026-09-28T14:59:00Z" },
   ];
 
-  test("Then it holds the ERP's figures, its last update and when Demo Builder filled it", () => {
-    expect(erpCard(NORTHWIND, history, NOW, UTC)).toStrictEqual({
-      foot: "Filled today at 2:06 PM · emptied today at 2:04 PM",
-      inErp: "3 products · 5 business partners · 3 sales orders",
+  test("Then it holds the ERP's last update and what waits to send", () => {
+    expect(erpRow(NORTHWIND, history, NOW)).toStrictEqual({
+      key: "erp",
       lastUpdate: "2 minutes ago",
       waiting: "0",
     });
   });
 
   test("Then an ERP that gave no figures, nor sent anything, says so plainly", () => {
-    expect(erpCard(CONTOSO, [], NOW, UTC)).toStrictEqual({
-      foot: "Never filled",
-      inErp: "–",
+    expect(erpRow(CONTOSO, [], NOW)).toStrictEqual({
+      key: "contoso",
       lastUpdate: "Nothing yet",
       waiting: "–",
     });
@@ -151,8 +146,7 @@ describe("Given the Overview's card for one ERP", () => {
   test("Then with one ERP every update from the ERP is its own", () => {
     const one = { ...NORTHWIND, counts: { products: 1 } };
     const fromIt = [{ direction: "from-erp", lastAt: "2026-09-28T14:00:00Z" }];
-    expect(erpCard(one, fromIt, NOW, UTC, { onlyErp: true })).toMatchObject({
-      inErp: "1 product",
+    expect(erpRow(one, fromIt, NOW, { onlyErp: true })).toMatchObject({
       lastUpdate: "1 hour ago",
     });
   });
@@ -168,6 +162,8 @@ describe("Given today's Activity", () => {
         today({ direction: "from-erp", kind: "price", outcome: "applied" }),
         today({ direction: "from-erp", kind: "stock", outcome: "refused" }),
         today({ direction: "to-erp", kind: "shipped", outcome: "sent" }),
+        // A product, stock or company change made in Commerce counts as one too.
+        today({ direction: "to-erp", kind: "stock-changed", outcome: "sent" }),
         today({ direction: "reset", kind: "reset", outcome: "done" }),
         {
           direction: "to-erp",
@@ -177,10 +173,10 @@ describe("Given today's Activity", () => {
         },
       ],
       NOW,
-      UTC,
+      "UTC",
     );
     expect(counts).toStrictEqual({
-      commerceSent: 1,
+      commerceSent: 2,
       erpApplied: 1,
       notThrough: 2,
       ordersSent: 1,

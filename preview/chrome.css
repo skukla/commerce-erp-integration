@@ -59,3 +59,30 @@
   font-weight: 700;
   color: #1a1a1a;
 }
+
+/* The parts gallery (parts-gallery.jsx): each part named, its states side by side. */
+.parts-gallery {
+  padding: 8px 0 40px;
+}
+.gallery-part {
+  margin: 0 0 32px;
+}
+.gallery-name {
+  margin: 0 0 12px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #6b6b6b;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.gallery-states {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px 24px;
+  align-items: flex-end;
+}
+.gallery-wide {
+  display: grid;
+  flex: 1 1 100%;
+  gap: 24px;
+}

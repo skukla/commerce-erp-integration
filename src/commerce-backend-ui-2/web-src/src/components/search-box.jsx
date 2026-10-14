@@ -5,8 +5,10 @@
  */
 import { useCallback, useState } from "react";
 
+import { AdminButton } from "#web/components/admin/admin-button.jsx";
+import { AdminSearch } from "#web/components/admin/admin-fields.jsx";
 import { lookupFound } from "#web/lookup-view.js";
-import { searchExamples, searchTarget } from "#web/search-view.js";
+import { searchTarget } from "#web/search-view.js";
 
 /** Where the search looked, in the words of its miss. */
 function whereLooked(erpInfo) {
@@ -58,17 +60,7 @@ async function find(api, target, onOpen) {
   return matches.length > 0;
 }
 
-/** One of the search's own suggestions: fills the box and runs that search. */
-function ExampleButton({ example, onPick }) {
-  const pick = useCallback(() => onPick(example.text), [example.text, onPick]);
-  return (
-    <button className="btn btn-link" onClick={pick} type="button">
-      {example.label}
-    </button>
-  );
-}
-
-export function SearchBox({ api, erpInfo, history, onOpen }) {
+export function SearchBox({ api, erpInfo, onOpen }) {
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
   const [miss, setMiss] = useState(null);
@@ -94,60 +86,26 @@ export function SearchBox({ api, erpInfo, history, onOpen }) {
     },
     [api, erpInfo, onOpen],
   );
-  const submit = useCallback(
-    (event) => {
-      event.preventDefault();
-      search(text);
-    },
-    [search, text],
-  );
-  const pick = useCallback(
-    (picked) => {
-      setText(picked);
-      search(picked);
-    },
-    [search],
-  );
-  const examples = searchExamples(history);
-  const onTextChange = useCallback((event) => setText(event.target.value), []);
+  const submit = useCallback(() => search(text), [search, text]);
   return (
-    <search>
-      <form className="search" onSubmit={submit}>
-        <label htmlFor="erp-search">Find an order, product or company</label>
-        <div className="search-row">
-          <input
-            aria-describedby={
-              examples.length > 0 ? "erp-search-hint" : undefined
-            }
-            autoComplete="off"
-            className="input"
-            id="erp-search"
-            onChange={onTextChange}
-            placeholder="Order, SKU or company"
-            type="search"
-            value={text}
-          />
-          <button className="btn btn-secondary" disabled={busy} type="submit">
-            {busy ? "Finding" : "Find"}
-          </button>
+    <search className="adm-lookup">
+      <div className="adm-lookup-row">
+        <AdminSearch
+          label="Find an order, product or company"
+          onChange={setText}
+          onSubmit={search}
+          placeholder="Find an order, SKU or company in both systems"
+          value={text}
+        />
+        <AdminButton isDisabled={busy} onPress={submit}>
+          {busy ? "Finding" : "Find"}
+        </AdminButton>
+      </div>
+      {miss && (
+        <div className="adm-lookup-miss" role="status">
+          {miss}
         </div>
-        {examples.length > 0 && (
-          <div className="search-hint" id="erp-search-hint">
-            Try{" "}
-            {examples.map((example, index) => (
-              <span key={example.text}>
-                {index > 0 && (index === examples.length - 1 ? " or " : ", ")}
-                <ExampleButton example={example} onPick={pick} />
-              </span>
-            ))}
-          </div>
-        )}
-        {miss && (
-          <div className="search-miss" role="status">
-            {miss}
-          </div>
-        )}
-      </form>
+      )}
     </search>
   );
 }
