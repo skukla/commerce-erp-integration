@@ -4,11 +4,12 @@
  * Activity · Settings · Data Map, and the side panel. Everything arrives as props, so the page
  * renders against stand-in data in the local preview too.
  */
+/* global document */
 import { ProgressCircle } from "@react-spectrum/s2/ProgressCircle";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { ActivityTab } from "#web/components/activity-tab.jsx";
-import { Alert } from "#web/components/controls.jsx";
+import { Alert, RefreshButton } from "#web/components/controls.jsx";
 import { DataMapTab } from "#web/components/data-map-tab.jsx";
 import { OverviewTab } from "#web/components/overview-tab.jsx";
 import { PageFrame } from "#web/components/page-frame.jsx";
@@ -20,6 +21,8 @@ import { publishLine } from "#web/scheduled-view.js";
 import { ago, clockTime } from "#web/time-view.js";
 
 const TICK_MS = 30 * 1000;
+/** How often the page reads itself again while it is on screen (owner, 2026-10-13). */
+const AUTO_REFRESH_MS = 30 * 1000;
 
 /**
  * What shows until everything the page needs has arrived: MainPage's own Suspense fallback in
@@ -45,52 +48,69 @@ function useNow() {
   return now;
 }
 
-/** The page's own answers, read again on Refresh and after a Retry. */
+/** Nothing to say: a quiet read that fails shows its age under "Checked", not an alert. */
+const SILENT = () => undefined;
+
+/**
+ * The page's own answers, read again on Refresh, after a Retry, every half minute while the
+ * page is on screen, and when it comes back on screen. Only Refresh and Retry report a failed
+ * read; the quiet reads leave the band's "Checked" time to say how old the page is.
+ */
 function usePageData(api, initial, onError) {
   const [data, setData] = useState(() => ({
     ...initial,
     loadedAt: new Date(),
   }));
   const [busy, setBusy] = useState(false);
-  const readActivity = useCallback(async () => {
-    try {
-      const [history, scheduled] = await Promise.all([
-        api.history(false),
-        api.scheduled(),
-      ]);
-      setData((current) => ({
-        ...current,
-        history: history.entries ?? [],
-        runs: scheduled.scheduled ?? [],
-      }));
-    } catch (e) {
-      onError(`Activity could not be read: ${e.message}`);
-    }
-  }, [api, onError]);
+  const readActivity = useCallback(
+    async (report = onError) => {
+      try {
+        const [history, scheduled] = await Promise.all([
+          api.history(false),
+          api.scheduled(),
+        ]);
+        setData((current) => ({
+          ...current,
+          history: history.entries ?? [],
+          runs: scheduled.scheduled ?? [],
+        }));
+      } catch (e) {
+        report(`Activity could not be read: ${e.message}`);
+      }
+    },
+    [api, onError],
+  );
+  const readAll = useCallback(
+    async (report) => {
+      const status = await api.status();
+      setData((current) => ({ ...current, loadedAt: new Date(), status }));
+      await readActivity(report);
+    },
+    [api, readActivity],
+  );
   const refresh = useCallback(async () => {
     setBusy(true);
     try {
-      const status = await api.status();
-      setData((current) => ({ ...current, loadedAt: new Date(), status }));
-      await readActivity();
+      await readAll(onError);
     } catch (e) {
       onError(`The integration could not be read: ${e.message}`);
     }
     setBusy(false);
-  }, [api, onError, readActivity]);
+  }, [onError, readAll]);
+  useEffect(() => {
+    const quietly = () => {
+      if (document.visibilityState === "visible") {
+        readAll(SILENT).catch(SILENT);
+      }
+    };
+    const timer = setInterval(quietly, AUTO_REFRESH_MS);
+    document.addEventListener("visibilitychange", quietly);
+    return () => {
+      clearInterval(timer);
+      document.removeEventListener("visibilitychange", quietly);
+    };
+  }, [readAll]);
   return { ...data, busy, readActivity, refresh };
-}
-
-function RefreshButton({ busy, onRefresh }) {
-  return (
-    <button
-      className="btn btn-secondary"
-      disabled={busy}
-      onClick={onRefresh}
-      type="button">
-      {busy ? "Refreshing" : "Refresh"}
-    </button>
-  );
 }
 
 /**
@@ -163,12 +183,14 @@ export function IntegrationPage({
     body = (
       <SettingsTab
         api={api}
+        busy={data.busy}
         erpInfo={erpInfo}
         frame={frame}
         initialErp={picked.settings}
         initialPage={settingsPage}
         key={picked.settings}
         onError={setError}
+        onRefresh={data.refresh}
         onSavedDefault={setSettingsPage}
         scopes={settingsPage.scopes}
         scopesNote={settingsPage.scopesNote ?? null}

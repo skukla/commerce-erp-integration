@@ -59,6 +59,19 @@ export function Badge({ children, tone }) {
   return <span className={`badge badge-${tone}`}>{children}</span>;
 }
 
+/** The band's Refresh: reads the page again. Off while it reads, or when `disabled`. */
+export function RefreshButton({ busy, disabled = false, onRefresh }) {
+  return (
+    <button
+      className="btn btn-secondary"
+      disabled={busy || disabled}
+      onClick={onRefresh}
+      type="button">
+      {busy ? "Refreshing" : "Refresh"}
+    </button>
+  );
+}
+
 export function Spinner({ label }) {
   return <div aria-label={label} className="spinner" role="progressbar" />;
 }

@@ -7,7 +7,12 @@
  */
 import { useCallback, useEffect, useState } from "react";
 
-import { Alert, ConfirmDialog, Spinner } from "#web/components/controls.jsx";
+import {
+  Alert,
+  ConfirmDialog,
+  RefreshButton,
+  Spinner,
+} from "#web/components/controls.jsx";
 import {
   ConnectionCard,
   ErpListCard,
@@ -60,20 +65,23 @@ function useDefaultLabel(name, forErp, atDefault) {
   return "Use Default Value";
 }
 
-/** The ERP list with each ERP's own settings and connection, read once. */
-function useErpEntries(api) {
+/** The ERP list with each ERP's own settings and connection, read again each `round`. */
+function useErpEntries(api, round) {
   const [entries, setEntries] = useState([]);
   useEffect(() => {
     api
       .erps()
       .then((answer) => setEntries(answer.entries ?? []))
       .catch(() => setEntries([]));
-  }, [api]);
+  }, [api, round]);
   return [entries, setEntries];
 }
 
-/** The page at a scope: Default Config as loaded, a website read when picked. */
-function useScopePage(api, initialPage, scopeId, onError) {
+/**
+ * The page at a scope: Default Config as the page holds it, a website read when picked and
+ * again each `round` (Refresh).
+ */
+function useScopePage(api, initialPage, scopeId, onError, round) {
   const [page, setPage] = useState(initialPage);
   useEffect(() => {
     if (scopeId === "") {
@@ -85,7 +93,7 @@ function useScopePage(api, initialPage, scopeId, onError) {
       .settings(scopeId)
       .then(setPage)
       .catch((e) => onError(`Settings could not be read: ${e.message}`));
-  }, [api, initialPage, onError, scopeId]);
+  }, [api, initialPage, onError, scopeId, round]);
   return [page, setPage];
 }
 
@@ -227,22 +235,33 @@ function Cards({ cards, entries, entry, erpInfo, fields, row, several }) {
  *   the page frame, with the band's actions
  * @param {object} props.initialPage erp/settings at Default Config, with `confirmStatuses`
  * @param {string} [props.initialErp] the ERP a card's Settings link picked
+ * @param {boolean} props.busy the page is reading itself again
+ * @param {() => Promise<void>} props.onRefresh the page's own Refresh (the ERPs' band)
  */
 export function SettingsTab({
   api,
+  busy,
   erpInfo,
   frame,
   initialErp = "",
   initialPage,
   onError,
+  onRefresh,
   onSavedDefault,
   scopes,
   scopesNote,
 }) {
-  const [entries, setEntries] = useErpEntries(api);
+  const [round, setRound] = useState(0);
+  const [entries, setEntries] = useErpEntries(api, round);
   const [erpId, setErpId] = useState(erpInfo.several ? initialErp : "");
   const [scopeId, setScopeId] = useState("");
-  const [page, setPage] = useScopePage(api, initialPage, scopeId, onError);
+  const [page, setPage] = useScopePage(
+    api,
+    initialPage,
+    scopeId,
+    onError,
+    round,
+  );
   const [statuses] = useState(initialPage.confirmStatuses ?? null);
   const [edits, setEdits] = useState({});
   const [saving, setSaving] = useState(false);
@@ -339,6 +358,21 @@ export function SettingsTab({
     websiteCode,
   ]);
 
+  // Refresh reads the settings again, so it waits for unsaved changes to be saved first.
+  const refresh = useCallback(async () => {
+    setSaved(false);
+    setRound((n) => n + 1);
+    if (scopeId === "") {
+      try {
+        const answer = await api.settings();
+        onSavedDefault({ ...answer, confirmStatuses: statuses });
+      } catch (e) {
+        onError(`Settings could not be read: ${e.message}`);
+      }
+    }
+    await onRefresh();
+  }, [api, onError, onRefresh, onSavedDefault, scopeId, statuses]);
+
   const fields = shownFields(page, entry, values, edits, scopeLevel);
   const shownErp = entry ?? (erpInfo.several ? null : erpInfo.erps[0]);
   const row = rowMaker({
@@ -356,12 +390,15 @@ export function SettingsTab({
     several: erpInfo.several,
   });
   const actions = (
-    <SaveActions
-      changed={changed}
-      onSave={save}
-      saved={saved}
-      saving={saving}
-    />
+    <>
+      <SaveActions
+        changed={changed}
+        onSave={save}
+        saved={saved}
+        saving={saving}
+      />
+      <RefreshButton busy={busy} disabled={changed} onRefresh={refresh} />
+    </>
   );
   return frame(
     actions,
