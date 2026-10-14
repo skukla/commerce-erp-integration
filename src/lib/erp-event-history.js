@@ -68,10 +68,20 @@ const DESCRIBE = {
     message: `order ${d.incrementId}: shipped`,
     ref: d.incrementId,
   }),
-  stock: (d) => ({
-    message: `SKU ${d.sku} at ${d.source ?? "default"}: ${d.outOfStock ? "out of stock" : `${d.quantity} in stock`}`,
-    ref: d.sku,
-  }),
+  // A stock event's data is a LIST of lines (stock/external/updated/schema.json). Until
+  // 2026-10-14 this read it as one line, so every real stock record said "SKU undefined at
+  // default: undefined in stock" with no ref; the tests and the preview passed one object.
+  stock: (d) => {
+    const lines = Array.isArray(d) ? d : [d];
+    const line = (l) =>
+      `SKU ${l.sku} at ${l.source ?? "default"}: ${l.outOfStock ? "out of stock" : `${l.quantity} in stock`}`;
+    return lines.length === 1
+      ? { message: line(lines[0]), ref: lines[0].sku }
+      : {
+          message: `${lines.length} products: stock changed (${lines.map(line).join("; ")})`,
+          ref: "",
+        };
+  },
 };
 
 const CLIENT_ERROR = 400;

@@ -75,9 +75,18 @@ describe("Given an ERP event applied to Commerce", () => {
   test.each([
     [
       "stock",
-      { outOfStock: false, quantity: 7, sku: "ABC", source: "east" },
+      [{ outOfStock: false, quantity: 7, sku: "ABC", source: "east" }],
       "SKU ABC at east: 7 in stock",
       "ABC",
+    ],
+    [
+      "stock",
+      [
+        { outOfStock: false, quantity: 7, sku: "ABC", source: "east" },
+        { outOfStock: true, quantity: 0, sku: "XYZ", source: "west" },
+      ],
+      "2 products: stock changed (SKU ABC at east: 7 in stock; SKU XYZ at west: out of stock)",
+      "",
     ],
     [
       "order-status",
