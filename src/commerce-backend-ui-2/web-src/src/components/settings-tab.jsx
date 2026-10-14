@@ -7,12 +7,7 @@
  */
 import { useCallback, useEffect, useState } from "react";
 
-import {
-  Alert,
-  ConfirmDialog,
-  RefreshButton,
-  Spinner,
-} from "#web/components/controls.jsx";
+import { Alert, ConfirmDialog, Spinner } from "#web/components/controls.jsx";
 import {
   ConnectionCard,
   ErpListCard,
@@ -206,12 +201,11 @@ function Cards({ cards, entries, entry, erpInfo, fields, row }) {
  *   the page frame, with the band's actions
  * @param {object} props.initialPage erp/settings at Default Config, with `confirmStatuses`
  * @param {string} [props.initialErp] the ERP a card's Settings link picked
- * @param {boolean} props.busy the page is reading itself again
- * @param {() => Promise<void>} props.onRefresh the page's own Refresh (the ERPs' band)
+ * @param {() => Promise<void>} props.onRefresh the page's own Refresh; Settings reads its own
+ *   settings again first, and its refresh is off while there are unsaved changes
  */
 export function SettingsTab({
   api,
-  busy,
   erpInfo,
   frame,
   initialErp = "",
@@ -361,15 +355,12 @@ export function SettingsTab({
     several: erpInfo.several,
   });
   const actions = (
-    <>
-      <SaveActions
-        changed={changed}
-        onSave={save}
-        saved={saved}
-        saving={saving}
-      />
-      <RefreshButton busy={busy} disabled={changed} onRefresh={refresh} />
-    </>
+    <SaveActions
+      changed={changed}
+      onSave={save}
+      saved={saved}
+      saving={saving}
+    />
   );
   return frame(
     actions,
@@ -407,5 +398,6 @@ export function SettingsTab({
         />
       )}
     </>,
+    { disabled: changed, onRefresh: refresh },
   );
 }

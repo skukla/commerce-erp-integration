@@ -9,7 +9,7 @@ import { ProgressCircle } from "@react-spectrum/s2/ProgressCircle";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { ActivityTab } from "#web/components/activity-tab.jsx";
-import { Alert, RefreshButton } from "#web/components/controls.jsx";
+import { Alert } from "#web/components/controls.jsx";
 import { DataMapTab } from "#web/components/data-map-tab.jsx";
 import { OverviewTab } from "#web/components/overview-tab.jsx";
 import { PageFrame } from "#web/components/page-frame.jsx";
@@ -21,8 +21,6 @@ import { publishLine } from "#web/scheduled-view.js";
 import { ago, clockTime } from "#web/time-view.js";
 
 const TICK_MS = 30 * 1000;
-/** How often the page reads itself again while it is on screen (owner, 2026-10-13). */
-const AUTO_REFRESH_MS = 30 * 1000;
 
 /**
  * What shows until everything the page needs has arrived: MainPage's own Suspense fallback in
@@ -52,9 +50,10 @@ function useNow() {
 const SILENT = () => undefined;
 
 /**
- * The page's own answers, read again on Refresh, after a Retry, every half minute while the
- * page is on screen, and when it comes back on screen. Only Refresh and Retry report a failed
- * read; the quiet reads leave the band's "Checked" time to say how old the page is.
+ * The page's own answers, read again on Refresh, after a Retry, and once when the page comes
+ * back on screen. It does not poll: a page that changes under the reader looks broken in a
+ * demo, and every read calls each ERP (owner, 2026-10-13). Only Refresh and Retry report a
+ * failed read; the quiet one leaves the band's "Checked" time to say how old the page is.
  */
 function usePageData(api, initial, onError) {
   const [data, setData] = useState(() => ({
@@ -103,12 +102,8 @@ function usePageData(api, initial, onError) {
         readAll(SILENT).catch(SILENT);
       }
     };
-    const timer = setInterval(quietly, AUTO_REFRESH_MS);
     document.addEventListener("visibilitychange", quietly);
-    return () => {
-      clearInterval(timer);
-      document.removeEventListener("visibilitychange", quietly);
-    };
+    return () => document.removeEventListener("visibilitychange", quietly);
   }, [readAll]);
   return { ...data, busy, readActivity, refresh };
 }
@@ -154,8 +149,10 @@ export function IntegrationPage({
     erps: erpInfo.erps,
     now,
   }).length;
+  const checked = ago(data.loadedAt.toISOString(), now);
+  // `own`: a tab's own refresh, and whether it is off (Settings, with unsaved changes).
   const frame = useCallback(
-    (actions, children) => (
+    (actions, children, own = {}) => (
       <PageFrame
         actions={actions}
         attention={attention}
@@ -168,14 +165,29 @@ export function IntegrationPage({
           )
         }
         onTab={choose}
+        refresh={{
+          busy: data.busy,
+          checked,
+          disabled: own.disabled,
+          onRefresh: own.onRefresh ?? data.refresh,
+        }}
         tab={tab}>
         {children}
       </PageFrame>
     ),
-    [attention, choose, dismiss, erpInfo, error, tab],
+    [
+      attention,
+      checked,
+      choose,
+      data.busy,
+      data.refresh,
+      dismiss,
+      erpInfo,
+      error,
+      tab,
+    ],
   );
   const openScheduled = useCallback(() => setPanel({ kind: "scheduled" }), []);
-  const refresh = <RefreshButton busy={data.busy} onRefresh={data.refresh} />;
   const publish = publishLine(data.runs, now, (iso) => clockTime(iso));
   const shared = { api, erpInfo, now, onError: setError, onOpen: setPanel };
   let body;
@@ -183,7 +195,6 @@ export function IntegrationPage({
     body = (
       <SettingsTab
         api={api}
-        busy={data.busy}
         erpInfo={erpInfo}
         frame={frame}
         initialErp={picked.settings}
@@ -198,12 +209,9 @@ export function IntegrationPage({
     );
   } else if (tab === "activity") {
     body = frame(
-      <>
-        <button className="band-link" onClick={openScheduled} type="button">
-          Next price publish <strong>{publish.next}</strong> · {publish.last}
-        </button>
-        {refresh}
-      </>,
+      <button className="band-link" onClick={openScheduled} type="button">
+        Next price publish <strong>{publish.next}</strong> · {publish.last}
+      </button>,
       <ActivityTab
         {...shared}
         history={data.history}
@@ -213,12 +221,7 @@ export function IntegrationPage({
     );
   } else if (tab === "data-map") {
     body = frame(
-      <>
-        <span className="band-note">
-          Checked {ago(data.loadedAt.toISOString(), now)}
-        </span>
-        {refresh}
-      </>,
+      null,
       <DataMapTab
         {...shared}
         history={data.history}
@@ -227,12 +230,7 @@ export function IntegrationPage({
     );
   } else {
     body = frame(
-      <>
-        <span className="band-note">
-          Checked {ago(data.loadedAt.toISOString(), now)}
-        </span>
-        {refresh}
-      </>,
+      null,
       <OverviewTab
         {...shared}
         history={data.history}

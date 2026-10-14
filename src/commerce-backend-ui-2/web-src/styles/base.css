@@ -131,6 +131,12 @@ code {
   gap: 12px;
   align-items: center;
 }
+/* When the page was read and its refresh action: last in the band on every tab. */
+.band-fresh {
+  display: inline-flex;
+  gap: 4px;
+  align-items: center;
+}
 .band-note {
   font-size: 13px;
   color: var(--text-muted);

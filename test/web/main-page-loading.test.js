@@ -18,6 +18,17 @@ vi.mock("@react-spectrum/s2/ProgressCircle", () => ({
   ProgressCircle: (props) =>
     createElement("span", { "data-progress": props["aria-label"] }),
 }));
+// The band's refresh action (components/page-frame.jsx): Spectrum's built files import CSS,
+// which Node cannot load.
+vi.mock("@react-spectrum/s2/ActionButton", () => ({
+  ActionButton: (props) =>
+    createElement("button", { type: "button" }, props.children),
+}));
+vi.mock("@react-spectrum/s2/Tooltip", () => ({
+  Tooltip: () => null,
+  TooltipTrigger: (props) => props.children,
+}));
+vi.mock("@react-spectrum/s2/icons/Refresh", () => ({ default: () => null }));
 // A first read that never answers: the page stays in its wait.
 vi.mock("#web/first-read.js", () => ({
   readFirst: () => new Promise(() => undefined),
