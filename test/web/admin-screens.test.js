@@ -7,8 +7,8 @@
  * Playwright's own headless Chromium, and asserts per screen that the console is clean and that
  * its computed-style FINGERPRINT equals the one checked in, so a change to how anything looks
  * has to be accepted on purpose. The design is demo-erp's test/screens.test.js, with its
- * lessons: a pinned clock, locale and zone; the pointer parked; a sample taken only once three
- * in a row agree; and a first mismatch loaded again before it fails.
+ * lessons: a pinned clock, locale and zone; the pointer parked; the web fonts loaded; a sample
+ * taken only once three in a row agree; and a first mismatch loaded again before it fails.
  *
  * Re-accept after an intended change:
  *   UPDATE_ADMIN_FINGERPRINTS=1 npx vitest run test/web/admin-screens.test.js
@@ -160,6 +160,10 @@ async function open(screen) {
   page.on("pageerror", (e) => problems.push(`pageerror: ${e.message}`));
   await page.goto(`${base}${screen.search}`);
   await page.waitForSelector(".erp-page", { timeout: SCREEN_MS });
+  // Wait for the page's web fonts. Under load the font arrived after three samples had
+  // already agreed on the fallback's text wrapping, so a table measured ~100 px shorter
+  // and a screen failed in the full suite and passed alone (2026-10-14).
+  await page.evaluate(() => document.fonts.ready);
   // Park the pointer on empty canvas: a control under it is drawn hovered.
   await page.mouse.move(VIEWPORT.width - 4, VIEWPORT.height - 4);
   if (screen.act) {

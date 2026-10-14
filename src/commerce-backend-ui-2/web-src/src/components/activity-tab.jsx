@@ -207,25 +207,16 @@ function useEntries(api, history, erp, onError) {
   return erp && own ? own : history;
 }
 
-/**
- * @param {object} props
- * @param {string} [props.initialErp] the ERP a card's Activity link picked
- */
 export function ActivityTab({
   api,
   erpInfo,
   history,
-  initialErp = "",
   now,
   onError,
   onOpen,
   refresh,
 }) {
-  const [start] = useState(() => ({
-    ...NO_FILTERS,
-    erp: erpInfo.several ? initialErp : "",
-  }));
-  const grid = useGridFilters(NO_FILTERS, start);
+  const grid = useGridFilters(NO_FILTERS);
   const { filters } = grid;
   const entries = useEntries(api, history, filters.erp, onError);
   const rows = entries

@@ -1,7 +1,7 @@
 /*
  * The Settings tab's fields as its controls show them: what loaded, with this visit's edits on
  * top. At a website a value set wider is inherited ("Use Default Value" ticked); an ERP's own
- * settings show as its own, and what it does not set as the integration's ("Same as All ERPs").
+ * settings show as its own, and what it does not set as the integration's ("Use Default for all ERPs").
  * With several ERPs, an ERP that does not say which products it owns shows "Not set": its owner
  * attribute decides, not the integration's setting.
  */
@@ -87,7 +87,7 @@ describe("Given one ERP's fields among several", () => {
     { name: "structure_order_prefix", own: true, value: "CON" },
   ];
 
-  test("Then what it does not set is the integration's, and shows as Same as All ERPs", () => {
+  test("Then what it does not set is the integration's, and shows as Use Default for all ERPs", () => {
     expect(
       erpFields(PAGE, values, {}).get("structure_sales_org"),
     ).toMatchObject({ inherited: true, value: "1000" });
@@ -110,5 +110,22 @@ describe("Given one ERP's fields among several", () => {
       erpFields(PAGE, values, { structure_owns: null }).get("structure_owns")
         .value,
     ).toBe("");
+  });
+});
+
+describe("Given an ERP still carrying a products rule that was deleted", () => {
+  // The "sources" rule was deleted on 2026-10-09; the integration reads it as "all"
+  // (lib/structure.js), so the page shows "All products" rather than an empty list.
+  test("Then the page shows it as All products, as the integration reads it", () => {
+    const page = {
+      fields: [{ name: "structure_owns", options: [], type: "list" }],
+      values: [],
+    };
+    const fields = erpFields(
+      page,
+      [{ name: "structure_owns", own: true, value: "sources" }],
+      {},
+    );
+    expect(fields.get("structure_owns").value).toBe("all");
   });
 });

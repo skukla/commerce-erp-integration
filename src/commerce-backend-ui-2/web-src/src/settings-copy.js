@@ -94,10 +94,11 @@ const TEXT = {
       placeholder: example,
     };
   },
+  // Not "Websites": beside the Scope picker that read as a second scope (owner, 2026-10-14).
   structure_owns_websites: () => ({
-    help: "Website codes, comma-separated.",
-    label: "Websites",
-    more: "",
+    help: "Orders from these websites go to this ERP.",
+    label: "Websites whose products this ERP owns",
+    more: "Hold Cmd (Mac) or Ctrl (Windows) to choose more than one.",
   }),
   structure_sales_org: (erp) => ({
     help: "The ERP’s code for this website’s sales, e.g. 1000.",
@@ -105,12 +106,28 @@ const TEXT = {
     more: `Four letters or digits, like an SAP sales organization.${erp ? "" : " An ERP that sets its own uses that instead."}`,
   }),
   structure_sales_org_name: () => ({
-    help: "What the ERP calls it. Empty: the website’s name.",
+    help: "What the ERP calls it. The website’s name unless you set one.",
     label: "Sales organization name",
     more: "",
-    placeholder: "The website’s name",
   }),
 };
+
+/**
+ * What a setting is when it is left blank, where blank means a value the integration works out
+ * (lib/structure.js): the ERP's name's first letters for the order-number prefix, the
+ * website's name for its sales organization's name. The page shows that value rather than an
+ * empty field (owner, 2026-10-14). Undefined for a setting with no such value.
+ * @param {string} name a setting
+ * @param {{ erp: { name: string }|null, websiteName?: string }} context
+ */
+export function systemValueOf(name, { erp, websiteName }) {
+  if (name === "structure_order_prefix") {
+    return derivedPrefix(erp?.name);
+  }
+  if (name === "structure_sales_org_name") {
+    return websiteName;
+  }
+}
 
 /**
  * @param {string} name a setting
@@ -166,24 +183,16 @@ export function ownsOptions(erp) {
 }
 
 /**
- * The groups a view holds, in order.
- * @param {{ several: boolean, erp: boolean, atDefault: boolean }} view several ERPs or one;
- *   one ERP picked or every ERP; Default Config or a website
+ * The integration's groups a view holds, in order: what every ERP shares. Each ERP's own
+ * settings follow, in a group titled with its name (settings-view.js erpGroupNames). The
+ * schedules are the whole integration's, read at Default Config only.
+ * @param {{ atDefault: boolean }} view Default Config or a website
  * @returns {string[]}
  */
-export function groupsAt({ atDefault, erp, several }) {
-  const products = atDefault ? "products" : "websiteNote";
-  if (several && erp) {
-    return ["salesOrg", "connection", products];
-  }
-  if (several) {
-    return atDefault
-      ? ["orders", "salesOrg", "schedules", "erpList"]
-      : ["orders", "salesOrg"];
-  }
-  // The schedules are the whole integration's: set at Default Config only.
-  const schedules = atDefault ? ["schedules"] : [];
-  return ["orders", "salesOrg", products, "connection", ...schedules];
+export function groupsAt({ atDefault }) {
+  return atDefault
+    ? ["orders", "salesOrg", "schedules"]
+    : ["orders", "salesOrg"];
 }
 
 const KINDS = { "demo-erp": "Demo ERP" };

@@ -1,69 +1,55 @@
 /*
- * Settings, as Stores > Configuration (owner, 2026-10-14): which ERP and which scope, then the
- * settings in collapsible groups by topic, each a Configuration row (admin-config.jsx); one
- * Save Config in the band. "All ERPs" edits the integration's configuration, every ERP's
- * default; picking an ERP edits only what it sets for itself, on its entry in the ERP list
- * (erp/erps). A website shows only what can differ per website, with Commerce's "Use Default
- * Value". Switching with unsaved changes asks first.
+ * Settings, as Stores > Configuration (owner, 2026-10-14): the Admin's Scope switcher, then the
+ * settings in collapsible groups (admin-config.jsx); one Save Config in the band. First the
+ * integration's groups, which every ERP shares; then one group per ERP, under its name, with
+ * what it sets for itself and how it is reached. An ERP switcher used to choose whose settings
+ * showed, and hid which were whose (owner, 2026-10-14). A website shows only what can differ
+ * per website, with Commerce's "Use Default Value". Switching scope with unsaved changes asks
+ * first, in the Admin's words.
  */
 import { useCallback, useEffect, useState } from "react";
 
 import { AdminButton } from "#web/components/admin/admin-button.jsx";
-import { AdminPicker } from "#web/components/admin/admin-fields.jsx";
 import { AdminNotice } from "#web/components/admin/admin-notice.jsx";
 import { AdminRefresh } from "#web/components/admin/admin-refresh.jsx";
 import { AdminStatus } from "#web/components/admin/admin-status.jsx";
+import { AdminSwitcher } from "#web/components/admin/admin-switcher.jsx";
 import { ConfirmDialog, Spinner } from "#web/components/controls.jsx";
 import {
-  ConnectionGroup,
-  ErpListGroup,
+  ErpGroup,
   OrdersGroup,
-  ProductsGroup,
   rowMaker,
   SalesOrgGroup,
   SchedulesGroup,
-  WebsiteNote,
 } from "#web/components/settings-groups.jsx";
 import { groupsAt } from "#web/settings-copy.js";
-import { erpFields, integrationFields } from "#web/settings-fields.js";
+import {
+  anyChanges,
+  editOf,
+  firstGap,
+  INTEGRATION,
+  settingsTargets,
+} from "#web/settings-targets.js";
 import {
   ERP_WEBSITE_NAMES,
-  erpValues,
-  pendingChanges,
+  erpGroupNames,
   websiteChoices,
   websiteCodeOf,
+  websiteOptions,
 } from "#web/settings-view.js";
 
-/** An ERP's products and order-number settings are its own or not set: "" is not set. */
-const EMPTY_IS_UNSET = new Set([
-  "structure_order_prefix",
-  "structure_owns",
-  "structure_owns_attribute",
-  "structure_owns_websites",
-]);
-
-/** The fields as shown: an ERP's own, or the integration's at the scope. */
-function shownFields(page, entry, values, edits, scopeLevel) {
-  if (!page) {
-    return new Map();
-  }
-  return entry
-    ? erpFields(page, values, edits)
-    : integrationFields(page, edits, scopeLevel);
-}
+const SCOPE_HINT =
+  "Default Config applies to every website unless a website sets its own value.";
 
 /**
- * The "Use Default" box's label, or null for none: at a website, the wider value is Default
- * Config's; for one ERP at Default Config, it is every ERP's (the integration's).
+ * The "Use Default Value" box, or null for none: an integration setting at a website takes
+ * Default Config's; an ERP's sales organization takes the integration's.
  */
-function useDefaultLabel(name, forErp, atDefault) {
-  if (forErp && !ERP_WEBSITE_NAMES.has(name)) {
-    return null;
+function useDefaultLabel(target, name, atDefault) {
+  if (target.id !== INTEGRATION) {
+    return ERP_WEBSITE_NAMES.has(name) ? "Use Default Value" : null;
   }
-  if (atDefault) {
-    return forErp ? "Same as All ERPs" : null;
-  }
-  return "Use Default Value";
+  return atDefault ? null : "Use Default Value";
 }
 
 /** The ERP list with each ERP's own settings and connection, read again each `round`. */
@@ -98,42 +84,18 @@ function useScopePage(api, initialPage, scopeId, onError, round) {
   return [page, setPage];
 }
 
-/** An ERP Picker's id for "every ERP": a collection's keys cannot be "". */
-const ALL_ERPS = "all";
-
-/** Which ERP, and which scope: the Configuration page's scope switcher, beside the ERP's. */
-function ScopeBar({ choices, erpId, erps, onErp, onScope, scopeId, several }) {
-  const erpOptions = [
-    { id: ALL_ERPS, label: "All ERPs" },
-    ...erps.map((erp) => ({ id: erp.id, label: erp.name })),
-  ];
-  // A choice's id is "" for Default Config; the Picker's is the label's own key.
-  const scopeOptions = choices.map((c) => ({
-    id: `s:${c.id}`,
-    label: c.label,
-  }));
-  const changeErp = useCallback(
-    (id) => onErp(id === ALL_ERPS ? "" : id),
-    [onErp],
-  );
-  const changeScope = useCallback((id) => onScope(id.slice(2)), [onScope]);
+/** The scope switcher. A choice's id is "" for Default Config, which a Picker key cannot be. */
+function ScopeBar({ choices, onScope, scopeId }) {
+  const options = choices.map((c) => ({ id: `s:${c.id}`, label: c.label }));
+  const change = useCallback((id) => onScope(id.slice(2)), [onScope]);
   return (
-    <div className="adm-scope-bar">
-      {several && (
-        <AdminPicker
-          label="ERP"
-          onChange={changeErp}
-          options={erpOptions}
-          value={erpId || ALL_ERPS}
-        />
-      )}
-      <AdminPicker
-        label="Scope"
-        onChange={changeScope}
-        options={scopeOptions}
-        value={`s:${scopeId}`}
-      />
-    </div>
+    <AdminSwitcher
+      hint={SCOPE_HINT}
+      label="Scope"
+      onChange={change}
+      options={options}
+      value={`s:${scopeId}`}
+    />
   );
 }
 
@@ -154,22 +116,70 @@ function SaveActions({ changed, onSave, saved, saving }) {
   );
 }
 
-/** The groups of the view, one under another, as the Configuration page lists them. */
-function Groups({ entries, entry, erpInfo, fields, groups, row }) {
-  const group = {
-    connection: (
-      <ConnectionGroup entry={entry ?? entries[0]} key="connection" />
-    ),
-    erpList: (
-      <ErpListGroup colors={erpInfo.colors} entries={entries} key="erpList" />
-    ),
-    orders: <OrdersGroup key="orders" row={row} />,
-    products: <ProductsGroup fields={fields} key="products" row={row} />,
-    salesOrg: <SalesOrgGroup key="salesOrg" row={row} />,
-    schedules: <SchedulesGroup fields={fields} key="schedules" row={row} />,
-    websiteNote: <WebsiteNote key="websiteNote" />,
-  };
-  return <div className="adm-config">{groups.map((id) => group[id])}</div>;
+/**
+ * Save every target with changes, the integration first, each by its own path. A failure stops
+ * there: what saved is kept, what did not stays unsaved.
+ * @returns {Promise<string[]>} the targets saved
+ */
+async function saveTargets(api, targets, { scopeId, websiteCode }) {
+  const saved = [];
+  for (const target of targets) {
+    if (Object.keys(target.changes).length === 0) {
+      continue;
+    }
+    // biome-ignore lint/performance/noAwaitInLoops: one save at a time, so a failure stops the rest
+    const answer = await (target.id === INTEGRATION
+      ? api.saveSettings(scopeId || undefined, target.changes)
+      : api.saveErpSettings(target.id, websiteCode, target.changes));
+    saved.push({ answer, id: target.id });
+  }
+  return saved;
+}
+
+/** Changing and saving the edits per target, which the tab holds (`edits`, `setEdits`). */
+function useEdits({ api, onError, onSaved, scope, setEdits, targets }) {
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const [gap, setGap] = useState(null);
+  const change = useCallback(
+    (target, name, value) => {
+      setSaved(false);
+      setGap(null);
+      setEdits((all) => ({
+        ...all,
+        [target.id]: editOf(target, all[target.id] ?? {}, name, value),
+      }));
+    },
+    [setEdits],
+  );
+  const reset = useCallback(() => {
+    setEdits({});
+    setSaved(false);
+    setGap(null);
+  }, [setEdits]);
+  const save = useCallback(async () => {
+    const missing = firstGap(targets);
+    setGap(missing);
+    if (missing || !anyChanges(targets)) {
+      return;
+    }
+    setSaving(true);
+    const done = [];
+    try {
+      done.push(...(await saveTargets(api, targets, scope)));
+      setSaved(true);
+    } catch (e) {
+      onError(`Settings could not be saved: ${e.message}`);
+    }
+    onSaved(done);
+    setEdits((all) =>
+      Object.fromEntries(
+        Object.entries(all).filter(([id]) => !done.some((d) => d.id === id)),
+      ),
+    );
+    setSaving(false);
+  }, [api, onError, onSaved, scope, setEdits, targets]);
+  return { change, gap, reset, save, saved, saving };
 }
 
 /**
@@ -177,26 +187,14 @@ function Groups({ entries, entry, erpInfo, fields, groups, row }) {
  * @param {(actions: React.ReactNode, children: React.ReactNode) => React.ReactNode} props.frame
  *   the page frame, with the band's actions
  * @param {object} props.initialPage erp/settings at Default Config, with `confirmStatuses`
- * @param {string} [props.initialErp] the ERP a card's Settings link picked
  * @param {{ busy: boolean, updated: string, onRefresh: () => Promise<void> }} props.refresh
  *   the page's own; Settings reads its own settings again first, and is off while there are
  *   unsaved changes
  */
-export function SettingsTab({
-  api,
-  erpInfo,
-  frame,
-  initialErp = "",
-  initialPage,
-  onError,
-  refresh,
-  onSavedDefault,
-  scopes,
-  scopesNote,
-}) {
+export function SettingsTab(props) {
+  const { api, erpInfo, initialPage, onError, onSavedDefault, scopes } = props;
   const [round, setRound] = useState(0);
   const [entries, setEntries] = useErpEntries(api, round);
-  const [erpId, setErpId] = useState(erpInfo.several ? initialErp : "");
   const [scopeId, setScopeId] = useState("");
   const [page, setPage] = useScopePage(
     api,
@@ -206,104 +204,145 @@ export function SettingsTab({
     round,
   );
   const [statuses] = useState(initialPage.confirmStatuses ?? null);
-  const [edits, setEdits] = useState({});
-  const [saving, setSaving] = useState(false);
-  const [saved, setSaved] = useState(false);
   const [asked, setAsked] = useState(null);
-
+  const [edits, setEdits] = useState({});
   const choices = websiteChoices(scopes);
   const scopeLevel = choices.find((c) => c.id === scopeId)?.level ?? "global";
-  const atDefault = scopeLevel === "global";
-  const entry = erpId
-    ? entries.find((candidate) => candidate.id === erpId)
-    : null;
   const websiteCode = websiteCodeOf(scopes, scopeId);
-  const values = entry
-    ? erpValues(entry, websiteCode, page?.values)
-    : page?.values;
-  const changes = pendingChanges(values, edits);
-  const changed = Object.keys(changes).length > 0;
-
-  const go = useCallback((next) => {
-    setEdits({});
-    setSaved(false);
-    if (next.erp !== undefined) {
-      setErpId(next.erp);
-    }
-    if (next.scope !== undefined) {
-      setScopeId(next.scope);
-    }
-  }, []);
-  const ask = useCallback(
-    (next) => (changed ? setAsked(next) : go(next)),
-    [changed, go],
-  );
-  const askErp = useCallback((erp) => ask({ erp }), [ask]);
-  const askScope = useCallback((scope) => ask({ scope }), [ask]);
-  const cancelSwitch = useCallback(() => setAsked(null), []);
-  const confirmSwitch = useCallback(() => {
-    go(asked);
-    setAsked(null);
-  }, [asked, go]);
-  const onChange = useCallback(
-    (name, value) => {
-      setSaved(false);
-      const unset = entry && EMPTY_IS_UNSET.has(name) && value === "";
-      setEdits((current) => ({ ...current, [name]: unset ? null : value }));
-    },
-    [entry],
-  );
-  const onUseDefault = useCallback((name) => {
-    setSaved(false);
-    setEdits((current) => ({ ...current, [name]: null }));
-  }, []);
-  const save = useCallback(async () => {
-    if (!changed) {
-      return;
-    }
-    setSaving(true);
-    try {
-      if (entry) {
-        const answer = await api.saveErpSettings(
-          entry.id,
-          websiteCode,
-          changes,
-        );
-        setEntries((list) =>
-          list.map((e) => (e.id === answer.entry.id ? answer.entry : e)),
-        );
-      } else {
-        const answer = await api.saveSettings(scopeId || undefined, changes);
-        if (scopeId === "") {
+  const targets = settingsTargets({
+    edits,
+    entries,
+    erpInfo,
+    page,
+    scopeLevel,
+    websiteCode,
+  });
+  const onSaved = useCallback(
+    (done) => {
+      for (const { answer, id } of done) {
+        if (id !== INTEGRATION) {
+          setEntries((list) =>
+            list.map((e) => (e.id === answer.entry.id ? answer.entry : e)),
+          );
+        } else if (scopeId === "") {
           // The PATCH answers the page without Commerce's statuses; they have not changed.
           onSavedDefault({ ...answer, confirmStatuses: statuses });
         } else {
           setPage(answer);
         }
       }
-      setEdits({});
-      setSaved(true);
-    } catch (e) {
-      onError(`Settings could not be saved: ${e.message}`);
-    }
-    setSaving(false);
-  }, [
+    },
+    [onSavedDefault, scopeId, setEntries, setPage, statuses],
+  );
+  const editing = useEdits({
     api,
-    changed,
-    changes,
-    entry,
     onError,
-    onSavedDefault,
-    scopeId,
-    setEntries,
-    setPage,
-    statuses,
-    websiteCode,
-  ]);
+    onSaved,
+    scope: { scopeId, websiteCode },
+    setEdits,
+    targets,
+  });
+  return (
+    <SettingsView
+      {...props}
+      asked={asked}
+      choices={choices}
+      editing={editing}
+      entries={entries}
+      page={page}
+      scopeId={scopeId}
+      scopeLevel={scopeLevel}
+      setAsked={setAsked}
+      setRound={setRound}
+      setScopeId={setScopeId}
+      statuses={statuses}
+      targets={targets}
+    />
+  );
+}
 
-  // Refresh reads the settings again, so it waits for unsaved changes to be saved first.
-  const reread = useCallback(async () => {
-    setSaved(false);
+/** One target's row maker: its fields, its words, its boxes and its refusal. */
+function targetRows(target, view) {
+  const { atDefault, editing, statuses, websiteName, websites } = view;
+  return rowMaker({
+    erp: target.erp,
+    fields: target.fields,
+    notSet: target.id !== INTEGRATION,
+    onChange: (name, value) => editing.change(target, name, value),
+    onUseDefault: (name) => editing.change(target, name, null),
+    problemFor: (name) =>
+      editing.gap?.target === target.id && editing.gap.name === name
+        ? editing.gap.text
+        : undefined,
+    statuses,
+    useDefaultFor: (name) => useDefaultLabel(target, name, atDefault),
+    websiteName,
+    websites,
+  });
+}
+
+/** The integration's groups, then each ERP's. */
+function Groups({ atDefault, entries, erpInfo, targets, view }) {
+  const [integration, ...erps] = targets;
+  const row = targetRows(integration, view);
+  const group = {
+    orders: <OrdersGroup key="orders" row={row} />,
+    salesOrg: (
+      <SalesOrgGroup key="salesOrg" row={row} several={erpInfo.several} />
+    ),
+    schedules: (
+      <SchedulesGroup fields={integration.fields} key="schedules" row={row} />
+    ),
+  };
+  // One ERP is the integration target: its group shows the integration's products rows.
+  const erpTargets = erpInfo.several
+    ? erps
+    : [{ ...integration, entry: entries[0], erp: erpInfo.erps[0] }];
+  const shape = { atDefault, several: erpInfo.several };
+  return (
+    <div className="adm-config">
+      {groupsAt({ atDefault }).map((id) => group[id])}
+      {erpTargets.map((target) => (
+        <ErpGroup
+          atDefault={atDefault}
+          colors={erpInfo.colors}
+          entry={target.entry}
+          erp={target.erp}
+          key={`erp.${target.erp.id}`}
+          names={erpGroupNames(shape, target.fields)}
+          row={targetRows(target, view)}
+        />
+      ))}
+    </div>
+  );
+}
+
+/** Switching scope: straight away, or, with unsaved changes, after the Admin's question. */
+function useScopeSwitch({ asked, changed, reset, setAsked, setScopeId }) {
+  const go = useCallback(
+    (scope) => {
+      reset();
+      setScopeId(scope);
+    },
+    [reset, setScopeId],
+  );
+  const askScope = useCallback(
+    (scope) => (changed ? setAsked({ scope }) : go(scope)),
+    [changed, go, setAsked],
+  );
+  const cancel = useCallback(() => setAsked(null), [setAsked]);
+  const confirm = useCallback(() => {
+    go(asked.scope);
+    setAsked(null);
+  }, [asked, go, setAsked]);
+  return { askScope, cancel, confirm };
+}
+
+/** Refresh reads the settings again, so it waits for unsaved changes to be saved first. */
+function useReread(view) {
+  const { api, onError, onSavedDefault, refresh, scopeId, setRound, statuses } =
+    view;
+  return useCallback(async () => {
     setRound((n) => n + 1);
     if (scopeId === "") {
       try {
@@ -314,30 +353,48 @@ export function SettingsTab({
       }
     }
     await refresh.onRefresh();
-  }, [api, onError, onSavedDefault, refresh, scopeId, statuses]);
+  }, [api, onError, onSavedDefault, refresh, scopeId, setRound, statuses]);
+}
 
-  const fields = shownFields(page, entry, values, edits, scopeLevel);
-  const shownErp = entry ?? (erpInfo.several ? null : erpInfo.erps[0]);
-  const row = rowMaker({
-    erp: shownErp,
-    fields,
-    notSet: Boolean(entry),
-    onChange,
-    onUseDefault,
+/** The tab as drawn: the scope bar and refresh, the groups, and the switch question. */
+function SettingsView(props) {
+  const { api, asked, choices, editing, entries, erpInfo, frame, page } = props;
+  const { refresh, scopeId, scopeLevel, scopes, scopesNote, setAsked } = props;
+  const { onError, onSavedDefault, setRound, setScopeId, statuses, targets } =
+    props;
+  const changed = anyChanges(targets);
+  const atDefault = scopeLevel === "global";
+  const { askScope, cancel, confirm } = useScopeSwitch({
+    asked,
+    changed,
+    reset: editing.reset,
+    setAsked,
+    setScopeId,
+  });
+  const reread = useReread({
+    api,
+    onError,
+    onSavedDefault,
+    refresh,
+    scopeId,
+    setRound,
     statuses,
-    useDefaultFor: (name) => useDefaultLabel(name, Boolean(entry), atDefault),
   });
-  const groups = groupsAt({
+  const view = {
     atDefault,
-    erp: Boolean(entry),
-    several: erpInfo.several,
-  });
+    editing,
+    statuses,
+    websiteName: atDefault
+      ? undefined
+      : choices.find((c) => c.id === scopeId)?.label,
+    websites: websiteOptions(scopes),
+  };
   const actions = (
     <SaveActions
       changed={changed}
-      onSave={save}
-      saved={saved}
-      saving={saving}
+      onSave={editing.save}
+      saved={editing.saved}
+      saving={editing.saving}
     />
   );
   return frame(
@@ -345,15 +402,7 @@ export function SettingsTab({
     <>
       {scopesNote && <AdminNotice tone="warning">{scopesNote}</AdminNotice>}
       <div className="adm-tab-tools">
-        <ScopeBar
-          choices={choices}
-          erpId={erpId}
-          erps={erpInfo.erps}
-          onErp={askErp}
-          onScope={askScope}
-          scopeId={scopeId}
-          several={erpInfo.several}
-        />
+        <ScopeBar choices={choices} onScope={askScope} scopeId={scopeId} />
         <AdminRefresh
           busy={refresh.busy}
           disabled={changed}
@@ -363,12 +412,11 @@ export function SettingsTab({
       </div>
       {page ? (
         <Groups
+          atDefault={atDefault}
           entries={entries}
-          entry={entry}
           erpInfo={erpInfo}
-          fields={fields}
-          groups={groups}
-          row={row}
+          targets={targets}
+          view={view}
         />
       ) : (
         <div className="erp-loading">
@@ -377,10 +425,10 @@ export function SettingsTab({
       )}
       {asked && (
         <ConfirmDialog
-          message="Unsaved changes will be lost."
-          onCancel={cancelSwitch}
-          onConfirm={confirmSwitch}
-          title="Switch scope?"
+          message="Please confirm scope switching. All data that hasn't been saved will be lost."
+          onCancel={cancel}
+          onConfirm={confirm}
+          title="Switch scope"
         />
       )}
     </>,

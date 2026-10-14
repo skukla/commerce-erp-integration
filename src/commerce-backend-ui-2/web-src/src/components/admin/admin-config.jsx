@@ -27,10 +27,14 @@ import {
  * @param {object} props
  * @param {string} props.title
  * @param {React.ReactNode} [props.note] a line before the rows ("Set by Demo Builder.")
+ * @param {boolean} [props.closed] start folded: a group kept for reference, not for editing
  */
-export function AdminConfigGroup({ children, note, title }) {
+export function AdminConfigGroup({ children, closed = false, note, title }) {
   return (
-    <Disclosure defaultExpanded isQuiet UNSAFE_className="adm-config-group">
+    <Disclosure
+      defaultExpanded={!closed}
+      isQuiet
+      UNSAFE_className="adm-config-group">
       <DisclosureTitle>{title}</DisclosureTitle>
       <DisclosurePanel>
         {note && <p className="adm-config-note">{note}</p>}
@@ -48,12 +52,15 @@ export function AdminConfigGroup({ children, note, title }) {
  * @param {string} [props.more] the longer text, behind the field's help button
  * @param {React.ReactNode} [props.useDefault] the "Use Default Value" box, where there is one
  * @param {string} [props.scope] where it is set: "global" or "website"
+ * @param {string} [props.problem] why it cannot be saved: in the Admin's error red under the
+ *   field, in the comment's place, as its form validation shows one
  */
 export function AdminConfigRow({
   children,
   comment,
   label,
   more,
+  problem,
   scope,
   useDefault,
 }) {
@@ -72,7 +79,13 @@ export function AdminConfigRow({
             )}
           </span>
         </div>
-        {comment && <p className="adm-config-comment">{comment}</p>}
+        {problem ? (
+          <p className="adm-config-problem" role="alert">
+            {problem}
+          </p>
+        ) : (
+          comment && <p className="adm-config-comment">{comment}</p>
+        )}
       </div>
       <div className="adm-config-default">{useDefault}</div>
       <div className="adm-config-scope">{scope && `[${scope}]`}</div>

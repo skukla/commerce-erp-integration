@@ -241,7 +241,7 @@ export function websiteCodeOf(tree, scopeId) {
  * One ERP's values at a scope: its own where its entry sets them at this scope; else, at a
  * website, its own default; else the integration's as the page loaded them. That is the order
  * the integration reads them in (lib/erp-settings.js withErpSettings). `own` is whether this
- * scope sets it (the "Use Default Value" / "Same as All ERPs" box, unticked).
+ * scope sets it (the "Use Default Value" / "Use Default for all ERPs" box, unticked).
  * @returns {Array<{ name: string, value: unknown, own: boolean }>}
  */
 export function erpValues(entry, websiteCode, pageValues) {
@@ -280,4 +280,73 @@ export function dressErpField(field, held) {
     type: field.type ?? "boolean",
     value: held ? held.value : field.default,
   };
+}
+
+/**
+ * The store's websites as a list of choices by code, for the setting that names websites
+ * (structure_owns_websites): the same websites the scope list offers.
+ * @param {object[]} tree the scope tree
+ * @returns {Array<{ code: string, label: string }>}
+ */
+export function websiteOptions(tree) {
+  return websiteChoices(tree)
+    .filter((choice) => choice.level === "website")
+    .map((choice) => ({
+      code: websiteCodeOf(tree, choice.id),
+      label: choice.label,
+    }))
+    .filter((option) => option.code);
+}
+
+/** The attribute an ERP's products carry by default: `erp_owner=<its id>` (router/ownership.js). */
+export const ownerAttributeOf = (erpId) => `erp_owner=${erpId}`;
+
+/**
+ * Why the products settings, as shown, cannot be saved, in the page's words and against the
+ * field to fix; or null. A mode whose setting is blank owns nothing (lib/structure.js
+ * ownershipProblem, which the save also checks).
+ * @param {Map<string, object>} fields the fields as shown (settings-fields.js)
+ * @returns {{ name: string, text: string } | null}
+ */
+export function ownershipGap(fields) {
+  const mode = fields.get("structure_owns")?.value;
+  const blank = (name) => !String(fields.get(name)?.value ?? "").trim();
+  if (mode === "attribute" && blank("structure_owns_attribute")) {
+    return {
+      name: "structure_owns_attribute",
+      text: "Name the product attribute that marks this ERP's products, as erp_owner=ACME.",
+    };
+  }
+  if (mode === "websites" && blank("structure_owns_websites")) {
+    return {
+      name: "structure_owns_websites",
+      text: "Pick at least one website whose products this ERP owns.",
+    };
+  }
+  return null;
+}
+
+/**
+ * The rows in one ERP's group, in order (owner, 2026-10-14: an ERP's own settings under its
+ * name). With several ERPs, its sales organization, which can differ per website; at Default
+ * Config, also which products it owns and its order-number prefix, the attribute or websites
+ * only under the rule that reads them. With one ERP its sales organization is the
+ * integration's (the Sales organization group), so its group holds only the products rows.
+ * @param {{ several: boolean, atDefault: boolean }} view
+ * @param {Map<string, object>} fields the fields its rows show
+ * @returns {string[]}
+ */
+export function erpGroupNames({ atDefault, several }, fields) {
+  const mode = fields.get("structure_owns")?.value;
+  const products = groupNames("products").filter(
+    (name) =>
+      !(
+        (name === "structure_owns_attribute" && mode !== "attribute") ||
+        (name === "structure_owns_websites" && mode !== "websites")
+      ),
+  );
+  return [
+    ...(several ? groupNames("salesOrg") : []),
+    ...(atDefault ? products : []),
+  ];
 }

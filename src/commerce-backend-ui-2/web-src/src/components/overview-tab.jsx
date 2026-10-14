@@ -71,7 +71,7 @@ function Erps({ erpInfo, history, now }) {
 
 /** The scheduled price publish: its schedule, next run, last run and last change. */
 function PricePublish({ now, onShow, runs }) {
-  const toSettings = useCallback(() => onShow("settings", ""), [onShow]);
+  const toSettings = useCallback(() => onShow("settings"), [onShow]);
   const [run] = scheduledRunRows(runs, (iso) => clockTime(iso));
   const next = nextPublishText(runs, now, (iso) => clockTime(iso));
   const rows = [
@@ -177,7 +177,7 @@ function useRetry(api, onChanged, onError) {
  * @param {object[]} props.history the Activity records (erp/history, every ERP's)
  * @param {object[]} props.runs the scheduled runs
  * @param {(target: object) => void} props.onOpen open the side panel
- * @param {(tab: string, erpId: string) => void} props.onShow an ERP's Settings and Activity
+ * @param {(tab: string) => void} props.onShow open a tab (the price publish's schedule)
  */
 export function OverviewTab({
   api,

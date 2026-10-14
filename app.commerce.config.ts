@@ -233,8 +233,8 @@ export default defineConfig({
       {
         default: "",
         description:
-          "Comma-separated Commerce website codes this ERP sells on, as base, eu (used with Websites above).",
-        label: "Websites this ERP sells on",
+          "Comma-separated Commerce website codes, as base, eu: orders from these websites go to this ERP (used with Websites above).",
+        label: "Websites whose products this ERP owns",
         name: "structure_owns_websites",
         type: "text",
       },

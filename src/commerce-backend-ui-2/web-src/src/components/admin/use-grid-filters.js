@@ -8,14 +8,13 @@ import { useCallback, useState } from "react";
 
 /**
  * @param {object} none every filter off, with `text` for the keyword search
- * @param {object} [start] filters in force at first (Activity opened on one ERP)
  * @returns {{ filters: object, draft: object, setDraft: Function, setText: Function,
  *   openPanel: Function, apply: Function, clearAll: Function, drop: Function }}
  *   `drop(patch)` makes a chip's remove: it sets the patch on the filters in force
  */
-export function useGridFilters(none, start = none) {
-  const [filters, setFilters] = useState(start);
-  const [draft, setDraft] = useState(start);
+export function useGridFilters(none) {
+  const [filters, setFilters] = useState(none);
+  const [draft, setDraft] = useState(none);
   const openPanel = useCallback(() => setDraft(filters), [filters]);
   const apply = useCallback(
     () => setFilters((current) => ({ ...draft, text: current.text })),

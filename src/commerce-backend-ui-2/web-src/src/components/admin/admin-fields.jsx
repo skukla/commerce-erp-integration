@@ -1,6 +1,6 @@
 /*
  * The page's fields: Spectrum 2's Picker, SearchField, TextField, DatePicker, Checkbox and
- * Switch, dressed as Commerce Admin fields (styles/admin-skin.css, by the Admin's own values:
+ * Switch, and the browser's multiple select, dressed as Commerce Admin fields (styles/admin-skin.css, by the Admin's own values:
  * 32 px, white, a 1 px #adadad border, radius 1 px, #007bdb on focus; Magento backend
  * variables/_forms.less). A filter row is built from these, in AdminFilterBar's panel, and a
  * Configuration row, in AdminConfigRow.
@@ -75,6 +75,53 @@ export function AdminCheckbox({ children, isSelected, onChange }) {
       UNSAFE_className="adm-checkbox">
       {children}
     </Checkbox>
+  );
+}
+
+/** The most rows a multiselect shows before it scrolls. */
+const MULTISELECT_MAX_ROWS = 10;
+
+/**
+ * Several choices from a list, as every Admin form picks websites, currencies or countries: a
+ * bordered box with one row per choice, Cmd- or Ctrl-click for several (Magento's
+ * Form\Element\Multiselect and backend _controls.less .admin__control-multiselect). It is the
+ * browser's own <select multiple>, as the Admin's is: Spectrum 2 has no control drawn this way
+ * (owner, 2026-10-14: the accepted pattern for websites in settings; one website only is a
+ * Picker). Sized to its list up to ten rows, then it scrolls.
+ * @param {object} props
+ * @param {string} props.label for a screen reader; the Configuration row labels it on its left
+ * @param {Array<{ id: string, label: string }>} props.options
+ * @param {string[]} props.value the ids chosen
+ * @param {(ids: string[]) => void} props.onChange
+ * @param {boolean} [props.isDisabled]
+ */
+export function AdminMultiselect({
+  isDisabled = false,
+  label,
+  onChange,
+  options,
+  value,
+}) {
+  const change = useCallback(
+    (event) =>
+      onChange([...event.target.selectedOptions].map((option) => option.value)),
+    [onChange],
+  );
+  return (
+    <select
+      aria-label={label}
+      className="adm-field adm-multiselect"
+      disabled={isDisabled}
+      multiple
+      onChange={change}
+      size={Math.min(Math.max(options.length, 2), MULTISELECT_MAX_ROWS)}
+      value={value}>
+      {options.map((option) => (
+        <option key={option.id} value={option.id}>
+          {option.label}
+        </option>
+      ))}
+    </select>
   );
 }
 

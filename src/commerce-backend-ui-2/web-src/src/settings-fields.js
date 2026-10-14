@@ -16,6 +16,17 @@ const OWN_OR_EMPTY = new Set([
   "structure_owns_websites",
 ]);
 
+/**
+ * Which products an ERP owns, as the integration reads it (lib/structure.js ownershipFilter): a
+ * rule it no longer has (the "sources" rule, deleted 2026-10-09) reads as "all", so the page
+ * shows "All products" for it rather than an empty list.
+ */
+const OWNS_MODES = new Set(["", "all", "attribute", "websites"]);
+const ownsShown = (field) =>
+  field.name === "structure_owns" && !OWNS_MODES.has(String(field.value ?? ""))
+    ? { ...field, value: "all" }
+    : field;
+
 /** A field with an edit on top: `null` goes back to the wider value, anything else is own. */
 function withEdit(dressed, edits, inheritedWhenCleared) {
   if (!(dressed.name in edits)) {
@@ -45,7 +56,7 @@ export function integrationFields(page, edits, scopeLevel) {
   return new Map(
     (page.fields ?? []).map((field) => {
       const dressed = dressField(field, values.get(field.name), scopeLevel);
-      return [field.name, withEdit(dressed, edits, atWebsite)];
+      return [field.name, withEdit(ownsShown(dressed), edits, atWebsite)];
     }),
   );
 }
@@ -75,7 +86,7 @@ export function erpFields(page, values, edits) {
       const edit = edits[field.name];
       shown.set(
         field.name,
-        field.name in edits ? { ...own, value: edit ?? "" } : own,
+        field.name in edits ? { ...own, value: edit ?? "" } : ownsShown(own),
       );
       continue;
     }

@@ -122,7 +122,6 @@ export function IntegrationPage({
 }) {
   const now = useNow();
   const [tab, setTab] = useState(initialTab);
-  const [picked, setPicked] = useState({ activity: "", settings: "" });
   const [panel, setPanel] = useState(null);
   const [error, setError] = useState(initialError);
   const data = usePageData(api, initial, setError);
@@ -133,14 +132,7 @@ export function IntegrationPage({
     return { colors: erpColors(erps), erps, several: erps.length > 1 };
   }, [data.status]);
 
-  const show = useCallback((tabId, erpId) => {
-    setPicked((current) => ({ ...current, [tabId]: erpId }));
-    setTab(tabId);
-  }, []);
-  const choose = useCallback((tabId) => {
-    setPicked({ activity: "", settings: "" });
-    setTab(tabId);
-  }, []);
+  const choose = useCallback((tabId) => setTab(tabId), []);
   const closePanel = useCallback(() => setPanel(null), []);
   const dismiss = useCallback(() => setError(null), []);
 
@@ -182,9 +174,7 @@ export function IntegrationPage({
         api={api}
         erpInfo={erpInfo}
         frame={frame}
-        initialErp={picked.settings}
         initialPage={settingsPage}
-        key={picked.settings}
         onError={setError}
         onSavedDefault={setSettingsPage}
         refresh={refresh}
@@ -195,13 +185,7 @@ export function IntegrationPage({
   } else if (tab === "activity") {
     body = frame(
       null,
-      <ActivityTab
-        {...shared}
-        history={data.history}
-        initialErp={picked.activity}
-        key={picked.activity}
-        refresh={refresh}
-      />,
+      <ActivityTab {...shared} history={data.history} refresh={refresh} />,
     );
   } else if (tab === "data-map") {
     body = frame(
@@ -220,7 +204,7 @@ export function IntegrationPage({
         {...shared}
         history={data.history}
         onChanged={data.readActivity}
-        onShow={show}
+        onShow={choose}
         refresh={refresh}
         runs={data.runs}
       />,

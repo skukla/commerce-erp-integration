@@ -5,12 +5,16 @@
 import appConfig from "#app.commerce.config";
 import {
   dressField,
+  erpGroupNames,
   groupNames,
+  ownerAttributeOf,
+  ownershipGap,
   pendingChanges,
   SETTING_GROUPS,
   scheduleNames,
   settingsPath,
   websiteChoices,
+  websiteOptions,
 } from "#web/settings-view.js";
 
 import { BODEA_SCOPE_TREE } from "./fixtures/bodea-scope-tree.js";
@@ -198,5 +202,88 @@ describe("Given one field at a scope", () => {
       inherited: false,
       value: true,
     });
+  });
+});
+
+describe("Given the products settings, so that none is left empty (owner, 2026-10-14)", () => {
+  const fieldsOf = (values) =>
+    new Map(
+      Object.entries(values).map(([name, value]) => [name, { name, value }]),
+    );
+
+  test("Then the websites to tick are the store's own, by code, the Admin website left out", () => {
+    const options = websiteOptions(BODEA_SCOPE_TREE);
+    expect(options.map((o) => o.label)).toStrictEqual(
+      websiteChoices(BODEA_SCOPE_TREE)
+        .filter((c) => c.level === "website")
+        .map((c) => c.label),
+    );
+    expect(options.every((o) => o.code && o.code !== "admin")).toBe(true);
+  });
+
+  test("Then a mode left without what it reads is named against the field to fix", () => {
+    expect(
+      ownershipGap(
+        fieldsOf({ structure_owns: "websites", structure_owns_websites: "" }),
+      ),
+    ).toMatchObject({ name: "structure_owns_websites" });
+    expect(
+      ownershipGap(
+        fieldsOf({
+          structure_owns: "attribute",
+          structure_owns_attribute: " ",
+        }),
+      ),
+    ).toMatchObject({ name: "structure_owns_attribute" });
+    expect(
+      ownershipGap(
+        fieldsOf({
+          structure_owns: "websites",
+          structure_owns_websites: "bodea",
+        }),
+      ),
+    ).toBeNull();
+    expect(ownershipGap(fieldsOf({ structure_owns: "all" }))).toBeNull();
+  });
+
+  test("Then an ERP's products carry its id in erp_owner by default", () => {
+    expect(ownerAttributeOf("contoso")).toBe("erp_owner=contoso");
+  });
+});
+
+describe("Given one ERP's group (its own settings, under its name)", () => {
+  const withMode = (mode) =>
+    new Map([["structure_owns", { name: "structure_owns", value: mode }]]);
+
+  test("Then with several ERPs it holds its sales organization, and at Default Config its products", () => {
+    expect(
+      erpGroupNames({ atDefault: true, several: true }, withMode("all")),
+    ).toStrictEqual([
+      "structure_sales_org",
+      "structure_sales_org_name",
+      "structure_owns",
+      "structure_order_prefix",
+    ]);
+    expect(
+      erpGroupNames({ atDefault: false, several: true }, withMode("all")),
+    ).toStrictEqual(["structure_sales_org", "structure_sales_org_name"]);
+  });
+
+  test("Then the attribute or the websites show only under the rule that reads them", () => {
+    expect(
+      erpGroupNames({ atDefault: true, several: true }, withMode("websites")),
+    ).toContain("structure_owns_websites");
+    expect(
+      erpGroupNames({ atDefault: true, several: true }, withMode("websites")),
+    ).not.toContain("structure_owns_attribute");
+  });
+
+  test("Then with one ERP its sales organization is the integration's, so its group holds its products only", () => {
+    expect(
+      erpGroupNames({ atDefault: true, several: false }, withMode("all")),
+    ).toStrictEqual(["structure_owns", "structure_order_prefix"]);
+    expect(
+      erpGroupNames({ atDefault: false, several: false }, withMode("all")),
+    ).toStrictEqual([]);
   });
 });

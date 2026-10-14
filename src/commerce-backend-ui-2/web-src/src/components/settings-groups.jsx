@@ -1,17 +1,18 @@
 /*
  * The Settings tab's groups, as Stores > Configuration's collapsible groups (admin-config.jsx):
- * Orders, Sales organization, Products and order numbers, Schedules, the read-only Connection,
- * and with several ERPs the list of ERPs Demo Builder set up.
+ * the integration's (Orders, Sales organization, Schedules), which every ERP shares, then one
+ * group per ERP, under its name, with what it sets for itself and how it is reached (owner,
+ * 2026-10-14: an ERP switcher hid which settings were whose).
  */
-import { useCallback } from "react";
-
 import { AdminConfigGroup } from "#web/components/admin/admin-config.jsx";
 import { AdminFacts } from "#web/components/admin/admin-facts.jsx";
-import { AdminNotice } from "#web/components/admin/admin-notice.jsx";
-import { AdminTable } from "#web/components/admin/admin-table.jsx";
 import { ErpName } from "#web/components/controls.jsx";
 import { SettingRow } from "#web/components/setting-row.jsx";
-import { connectionFacts, ownsOptions } from "#web/settings-copy.js";
+import {
+  connectionFacts,
+  ownsOptions,
+  systemValueOf,
+} from "#web/settings-copy.js";
 import { groupNames, scheduleNames, settingScope } from "#web/settings-view.js";
 
 /** A group's rows, each field that is shown, in order. */
@@ -27,26 +28,13 @@ export function OrdersGroup({ row }) {
   );
 }
 
-export function SalesOrgGroup({ row }) {
+/** The sales organization every ERP uses unless its own group sets one. */
+export function SalesOrgGroup({ row, several }) {
   return (
-    <AdminConfigGroup title="Sales organization">
+    <AdminConfigGroup
+      note={several ? "The default for every ERP." : undefined}
+      title="Sales organization">
       <Rows names={groupNames("salesOrg")} row={row} />
-    </AdminConfigGroup>
-  );
-}
-
-/** Which products the ERP owns, and its order-number prefix: at Default Config only. */
-export function ProductsGroup({ fields, row }) {
-  // The attribute and the websites show only under the mode that reads them.
-  const mode = fields.get("structure_owns")?.value;
-  const hidden = {
-    structure_owns_attribute: mode !== "attribute",
-    structure_owns_websites: mode !== "websites",
-  };
-  const names = groupNames("products").filter((name) => !hidden[name]);
-  return (
-    <AdminConfigGroup title="Products and order numbers">
-      <Rows names={names} row={row} />
     </AdminConfigGroup>
   );
 }
@@ -60,20 +48,8 @@ export function SchedulesGroup({ fields, row }) {
   );
 }
 
-export function WebsiteNote() {
-  return (
-    <AdminNotice tone="notice">
-      Products and order numbers are set once for every website. Switch to
-      Default Config to change them.
-    </AdminNotice>
-  );
-}
-
 /** How the ERP is reached: set by Demo Builder, never the secret. */
-export function ConnectionGroup({ entry }) {
-  if (!entry) {
-    return null;
-  }
+function ConnectionFacts({ entry }) {
   const facts = connectionFacts(entry);
   const rows = [
     ["Name", facts.name],
@@ -83,52 +59,44 @@ export function ConnectionGroup({ entry }) {
     ["Credential", facts.credential],
   ].map(([label, value]) => ({ label, values: [value] }));
   return (
-    <AdminConfigGroup note="Set by Demo Builder." title="Connection">
-      <AdminFacts label="Connection" rows={rows} />
-    </AdminConfigGroup>
+    <>
+      <h4 className="adm-config-subtitle">Connection</h4>
+      <p className="adm-config-note">Set by Demo Builder.</p>
+      <AdminFacts label={`${facts.name} connection`} rows={rows} />
+    </>
   );
 }
 
-const ERP_LIST_COLUMNS = [
-  { id: "name", isRowHeader: true, name: "Name", width: 200 },
-  { id: "id", name: "ID", width: 120 },
-  { id: "kind", name: "Kind", width: 120 },
-  { id: "address", name: "Address" },
-  { id: "credential", name: "Credential", width: 320 },
-];
-
-/** Every ERP Demo Builder set up, with several ERPs, at All ERPs on Default Config. */
-export function ErpListGroup({ colors, entries }) {
-  const rows = entries.map((entry) => ({
-    ...connectionFacts(entry),
-    entry,
-    key: entry.id,
-  }));
-  const cell = useCallback(
-    (row, column) => {
-      if (column === "name") {
-        return <ErpName colors={colors} erp={row.entry} />;
-      }
-      return column === "id" ? <code>{row.id}</code> : row[column];
-    },
-    [colors],
-  );
+/**
+ * One ERP's own settings, under its name and color, as the band names it (owner, 2026-10-14):
+ * its rows (settings-view.js erpGroupNames), then how it is reached. At a website, where its
+ * products and order numbers are not set, its note says where they are.
+ * @param {object} props
+ * @param {{ id: string, name: string }} props.erp
+ * @param {object} [props.entry] its ERP list entry, for its connection
+ * @param {string[]} props.names its rows
+ * @param {boolean} props.atDefault
+ */
+export function ErpGroup({ atDefault, colors, entry, erp, names, row }) {
   return (
-    <AdminConfigGroup note="Set by Demo Builder." title="ERPs">
-      <AdminTable
-        cell={cell}
-        columns={ERP_LIST_COLUMNS}
-        label="ERPs"
-        rows={rows}
-      />
+    <AdminConfigGroup
+      note={
+        atDefault
+          ? undefined
+          : "Its products and order numbers are set at Default Config."
+      }
+      title={<ErpName colors={colors} erp={erp} />}>
+      <Rows names={names} row={row} />
+      {entry && <ConnectionFacts entry={entry} />}
     </AdminConfigGroup>
   );
 }
 
 /**
- * A row maker for a view: each field's row, with its own list choices, "Use Default" box and
- * scope. `erp` names the ERP in the words; `notSet` offers "Not set" for its ownership (several
- * ERPs).
+ * A row maker for a view: each field's row, with its own list choices, "Use Default" box,
+ * scope, and the value its blank stands for. `erp` names the ERP in the words; `notSet` offers
+ * "Not set" for its ownership (several ERPs). A sales organization's name is offered per
+ * website only: its blank is the website's name, which Default Config has none of.
  * @returns {(name: string) => React.ReactNode}
  */
 export function rowMaker({
@@ -137,12 +105,15 @@ export function rowMaker({
   notSet,
   onChange,
   onUseDefault,
+  problemFor,
   statuses,
   useDefaultFor,
+  websiteName,
+  websites,
 }) {
   return (name) => {
     const field = fields.get(name);
-    if (!field) {
+    if (!field || (name === "structure_sales_org_name" && !websiteName)) {
       return null;
     }
     return (
@@ -157,9 +128,12 @@ export function rowMaker({
             ? ownsOptions(notSet ? erp : null)
             : field.options
         }
+        problem={problemFor?.(name)}
         scope={settingScope(name)}
         statuses={statuses}
+        systemValue={systemValueOf(name, { erp, websiteName })}
         useDefault={useDefaultFor(name)}
+        websites={websites}
       />
     );
   };

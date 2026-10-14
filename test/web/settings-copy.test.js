@@ -11,6 +11,7 @@ import {
   groupsAt,
   ownsOptions,
   settingText,
+  systemValueOf,
 } from "#web/settings-copy.js";
 import { erpValues } from "#web/settings-view.js";
 
@@ -107,8 +108,9 @@ describe("Given which products an ERP owns", () => {
       "attribute",
       "websites",
     ]);
+    // Not "Websites", which beside the Scope picker read as a second scope.
     expect(settingText("structure_owns_websites", null)).toMatchObject({
-      label: "Websites",
+      label: "Websites whose products this ERP owns",
     });
   });
 });
@@ -122,33 +124,14 @@ describe("Given the schedule settings' words (AB-38)", () => {
   });
 });
 
-// The schedules are the whole integration's (the heartbeat reads Default Config), so their
-// card is shown at Default Config with every ERP, never at a website or for one ERP.
-describe("Given the cards a view holds", () => {
+// The integration's groups, which every ERP shares; each ERP's own settings follow under its
+// name (settings-view.js erpGroupNames). The schedules are read at Default Config only.
+describe("Given the integration's groups a view holds", () => {
   test.each([
-    [
-      { atDefault: true, erp: false, several: true },
-      ["orders", "salesOrg", "schedules", "erpList"],
-    ],
-    [{ atDefault: false, erp: false, several: true }, ["orders", "salesOrg"]],
-    [
-      { atDefault: true, erp: true, several: true },
-      ["salesOrg", "connection", "products"],
-    ],
-    [
-      { atDefault: false, erp: true, several: true },
-      ["salesOrg", "connection", "websiteNote"],
-    ],
-    [
-      { atDefault: true, erp: false, several: false },
-      ["orders", "salesOrg", "products", "connection", "schedules"],
-    ],
-    [
-      { atDefault: false, erp: false, several: false },
-      ["orders", "salesOrg", "websiteNote", "connection"],
-    ],
-  ])("Then %o holds %j", (view, cards) => {
-    expect(groupsAt(view)).toStrictEqual(cards);
+    [{ atDefault: true }, ["orders", "salesOrg", "schedules"]],
+    [{ atDefault: false }, ["orders", "salesOrg"]],
+  ])("Then %o holds %j", (view, groups) => {
+    expect(groupsAt(view)).toStrictEqual(groups);
   });
 });
 
@@ -201,5 +184,22 @@ describe("Given an ERP's value at a website it does not set", () => {
       own: false,
       value: "2000",
     });
+  });
+});
+
+describe("Given a setting whose blank stands for a worked-out value", () => {
+  test("Then the page shows that value: the ERP's prefix, the website's name, else none", () => {
+    const context = {
+      erp: { name: "Northwind ERP" },
+      websiteName: "Bodea Website",
+    };
+    expect(systemValueOf("structure_order_prefix", context)).toBe("NORT");
+    expect(systemValueOf("structure_sales_org_name", context)).toBe(
+      "Bodea Website",
+    );
+    expect(
+      systemValueOf("structure_sales_org_name", { erp: null }),
+    ).toBeUndefined();
+    expect(systemValueOf("orders_send", context)).toBeUndefined();
   });
 });

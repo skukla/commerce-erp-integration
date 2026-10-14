@@ -52,8 +52,7 @@ export const ERP_ENTRIES = [
     id: "erp",
     name: "Northwind ERP",
     settings: {
-      structure_owns: "sources",
-      structure_owns_sources: "northwind_warehouse",
+      structure_owns: "all",
       websites: { bodea: { structure_sales_org: "1100" } },
     },
   },

@@ -206,6 +206,41 @@
 .adm-date > div[role="presentation"]:focus-within {
   border-color: var(--adm-focus);
 }
+/*
+ * The multiselect (admin-fields.jsx AdminMultiselect), as backend _controls.less
+ * .admin__control-multiselect: the field's border and type, no padding of its own, as tall as
+ * its rows, at least 150 px wide, resizable; each option 5 px by 10 px.
+ */
+.adm-multiselect {
+  box-sizing: border-box;
+  min-width: 150px;
+  max-width: 100%;
+  height: auto;
+  padding: 0;
+  overflow: auto;
+  font-family: inherit;
+  font-size: 14px;
+  color: #303030;
+  resize: both;
+  background-color: #fff;
+  border: 1px solid var(--adm-field-border);
+  border-radius: 1px;
+}
+.adm-multiselect:hover {
+  border-color: var(--adm-field-border-hover);
+}
+.adm-multiselect:focus {
+  outline: none;
+  border-color: var(--adm-focus);
+}
+.adm-multiselect option {
+  padding: 5px 10px;
+}
+.adm-multiselect:disabled {
+  cursor: default;
+  opacity: 0.5;
+}
+
 /* A field that is off (a setting that uses its default), as the Admin's: half opacity. */
 .adm-picker > button:disabled,
 .adm-text > div[role="presentation"]:has(input:disabled) {
@@ -614,6 +649,15 @@
 }
 .adm-config-help {
   flex: 0 0 24px;
+  padding-top: 4px;
+}
+/* A heading inside a group (an ERP's Connection), as Magento_Config's .config h4: 17 px semibold. */
+.adm-config-subtitle {
+  padding-top: 26px;
+  margin: 0;
+  font-size: 17px;
+  font-weight: 600;
+  color: #303030;
 }
 .adm-config-note {
   margin: 0;
@@ -641,10 +685,11 @@
 .adm-config-rows > .adm-config-row > .adm-config-value {
   padding-right: 40px;
 }
+/* Its help sits by the field's first line, beside a one-line field or a tall list alike. */
 .adm-config-field {
   display: flex;
   gap: var(--space-2);
-  align-items: center;
+  align-items: flex-start;
 }
 .adm-config-field > .adm-field {
   flex: 1 1 auto;
@@ -664,18 +709,61 @@
   color: #999;
   letter-spacing: 0.05em;
 }
+/* A field the save refused: the Admin's validation text, #e22626 (_forms.less @validation__color). */
+.adm-config-problem {
+  margin: 5px 0;
+  font-size: 12px;
+  color: #e22626;
+}
 .adm-checkbox {
   font-size: 14px;
   color: #303030;
 }
-/* Which ERP and which scope, above the groups: the Configuration page's scope switcher. */
+/*
+ * Which ERP and which scope (admin-switcher.jsx), as the Admin's scope switcher
+ * (_store-switcher.less, _actions-dropdown.less): 13 px, a bold label, the choice as plain text
+ * with letter-spacing -.025em, 7 px over and 8 px under, no box until opened, when it takes
+ * the Admin's blue border (#007bdb) and its shadow (1px 1px 5px at half black). Two, 30 px apart.
+ */
 .adm-scope-bar {
   display: flex;
-  gap: var(--space-4);
-  align-items: flex-end;
+  gap: 30px;
+  align-items: center;
 }
-.adm-scope-bar .adm-picker {
-  width: 240px;
+.adm-switcher {
+  display: inline-flex;
+  gap: 2px;
+  align-items: center;
+  font-size: 13px;
+  color: #303030;
+}
+.adm-switcher-label {
+  font-weight: 700;
+}
+.adm-switcher-picker > button {
+  gap: 6px;
+  justify-content: flex-start;
+  height: auto;
+  padding: 7px 8px 8px 6px;
+  font-size: 13px;
+  font-weight: 400;
+  color: #303030;
+  letter-spacing: -0.025em;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 0;
+  box-shadow: none;
+}
+.adm-switcher-picker > button[data-hovered] {
+  background: transparent;
+}
+.adm-switcher-picker > button[aria-expanded="true"] {
+  border-color: #007bdb;
+  box-shadow: 1px 1px 5px rgba(0, 0, 0, 0.5);
+}
+.adm-switcher-value {
+  padding: 7px 8px 8px 6px;
+  letter-spacing: -0.025em;
 }
 
 /*

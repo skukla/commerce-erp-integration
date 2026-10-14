@@ -16,6 +16,7 @@ import { AdminFacts } from "../src/commerce-backend-ui-2/web-src/src/components/
 import {
   AdminCheckbox,
   AdminDateRange,
+  AdminMultiselect,
   AdminPicker,
   AdminSearch,
   AdminSwitch,
@@ -127,6 +128,16 @@ function Fields() {
         onChange={NOTHING}
         options={OPTIONS}
         value="all"
+      />
+      <AdminMultiselect
+        label="Websites"
+        onChange={NOTHING}
+        options={[
+          { id: "base", label: "Main Website" },
+          { id: "bodea", label: "Bodea Website" },
+          { id: "citisignal", label: "CitiSignal Website" },
+        ]}
+        value={["bodea"]}
       />
       <AdminCheckbox isSelected={false} onChange={NOTHING}>
         Use Default Value

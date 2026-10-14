@@ -5,26 +5,26 @@
   },
   "activity": {
     "elements": 893,
-    "hash": "a05e1b4b5f15826a797e08445cd46d061cb6e7c01b510e967a0058d4a82f9085"
+    "hash": "183b5ea869a942d7b1e87ca42bdd1ad995fa2a5dd7f10c03a8b90e63eb12428e"
   },
   "activity:filters-open": {
     "elements": 995,
-    "hash": "d4380fc75f37c4ed7b3810dc3ba99769e14eed0173e366afeb5640ba1639c681"
+    "hash": "153648c9df1d44894c74984bf23ce534acc7f1e31b38e6a4619977cf954299a1"
   },
   "activity:one-erp": {
     "elements": 577,
     "hash": "4094780bd3d2630e37249168b6be00b69934f6e5ee7fcc8bef780fcebd7005bb"
   },
   "settings": {
-    "elements": 427,
-    "hash": "ea09e292e0da6f1359483a516af7dfa14006779e59dbd3a731ab8ae423f6b5a0"
+    "elements": 543,
+    "hash": "13f99d8b027ca3197941eb63db63064cdb33f0da6fef3823e709c75ec5e187c0"
   },
   "data-map": {
     "elements": 206,
     "hash": "000cfe0d6b6fb2e7b641d9173c0b399dca51fe73e59d39f34e45f634ca5060dc"
   },
   "parts": {
-    "elements": 830,
-    "hash": "e12e7c7a1f279770cf865985385f367321f463150e562dbee78ab0c247844052"
+    "elements": 834,
+    "hash": "c34d5e02c2b5ff1c36be27bc4126757877716393717fc53df190cdea66c8fa70"
   }
 }
