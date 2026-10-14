@@ -15,10 +15,11 @@ import {
   AdminSwitch,
 } from "#web/components/admin/admin-fields.jsx";
 import { AdminFilterBar } from "#web/components/admin/admin-filter-bar.jsx";
-import { AdminStatus } from "#web/components/admin/admin-status.jsx";
 import { AdminTable } from "#web/components/admin/admin-table.jsx";
+import { LOG_CELLS, LOG_COLUMNS } from "#web/components/admin/log-cells.jsx";
+import { useGridFilters } from "#web/components/admin/use-grid-filters.js";
 import { eventRow, rowMatches, shortName, TYPES } from "#web/history-view.js";
-import { clockTime, dateText } from "#web/time-view.js";
+import { dateText } from "#web/time-view.js";
 
 /** A Picker's id for "every ERP" or "every type": the filters themselves use "". */
 const EVERY = "all";
@@ -27,14 +28,9 @@ const EVERY = "all";
  * The log's columns: when, which ERP, what happened, the record, and how it ended. The words
  * say what kind of event it was, so there is no Event column; the Type filter groups them.
  */
-const COLUMNS = [
-  { id: "date", name: "Date", width: 120 },
-  { id: "time", name: "Time", width: 100 },
-  { id: "erp", name: "ERP", width: 190 },
-  { id: "details", name: "Details" },
-  { id: "record", isRowHeader: true, name: "Record", width: 250 },
-  { id: "result", name: "Result", width: 270 },
-];
+const COLUMNS = ["date", "time", "erp", "details", "record", "result"].map(
+  (id) => LOG_COLUMNS[id],
+);
 
 /** Every filter off. */
 const NO_FILTERS = {
@@ -51,17 +47,11 @@ const TYPE_OPTIONS = [
   ...TYPES.map((type) => ({ id: type.id, label: type.label })),
 ];
 
-/** Which way a record went, read before the ERP's name. */
-const ARROW = { from: "←", to: "→" };
-const ARROW_LABEL = { from: "from", to: "to" };
-
 /** A day (YYYY-MM-DD) as the grid writes dates: "Oct 14, 2026". */
 const dayText = (day) => dateText(`${day}T12:00:00`);
 
 /** The filters in force, as the Active filters row's chips. */
-function activeChips(filters, erpInfo, setFilters) {
-  const drop = (patch) => () =>
-    setFilters((current) => ({ ...current, ...patch }));
+function activeChips(filters, erpInfo, drop) {
   const chips = [];
   if (filters.from || filters.to) {
     // As the Admin's chips read a range: "from - to", an open end as "..." (Magento_Ui chips).
@@ -154,114 +144,32 @@ function FilterFields({ draft, erpInfo, setDraft }) {
 }
 
 /** The grid's filters: a search, the Filters panel, the chips in force, and its refresh. */
-function Filters({ erpInfo, filters, refresh, setFilters }) {
-  const [draft, setDraft] = useState(filters);
-  const onOpen = useCallback(() => setDraft(filters), [filters]);
-  const onApply = useCallback(
-    () => setFilters((current) => ({ ...draft, text: current.text })),
-    [draft, setFilters],
-  );
-  const onText = useCallback(
-    (text) => setFilters((current) => ({ ...current, text })),
-    [setFilters],
-  );
-  const onClearAll = useCallback(
-    () => setFilters((current) => ({ ...NO_FILTERS, text: current.text })),
-    [setFilters],
-  );
+function Filters({ erpInfo, grid, refresh }) {
   return (
     <AdminFilterBar
-      active={activeChips(filters, erpInfo, setFilters)}
+      active={activeChips(grid.filters, erpInfo, grid.drop)}
       fields={
-        <FilterFields draft={draft} erpInfo={erpInfo} setDraft={setDraft} />
+        <FilterFields
+          draft={grid.draft}
+          erpInfo={erpInfo}
+          setDraft={grid.setDraft}
+        />
       }
-      onApply={onApply}
-      onClearAll={onClearAll}
-      onOpen={onOpen}
+      onApply={grid.apply}
+      onClearAll={grid.clearAll}
+      onOpen={grid.openPanel}
       refresh={refresh}
       search={
         <AdminSearch
           label="Search activity"
-          onChange={onText}
+          onChange={grid.setText}
           placeholder="Search by order, SKU or company"
-          value={filters.text}
+          value={grid.filters.text}
         />
       }
     />
   );
 }
-
-/** The ERP cell: which way, then the ERPs by name. */
-function ErpCell({ erpInfo, row }) {
-  if (row.everyErp) {
-    return erpInfo.several ? "All ERPs" : erpInfo.erps[0].name;
-  }
-  if (row.unnamed) {
-    return <span className="adm-muted">Not named</span>;
-  }
-  const names = row.erpIds
-    .map((id) => erpInfo.erps.find((erp) => erp.id === id))
-    .filter(Boolean)
-    .map((erp) => shortName(erp.name))
-    .join(", ");
-  const arrow = ARROW[row.direction];
-  return (
-    <>
-      {arrow && (
-        <span
-          aria-label={ARROW_LABEL[row.direction]}
-          className="adm-arrow"
-          role="img">
-          {arrow}
-        </span>
-      )}
-      {names}
-    </>
-  );
-}
-
-/**
- * The record: in Commerce, as a link to its story, and the ERP's own record for the same thing
- * beneath it. A side that is missing where that is the point says so ("Not paired").
- */
-function RecordCell({ row }) {
-  const commerce = row.commerce || row.missing.commerce;
-  const erp = row.erpRecord || row.missing.erp;
-  return (
-    <>
-      {commerce && (
-        <span className={row.commerce ? "adm-link" : "adm-missing"}>
-          {commerce}
-        </span>
-      )}
-      {erp && (
-        <span className={row.erpRecord ? "adm-under" : "adm-under adm-missing"}>
-          {erp}
-        </span>
-      )}
-    </>
-  );
-}
-
-/** How it ended, and on a problem who stopped it and why, in one line under it. */
-function ResultCell({ row }) {
-  return (
-    <>
-      <AdminStatus tone={row.tone}>{row.result}</AdminStatus>
-      {row.reason && <span className="adm-reason">{row.reason}</span>}
-    </>
-  );
-}
-
-/** Each column's cell. */
-const CELLS = {
-  date: (row) => dateText(row.at),
-  details: (row) => row.details || null,
-  erp: (row, erpInfo) => <ErpCell erpInfo={erpInfo} row={row} />,
-  record: (row) => <RecordCell row={row} />,
-  result: (row) => <ResultCell row={row} />,
-  time: (row) => clockTime(row.at),
-};
 
 /** What an empty feed says. */
 function emptyFeed(entries, filters) {
@@ -313,10 +221,12 @@ export function ActivityTab({
   onOpen,
   refresh,
 }) {
-  const [filters, setFilters] = useState({
+  const [start] = useState(() => ({
     ...NO_FILTERS,
     erp: erpInfo.several ? initialErp : "",
-  });
+  }));
+  const grid = useGridFilters(NO_FILTERS, start);
+  const { filters } = grid;
   const entries = useEntries(api, history, filters.erp, onError);
   const rows = entries
     .map((entry) => eventRow(entry, { erps: erpInfo.erps, now }))
@@ -324,17 +234,12 @@ export function ActivityTab({
   const endsWithReset = entries.at(-1)?.kind === "reset";
   const open = useCallback((row) => onOpen({ ...row.open, row }), [onOpen]);
   const cell = useCallback(
-    (row, column) => CELLS[column](row, erpInfo),
+    (row, column) => LOG_CELLS[column](row, erpInfo),
     [erpInfo],
   );
   return (
     <>
-      <Filters
-        erpInfo={erpInfo}
-        filters={filters}
-        refresh={refresh}
-        setFilters={setFilters}
-      />
+      <Filters erpInfo={erpInfo} grid={grid} refresh={refresh} />
       <AdminTable
         cell={cell}
         columns={COLUMNS}

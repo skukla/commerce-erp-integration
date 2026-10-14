@@ -413,3 +413,99 @@
   padding: 0;
   white-space: nowrap;
 }
+
+/*
+ * A section (admin-section.jsx), as the Admin's record pages title one: 14 px over a 20 px
+ * #41362f title, 5 px under it to a #ccc rule, 17 px to the content; actions at the right.
+ */
+.adm-section {
+  margin: 0 0 var(--space-6);
+}
+.adm-section-head {
+  display: flex;
+  gap: var(--space-4);
+  align-items: flex-end;
+  justify-content: space-between;
+  padding: 14px 0 5px;
+  margin-bottom: 17px;
+  border-bottom: 1px solid var(--adm-rule);
+}
+.adm-section-title {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 400;
+  line-height: 1.2;
+  color: #41362f;
+}
+.adm-section-actions {
+  display: flex;
+  gap: var(--space-3);
+  align-items: center;
+  font-size: var(--type-small);
+  color: var(--text-muted);
+}
+
+/*
+ * Facts (admin-facts.jsx), as the Admin's secondary tables: 10 px inside each cell, the label in
+ * #676056 regular, every other row #f1f1f1, a side's heading semibold.
+ */
+.adm-facts {
+  width: 100%;
+  font-size: var(--type-body);
+  color: #303030;
+  border-collapse: collapse;
+}
+.adm-facts th,
+.adm-facts td {
+  padding: 10px;
+  vertical-align: top;
+  text-align: left;
+}
+.adm-facts tbody th {
+  font-weight: 400;
+  color: #676056;
+  white-space: nowrap;
+}
+.adm-facts thead th {
+  font-weight: 600;
+  color: var(--text-strong);
+}
+.adm-facts tbody tr:nth-child(odd) th,
+.adm-facts tbody tr:nth-child(odd) td {
+  background-color: #f1f1f1;
+}
+
+/*
+ * A notice (admin-notice.jsx), as the Admin's messages: #fffbbb, or #fcc for an error; #333
+ * 14 px text; 18 px over and under, 40 px right, 55 px left for the icon at 19 px.
+ */
+.adm-notice {
+  position: relative;
+  padding: 18px 40px 18px 55px;
+  margin: 0 0 var(--space-4);
+  font-size: var(--type-body);
+  color: #333;
+  background: #fffbbb;
+}
+.adm-notice-error {
+  background: #fcc;
+}
+.adm-notice-icon {
+  position: absolute;
+  top: 50%;
+  left: 19px;
+  display: grid;
+  transform: translateY(-50%);
+}
+.adm-notice-notice .adm-notice-icon {
+  color: #007bdb;
+}
+.adm-notice-warning .adm-notice-icon {
+  color: #eb5202;
+}
+.adm-notice-success .adm-notice-icon {
+  color: #79a22e;
+}
+.adm-notice-error .adm-notice-icon {
+  color: #e22626;
+}
