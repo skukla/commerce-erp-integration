@@ -138,9 +138,9 @@ function inErp(counts) {
 /** When Demo Builder last filled and emptied the ERP. */
 function fillLine(entry, now, timeZone) {
   if (!entry.lastImportAt) {
-    return "Never filled by Demo Builder";
+    return "Never filled";
   }
-  const filled = `Filled by Demo Builder ${dayAndTime(entry.lastImportAt, now, timeZone)}`;
+  const filled = `Filled ${dayAndTime(entry.lastImportAt, now, timeZone)}`;
   return entry.lastWipeAt
     ? `${filled} · emptied ${dayAndTime(entry.lastWipeAt, now, timeZone)}`
     : filled;

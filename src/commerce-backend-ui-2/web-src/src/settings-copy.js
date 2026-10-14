@@ -18,53 +18,57 @@ export function derivedPrefix(name) {
   );
 }
 
-/** Each setting's words; `erp` is the ERP shown, or null for every ERP. */
+/**
+ * Each setting's words; `erp` is the ERP shown, or null for every ERP. `help` is left out where
+ * the label and control already say it, and `more` (behind ⓘ) holds only what cannot be
+ * guessed, in a sentence (owner, 2026-10-13).
+ */
 const TEXT = {
   orders_confirm_status: () => ({
-    help: "Leave empty to add a note only.",
+    help: "None adds a note only.",
     label: "Order status when the ERP confirms",
-    more: "A status to set on the Commerce order when the ERP confirms it. Create it at Stores › Settings › Order Status and assign it to the Pending state (not as its default). No status can move an order to Processing; Commerce does that itself when the order is invoiced or shipped.",
+    more: "Create the status at Stores › Settings › Order Status and assign it to the Pending state; Commerce itself moves an order to Processing when it is invoiced or shipped.",
   }),
   orders_hold_offline: () => ({
     help: "Send them when it’s back, instead of dropping them.",
     label: "Hold orders while the ERP is offline",
-    more: "An order placed while the ERP is offline is sent when the ERP is back (tried again for up to a day). When off, such an order is not sent.",
+    more: "A held order is tried again for up to a day.",
   }),
   orders_send: () => ({
     help: "Create each order in the ERP and bring its order number back.",
     label: "Send orders to the ERP",
-    more: "Orders placed on this website are created in the ERP, and the ERP’s order number is written back. With several ERPs, an order is split: each ERP gets only the lines for the products it owns.",
+    more: "With several ERPs, each ERP gets only the lines for the products it owns.",
   }),
   schedule_prices_enabled: () => ({
     help: "Each ERP’s prices in force, copied into Commerce.",
     label: "Publish ERP prices into the shared catalogs",
-    more: "Copies each ERP’s customer prices in force into the companies’ shared catalogs on the schedule below. The ERP sends no event when a price’s start or end date arrives, so this run is what makes a dated price take effect. It writes only what changed.",
+    more: "This run is what makes a price with a start or end date take effect.",
   }),
   schedule_prices_frequency: () => ({
-    help: "Every hour, every day or every week.",
+    help: "",
     label: "How often",
-    more: "Hourly runs at the minute below; daily at the time below; weekly on the day and at the time below. All in the store timezone.",
+    more: "All times are in the store timezone.",
   }),
   schedule_prices_minute: () => ({
-    help: "Minutes past each hour, store time.",
+    help: "",
     label: "Minute past the hour",
-    more: "The price publish runs this many minutes past every hour.",
+    more: "",
   }),
   schedule_prices_time: () => ({
-    help: "24-hour time, store time, e.g. 02:00.",
+    help: "24-hour time, e.g. 02:00.",
     label: "Time of day",
-    more: "The time of day the daily or weekly price publish runs, as HH:MM in 24 hours. It runs within five minutes of it.",
+    more: "It runs within five minutes of this time.",
     placeholder: "02:00",
   }),
   schedule_prices_weekday: () => ({
-    help: "The day the weekly run happens.",
+    help: "",
     label: "Day of the week",
-    more: "The day of the week, in the store timezone, the weekly price publish runs on.",
+    more: "",
   }),
   schedule_timezone: () => ({
     help: "The schedules’ clock, e.g. America/Chicago.",
     label: "Store timezone",
-    more: "The timezone the schedules are read in, as an IANA name like America/Chicago, Europe/Berlin or UTC. A schedule of 02:00 runs at 02:00 there, through daylight-saving changes.",
+    more: "An IANA name, such as America/Chicago, Europe/Berlin or UTC.",
     placeholder: "UTC",
   }),
   structure_order_prefix: (erp) => {
@@ -72,38 +76,38 @@ const TEXT = {
     return {
       help: `Shown in Commerce as ${prefix}-0000001013.`,
       label: "Prefix on ERP order numbers",
-      more: `Put in front of the ERP order number written onto Commerce orders, so two ERPs on one store tell their orders apart. One to six capital letters or digits. Empty: the first four letters of the ERP’s name (${prefix}).`,
-      placeholder: `${prefix} (from the name)`,
+      more: `One to six capital letters or digits; empty uses the first four letters of the ERP’s name (${prefix}).`,
+      placeholder: prefix,
     };
   },
   structure_owns: (erp) => ({
-    help: "Which products this ERP sells and ships.",
+    help: "",
     label: "Products this ERP owns",
-    more: `All products: every product no other ERP claims by attribute (the catch-all; with one ERP, everything). Attribute: the products whose attribute names this ERP. Websites: the products sold on the websites named below; an order from one of them goes whole to this ERP, unless another ERP owns a line by attribute or as the catch-all.${erp ? ` When not set: products whose erp_owner is ${erp.id}.` : ""}`,
+    more: `All products: every product no other ERP claims by attribute (the catch-all). Websites: orders from those websites, except lines another ERP owns.${erp ? ` Default: products whose attribute names ${erp.id}.` : ""}`,
   }),
   structure_owns_attribute: (erp) => {
     const example = `erp_owner=${erp?.id ?? "ACME"}`;
     return {
       help: `An attribute and value, as ${example}.`,
       label: "Product attribute",
-      more: "A product attribute and the value that names this ERP. Used with “Products whose attribute names this ERP”.",
+      more: "",
       placeholder: example,
     };
   },
   structure_owns_websites: () => ({
     help: "Website codes, comma-separated.",
     label: "Websites",
-    more: "The Commerce website codes this ERP sells on, as base, eu. Used with “Products sold on these websites”.",
+    more: "",
   }),
   structure_sales_org: (erp) => ({
     help: "The ERP’s code for this website’s sales, e.g. 1000.",
     label: "Sales organization",
-    more: `Four letters or digits, like an SAP sales organization. Orders from this website${erp ? " to this ERP" : ""} carry it.${erp ? "" : " An ERP that sets its own uses that instead."}`,
+    more: `Four letters or digits, like an SAP sales organization.${erp ? "" : " An ERP that sets its own uses that instead."}`,
   }),
-  structure_sales_org_name: (erp) => ({
+  structure_sales_org_name: () => ({
     help: "What the ERP calls it. Empty: the website’s name.",
     label: "Sales organization name",
-    more: `What ${erp ? "this ERP" : "the ERP"} calls that sales organization. When empty, the ERP prints the website’s name.`,
+    more: "",
     placeholder: "The website’s name",
   }),
 };
@@ -129,7 +133,7 @@ export function confirmStatusOptions(statuses, current) {
     return null;
   }
   const options = [
-    { label: "Empty (note only)", value: "" },
+    { label: "None", value: "" },
     ...statuses.map((s) => ({
       label: `${s.label} (${s.value})`,
       value: s.value,
@@ -157,7 +161,7 @@ const OWNS = [
  */
 export function ownsOptions(erp) {
   return erp
-    ? [{ label: `Not set: erp_owner is ${erp.id}`, value: "" }, ...OWNS]
+    ? [{ label: "Default (by product attribute)", value: "" }, ...OWNS]
     : OWNS;
 }
 

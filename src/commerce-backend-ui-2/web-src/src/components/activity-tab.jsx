@@ -146,7 +146,6 @@ function EventRow({ erpInfo, onOpen, row }) {
       </span>
       <span className="result">
         <Badge tone={row.tone}>{row.result}</Badge>
-        {row.retriable && <span className="retry-hint">Retry</span>}
       </span>
       <span aria-hidden="true" className="chev">
         ›
@@ -158,10 +157,10 @@ function EventRow({ erpInfo, onOpen, row }) {
 /** What an empty feed says. */
 function emptyFeed(entries, filters) {
   if (entries.length === 0) {
-    return "Nothing has crossed yet.";
+    return "No activity yet.";
   }
   return filters.problems && !filters.type
-    ? "No problems: everything went through."
+    ? "No problems."
     : "Nothing matches these filters.";
 }
 
@@ -236,8 +235,8 @@ export function ActivityTab({
       {days.length > 0 && (
         <p className="feed-end">
           {endsWithReset
-            ? "Nothing earlier: a demo reset clears the activity before it. Records are kept 14 days."
-            : "Records are kept 14 days; the newest 100 are listed."}
+            ? "Earlier activity was cleared by a demo reset."
+            : "Kept 14 days. The newest 100 are shown."}
         </p>
       )}
     </>

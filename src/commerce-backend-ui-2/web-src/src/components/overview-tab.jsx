@@ -26,9 +26,7 @@ function Today({ counts, onOpen, publish }) {
   ];
   return (
     <section aria-labelledby="today-title" className="today">
-      <h2 id="today-title">
-        Today <span className="h-note">counted from Activity</span>
-      </h2>
+      <h2 id="today-title">Today</h2>
       <div className="tiles">
         {tiles.map(([n, label], index) => (
           <div className="tile" key={label}>
@@ -79,11 +77,11 @@ function ErpCardView({ card, erp, erpInfo, onShow }) {
           <dd>{card.inErp}</dd>
         </div>
         <div>
-          <dt>Last update from it</dt>
+          <dt>Last update</dt>
           <dd>{card.lastUpdate}</dd>
         </div>
         <div>
-          <dt>Updates waiting to send</dt>
+          <dt>Waiting to send</dt>
           <dd>{card.waiting}</dd>
         </div>
       </dl>
@@ -136,8 +134,7 @@ function NeedsAttention({ erpInfo, now, onOpen, onRetry, retrying, rows }) {
         <h2 id="attn-title">Needs attention</h2>
         {rows.length > 0 && (
           <span className="meta">
-            {rows.length} {rows.length === 1 ? "item" : "items"} · each is sent
-            again by itself for up to a day, except what Commerce refused
+            {rows.length} {rows.length === 1 ? "item" : "items"}
           </span>
         )}
       </div>
@@ -146,12 +143,7 @@ function NeedsAttention({ erpInfo, now, onOpen, onRetry, retrying, rows }) {
           <div aria-hidden="true" className="tick">
             ✓
           </div>
-          <div>
-            <strong>Nothing needs attention</strong>
-            <span>
-              Every order reached its ERP, and every ERP update was applied.
-            </span>
-          </div>
+          <strong>Nothing needs attention</strong>
         </div>
       ) : (
         <table className="grid">
@@ -253,14 +245,6 @@ export function OverviewTab({
         retrying={retrying}
         rows={rows}
       />
-      <section aria-labelledby="tools-title" className="tools">
-        <h2 id="tools-title">Also in the integration</h2>
-        <p>
-          <strong>Move stock between warehouses</strong> starts from Catalog ›
-          Products › Actions. It moves stock in Commerce and tells each
-          product’s ERP at once.
-        </p>
-      </section>
     </>
   );
 }

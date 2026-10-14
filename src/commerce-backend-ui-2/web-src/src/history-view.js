@@ -17,7 +17,7 @@ export const RESULT = {
   applied: "Applied",
   done: "Done",
   dropped: "Not sent",
-  failed: "Not applied yet",
+  failed: "Failed",
   held: "Waiting for the ERP",
   refused: "Refused by Commerce",
   sending: "Sending",
@@ -94,7 +94,7 @@ const MADE_IN_COMMERCE = {
   invoiced: "Invoiced in Commerce Admin",
   "product-changed": "Changed in Commerce Admin",
   // A buyer can ask for a return on the storefront, so not "in Commerce Admin".
-  returned: "Return made in Commerce",
+  returned: "Returned in Commerce",
   shipped: "Shipped in Commerce Admin",
 };
 
@@ -244,19 +244,17 @@ function orderLine(entry, named) {
 /** The attempts, and who made the last one when it was a person. */
 function triesText(entry) {
   if (!(entry.attempts > 1)) {
-    return entry.retriedBy ? `The last try by an ${entry.retriedBy}` : "";
+    return entry.retriedBy ? `Retried by an ${entry.retriedBy}` : "";
   }
   const tries = `${entry.attempts} tries`;
-  return entry.retriedBy
-    ? `${tries}, the last by an ${entry.retriedBy}`
-    : tries;
+  return entry.retriedBy ? `${tries}, last by an ${entry.retriedBy}` : tries;
 }
 
 /** The row's second line: what the message says after its first sentence, and the tries. */
 function detailOf(entry, split, now, said) {
   const stuck =
     entry.outcome === "sending" && canRetry(entry, now)
-      ? "Still sending after 2 minutes, so Retry is offered"
+      ? "Still sending after 2 minutes"
       : "";
   return [
     MADE_IN_COMMERCE[entry.kind] ?? "",
@@ -264,7 +262,7 @@ function detailOf(entry, split, now, said) {
     split.reason ? `Not applied: ${split.reason}` : "",
     stuck,
     DELIVERED_AGAIN.has(entry.outcome) && retryOf(entry)
-      ? "Sent again by itself for up to a day"
+      ? "Retries automatically for up to a day"
       : "",
     triesText(entry),
   ]

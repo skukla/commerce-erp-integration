@@ -36,11 +36,7 @@ export function RowErpChips({ erpInfo, row }) {
   if (row.unnamed) {
     return (
       <span className="chips">
-        <span
-          className="chip chip-unnamed"
-          title="The record does not say which ERP">
-          ERP not named
-        </span>
+        <span className="chip chip-unnamed">ERP not named</span>
       </span>
     );
   }

@@ -51,7 +51,7 @@ describe("Given how a record ended", () => {
       applied: "Applied",
       done: "Done",
       dropped: "Not sent",
-      failed: "Not applied yet",
+      failed: "Failed",
       held: "Waiting for the ERP",
       refused: "Refused by Commerce",
       sending: "Sending",
@@ -111,7 +111,7 @@ describe("Given an order sent to the ERPs", () => {
     );
     expect(row).toMatchObject({
       detail:
-        "Order sent to Northwind ERP as 0000001014 · Contoso ERP is in maintenance until 15:55 UTC · Sent again by itself for up to a day · 3 tries",
+        "Order sent to Northwind ERP as 0000001014 · Contoso ERP is in maintenance until 15:55 UTC · Retries automatically for up to a day · 3 tries",
       problem: true,
       result: "Waiting for the ERP",
       retriable: true,
@@ -167,7 +167,7 @@ describe("Given an order sent to the ERPs", () => {
       erps: ERPS,
       now: NOW,
     });
-    expect(row.detail).toBe("2 tries, the last by an admin");
+    expect(row.detail).toBe("2 tries, last by an admin");
   });
 });
 
@@ -330,7 +330,7 @@ describe("Given an update from an ERP", () => {
       { erps: ERPS, now: NOW },
     );
     expect(row.detail).toBe(
-      "Not applied: Commerce did not answer · Sent again by itself for up to a day · 2 tries",
+      "Not applied: Commerce did not answer · Retries automatically for up to a day · 2 tries",
     );
     expect(row.unnamed).toBe(true);
   });
@@ -381,7 +381,7 @@ describe("Given a change made in Commerce Admin", () => {
       { erps: ERPS, now: NOW },
     );
     expect(row).toMatchObject({
-      detail: "Return made in Commerce",
+      detail: "Returned in Commerce",
       open: { kind: "trace", ref: "5000000002" },
       type: "orders",
       typeLabel: "Return",

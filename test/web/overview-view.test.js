@@ -132,7 +132,7 @@ describe("Given the Overview's card for one ERP", () => {
 
   test("Then it holds the ERP's figures, its last update and when Demo Builder filled it", () => {
     expect(erpCard(NORTHWIND, history, NOW, UTC)).toStrictEqual({
-      foot: "Filled by Demo Builder today at 2:06 PM · emptied today at 2:04 PM",
+      foot: "Filled today at 2:06 PM · emptied today at 2:04 PM",
       inErp: "3 products · 5 business partners · 3 sales orders",
       lastUpdate: "2 minutes ago",
       waiting: "0",
@@ -141,7 +141,7 @@ describe("Given the Overview's card for one ERP", () => {
 
   test("Then an ERP that gave no figures, nor sent anything, says so plainly", () => {
     expect(erpCard(CONTOSO, [], NOW, UTC)).toStrictEqual({
-      foot: "Never filled by Demo Builder",
+      foot: "Never filled",
       inErp: "–",
       lastUpdate: "Nothing yet",
       waiting: "–",

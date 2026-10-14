@@ -14,10 +14,6 @@
   height: 36px;
   font-weight: 600;
 }
-.scope-hint {
-  font-size: 13px;
-  color: var(--text-muted);
-}
 
 .settings-grid {
   display: grid;

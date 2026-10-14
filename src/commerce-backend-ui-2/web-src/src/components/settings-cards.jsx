@@ -22,11 +22,10 @@ export function OrdersCard({ row }) {
   );
 }
 
-export function SalesOrgCard({ note, row }) {
+export function SalesOrgCard({ row }) {
   return (
     <section className="settings-card">
       <h2>Sales organization</h2>
-      {note && <p className="card-note">{note}</p>}
       <Rows names={groupNames("salesOrg")} row={row} />
     </section>
   );
@@ -54,10 +53,7 @@ export function SchedulesCard({ fields, row }) {
   return (
     <section className="settings-card">
       <h2>Schedules</h2>
-      <p className="card-note">
-        Checked every five minutes; a change applies from the next check, with
-        no redeploy. When each job last ran is under Activity.
-      </p>
+      <p className="card-note">Checked every 5 minutes.</p>
       <Rows names={scheduleNames(fields)} row={row} />
     </section>
   );
@@ -93,7 +89,7 @@ export function ConnectionCard({ entry }) {
         <div>
           <dt>ID</dt>
           <dd>
-            <code>{facts.id}</code> · on products’ <code>erp_owner</code>
+            <code>{facts.id}</code>
           </dd>
         </div>
         <div>
@@ -111,10 +107,6 @@ export function ConnectionCard({ entry }) {
           <dd>{facts.credential}</dd>
         </div>
       </dl>
-      <p className="card-note">
-        A secret is never shown. Demo Builder changes these when it adds or
-        removes an ERP.
-      </p>
     </section>
   );
 }
@@ -155,11 +147,6 @@ export function ErpListCard({ colors, entries }) {
           })}
         </tbody>
       </table>
-      <p className="card-note">
-        The ID never changes: it is what a product’s <code>erp_owner</code>{" "}
-        attribute holds. Demo Builder adds and removes ERPs; a secret is never
-        shown.
-      </p>
     </section>
   );
 }

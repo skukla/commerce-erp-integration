@@ -17,18 +17,31 @@ import { erpValues } from "#web/settings-view.js";
 const NON_BLANK = /\S/u;
 
 /** What "All products" means with several ERPs (owner, 2026-10-09): the catch-all. */
+/** Where one sentence ends and the next begins. */
+const SENTENCE_END = /[.;] /u;
 const CATCH_ALL_WORDS =
   /^All products: every product no other ERP claims by attribute \(the catch-all/u;
 /** Words of the one-ERP-only reading and the deleted sources mode. */
 const DELETED_WORDS = /one ERP only|Inventory sources|or source/u;
 
 describe("Given each setting's words", () => {
-  test("Then every setting the app declares has a label, a help line and more to read", () => {
+  // A help line or ⓘ text only where it adds to the label and control (owner, 2026-10-13).
+  const LABEL_ONLY = ["schedule_prices_minute", "schedule_prices_weekday"];
+
+  test("Then every setting the app declares has a label, and words beside it unless the label says it all", () => {
     for (const { name } of appConfig.businessConfig.schema) {
       const text = settingText(name, null);
       expect(text.label, name).toMatch(NON_BLANK);
-      expect(text.help, name).toMatch(NON_BLANK);
-      expect(text.more, name).toMatch(NON_BLANK);
+      if (!LABEL_ONLY.includes(name)) {
+        expect(`${text.help}${text.more}`, name).toMatch(NON_BLANK);
+      }
+    }
+  });
+
+  test("Then the ⓘ text is one sentence or two, never a paragraph", () => {
+    for (const { name } of appConfig.businessConfig.schema) {
+      const sentences = settingText(name, null).more.split(SENTENCE_END).length;
+      expect(sentences, name).toBeLessThanOrEqual(2);
     }
   });
 
@@ -36,7 +49,7 @@ describe("Given each setting's words", () => {
     const erp = { id: "northwind", name: "Northwind ERP" };
     expect(settingText("structure_order_prefix", erp)).toMatchObject({
       help: "Shown in Commerce as NORT-0000001013.",
-      placeholder: "NORT (from the name)",
+      placeholder: "NORT",
     });
     expect(settingText("structure_owns_attribute", erp)).toMatchObject({
       help: "An attribute and value, as erp_owner=northwind.",
@@ -51,9 +64,7 @@ describe("Given each setting's words", () => {
     const { more } = settingText("structure_owns", erp);
     expect(more).toMatch(CATCH_ALL_WORDS);
     expect(more).not.toMatch(DELETED_WORDS);
-    expect(more).toContain(
-      "When not set: products whose erp_owner is justrite.",
-    );
+    expect(more).toContain("Default: products whose attribute names justrite.");
   });
 });
 
@@ -63,9 +74,9 @@ describe("Given the confirm status's choices", () => {
     { label: "Confirmed in ERP", value: "erp_confirmed" },
   ];
 
-  test("Then the list is a note only, then each Pending status by its label and code", () => {
+  test("Then the list is none (a note only), then each Pending status by its label and code", () => {
     expect(confirmStatusOptions(PENDING, "")).toStrictEqual([
-      { label: "Empty (note only)", value: "" },
+      { label: "None", value: "" },
       { label: "Awaiting ERP review (erp_review)", value: "erp_review" },
       { label: "Confirmed in ERP (erp_confirmed)", value: "erp_confirmed" },
     ]);
@@ -86,7 +97,7 @@ describe("Given the confirm status's choices", () => {
 describe("Given which products an ERP owns", () => {
   test("Then with several ERPs an ERP can leave it unset, which is its owner attribute", () => {
     expect(ownsOptions({ id: "contoso", name: "Contoso ERP" })).toStrictEqual([
-      { label: "Not set: erp_owner is contoso", value: "" },
+      { label: "Default (by product attribute)", value: "" },
       { label: "All products", value: "all" },
       { label: "Products whose attribute names this ERP", value: "attribute" },
       { label: "Products sold on these websites", value: "websites" },

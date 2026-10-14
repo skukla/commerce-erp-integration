@@ -79,10 +79,7 @@ function ConfirmStatus({ disabled, label, onChange, statuses, value }) {
         placeholder="erp_confirmed"
         value={value ?? ""}
       />
-      <span className="hint">
-        Commerce’s order statuses could not be read here, so type the status
-        code, as erp_confirmed.
-      </span>
+      <span className="hint">Enter a status code.</span>
     </>
   );
 }
@@ -175,17 +172,19 @@ export function SettingRow({
       <div>
         <div className="label">
           {text.label}
-          <button
-            aria-controls={moreId}
-            aria-expanded={open}
-            aria-label={`More about ${text.label.toLowerCase()}`}
-            className="info"
-            onClick={toggleOpen}
-            type="button">
-            i
-          </button>
+          {text.more && (
+            <button
+              aria-controls={moreId}
+              aria-expanded={open}
+              aria-label={`More about ${text.label.toLowerCase()}`}
+              className="info"
+              onClick={toggleOpen}
+              type="button">
+              i
+            </button>
+          )}
         </div>
-        <p className="help">{text.help}</p>
+        {text.help && <p className="help">{text.help}</p>}
       </div>
       <div className="control">
         <Control
@@ -207,9 +206,11 @@ export function SettingRow({
           </label>
         )}
       </div>
-      <p className="more" hidden={!open} id={moreId}>
-        {text.more}
-      </p>
+      {text.more && (
+        <p className="more" hidden={!open} id={moreId}>
+          {text.more}
+        </p>
+      )}
     </div>
   );
 }

@@ -116,12 +116,14 @@ export function SearchBox({ api, erpInfo, history, onOpen }) {
         <label htmlFor="erp-search">Find an order, product or company</label>
         <div className="search-row">
           <input
-            aria-describedby="erp-search-hint"
+            aria-describedby={
+              examples.length > 0 ? "erp-search-hint" : undefined
+            }
             autoComplete="off"
             className="input"
             id="erp-search"
             onChange={onTextChange}
-            placeholder="Order number, SKU, or a company’s name or id"
+            placeholder="Order, SKU or company"
             type="search"
             value={text}
           />
@@ -129,21 +131,17 @@ export function SearchBox({ api, erpInfo, history, onOpen }) {
             {busy ? "Finding" : "Find"}
           </button>
         </div>
-        <div className="search-hint" id="erp-search-hint">
-          {examples.length > 0 ? (
-            <>
-              Try{" "}
-              {examples.map((example, index) => (
-                <span key={example.text}>
-                  {index > 0 && (index === examples.length - 1 ? " or " : ", ")}
-                  <ExampleButton example={example} onPick={pick} />
-                </span>
-              ))}
-            </>
-          ) : (
-            "An order number, a SKU, or a company’s name or Commerce id."
-          )}
-        </div>
+        {examples.length > 0 && (
+          <div className="search-hint" id="erp-search-hint">
+            Try{" "}
+            {examples.map((example, index) => (
+              <span key={example.text}>
+                {index > 0 && (index === examples.length - 1 ? " or " : ", ")}
+                <ExampleButton example={example} onPick={pick} />
+              </span>
+            ))}
+          </div>
+        )}
         {miss && (
           <div className="search-miss" role="status">
             {miss}

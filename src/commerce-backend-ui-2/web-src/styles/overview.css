@@ -52,12 +52,6 @@
   font-weight: 600;
   color: var(--text-strong);
 }
-.h-note {
-  margin-left: 6px;
-  font-size: 12px;
-  font-weight: 400;
-  color: var(--text-muted);
-}
 .tiles {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -187,12 +181,8 @@
   border-radius: 50%;
 }
 .all-clear strong {
-  display: block;
   font-size: 17px;
   color: var(--text-strong);
-}
-.all-clear span {
-  color: var(--text-muted);
 }
 
 .attention .grid td.what {
@@ -217,22 +207,6 @@
 }
 .attention .act .btn + .btn-link {
   margin-left: 12px;
-}
-
-.tools {
-  padding: 14px 18px;
-  margin-top: 28px;
-  background: var(--band-bg);
-  border-radius: var(--radius);
-}
-.tools h2 {
-  margin: 0 0 4px;
-  font-size: 15px;
-  color: var(--text-strong);
-}
-.tools p {
-  margin: 0;
-  color: var(--text);
 }
 
 @media (max-width: 1180px) {

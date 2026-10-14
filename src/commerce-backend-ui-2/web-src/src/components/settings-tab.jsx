@@ -98,16 +98,7 @@ function useScopePage(api, initialPage, scopeId, onError, round) {
 }
 
 /** The scope bar: which ERP, on which website. */
-function ScopeBar({
-  atDefault,
-  choices,
-  erpId,
-  erps,
-  onErp,
-  onScope,
-  scopeId,
-  several,
-}) {
+function ScopeBar({ choices, erpId, erps, onErp, onScope, scopeId, several }) {
   const changeErp = useCallback((event) => onErp(event.target.value), [onErp]);
   const changeScope = useCallback(
     (event) => onScope(event.target.value),
@@ -149,16 +140,6 @@ function ScopeBar({
           </option>
         ))}
       </select>
-      <span className="scope-hint">
-        {atDefault ? (
-          "Default Config applies to every website unless a website changes it."
-        ) : (
-          <>
-            Untick <em>Use Default Value</em> to change a setting for this
-            website only.
-          </>
-        )}
-      </span>
     </div>
   );
 }
@@ -190,7 +171,7 @@ function SaveActions({ changed, onSave, saved, saving }) {
 }
 
 /** The cards of the view, in two columns as the mockup lays them out. */
-function Cards({ cards, entries, entry, erpInfo, fields, row, several }) {
+function Cards({ cards, entries, entry, erpInfo, fields, row }) {
   const card = {
     connection: <ConnectionCard entry={entry ?? entries[0]} key="connection" />,
     erpList: (
@@ -198,17 +179,7 @@ function Cards({ cards, entries, entry, erpInfo, fields, row, several }) {
     ),
     orders: <OrdersCard key="orders" row={row} />,
     products: <ProductsCard fields={fields} key="products" row={row} />,
-    salesOrg: (
-      <SalesOrgCard
-        key="salesOrg"
-        note={
-          several && !entry
-            ? "Every ERP uses these unless it sets its own."
-            : null
-        }
-        row={row}
-      />
-    ),
+    salesOrg: <SalesOrgCard key="salesOrg" row={row} />,
     schedules: <SchedulesCard fields={fields} key="schedules" row={row} />,
     websiteNote: <WebsiteNote key="websiteNote" />,
   };
@@ -405,7 +376,6 @@ export function SettingsTab({
     <>
       {scopesNote && <Alert tone="warn">{scopesNote}</Alert>}
       <ScopeBar
-        atDefault={atDefault}
         choices={choices}
         erpId={erpId}
         erps={erpInfo.erps}
@@ -422,7 +392,6 @@ export function SettingsTab({
           erpInfo={erpInfo}
           fields={fields}
           row={row}
-          several={erpInfo.several}
         />
       ) : (
         <div className="erp-loading">
@@ -431,7 +400,7 @@ export function SettingsTab({
       )}
       {asked && (
         <ConfirmDialog
-          message="All data that hasn't been saved will be lost."
+          message="Unsaved changes will be lost."
           onCancel={cancelSwitch}
           onConfirm={confirmSwitch}
           title="Switch scope?"
