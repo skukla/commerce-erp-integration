@@ -92,7 +92,7 @@ describe("Given the scheduled runs", () => {
     ]);
     const now = new Date("2026-09-28T14:40:00Z");
     expect(publishLine([cleared], now, (t) => t)).toStrictEqual({
-      last: "has not run yet",
+      last: "Not run yet.",
       next: "2026-09-28T15:05:00.000Z",
     });
   });
@@ -140,11 +140,11 @@ describe("Given the band's one line about the price publish", () => {
       written: 0,
     };
     expect(publishLine([run(quiet)], now, (t) => `[${t}]`)).toStrictEqual({
-      last: "last ran [2026-09-28T14:05:00Z], nothing changed",
+      last: "Last ran [2026-09-28T14:05:00Z], nothing changed.",
       next: "[2026-09-28T15:05:00.000Z]",
     });
     expect(publishLine([unrun(HOURLY)], now, (t) => t).last).toBe(
-      "has not run yet",
+      "Not run yet.",
     );
     expect(
       publishLine(
@@ -152,6 +152,6 @@ describe("Given the band's one line about the price publish", () => {
         now,
         (t) => t,
       ).last,
-    ).toBe("last ran T, failed, Contoso ERP answered 503");
+    ).toBe("Last ran T, failed, Contoso ERP answered 503.");
   });
 });

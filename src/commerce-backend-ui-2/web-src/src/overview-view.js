@@ -110,7 +110,7 @@ export function erpStatusLine(entry) {
   return {
     card: `Not reachable. ${why}`,
     reachable: false,
-    text: `Not reachable · ${String(reason).trim().replace(ENDED, "")}`,
+    text: `Not reachable: ${String(reason).trim().replace(ENDED, "")}`,
   };
 }
 

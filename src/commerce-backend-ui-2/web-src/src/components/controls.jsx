@@ -12,6 +12,20 @@ export function erpStyle(colors, id) {
   return color ? { "--erp": color.color, "--erp-tint": color.tint } : undefined;
 }
 
+/**
+ * One ERP by name, after a small square of its color: how an ERP is named where several sit
+ * side by side (the band, the Data Map's head). Its color is never a fill or an edge
+ * (owner, 2026-10-14).
+ */
+export function ErpName({ colors, erp, full = true }) {
+  return (
+    <span className="erp-name" style={erpStyle(colors, erp.id)}>
+      <span aria-hidden="true" className="erp-mark" />
+      {full ? erp.name : shortName(erp.name)}
+    </span>
+  );
+}
+
 /** One ERP, in its color: its short name, or its full name with `full`. */
 export function ErpChip({ colors, erp, full = false }) {
   return (

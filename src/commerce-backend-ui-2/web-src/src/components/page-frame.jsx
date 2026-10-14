@@ -14,7 +14,8 @@ import { ProgressCircle } from "@react-spectrum/s2/ProgressCircle";
 import { Tooltip, TooltipTrigger } from "@react-spectrum/s2/Tooltip";
 import { useCallback } from "react";
 
-import { erpStyle } from "#web/components/controls.jsx";
+import { AdminStatus } from "#web/components/admin/admin-status.jsx";
+import { ErpName } from "#web/components/controls.jsx";
 import { erpStatusLine } from "#web/overview-view.js";
 
 export const TABS = Object.freeze([
@@ -24,16 +25,15 @@ export const TABS = Object.freeze([
   { id: "data-map", label: "Data Map" },
 ]);
 
-/** One ERP in the band: its color, its name, and whether it answers. */
+/** One ERP in the band: its name after its color, and whether it answers. */
 function ErpStatus({ colors, erp }) {
   const line = erpStatusLine(erp);
   return (
-    <span className="erp-status" style={erpStyle(colors, erp.id)}>
-      <strong>{erp.name}</strong>
-      <span className="state">
-        <span className={line.reachable ? "dot" : "dot warn"} />
+    <span className="band-erp">
+      <ErpName colors={colors} erp={erp} />
+      <AdminStatus tone={line.reachable ? "ok" : "warn"}>
         {line.text}
-      </span>
+      </AdminStatus>
     </span>
   );
 }

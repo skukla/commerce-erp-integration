@@ -4,7 +4,8 @@
  * ERPs it concerns, its type, one sentence, how it ended, whether Retry is offered, and what a
  * click on it opens in the side panel.
  */
-import { dayHeading } from "#web/time-view.js";
+
+import { recordSentence } from "#web/record-sentence.js";
 
 const TRAILING_ERP = /\s+ERP$/iu;
 
@@ -102,11 +103,13 @@ const NOT_APPLIED = " — not applied: ";
 const ORDER_REFUSED =
   /^(?:commerce )?order (\S+) was refused by the ERP: (.+)$/iu;
 const ORDER_WAITING = /^order (\S+) is waiting for the ERP \((.+)\)\.?$/iu;
-const SENT_TO = /sent to (.+?) as /gu;
 const SUBJECT = /^(?:customer|company|partner) [^\s:]+/u;
 const PARTNER = /^partner /u;
 const SKU_PREFIX = /^SKU /u;
 const FULL_STOP = /\.$/u;
+/** Where a split order's record starts its next part's sentence (router/route-order.js). */
+const NEXT_PART = /(?<=\.) (?=order )/iu;
+const SPACES = /\s+/u;
 /** The ERP's raw "partner X: N price line(s) in force" (lib/erp-event-history.js). */
 const PRICE_LINES = /^partner (\S+): (\d+) price line\(s\) in force$/u;
 
@@ -191,18 +194,23 @@ function sentenceOf(entry, first, named) {
   return capitalized(first);
 }
 
-/** Every sentence of a message, one after another, as the row's second line reads. */
-const sentences = (message) =>
-  message
-    .split(". ")
+/**
+ * Parts of a row's second line as plain sentences, each ended by a full stop. They were joined
+ * by middle dots until 2026-10-14, which the owner reads as machine-written.
+ */
+const asSentences = (parts) => {
+  const kept = parts
     .map((part) => part.trim().replace(FULL_STOP, ""))
-    .filter(Boolean)
-    .join(" · ");
+    .filter(Boolean);
+  return kept.length > 0 ? `${kept.join(". ")}.` : "";
+};
 
 /**
  * An order that did not get through, in plainer words than its record's: who refused it and
- * why, what it waits for, and with several ERPs whose part waits (a part sent reads "sent to
- * <ERP> as <number>" in the record, lib/order-parts.js). Null for any other record.
+ * why, or what it waits for. Null for any other record. (A held split order's waiting part
+ * was named by matching "sent to <ERP> as", which only the preview's records ever wrote; a
+ * real part reads "<ERP> took its part as sales order N", lib/order-sync.js. Removed
+ * 2026-10-14: the ERP column names the order's ERPs and the second line says which waits.)
  * @param {object} entry the record
  * @param {object[]} named the listed ERPs the record concerns
  * @returns {{ sentence: string, said: string } | null}
@@ -227,18 +235,27 @@ function orderLine(entry, named) {
       sentence: `Order ${waiting[1]} is waiting for the ERP`,
     };
   }
-  if (entry.outcome !== "held" || named.length < 2) {
-    return null;
-  }
-  const sent = new Set([...message.matchAll(SENT_TO)].map((match) => match[1]));
-  const waits = named.filter((e) => !sent.has(e.name)).map((e) => e.name);
-  if (waits.length === 0) {
-    return null;
-  }
-  return {
-    said: sentences(message),
-    sentence: `Order ${entry.ref}: ${waits.join(" and ")}’s ${waits.length === 1 ? "part is" : "parts are"} waiting`,
-  };
+  return entry.outcome === "held" && named.length > 1
+    ? { said: partsSaid(message, entry.ref), sentence: null }
+    : null;
+}
+
+/**
+ * A split order's parts, as its record joins them (router/route-order.js combine): each part's
+ * sentence without the order's own number, which the row already leads with, and a waiting
+ * part by its reason. "order 1: Northwind ERP took its part as sales order 7. order 1 is
+ * waiting for the ERP (Contoso ERP is offline)." reads "Northwind ERP took its part as sales
+ * order 7. Contoso ERP is offline."
+ */
+function partsSaid(message, ref) {
+  const escaped = String(ref).replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
+  const own = new RegExp(`^order ${escaped}:?\\s*`, "iu");
+  return asSentences(
+    message.split(NEXT_PART).map((part) => {
+      const waiting = ORDER_WAITING.exec(part.trim());
+      return capitalized(waiting ? waiting[2] : part.trim().replace(own, ""));
+    }),
+  );
 }
 
 /** The attempts, and who made the last one when it was a person. */
@@ -256,7 +273,7 @@ function detailOf(entry, split, now, said) {
     entry.outcome === "sending" && canRetry(entry, now)
       ? "Still sending after 2 minutes"
       : "";
-  return [
+  return asSentences([
     MADE_IN_COMMERCE[entry.kind] ?? "",
     said ?? (entry.kind === "reset" ? "" : split.rest),
     split.reason ? `Not applied: ${split.reason}` : "",
@@ -265,9 +282,7 @@ function detailOf(entry, split, now, said) {
       ? "Retries automatically for up to a day"
       : "",
     triesText(entry),
-  ]
-    .filter(Boolean)
-    .join(" · ");
+  ]);
 }
 
 /** What a click on the row opens in the side panel. */
@@ -332,7 +347,10 @@ export function eventRow(entry, { erps, now }) {
     result: RESULT[entry.outcome] ?? entry.outcome,
     retriable: retry !== null && canRetry(entry, at),
     retry,
-    sentence: line?.sentence ?? sentenceOf(entry, split.first, named),
+    sentence:
+      recordSentence(entry) ??
+      line?.sentence ??
+      sentenceOf(entry, split.first, named),
     tone: TONE[entry.outcome] ?? "neutral",
     type: KINDS[entry.kind]?.type ?? "orders",
     typeLabel: KINDS[entry.kind]?.label ?? entry.kind,
@@ -341,34 +359,39 @@ export function eventRow(entry, { erps, now }) {
 }
 
 /**
- * Whether a row shows under the feed's filters.
- * @param {object} row an eventRow
- * @param {{ erp: string, type: string, problems: boolean }} filters "" is every ERP or type
+ * What a search matches a row by: its sentence and second line, the record's own number, the
+ * order it belongs to, its ERP sales order, and the company it names.
  */
-export function rowMatches(row, { erp, problems, type }) {
-  return (
-    (!erp || row.erpIds.includes(erp)) &&
-    (!type || row.type === type) &&
-    (!problems || row.problem)
-  );
+function searchText(row) {
+  const { entry } = row;
+  return [
+    row.sentence,
+    row.detail,
+    entry.ref,
+    entry.orderRef,
+    entry.erpNumber,
+    entry.company?.name,
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
 }
 
 /**
- * The rows grouped by day, in the order given (newest first).
- * @returns {Array<{ key: string, title: string, date: string, rows: object[] }>}
+ * Whether a row shows under the feed's filters.
+ * @param {object} row an eventRow
+ * @param {{ erp: string, type: string, problems: boolean, text?: string }} filters "" is every
+ *   ERP or type; `text` keeps the rows whose words hold every word typed, in any order
  */
-export function dayGroups(rows, now, timeZone) {
-  const groups = [];
-  for (const row of rows) {
-    const heading = dayHeading(row.at, now, timeZone);
-    const last = groups.at(-1);
-    if (last?.key === heading.key) {
-      last.rows.push(row);
-    } else {
-      groups.push({ ...heading, rows: [row] });
-    }
-  }
-  return groups;
+export function rowMatches(row, { erp, problems, text = "", type }) {
+  const words = text.toLowerCase().split(SPACES).filter(Boolean);
+  const found = searchText(row);
+  return (
+    (!erp || row.erpIds.includes(erp)) &&
+    (!type || row.type === type) &&
+    (!problems || row.problem) &&
+    words.every((word) => found.includes(word))
+  );
 }
 
 /** Needs attention: every record that did not get through, as feed rows. */

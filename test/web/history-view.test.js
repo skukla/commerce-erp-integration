@@ -5,7 +5,6 @@
  */
 import {
   canRetry,
-  dayGroups,
   eventRow,
   isProblem,
   needsAttention,
@@ -20,7 +19,7 @@ const ERPS = [
   { id: "contoso", name: "Contoso ERP" },
 ];
 const HELD_DETAIL =
-  /^Order sent to Northwind ERP as NORT-0000001014 · Contoso ERP is in maintenance until 15:55/u;
+  /^Northwind ERP took its part as sales order 0000001014\. Contoso ERP is in maintenance until 15:55\./u;
 
 const order = (outcome, extra = {}) => ({
   attempts: 1,
@@ -78,10 +77,13 @@ describe("Given how a record ended", () => {
 
 describe("Given an order sent to the ERPs", () => {
   test("Then its row reads as one sentence, names its ERPs and opens its trace", () => {
-    const row = eventRow(order("sent", { erpIds: ["erp"] }), {
-      erps: ERPS,
-      now: NOW,
-    });
+    const row = eventRow(
+      order("sent", { erpIds: ["erp"], erpNumber: "0000001012" }),
+      {
+        erps: ERPS,
+        now: NOW,
+      },
+    );
     expect(row).toMatchObject({
       direction: "to",
       directionLabel: "To ERP",
@@ -91,7 +93,7 @@ describe("Given an order sent to the ERPs", () => {
       problem: false,
       result: "Sent",
       retriable: false,
-      sentence: "Order 3000000022 is ERP sales order 0000001012",
+      sentence: "Order 3000000022: sales order 0000001012",
       tone: "ok",
       type: "orders",
       typeLabel: "Order",
@@ -104,36 +106,35 @@ describe("Given an order sent to the ERPs", () => {
       order("held", {
         attempts: 3,
         erpIds: ["erp", "contoso"],
+        // In router/route-order.js's words: each part's sentence, joined.
         message:
-          "Order sent to Northwind ERP as 0000001014. Contoso ERP is in maintenance until 15:55 UTC.",
+          "order 3000000022: Northwind ERP took its part as sales order 0000001014. order 3000000022 is waiting for the ERP (Contoso ERP is in maintenance until 15:55 UTC).",
       }),
       { erps: ERPS, now: NOW },
     );
     expect(row).toMatchObject({
       detail:
-        "Order sent to Northwind ERP as 0000001014 · Contoso ERP is in maintenance until 15:55 UTC · Retries automatically for up to a day · 3 tries",
+        "Northwind ERP took its part as sales order 0000001014. Contoso ERP is in maintenance until 15:55 UTC. Retries automatically for up to a day. 3 tries.",
       problem: true,
       result: "Waiting for the ERP",
       retriable: true,
       retry: { incrementId: "3000000022" },
-      sentence: "Order 3000000022: Contoso ERP’s part is waiting",
+      sentence: "Order 3000000022",
       tone: "warn",
     });
   });
 
-  test("Then a split order that waits names the ERP whose part waits", () => {
+  test("Then a split order that waits says which part went, and why the other waits", () => {
     const row = eventRow(
       order("held", {
         erpIds: ["erp", "contoso"],
         message:
-          "Order sent to Northwind ERP as NORT-0000001014. Contoso ERP is in maintenance until 15:55.",
+          "order 3000000024: Northwind ERP took its part as sales order 0000001014. order 3000000024 is waiting for the ERP (Contoso ERP is in maintenance until 15:55).",
         ref: "3000000024",
       }),
       { erps: ERPS, now: NOW },
     );
-    expect(row.sentence).toBe(
-      "Order 3000000024: Contoso ERP’s part is waiting",
-    );
+    expect(row.sentence).toBe("Order 3000000024");
     expect(row.detail).toMatch(HELD_DETAIL);
   });
 
@@ -141,14 +142,14 @@ describe("Given an order sent to the ERPs", () => {
     [
       "order 3000000025 was refused by the ERP: accesspoint quantity 0 is not allowed",
       ["erp"],
-      "Order 3000000025 was refused by Northwind ERP",
-      "accesspoint quantity 0 is not allowed",
+      "Order 3000000025",
+      "accesspoint quantity 0 is not allowed.",
     ],
     [
       "order 42 is waiting for the ERP (the ERP answered 503).",
       [],
-      "Order 42 is waiting for the ERP",
-      "The ERP answered 503",
+      "Order 42",
+      "The ERP answered 503.",
     ],
   ])(
     "Then an order that did not get through says why on its second line (%s)",
@@ -167,7 +168,7 @@ describe("Given an order sent to the ERPs", () => {
       erps: ERPS,
       now: NOW,
     });
-    expect(row.detail).toBe("2 tries, last by an admin");
+    expect(row.detail).toBe("2 tries, last by an admin.");
   });
 });
 
@@ -291,7 +292,7 @@ describe("Given an update from an ERP", () => {
       { erps: ERPS, now: NOW },
     );
     expect(row).toMatchObject({
-      detail: "Not applied: no Commerce company is paired with partner 100077",
+      detail: "Not applied: no Commerce company is paired with partner 100077.",
       open: { kind: "record" },
       problem: true,
       result: "Refused by Commerce",
@@ -330,7 +331,7 @@ describe("Given an update from an ERP", () => {
       { erps: ERPS, now: NOW },
     );
     expect(row.detail).toBe(
-      "Not applied: Commerce did not answer · Retries automatically for up to a day · 2 tries",
+      "Not applied: Commerce did not answer. Retries automatically for up to a day. 2 tries.",
     );
     expect(row.unnamed).toBe(true);
   });
@@ -354,12 +355,11 @@ describe("Given a change made in Commerce Admin", () => {
       { erps: ERPS, now: NOW },
     );
     expect(row).toMatchObject({
-      detail: "Shipped in Commerce Admin",
+      detail: "Shipped in Commerce Admin.",
       erpIds: ["erp"],
       open: { kind: "trace", ref: "3000000021" },
       retriable: false,
-      sentence:
-        "Commerce shipment 3000000011: told Northwind ERP about its lines",
+      sentence: "Shipment 3000000011: order 3000000021",
       typeLabel: "Shipment",
     });
   });
@@ -381,7 +381,7 @@ describe("Given a change made in Commerce Admin", () => {
       { erps: ERPS, now: NOW },
     );
     expect(row).toMatchObject({
-      detail: "Returned in Commerce",
+      detail: "Returned in Commerce.",
       open: { kind: "trace", ref: "5000000002" },
       type: "orders",
       typeLabel: "Return",
@@ -434,7 +434,7 @@ describe("Given a demo reset's line", () => {
       open: { kind: "reset" },
       result: "Done",
       retriable: false,
-      sentence: message,
+      sentence: "Demo reset: no orders to close",
       tone: "neutral",
       type: "reset",
     });
@@ -460,7 +460,7 @@ describe("Given a product deleted in Commerce", () => {
       { erps: ERPS, now: NOW },
     );
     expect(row).toMatchObject({
-      detail: "Contoso ERP keeps it until its next reset",
+      detail: "Contoso ERP keeps it until its next reset.",
       direction: "commerce",
       directionLabel: "In Commerce",
       erpIds: ["contoso"],
@@ -469,7 +469,7 @@ describe("Given a product deleted in Commerce", () => {
       problem: false,
       result: "Done",
       retriable: false,
-      sentence: "Product SIGN1 was deleted in Commerce",
+      sentence: "Product SIGN1: deleted",
       tone: "neutral",
       type: "products",
       typeLabel: "Product deleted",
@@ -484,7 +484,7 @@ describe("Given one ERP", () => {
   });
 });
 
-describe("Given the feed's filters and days", () => {
+describe("Given the feed's filters", () => {
   const rows = [
     eventRow(order("held", { erpIds: ["contoso"] }), { erps: ERPS, now: NOW }),
     eventRow(
@@ -521,13 +521,14 @@ describe("Given the feed's filters and days", () => {
     ).toStrictEqual([rows[0]]);
   });
 
-  test("Then the rows are grouped by day, newest first", () => {
-    expect(
-      dayGroups(rows, NOW, "UTC").map((g) => [g.title, g.rows.length]),
-    ).toStrictEqual([
-      ["Today", 1],
-      ["Yesterday", 1],
-    ]);
+  test("Then a search keeps the rows holding every word typed, in any case or order", () => {
+    const all = { erp: "", problems: false, type: "" };
+    const found = (text) => rows.filter((r) => rowMatches(r, { ...all, text }));
+    // The order's number, the SKU, and words from the sentence.
+    expect(found("3000000022")).toStrictEqual([rows[0]]);
+    expect(found("a PRICE")).toStrictEqual([rows[1]]);
+    expect(found("price 3000000022")).toStrictEqual([]);
+    expect(found("  ")).toHaveLength(2);
   });
 
   test("Then Needs attention is every record that did not get through", () => {

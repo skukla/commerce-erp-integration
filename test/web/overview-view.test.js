@@ -110,7 +110,7 @@ describe("Given an ERP's state", () => {
     expect(erpStatusLine(CONTOSO)).toStrictEqual({
       card: "Not reachable. In maintenance until 15:55 UTC.",
       reachable: false,
-      text: "Not reachable · in maintenance until 15:55 UTC",
+      text: "Not reachable: in maintenance until 15:55 UTC",
     });
     expect(
       erpStatusLine({ error: "the ERP answered 401", reachable: false }).card,

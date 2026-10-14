@@ -3,7 +3,6 @@ import {
   ago,
   clockTime,
   dayAndTime,
-  dayHeading,
   sameDay,
   whenText,
 } from "#web/time-view.js";
@@ -15,22 +14,6 @@ describe("Given a time on the page", () => {
   test("Then it reads as a clock time", () => {
     expect(clockTime("2026-09-28T14:44:00Z", UTC)).toBe("2:44 PM");
     expect(clockTime("2026-09-28T09:05:00Z", UTC)).toBe("9:05 AM");
-  });
-
-  test("Then the feed heads each day as Today, Yesterday or its date", () => {
-    expect(dayHeading("2026-09-28T08:00:00Z", NOW, UTC)).toStrictEqual({
-      date: "Monday, September 28",
-      key: "2026-09-28",
-      title: "Today",
-    });
-    expect(dayHeading("2026-09-27T23:37:00Z", NOW, UTC)).toMatchObject({
-      date: "Sunday, September 27",
-      title: "Yesterday",
-    });
-    expect(dayHeading("2026-09-25T10:00:00Z", NOW, UTC)).toMatchObject({
-      date: "",
-      title: "Friday, September 25",
-    });
   });
 
   test("Then a time on another day carries its date", () => {

@@ -124,7 +124,7 @@ code {
 .band-erps {
   display: flex;
   flex-wrap: wrap;
-  gap: 10px;
+  gap: var(--space-6);
 }
 .band-actions {
   display: flex;
@@ -161,35 +161,6 @@ code {
 }
 
 /* An ERP status chip: the ERP's color, its name, and whether it answers. */
-.erp-status {
-  display: inline-flex;
-  gap: 10px;
-  align-items: center;
-  height: 36px;
-  padding: 0 14px 0 0;
-  overflow: hidden;
-  font-size: 14px;
-  background: #fff;
-  border: 1px solid var(--line);
-  border-radius: 18px;
-}
-.erp-status::before {
-  align-self: stretch;
-  width: 6px;
-  content: "";
-  background: var(--erp);
-}
-.erp-status strong {
-  font-weight: 600;
-  color: var(--text-strong);
-}
-.erp-status .state {
-  display: inline-flex;
-  gap: 6px;
-  align-items: center;
-  color: var(--text-muted);
-}
-
 .dot {
   display: inline-block;
   flex: none;
@@ -363,12 +334,6 @@ code {
   content: "";
   background: var(--erp);
   border-radius: 50%;
-}
-.chip-type {
-  font-weight: 400;
-  color: var(--text);
-  background: #fff;
-  border: 1px solid var(--line-strong);
 }
 .chip-unnamed {
   font-style: italic;

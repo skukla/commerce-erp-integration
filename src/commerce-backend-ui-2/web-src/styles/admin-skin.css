@@ -1,0 +1,118 @@
+/*
+ * The skin: Spectrum 2's parts dressed as Commerce Admin's (owner, 2026-10-14). Spectrum 2 puts
+ * its own rules in cascade layers, so these plain rules win over them without !important; the
+ * parts keep Spectrum's keyboard, focus and screen-reader behaviour. Only classes from
+ * components/admin/ are styled here, never Spectrum's generated ones, so an upgrade that renames
+ * them breaks nothing. The scales below are the only sizes the page uses.
+ */
+:root {
+  /* Type: one scale. */
+  --type-small: 12px;
+  --type-body: 14px;
+  --type-section: 16px;
+  --type-title: 20px;
+  /* Space: one scale, in 4 px steps. */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-6: 24px;
+  /* Spectrum's own font setting, so its parts set the page's face. */
+  --s2-font-family-sans: var(--font);
+}
+
+/* An ERP's name after a small square of its color (controls.jsx ErpName). */
+.erp-name {
+  display: inline-flex;
+  gap: var(--space-2);
+  align-items: center;
+  font-weight: 600;
+  color: var(--text-strong);
+}
+.erp-mark {
+  flex: none;
+  width: 10px;
+  height: 10px;
+  background: var(--erp);
+}
+/* One ERP in the band: its name, then whether it answers. */
+.band-erp {
+  display: inline-flex;
+  gap: var(--space-3);
+  align-items: center;
+}
+
+/* A row of filters above a table. */
+.adm-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-6);
+  align-items: center;
+  margin: 0 0 var(--space-4);
+}
+
+/* Table: the Admin grid. Square, a dark head, ruled rows, body type. */
+.adm-table,
+.adm-table [role="grid"] {
+  font-size: var(--type-body);
+  border-radius: 0;
+}
+.adm-table {
+  border: 1px solid var(--line);
+}
+.adm-table [role="columnheader"] {
+  font-size: var(--type-body);
+  font-weight: 600;
+  color: #fff;
+  background-color: var(--table-head);
+}
+.adm-table [role="row"] {
+  border-bottom: 1px solid var(--line);
+}
+.adm-table [role="gridcell"],
+.adm-table [role="rowheader"] {
+  font-size: var(--type-body);
+  color: var(--text);
+}
+.adm-arrow {
+  margin-right: var(--space-2);
+  color: var(--text-muted);
+}
+.adm-second {
+  display: block;
+  margin-top: var(--space-1);
+  font-size: var(--type-small);
+  color: var(--text-muted);
+}
+.adm-muted {
+  color: var(--text-muted);
+}
+.adm-empty,
+.adm-foot {
+  margin: var(--space-3) 0 0;
+  font-size: var(--type-small);
+  color: var(--text-muted);
+}
+
+/* Search: the Admin's square field, wide enough for its placeholder. */
+.adm-search > div {
+  min-width: 240px;
+  background-color: var(--page-bg);
+  border: 1px solid var(--line-strong);
+  border-radius: 0;
+}
+
+/* Picker: the Admin's square field. */
+.adm-picker button {
+  background-color: var(--page-bg);
+  border: 1px solid var(--line-strong);
+  border-radius: 0;
+}
+.adm-picker button[data-hovered] {
+  border-color: var(--text-muted);
+}
+
+/* Status: the dot and word, in the Admin's message colors. */
+.adm-status {
+  font-size: var(--type-body);
+}

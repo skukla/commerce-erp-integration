@@ -8,9 +8,9 @@
  * library wraps the page in it); Source Sans 3 stands in where Adobe Clean does not load.
  */
 @import "./styles/base.css";
+@import "./styles/admin-skin.css";
 @import "./styles/panel.css";
 @import "./styles/overview.css";
-@import "./styles/activity.css";
 @import "./styles/settings.css";
 @import "./styles/data-map.css";
 @import "./styles/pages.css";

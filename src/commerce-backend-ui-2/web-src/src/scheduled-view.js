@@ -78,8 +78,8 @@ export function publishLine(runs, now, when) {
   const next = prices?.schedule ? nextPublish(now, prices.schedule) : null;
   return {
     last: run
-      ? `last ran ${when(run.at)}, ${figures(run, false).replace(FULL_STOP, "")}`
-      : "has not run yet",
+      ? `Last ran ${when(run.at)}, ${figures(run, false).replace(FULL_STOP, "")}.`
+      : "Not run yet.",
     next: next ? when(next.toISOString()) : "not scheduled",
   };
 }

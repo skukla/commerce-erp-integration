@@ -33,16 +33,6 @@ export function clockTime(iso, timeZone) {
   }).format(new Date(iso));
 }
 
-/** "Monday, September 28" */
-function longDate(date, timeZone) {
-  return new Intl.DateTimeFormat(LOCALE, {
-    day: "numeric",
-    month: "long",
-    timeZone,
-    weekday: "long",
-  }).format(date);
-}
-
 /** "Sep 27" */
 function shortDate(date, timeZone) {
   return new Intl.DateTimeFormat(LOCALE, {
@@ -60,27 +50,6 @@ function shortDate(date, timeZone) {
  */
 export function sameDay(a, b, timeZone) {
   return dayKey(new Date(a), timeZone) === dayKey(new Date(b), timeZone);
-}
-
-/**
- * The heading of a day in the Activity feed.
- * @param {string} iso a time on that day
- * @param {Date} now
- * @param {string} [timeZone]
- * @returns {{ key: string, title: string, date: string }} "Today" and "Monday, September 28";
- *   an older day's title is its weekday and date, with no second line
- */
-export function dayHeading(iso, now, timeZone) {
-  const date = new Date(iso);
-  const key = dayKey(date, timeZone);
-  const long = longDate(date, timeZone);
-  if (key === dayKey(now, timeZone)) {
-    return { date: long, key, title: "Today" };
-  }
-  if (key === dayKey(new Date(now.getTime() - DAY), timeZone)) {
-    return { date: long, key, title: "Yesterday" };
-  }
-  return { date: "", key, title: long };
 }
 
 /**

@@ -1,6 +1,7 @@
 /*
- * The preview's stand-in records with two ERPs, in the shapes the actions return: erp/status's
- * list (each ERP's figures and how it looks), erp/erps (each ERP's own settings and
+ * The preview's stand-in records with two ERPs, in the shapes the actions return, with the
+ * messages the real writers produce (lib/order-sync.js, router/route-order.js; until 2026-10-14
+ * a split order here read "sent to X as N", which no real writer ever wrote): erp/status's list (each ERP's figures and how it looks), erp/erps (each ERP's own settings and
  * connection), erp/history (the Activity records, timed from now so Today and Yesterday read
  * true) and the scheduled runs. They follow the owner-approved mockup's story
  * (preview/mockups/): Northwind ERP answers; Contoso ERP is in maintenance, so some orders and
@@ -75,12 +76,29 @@ export const ERP_ENTRIES = [
   },
 ];
 
-const fromErp = (minutes, erpId, kind, ref, message, extra = {}) => ({
+/**
+ * A record an ERP sent, in lib/erp-event-history.js's shape. `data` is the event's data as the
+ * handler gets it (the Record column is built from it, record-sentence.js): an object carries
+ * the ERP's id, a stock list does not (ingestion/translate.js `named`).
+ */
+const fromErp = (
+  minutes,
+  erpId,
+  kind,
+  ref,
+  message,
+  { data = {}, ...extra } = {},
+) => ({
   attempts: 1,
   direction: "from-erp",
   erpIds: [erpId],
-  event: { data: { erpId }, type: `be-observer.${kind}` },
-  eventId: `ev-${kind}-${ref || minutes}`,
+  event: {
+    data: Array.isArray(data) ? data : { erpId, ...data },
+    type: `be-observer.${kind}`,
+  },
+  // Unique per record, as a real event's id is: two events of one kind about one order
+  // (a hold, then its release) are two records, and a table keys its rows by them.
+  eventId: `ev-${kind}-${ref || "none"}-${minutes}`,
   firstAt: ago(minutes),
   kind,
   lastAt: ago(minutes),
@@ -115,7 +133,7 @@ function problems(allGood) {
         ["erp", "contoso"],
         "order",
         "3000000024",
-        "Order sent to Northwind ERP as NORT-0000001014 and to Contoso ERP as CONT-0000001003.",
+        "order 3000000024: Northwind ERP took its part as sales order 0000001014. order 3000000024: Contoso ERP took its part as sales order 0000001003.",
       ),
     ];
   }
@@ -133,7 +151,7 @@ function problems(allGood) {
       ["erp", "contoso"],
       "order",
       "3000000024",
-      `Order sent to Northwind ERP as NORT-0000001014. ${MAINTENANCE}`,
+      "order 3000000024: Northwind ERP took its part as sales order 0000001014. order 3000000024 is waiting for the ERP (Contoso ERP is in maintenance until 15:55).",
       { attempts: 3, outcome: "held" },
     ),
     fromErp(
@@ -142,7 +160,11 @@ function problems(allGood) {
       "price",
       "accesspoint",
       "SKU accesspoint: price 189 — not applied: Commerce did not answer",
-      { attempts: 2, outcome: "failed" },
+      {
+        attempts: 2,
+        data: { price: 189, sku: "accesspoint" },
+        outcome: "failed",
+      },
     ),
     fromErp(
       38,
@@ -150,7 +172,13 @@ function problems(allGood) {
       "contract",
       "100077",
       "partner 100077: 1 price line(s) in force — not applied: no Commerce company is paired with partner 100077",
-      { outcome: "refused" },
+      {
+        data: {
+          lines: [{ discountPercent: 5, sku: "accesspoint" }],
+          partnerId: "100077",
+        },
+        outcome: "refused",
+      },
     ),
     toErp(
       50,
@@ -208,6 +236,16 @@ export function historyRecords(allGood) {
       "stock",
       "proliantdl380",
       "SKU proliantdl380 at contoso_warehouse: 42 in stock",
+      {
+        data: [
+          {
+            outOfStock: false,
+            quantity: 42,
+            sku: "proliantdl380",
+            source: "contoso_warehouse",
+          },
+        ],
+      },
     ),
     fromErp(
       20,
@@ -215,10 +253,14 @@ export function historyRecords(allGood) {
       "credit",
       "100051",
       "customer 100051: credit limit 25000",
-      { company: SERVERSAVVY },
+      {
+        company: SERVERSAVVY,
+        data: { creditLimit: 25_000, partnerId: "100051" },
+      },
     ),
     fromErp(24, "erp", "block", "100063", "customer 100063: blocked", {
       company: PLATINUM,
+      data: { blocked: true, partnerId: "100063" },
     }),
     ...problems(allGood),
     fromErp(
@@ -227,6 +269,7 @@ export function historyRecords(allGood) {
       "invoice",
       "3000000023",
       "order 3000000023: invoiced",
+      { data: { incrementId: "3000000023", invoiceNumber: "90000017" } },
     ),
     fromErp(
       108,
@@ -234,6 +277,7 @@ export function historyRecords(allGood) {
       "shipment",
       "3000000023",
       "order 3000000023: shipped",
+      { data: { incrementId: "3000000023" } },
     ),
     toErp(
       215,
@@ -264,13 +308,14 @@ export function historyRecords(allGood) {
       "order-status",
       "3000000023",
       "order 3000000023: confirmed",
+      { data: { incrementId: "3000000023", status: "confirmed" } },
     ),
     toErp(
       286,
       ["erp", "contoso"],
       "order",
       "3000000023",
-      "Order sent to Northwind ERP as NORT-0000001013 and to Contoso ERP as CONT-0000001002.",
+      "order 3000000023: Northwind ERP took its part as sales order 0000001013. order 3000000023: Contoso ERP took its part as sales order 0000001002.",
     ),
     fromErp(
       300,
@@ -278,6 +323,7 @@ export function historyRecords(allGood) {
       "hold",
       "3000000019",
       "order 3000000019: credit hold released",
+      { data: { held: false, incrementId: "3000000019" } },
     ),
     fromErp(
       328,
@@ -285,6 +331,7 @@ export function historyRecords(allGood) {
       "hold",
       "3000000019",
       "order 3000000019: on credit hold",
+      { data: { held: true, incrementId: "3000000019" } },
     ),
     toErp(
       369,
@@ -299,6 +346,7 @@ export function historyRecords(allGood) {
       "order",
       "3000000022",
       "order 3000000022 is ERP sales order NORT-0000001012.",
+      { erpNumber: "NORT-0000001012" },
     ),
     toErp(
       24 * 60 - 60,
@@ -306,6 +354,7 @@ export function historyRecords(allGood) {
       "order",
       "3000000017",
       "order 3000000017 is ERP sales order NORT-0000001007.",
+      { erpNumber: "NORT-0000001007" },
     ),
     fromErp(
       24 * 60 + 60,
@@ -313,6 +362,7 @@ export function historyRecords(allGood) {
       "cancel",
       "3000000018",
       "order 3000000018: canceled",
+      { data: { incrementId: "3000000018" } },
     ),
     fromErp(
       24 * 60 + 240,
@@ -320,6 +370,7 @@ export function historyRecords(allGood) {
       "price",
       "proliantdl380",
       "SKU proliantdl380: price 1660",
+      { data: { price: 1660, sku: "proliantdl380" } },
     ),
     {
       attempts: 1,

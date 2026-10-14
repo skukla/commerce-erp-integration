@@ -37,7 +37,7 @@ function Today({ counts, onOpen, publish }) {
       </div>
       <div className="today-foot">
         <button className="band-link" onClick={openScheduled} type="button">
-          Next price publish <strong>{publish.next}</strong> · {publish.last}
+          Next price publish <strong>{publish.next}</strong>. {publish.last}
         </button>
       </div>
     </section>

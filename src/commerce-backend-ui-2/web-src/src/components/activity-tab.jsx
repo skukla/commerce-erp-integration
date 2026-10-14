@@ -1,156 +1,136 @@
 /*
- * Activity: everything that crossed, newest first, grouped by day. Each row: when, which way,
- * the ERPs it concerns, its type, one sentence, and how it ended; a click opens the order's
- * trace, the product or company side by side, or the record itself in the side panel. Filter by
- * ERP, by type, or to the problems only. Picking one ERP reads that ERP's records from the whole
- * history (erp/history ?erp), not only the newest 100.
+ * Activity: everything that crossed, newest first, as one table (components/admin): when, the
+ * ERP and which way, its type, the record, and how it ended. Each fact is said once: the
+ * record's second line shows only when something went wrong (owner, 2026-10-14). A click opens
+ * the order's trace, the product or company side by side, or the record itself in the side
+ * panel. Filter by ERP, by type, or to the problems only. Picking one ERP reads that ERP's
+ * records from the whole history (erp/history ?erp), not only the newest 100.
  */
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
-import { Badge, erpStyle, RowErpChips } from "#web/components/controls.jsx";
 import {
-  dayGroups,
-  eventRow,
-  rowMatches,
-  shortName,
-  TYPES,
-} from "#web/history-view.js";
-import { clockTime } from "#web/time-view.js";
+  AdminPicker,
+  AdminSearch,
+  AdminSwitch,
+} from "#web/components/admin/admin-fields.jsx";
+import { AdminStatus } from "#web/components/admin/admin-status.jsx";
+import { AdminTable } from "#web/components/admin/admin-table.jsx";
+import { eventRow, rowMatches, shortName, TYPES } from "#web/history-view.js";
+import { whenText } from "#web/time-view.js";
 
-const ARROWS = {
-  // No arrow: the change stayed in Commerce.
-  commerce: "M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8",
-  from: "M20 12H5m5-6-6 6 6 6",
-  reset: "M4 12a8 8 0 1 0 2.4-5.7M4 4v5h5",
-  to: "M4 12h15m-5-6 6 6-6 6",
-};
+/** A Picker's id for "every ERP" or "every type": the filters themselves use "". */
+const EVERY = "all";
 
-/**
- * One filter choice. Picks a value directly, or (`toggle`) flips the field it names — either
- * way its own click handler is built here, from stable props, so no caller writes an inline one.
- */
-function FilterChip({
-  children,
-  className = "",
-  filterKey,
-  onSelect,
-  pressed,
-  style,
-  toggle = false,
-  value,
-}) {
-  const onClick = useCallback(() => {
-    onSelect(filterKey, toggle ? !pressed : value);
-  }, [filterKey, onSelect, pressed, toggle, value]);
-  return (
-    <button
-      aria-pressed={pressed}
-      className={`filter-chip ${className}`.trim()}
-      onClick={onClick}
-      style={style}
-      type="button">
-      {children}
-    </button>
-  );
-}
+const COLUMNS = [
+  { id: "when", name: "Time", width: 130 },
+  { id: "erp", name: "ERP", width: 210 },
+  { id: "type", name: "Type", width: 150 },
+  { id: "record", isRowHeader: true, name: "Record" },
+  { id: "result", name: "Result", width: 190 },
+];
+
+/** Which way a record went, read before the ERP's name. */
+const ARROW = { from: "←", to: "→" };
+const ARROW_LABEL = { from: "from", to: "to" };
 
 function Filters({ erpInfo, filters, setFilters }) {
-  const onSelect = useCallback(
-    (key, value) => setFilters((current) => ({ ...current, [key]: value })),
+  const pick = useCallback(
+    (key) => (id) =>
+      setFilters((current) => ({ ...current, [key]: id === EVERY ? "" : id })),
     [setFilters],
   );
+  const onErp = useMemo(() => pick("erp"), [pick]);
+  const onType = useMemo(() => pick("type"), [pick]);
+  const onProblems = useCallback(
+    (on) => setFilters((current) => ({ ...current, problems: on })),
+    [setFilters],
+  );
+  const onText = useCallback(
+    (text) => setFilters((current) => ({ ...current, text })),
+    [setFilters],
+  );
+  const erps = useMemo(
+    () => [
+      { id: EVERY, label: "All ERPs" },
+      ...erpInfo.erps.map((erp) => ({
+        id: erp.id,
+        label: shortName(erp.name),
+      })),
+    ],
+    [erpInfo.erps],
+  );
   return (
-    <div className="feed-tools">
-      <div aria-label="Filter activity" className="filters" role="toolbar">
-        {erpInfo.several && (
-          <div className="filter-group">
-            <span>ERP</span>
-            <FilterChip
-              filterKey="erp"
-              onSelect={onSelect}
-              pressed={!filters.erp}
-              value="">
-              All ERPs
-            </FilterChip>
-            {erpInfo.erps.map((erp) => (
-              <FilterChip
-                className="is-erp"
-                filterKey="erp"
-                key={erp.id}
-                onSelect={onSelect}
-                pressed={filters.erp === erp.id}
-                style={erpStyle(erpInfo.colors, erp.id)}
-                value={erp.id}>
-                {shortName(erp.name)}
-              </FilterChip>
-            ))}
-          </div>
-        )}
-        <div className="filter-group">
-          <span>Type</span>
-          <FilterChip
-            filterKey="type"
-            onSelect={onSelect}
-            pressed={!filters.type}
-            value="">
-            All
-          </FilterChip>
-          {TYPES.map((type) => (
-            <FilterChip
-              filterKey="type"
-              key={type.id}
-              onSelect={onSelect}
-              pressed={filters.type === type.id}
-              value={type.id}>
-              {type.label}
-            </FilterChip>
-          ))}
-        </div>
-        <FilterChip
-          className="problems"
-          filterKey="problems"
-          onSelect={onSelect}
-          pressed={filters.problems}
-          toggle>
-          Problems only
-        </FilterChip>
-      </div>
+    <div aria-label="Filter activity" className="adm-toolbar" role="toolbar">
+      <AdminSearch
+        label="Search activity"
+        onChange={onText}
+        placeholder="Order, SKU or company"
+        value={filters.text}
+      />
+      {erpInfo.several && (
+        <AdminPicker
+          label="ERP"
+          onChange={onErp}
+          options={erps}
+          value={filters.erp || EVERY}
+        />
+      )}
+      <AdminPicker
+        label="Type"
+        onChange={onType}
+        options={TYPE_OPTIONS}
+        value={filters.type || EVERY}
+      />
+      <AdminSwitch isSelected={filters.problems} onChange={onProblems}>
+        Problems only
+      </AdminSwitch>
     </div>
   );
 }
 
-function EventRow({ erpInfo, onOpen, row }) {
-  const classes = [
-    "event",
-    row.direction === "reset" ? "is-reset" : "",
-    row.problem ? "is-problem" : "",
-  ].filter(Boolean);
-  const onClick = useCallback(
-    () => onOpen({ ...row.open, row }),
-    [onOpen, row],
-  );
+const TYPE_OPTIONS = [
+  { id: EVERY, label: "All types" },
+  ...TYPES.map((type) => ({ id: type.id, label: type.label })),
+];
+
+/** The ERP cell: which way, then the ERPs by name. */
+function ErpCell({ erpInfo, row }) {
+  if (row.everyErp) {
+    return erpInfo.several ? "All ERPs" : erpInfo.erps[0].name;
+  }
+  if (row.unnamed) {
+    return <span className="adm-muted">Not named</span>;
+  }
+  const names = row.erpIds
+    .map((id) => erpInfo.erps.find((erp) => erp.id === id))
+    .filter(Boolean)
+    .map((erp) => shortName(erp.name))
+    .join(", ");
+  const arrow = ARROW[row.direction];
   return (
-    <button className={classes.join(" ")} onClick={onClick} type="button">
-      <time dateTime={row.at}>{clockTime(row.at)}</time>
-      <span className="dir">
-        <svg aria-hidden="true" viewBox="0 0 24 24">
-          <path d={ARROWS[row.direction]} />
-        </svg>
-        {row.directionLabel}
-      </span>
-      <RowErpChips erpInfo={erpInfo} row={row} />
-      <span className="chip chip-type">{row.typeLabel}</span>
-      <span className="sentence">
-        {row.sentence}
-        {row.detail && <small>{row.detail}</small>}
-      </span>
-      <span className="result">
-        <Badge tone={row.tone}>{row.result}</Badge>
-      </span>
-      <span aria-hidden="true" className="chev">
-        ›
-      </span>
-    </button>
+    <>
+      {arrow && (
+        <span
+          aria-label={ARROW_LABEL[row.direction]}
+          className="adm-arrow"
+          role="img">
+          {arrow}
+        </span>
+      )}
+      {names}
+    </>
+  );
+}
+
+/** The record: its sentence, and why when it did not get through. */
+function RecordCell({ row }) {
+  return (
+    <>
+      {row.sentence}
+      {row.problem && row.detail && (
+        <span className="adm-second">{row.detail}</span>
+      )}
+    </>
   );
 }
 
@@ -158,6 +138,9 @@ function EventRow({ erpInfo, onOpen, row }) {
 function emptyFeed(entries, filters) {
   if (entries.length === 0) {
     return "No activity yet.";
+  }
+  if (filters.text) {
+    return `Nothing matches “${filters.text}”.`;
   }
   return filters.problems && !filters.type
     ? "No problems."
@@ -200,40 +183,45 @@ export function ActivityTab({
   const [filters, setFilters] = useState({
     erp: erpInfo.several ? initialErp : "",
     problems: false,
+    text: "",
     type: "",
   });
   const entries = useEntries(api, history, filters.erp, onError);
-  const context = { erps: erpInfo.erps, now };
   const rows = entries
-    .map((entry) => eventRow(entry, context))
+    .map((entry) => eventRow(entry, { erps: erpInfo.erps, now }))
     .filter((row) => rowMatches(row, filters));
-  const days = dayGroups(rows, now);
   const endsWithReset = entries.at(-1)?.kind === "reset";
+  const open = useCallback((row) => onOpen({ ...row.open, row }), [onOpen]);
+  const cell = useCallback(
+    (row, column) => {
+      switch (column) {
+        case "when":
+          return whenText(row.at, now);
+        case "erp":
+          return <ErpCell erpInfo={erpInfo} row={row} />;
+        case "type":
+          return row.typeLabel;
+        case "result":
+          return <AdminStatus tone={row.tone}>{row.result}</AdminStatus>;
+        default:
+          return <RecordCell row={row} />;
+      }
+    },
+    [erpInfo, now],
+  );
   return (
     <>
       <Filters erpInfo={erpInfo} filters={filters} setFilters={setFilters} />
-      <div className="feed">
-        {days.map((day) => (
-          <section className="day-group" key={day.key}>
-            <h3 className="day">
-              {day.title} {day.date && <span>{day.date}</span>}
-            </h3>
-            {day.rows.map((row) => (
-              <EventRow
-                erpInfo={erpInfo}
-                key={row.key}
-                onOpen={onOpen}
-                row={row}
-              />
-            ))}
-          </section>
-        ))}
-      </div>
-      {days.length === 0 && (
-        <p className="feed-empty">{emptyFeed(entries, filters)}</p>
-      )}
-      {days.length > 0 && (
-        <p className="feed-end">
+      <AdminTable
+        cell={cell}
+        columns={COLUMNS}
+        empty={<p className="adm-empty">{emptyFeed(entries, filters)}</p>}
+        label="Activity"
+        onOpen={open}
+        rows={rows}
+      />
+      {rows.length > 0 && (
+        <p className="adm-foot">
           {endsWithReset
             ? "Earlier activity was cleared by a demo reset."
             : "Kept 14 days. The newest 100 are shown."}

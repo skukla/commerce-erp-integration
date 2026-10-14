@@ -8,7 +8,7 @@
  */
 import { useCallback, useMemo } from "react";
 
-import { ErpChip } from "#web/components/controls.jsx";
+import { ErpName } from "#web/components/controls.jsx";
 import { useLiveMap } from "#web/components/use-live-map.js";
 import {
   arrowPathKey,
@@ -51,7 +51,7 @@ function MapGridHead({ colors, erps }) {
       <span />
       {erps.map((erp) => (
         <span key={erp.id}>
-          <ErpChip colors={colors} erp={erp} full />
+          <ErpName colors={colors} erp={erp} />
         </span>
       ))}
     </div>

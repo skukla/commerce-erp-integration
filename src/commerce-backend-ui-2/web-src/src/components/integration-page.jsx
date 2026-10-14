@@ -210,7 +210,7 @@ export function IntegrationPage({
   } else if (tab === "activity") {
     body = frame(
       <button className="band-link" onClick={openScheduled} type="button">
-        Next price publish <strong>{publish.next}</strong> · {publish.last}
+        Next price publish <strong>{publish.next}</strong>. {publish.last}
       </button>,
       <ActivityTab
         {...shared}

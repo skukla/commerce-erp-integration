@@ -18,6 +18,9 @@ export default defineConfig({
     environment: "node",
     globals: true,
     include: ["test/**/*.test.js"],
+    // Spectrum 2's built files import their CSS, which Node cannot load. Run through Vite,
+    // a CSS import is empty, so a test can render the page's Spectrum parts unmocked.
+    server: { deps: { inline: [/@react-spectrum\/s2/] } },
     silent: true,
     testTimeout: 30_000,
   },
