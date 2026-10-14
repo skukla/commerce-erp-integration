@@ -20,7 +20,14 @@ operations:
     - type: action
       impl: admin-ui/order-grid
 
-web: web-src
+# index.html is sent with no-cache: static hosting sends no cache-control unless asked, and a
+# browser then kept the old page for hours after an update (Justrite, 2026-10-14). The hashed
+# bundles it names keep their caching. The lib-app hook keeps this entry as written.
+web:
+  src: web-src
+  response-headers:
+    /*.html:
+      cache-control: no-cache
 
 # The actions Commerce calls for this extension's Admin UI parts. Adobe's Admin UI reference
 # (aio-commerce-sdk, commerce-app-admin-ui skill, step 4) declares each worker `runtimeAction`
