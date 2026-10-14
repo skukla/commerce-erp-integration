@@ -10,6 +10,12 @@ vi.mock("#lib/settings", async (importOriginal) => {
       ),
     })),
     saveSettings: vi.fn(async () => undefined),
+    // Default Config as stored: products owned by attribute, the attribute set.
+    settingsFor: vi.fn(async () => ({
+      structure_owns: "attribute",
+      structure_owns_attribute: "erp_owner=erp",
+      structure_owns_websites: "",
+    })),
     settingsPage: vi.fn(async (_params, scope) => ({
       scope: scope ?? "default",
     })),
@@ -87,6 +93,34 @@ describe("Given the settings action", () => {
     expect(res.error.statusCode).toBe(400);
     expect(JSON.stringify(res.error.body)).toContain("colour is not a setting");
     expect(saveSettings).not.toHaveBeenCalled();
+  });
+
+  // A mode whose setting is blank owns nothing, which nobody means (owner, 2026-10-14).
+  test.each([
+    [{ structure_owns: "websites" }, "structure_owns_websites must name"],
+    [{ structure_owns_attribute: "" }, "structure_owns_attribute must name"],
+    [{ structure_owns_attribute: null }, "structure_owns_attribute must name"],
+  ])(
+    "Then PATCH refuses an ownership mode left without what it reads (%o)",
+    async (values, said) => {
+      const res = await main(patch({ values }));
+      expect(res.error.statusCode).toBe(400);
+      expect(JSON.stringify(res.error.body)).toContain(said);
+      expect(saveSettings).not.toHaveBeenCalled();
+    },
+  );
+
+  test("Then PATCH saves a mode with what it reads", async () => {
+    const res = await main(
+      patch({
+        values: {
+          structure_owns: "websites",
+          structure_owns_websites: "bodea, citisignal",
+        },
+      }),
+    );
+    expect(res.statusCode).toBe(200);
+    expect(saveSettings).toHaveBeenCalledOnce();
   });
 
   test("Then GET naming websites answers the settings in force, Default Config and each website's", async () => {

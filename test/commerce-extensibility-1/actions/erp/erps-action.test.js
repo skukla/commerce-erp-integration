@@ -94,6 +94,27 @@ describe("Given an ERP added with its own credential", () => {
     expect(read.body.entries[1].connection.auth.hasSecret).toBe(true);
   });
 
+  test("Then PATCH refuses an ownership mode left without what it reads, and saves a whole one", async () => {
+    await main(put({ entries: [ENTRY, CONTOSO] }));
+    const save = (values) =>
+      main({
+        __ow_body: JSON.stringify({ id: "demo-erp-2", values }),
+        __ow_method: "patch",
+      });
+
+    const blank = await save({ structure_owns: "websites" });
+    expect(blank.error.statusCode).toBe(400);
+    expect(JSON.stringify(blank.error.body)).toContain(
+      "structure_owns_websites must name at least one website",
+    );
+
+    const whole = await save({
+      structure_owns: "websites",
+      structure_owns_websites: "bodea",
+    });
+    expect(whole.statusCode).toBe(200);
+  });
+
   test("Then a PUT without the credential keeps it, and auth: null clears it", async () => {
     await main(put({ entries: [ENTRY, CONTOSO] }));
     const bare = {

@@ -17,6 +17,7 @@ import { assertAdapter } from "#adapters/contract";
 import * as demoErp from "#adapters/demo-erp/index";
 import { authToKeep, erpAuthProblem } from "#lib/erp-auth";
 import { applyErpSettingChanges, erpSettingsProblem } from "#lib/erp-settings";
+import { ownershipProblem } from "#lib/structure";
 
 /** The adapter for each kind of ERP. A new kind is one line here. */
 const ADAPTERS = Object.freeze({
@@ -257,7 +258,7 @@ export async function updateErpSettings(id, websiteCode, changes) {
     websiteCode,
     changes,
   );
-  const problem = erpSettingsProblem(settings);
+  const problem = erpSettingsProblem(settings) ?? ownershipProblem(settings);
   if (problem) {
     return { problem };
   }

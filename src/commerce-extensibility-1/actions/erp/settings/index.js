@@ -12,8 +12,10 @@ import {
   resolvedSettings,
   saveProblem,
   saveSettings,
+  settingsFor,
   settingsPage,
 } from "#lib/settings";
+import { ownershipProblem } from "#lib/structure";
 import { readPayload } from "#lib/webhook";
 import { ownershipOf } from "#router/ownership";
 
@@ -93,7 +95,8 @@ async function main(params) {
     }
     if (method === "patch") {
       const body = readPayload(params);
-      const problem = saveProblem(body.values);
+      const problem =
+        saveProblem(body.values) ?? (await ownershipAfter(body.values, logger));
       if (problem) {
         return badRequest(problem);
       }
@@ -108,6 +111,21 @@ async function main(params) {
     logger.error(`settings failed: ${error.message}`);
     return internalServerError(error.message);
   }
+}
+
+/**
+ * Whether the products settings, as a save would leave them at Default Config (the only scope
+ * they are set at), give the ownership mode what it reads (lib/structure.js). A save that
+ * touches none of them is not asked about.
+ */
+async function ownershipAfter(values, logger) {
+  const touched = Object.keys(values).some((name) =>
+    name.startsWith("structure_owns"),
+  );
+  if (!touched) {
+    return null;
+  }
+  return ownershipProblem({ ...(await settingsFor(null, logger)), ...values });
 }
 
 export { main };

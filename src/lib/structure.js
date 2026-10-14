@@ -101,6 +101,31 @@ function attributeOf(text) {
 }
 
 /**
+ * Why a save would leave an ownership mode without what it reads, or null. A mode whose
+ * setting is blank owns nothing (ownershipFilter), which nobody means: the Settings page
+ * showed the blank field and saved it (owner, 2026-10-14). Checked when settings are SAVED,
+ * never when they are read, so a project saved before this keeps loading.
+ * @param {object} values the settings as they would stand after the save
+ * @returns {string|null}
+ */
+export function ownershipProblem(values) {
+  const mode = values?.structure_owns;
+  if (
+    mode === OWNS.ATTRIBUTE &&
+    !attributeOf(values.structure_owns_attribute)
+  ) {
+    return "structure_owns_attribute must name the attribute and value that mark this ERP's products, as erp_owner=ACME";
+  }
+  if (
+    mode === OWNS.WEBSITES &&
+    codesOf(values.structure_owns_websites).length === 0
+  ) {
+    return "structure_owns_websites must name at least one website";
+  }
+  return null;
+}
+
+/**
  * Which products belong to this ERP, from the pair's settings (rule M3). `owns` takes a
  * product as Commerce describes it: `customAttributes` (code → value) and `websiteCodes` (the websites it is sold on, or for
  * an order line the one website the order came from; AB-64). Under `all` every product is
