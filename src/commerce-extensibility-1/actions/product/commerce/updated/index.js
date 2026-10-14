@@ -6,6 +6,7 @@ import {
 } from "@adobe/aio-commerce-sdk/core/responses";
 import AioLogger from "@adobe/aio-lib-core-logging";
 
+import { recordProductChange } from "#lib/history";
 import { isOwnProductWrite } from "#lib/own-writes";
 import { checkMissingRequestInputs, stringParameters } from "#lib/utils";
 
@@ -70,6 +71,17 @@ async function main(params) {
     const preProcessed = preProcess(params, transformedData);
     logger.debug(`Start sending data: ${stringParameters(params)}`);
     const result = await sendData(params, transformedData, preProcessed);
+    // Under Activity, a save in Commerce shows as what it told the ERP (2026-10-13). A
+    // product another ERP owns, or the integration's own write, leaves no row.
+    // biome-ignore lint/suspicious/noUnnecessaryConditions: sendData answers skipped for a product another ERP owns; biome's inference misses it.
+    if (!result.skipped) {
+      await recordProductChange(
+        "product-changed",
+        row.sku,
+        activityOf(row, result),
+        logger,
+      );
+    }
     if (!result.success) {
       logger.error(`Send data failed: ${result.message}`);
       return buildErrorResponse(result.statusCode, {
@@ -84,6 +96,23 @@ async function main(params) {
     logger.error(`Error processing the request: ${error.message}`);
     return internalServerError(error.message);
   }
+}
+
+/** The Activity row for a save: what the ERP was told, or why it was not. */
+function activityOf(row, result) {
+  const product = `Product ${row.sku}`;
+  if (!result.success) {
+    return {
+      message: `${product}: not sent to the ERP: ${result.message}`,
+      outcome: "failed",
+    };
+  }
+  const to = result.erp?.name ?? "the ERP";
+  return {
+    message: `${product}: told ${to} its name ("${row.name}") and price.`,
+    outcome: "sent",
+    ...(result.erp ? { erpIds: [result.erp.id] } : {}),
+  };
 }
 
 export { main };

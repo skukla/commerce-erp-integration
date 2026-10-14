@@ -49,6 +49,7 @@ export const TYPES = Object.freeze([
   { id: "prices", label: "Prices" },
   { id: "stock", label: "Stock" },
   { id: "companies", label: "Companies" },
+  { id: "products", label: "Products" },
   { id: "reset", label: "Demo reset" },
 ]);
 
@@ -67,8 +68,13 @@ const KINDS = {
   "order-status": { label: "Order status", opens: "trace", type: "orders" },
   payment: { label: "Payment", opens: "trace", type: "orders" },
   price: { label: "Price", opens: "product", type: "prices" },
-  // Recorded only: no ERP is told (AB-26y step 5). No filter chip of its own; it shows
-  // under "All".
+  // A save in Commerce told to the product's ERP (2026-10-13).
+  "product-changed": {
+    label: "Product changed",
+    opens: "product",
+    type: "products",
+  },
+  // Recorded only: no ERP is told (AB-26y step 5).
   "product-deleted": {
     label: "Product deleted",
     opens: "product",
@@ -86,6 +92,7 @@ const KINDS = {
 const MADE_IN_COMMERCE = {
   changed: "Changed in Commerce Admin",
   invoiced: "Invoiced in Commerce Admin",
+  "product-changed": "Changed in Commerce Admin",
   // A buyer can ask for a return on the storefront, so not "in Commerce Admin".
   returned: "Return made in Commerce",
   shipped: "Shipped in Commerce Admin",

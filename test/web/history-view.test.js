@@ -502,6 +502,7 @@ describe("Given the feed's filters and days", () => {
       "Prices",
       "Stock",
       "Companies",
+      "Products",
       "Demo reset",
     ]);
   });

@@ -84,7 +84,11 @@ describe("Given two ERPs", () => {
       ],
     ]);
     expect(erp.calls[3].body).toEqual({ salesStatus: "discontinued" });
-    expect(result).toEqual({ discontinuedIn: ["contoso"], success: true });
+    expect(result).toEqual({
+      discontinuedIn: ["contoso"],
+      erp: { id: "erp", name: "Northwind ERP" },
+      success: true,
+    });
   });
 
   test("Then a product back with an ERP that had discontinued it is made sellable there again (AB-70)", async () => {
@@ -111,7 +115,11 @@ describe("Given two ERPs", () => {
     ]);
     expect(erp.calls[2].method).toBe("PATCH");
     expect(erp.calls[2].body).toEqual({ salesStatus: "sellable" });
-    expect(result).toEqual({ restoredIn: ["contoso"], success: true });
+    expect(result).toEqual({
+      erp: { id: "contoso", name: "Contoso ERP" },
+      restoredIn: ["contoso"],
+      success: true,
+    });
   });
 
   test("Then a stock item saved in Commerce goes to the ERP that owns the product", async () => {
@@ -168,7 +176,11 @@ describe("Given a catch-all ERP (all) and an attribute ERP", () => {
     ]);
     expect(erp.calls[3].method).toBe("PATCH");
     expect(erp.calls[3].body).toEqual({ salesStatus: "discontinued" });
-    expect(result).toEqual({ discontinuedIn: ["erp"], success: true });
+    expect(result).toEqual({
+      discontinuedIn: ["erp"],
+      erp: { id: "contoso", name: "Contoso ERP" },
+      success: true,
+    });
   });
 
   test("Then an untagged product goes to the catch-all alone", async () => {
@@ -193,7 +205,10 @@ describe("Given a catch-all ERP (all) and an attribute ERP", () => {
         "https://b.example/api/v1/web/demo-erp/products/ORPHAN",
       ],
     ]);
-    expect(result).toEqual({ success: true });
+    expect(result).toEqual({
+      erp: { id: "erp", name: "Northwind ERP" },
+      success: true,
+    });
   });
 });
 

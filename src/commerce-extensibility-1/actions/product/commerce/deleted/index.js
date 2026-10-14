@@ -6,7 +6,7 @@ import {
 import AioLogger from "@adobe/aio-lib-core-logging";
 
 import { loadErps } from "#lib/erps";
-import { recordProductDeleted } from "#lib/history";
+import { recordProductChange } from "#lib/history";
 import { ownsSku } from "#lib/structure";
 import { stringParameters } from "#lib/utils";
 import { OWNER_ATTRIBUTE, ownersOf } from "#router/ownership";
@@ -76,7 +76,7 @@ async function main(params) {
         ? await ownersNamed(params, { ...product, sku }, erps)
         : null;
     const record = recordOf(sku, erps, owners);
-    await recordProductDeleted(sku, record, logger);
+    await recordProductChange("product-deleted", sku, record, logger);
     return ok(record.message);
   } catch (error) {
     logger.error(`Error processing the request: ${error.message}`);

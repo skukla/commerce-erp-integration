@@ -25,7 +25,10 @@ describe("Given the product event chain", () => {
       products: [{ listPrice: 12.5, name: "Widget", sku: "W1" }],
     });
     erp.importRecords.mockResolvedValue({ data: {}, ok: true, status: 200 });
-    expect(await sendData({}, rows)).toEqual({ success: true });
+    expect(await sendData({}, rows)).toEqual({
+      erp: { id: "erp", name: "the ERP" },
+      success: true,
+    });
     // A save on the product page is how a person changes stock at any location, and
     // Commerce raises no event of its own for a location (2026-09-27): so the product's
     // stock at every location goes with it.

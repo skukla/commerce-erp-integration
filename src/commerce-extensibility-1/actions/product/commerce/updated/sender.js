@@ -37,9 +37,24 @@ async function reconcileSalesStatus(params, sku, ownerId) {
 }
 
 /**
+ * The ERP a product went to, for its Activity record: the owner, or the only ERP there is.
+ * @returns {Promise<{ id: string, name: string } | undefined>}
+ */
+async function erpTold(params, ownerId) {
+  const erps = await loadErps(params);
+  const told =
+    erps.find((e) => e.id === ownerId) ??
+    (erps.length === 1 ? erps[0] : undefined);
+  // Its id and name only: the entry also holds the ERP's connection.
+  return told ? { id: told.id, name: told.name } : undefined;
+}
+
+/**
  * Send the product to the ERP's import route.
  *
- * @returns {Promise<{ success: true } | { success: false, statusCode: number, message: string }>}
+ * @returns {Promise<{ success: true, erp?: { id: string, name: string } } |
+ *   { success: true, skipped: true, message: string } |
+ *   { success: false, statusCode: number, message: string }>}
  */
 async function sendData(params, data) {
   try {
@@ -71,13 +86,16 @@ async function sendData(params, data) {
     // The owner has it: if it had discontinued the product while another ERP owned it, it
     // sells it again; an ERP that used to own it (its erp_owner or websites changed)
     // discontinues it (AB-70). Best-effort: the delivery stands whatever the ERPs answer.
+    const told = await erpTold(params, to.ownerId);
+    const erpOf = told ? { erp: told } : {};
     if (sku && to.ownerId) {
       return {
         success: true,
+        ...erpOf,
         ...(await reconcileSalesStatus(params, sku, to.ownerId)),
       };
     }
-    return { success: true };
+    return { success: true, ...erpOf };
   } catch (error) {
     return {
       message: error.message,

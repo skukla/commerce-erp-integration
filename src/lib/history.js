@@ -104,27 +104,35 @@ export async function recordCommerceChange(kind, value, result, options = {}) {
 }
 
 /**
- * A product deleted in Commerce (AB-26y step 5): recorded here and told to no ERP, so the
- * record's direction is "commerce", not "to-erp". One record per SKU, so a redelivery updates
- * its own row. The key carries the SKU in hex: State keys take only letters, digits, "-", "_"
- * and ".", and a SKU may hold anything.
- * @param {string} sku the deleted product
- * @param {{ message: string, erpIds?: string[] }} result what the row says, and the ERPs that
- *   owned the product (several ERPs)
+ * A product changed in Commerce, for the Admin screen's history. One record per SKU and
+ * kind, so a later save, or a redelivery, updates its own row.
+ *
+ * - `product-deleted` (AB-26y step 5): recorded here and told to no ERP, so its direction
+ *   is "commerce" and its outcome "done".
+ * - `product-changed`: a save in Commerce told to the product's ERP (its name and price),
+ *   "to-erp", "sent" or "failed". Before 2026-10-13 nothing recorded it, so a product
+ *   renamed in Commerce reached its ERP and never showed under Activity.
+ *
+ * The key carries the SKU in hex: State keys take only letters, digits, "-", "_" and ".",
+ * and a SKU may hold anything.
+ * @param {"product-deleted"|"product-changed"} kind
+ * @param {string} sku the product
+ * @param {{ message: string, outcome?: string, erpIds?: string[] }} result what the row
+ *   says, how it ended (default "done"), and the ERPs concerned (several ERPs)
  * @param {object} [logger]
  * @returns {Promise<void>}
  */
-export async function recordProductDeleted(sku, result, logger) {
+export async function recordProductChange(kind, sku, result, logger) {
   await updateRecord(
-    `commerce.product-deleted.${Buffer.from(sku, "utf8").toString("hex")}`,
+    `commerce.${kind}.${Buffer.from(sku, "utf8").toString("hex")}`,
     (before, now) => ({
       attempts: (before?.attempts ?? 0) + 1,
-      direction: "commerce",
+      direction: kind === "product-deleted" ? "commerce" : "to-erp",
       firstAt: before?.firstAt ?? now,
-      kind: "product-deleted",
+      kind,
       lastAt: now,
       message: result.message,
-      outcome: "done",
+      outcome: result.outcome ?? "done",
       ref: sku,
       ...(result.erpIds ? { erpIds: result.erpIds } : {}),
     }),
