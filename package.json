@@ -40,6 +40,7 @@
     "@adobe/aio-lib-core-logging": "^3.0.2",
     "@adobe/aio-lib-state": "^5.3.1",
     "@adobe/aio-lib-telemetry": "^1.0.0",
+    "@internationalized/date": "^3.12.4",
     "@react-spectrum/s2": "^1.5.1",
     "ajv": "^8.16.0",
     "graphql-request": "^7.1.2",

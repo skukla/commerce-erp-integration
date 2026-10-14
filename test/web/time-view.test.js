@@ -2,7 +2,9 @@
 import {
   ago,
   clockTime,
+  dateText,
   dayAndTime,
+  dayOf,
   sameDay,
   whenText,
 } from "#web/time-view.js";
@@ -14,6 +16,13 @@ describe("Given a time on the page", () => {
   test("Then it reads as a clock time", () => {
     expect(clockTime("2026-09-28T14:44:00Z", UTC)).toBe("2:44 PM");
     expect(clockTime("2026-09-28T09:05:00Z", UTC)).toBe("9:05 AM");
+  });
+
+  test("Then a date reads as the Admin's grids write it, and a day is its date in the zone", () => {
+    expect(dateText("2026-09-28T14:44:00Z", UTC)).toBe("Sep 28, 2026");
+    expect(dayOf("2026-09-28T23:30:00Z", UTC)).toBe("2026-09-28");
+    // The same moment is the next day further east.
+    expect(dayOf("2026-09-28T23:30:00Z", "Asia/Tokyo")).toBe("2026-09-29");
   });
 
   test("Then a time on another day carries its date", () => {

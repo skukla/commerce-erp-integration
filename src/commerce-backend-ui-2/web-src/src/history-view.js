@@ -5,7 +5,8 @@
  * click on it opens in the side panel.
  */
 
-import { recordSentence } from "#web/record-sentence.js";
+import { recordFields, recordLine } from "#web/record-fields.js";
+import { dayOf } from "#web/time-view.js";
 
 const TRAILING_ERP = /\s+ERP$/iu;
 
@@ -13,17 +14,25 @@ const TRAILING_ERP = /\s+ERP$/iu;
 export const shortName = (name) =>
   String(name ?? "").replace(TRAILING_ERP, "") || String(name ?? "");
 
-/** How each outcome reads to a merchant. */
+/**
+ * How each outcome reads: four words, as integration logs use (owner, 2026-10-14). Who refused
+ * a record, and why, is its reason's (reasonOf); which way it went is the ERP column's arrow.
+ */
 export const RESULT = {
-  applied: "Applied",
+  applied: "Done",
   done: "Done",
-  dropped: "Not sent",
+  dropped: "Failed",
   failed: "Failed",
-  held: "Waiting for the ERP",
-  refused: "Refused by Commerce",
-  sending: "Sending",
-  sent: "Sent",
+  held: "Waiting",
+  refused: "Failed",
+  sending: "In progress",
+  sent: "Done",
 };
+
+/** Who stopped a record, before its reason, where the outcome says. */
+const REFUSED_BY = { dropped: "Not sent", refused: "Refused by Commerce" };
+/** The ERP's word for its customer; the page calls it a customer everywhere. */
+const PARTNER_WORD = /\bpartner\b/gu;
 
 /** The badge's color for each outcome. */
 const TONE = {
@@ -285,6 +294,36 @@ function detailOf(entry, split, now, said) {
   ]);
 }
 
+/**
+ * Why a record did not get through, as one line under its Result: the reason Commerce or the
+ * ERP gave, or what it waits for. Retries and attempts are the side panel's (`detail`).
+ */
+function reasonOf(entry, split, now, line, named) {
+  if (entry.outcome === "sending") {
+    return canRetry(entry, now) ? "Still sending after 2 minutes" : "";
+  }
+  const why = line?.said ?? split.reason ?? split.rest ?? "";
+  // A split order's line names each part; the reason is the part that waits.
+  const parts = why.split(". ").filter(Boolean);
+  // As given: a reason can start with a SKU or another value, whose case is its own.
+  const reason = (parts.at(-1) ?? "")
+    .replace(FULL_STOP, "")
+    .replace(PARTNER_WORD, "customer");
+  const by = refusedBy(entry, named);
+  return by && reason ? `${by}: ${reason}` : by || reason;
+}
+
+/** "Refused by Northwind ERP" for an order its ERP refused; else the outcome's own word. */
+function refusedBy(entry, named) {
+  const refused = ORDER_REFUSED.test(String(entry.message ?? "").trim());
+  if (entry.outcome === "dropped" && refused) {
+    return named.length === 1
+      ? `Refused by ${named[0].name}`
+      : "Refused by the ERP";
+  }
+  return REFUSED_BY[entry.outcome] ?? "";
+}
+
 /** What a click on the row opens in the side panel. */
 function openOf(entry) {
   const opens = KINDS[entry.kind]?.opens;
@@ -330,27 +369,40 @@ export function eventRow(entry, { erps, now }) {
   const line = orderLine(entry, named);
   const retry = retryOf(entry);
   const at = now.getTime();
+  const fields = recordFields(entry);
   return {
     at: entry.lastAt,
+    // The log's columns (record-fields.js): the record in Commerce and in the ERP, and what
+    // happened in plain words. A kind it does not know shows its message's sentence there.
+    commerce: fields?.commerce ?? "",
     detail: detailOf(entry, split, at, line?.said),
+    details: fields
+      ? fields.details
+      : (line?.sentence ?? sentenceOf(entry, split.first, named)),
     direction,
     directionLabel,
     entry,
     erpIds,
+    erpRecord: fields?.erp ?? "",
     everyErp: entry.kind === "reset",
     key:
       entry.direction === "from-erp"
         ? `erp.${entry.eventId}`
         : `${entry.kind}.${entry.ref}`,
+    // A side that is absent where its absence is the point: "Not paired", "Not in the ERP".
+    missing: fields?.missing ?? {},
     open: openOf(entry),
     problem: isProblem(entry, at),
+    // Why a record did not get through, in one line; the whole story is `detail`.
+    reason: isProblem(entry, at)
+      ? reasonOf(entry, split, now, line, named)
+      : "",
     result: RESULT[entry.outcome] ?? entry.outcome,
     retriable: retry !== null && canRetry(entry, at),
     retry,
-    sentence:
-      recordSentence(entry) ??
-      line?.sentence ??
-      sentenceOf(entry, split.first, named),
+    sentence: fields
+      ? recordLine(fields)
+      : (line?.sentence ?? sentenceOf(entry, split.first, named)),
     tone: TONE[entry.outcome] ?? "neutral",
     type: KINDS[entry.kind]?.type ?? "orders",
     typeLabel: KINDS[entry.kind]?.label ?? entry.kind,
@@ -366,6 +418,9 @@ function searchText(row) {
   const { entry } = row;
   return [
     row.sentence,
+    row.commerce,
+    row.erpRecord,
+    row.details,
     row.detail,
     entry.ref,
     entry.orderRef,
@@ -380,16 +435,22 @@ function searchText(row) {
 /**
  * Whether a row shows under the feed's filters.
  * @param {object} row an eventRow
- * @param {{ erp: string, type: string, problems: boolean, text?: string }} filters "" is every
- *   ERP or type; `text` keeps the rows whose words hold every word typed, in any order
+ * @param {{ erp: string, type: string, problems: boolean, text?: string, from?: string,
+ *   to?: string }} filters "" is every ERP or type; `text` keeps the rows whose words hold
+ *   every word typed, in any order; `from` and `to` are days (YYYY-MM-DD), both kept
+ * @param {string} [timeZone] the zone the days are in; the browser's when omitted
  */
-export function rowMatches(row, { erp, problems, text = "", type }) {
+export function rowMatches(row, filters, timeZone) {
+  const { erp, from, problems, text = "", to, type } = filters;
   const words = text.toLowerCase().split(SPACES).filter(Boolean);
   const found = searchText(row);
+  const day = dayOf(row.at, timeZone);
   return (
     (!erp || row.erpIds.includes(erp)) &&
     (!type || row.type === type) &&
     (!problems || row.problem) &&
+    (!from || day >= from) &&
+    (!to || day <= to) &&
     words.every((word) => found.includes(word))
   );
 }

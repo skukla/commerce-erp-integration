@@ -6,6 +6,7 @@
  */
 import { useCallback, useState } from "react";
 
+import { AdminRefresh } from "#web/components/admin/admin-refresh.jsx";
 import { Badge, erpStyle, RowErpChips } from "#web/components/controls.jsx";
 import { SearchBox } from "#web/components/search-box.jsx";
 import { needsAttention } from "#web/history-view.js";
@@ -191,6 +192,7 @@ export function OverviewTab({
   onError,
   onOpen,
   onShow,
+  refresh,
   runs,
 }) {
   const [retrying, setRetrying] = useState(null);
@@ -211,6 +213,10 @@ export function OverviewTab({
   const rows = needsAttention(history, context);
   return (
     <>
+      <div className="adm-tab-tools">
+        <span />
+        <AdminRefresh {...refresh} />
+      </div>
       <div className="ov-top">
         <SearchBox
           api={api}

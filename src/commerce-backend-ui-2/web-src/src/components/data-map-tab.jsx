@@ -8,6 +8,7 @@
  */
 import { useCallback, useMemo } from "react";
 
+import { AdminRefresh } from "#web/components/admin/admin-refresh.jsx";
 import { ErpName } from "#web/components/controls.jsx";
 import { useLiveMap } from "#web/components/use-live-map.js";
 import {
@@ -101,16 +102,19 @@ function ExampleRow({ entry, erps, onOpen, row }) {
  * @param {object[]} props.history the Activity records the page read, newest first
  * @param {object[]} props.scopes the settings' scope tree, for the websites
  */
-export function DataMapTab({ api, erpInfo, history, onOpen, scopes }) {
+export function DataMapTab({ api, erpInfo, history, onOpen, refresh, scopes }) {
   // The grid has room for two ERPs.
   const erps = useMemo(() => erpInfo.erps.slice(0, 2), [erpInfo.erps]);
   const { placeholder, rows } = useLiveMap({ api, erps, history, scopes });
   return (
     <>
-      <p className="dm-caption">
-        What each system calls the same thing, with its newest real record.
-        Click one to open it.
-      </p>
+      <div className="adm-tab-tools">
+        <p className="dm-caption">
+          What each system calls the same thing, with its newest real record.
+          Click one to open it.
+        </p>
+        <AdminRefresh {...refresh} />
+      </div>
       <section className="map-grid is-examples">
         <MapGridHead colors={erpInfo.colors} erps={erps} />
         {MAP_ENTRIES.map((entry) => (

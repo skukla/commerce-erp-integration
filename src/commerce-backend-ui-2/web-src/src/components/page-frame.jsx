@@ -1,21 +1,14 @@
 /*
- * The frame every tab sits in: Commerce Admin's gray band with one chip per ERP (its color, its
- * name, whether it answers) and the tab's own actions on the right, then the tabs Overview ·
- * Activity · Settings · Data Map. The Admin draws the left rail and the page title "ERP
- * Integration" around the frame, so neither is drawn here.
+ * The frame every tab sits in: Commerce Admin's gray band with each ERP's identity (its mark,
+ * its name, whether it answers) and the tab's own actions on the right (Save Config), then the
+ * tabs Overview, Activity, Settings, Data Map. The Admin draws the left rail and the page title
+ * "ERP Integration" around the frame, so neither is drawn here.
  *
- * The band always ends with when the page was read and Spectrum's refresh action, the same
- * place on every tab (owner, 2026-10-13). The page reads itself only when asked, and once when
- * it comes back on screen; it does not poll.
+ * Refresh is not here: each tab has its own beside what it updates (admin-refresh.jsx).
  */
-import { ActionButton } from "@react-spectrum/s2/ActionButton";
-import Refresh from "@react-spectrum/s2/icons/Refresh";
-import { ProgressCircle } from "@react-spectrum/s2/ProgressCircle";
-import { Tooltip, TooltipTrigger } from "@react-spectrum/s2/Tooltip";
 import { useCallback } from "react";
 
-import { AdminStatus } from "#web/components/admin/admin-status.jsx";
-import { ErpName } from "#web/components/controls.jsx";
+import { ErpIdentity } from "#web/components/admin/erp-identity.jsx";
 import { erpStatusLine } from "#web/overview-view.js";
 
 export const TABS = Object.freeze([
@@ -25,17 +18,9 @@ export const TABS = Object.freeze([
   { id: "data-map", label: "Data Map" },
 ]);
 
-/** One ERP in the band: its name after its color, and whether it answers. */
+/** One ERP in the band: its mark, its name, and whether it answers. */
 function ErpStatus({ colors, erp }) {
-  const line = erpStatusLine(erp);
-  return (
-    <span className="band-erp">
-      <ErpName colors={colors} erp={erp} />
-      <AdminStatus tone={line.reachable ? "ok" : "warn"}>
-        {line.text}
-      </AdminStatus>
-    </span>
-  );
+  return <ErpIdentity colors={colors} erp={erp} line={erpStatusLine(erp)} />;
 }
 
 function Tab({ attention, current, onSelect, tab }) {
@@ -56,40 +41,13 @@ function Tab({ attention, current, onSelect, tab }) {
   );
 }
 
-/** When the page was read, and the action that reads it again. Off while it reads, or when
- *  `disabled` (Settings with unsaved changes). */
-function Freshness({ busy, checked, disabled = false, onRefresh }) {
-  return (
-    <span className="band-fresh">
-      <span className="band-note">Checked {checked}</span>
-      <TooltipTrigger>
-        <ActionButton
-          aria-label="Refresh"
-          isDisabled={busy || disabled}
-          isQuiet
-          onPress={onRefresh}
-          size="S">
-          {busy ? (
-            <ProgressCircle aria-label="Refreshing" isIndeterminate size="S" />
-          ) : (
-            <Refresh />
-          )}
-        </ActionButton>
-        <Tooltip>Refresh</Tooltip>
-      </TooltipTrigger>
-    </span>
-  );
-}
-
 /**
  * @param {object} props
  * @param {{ erps: object[], colors: object }} props.erpInfo the listed ERPs and their colors
  * @param {string} props.tab the tab shown
  * @param {(id: string) => void} props.onTab switch tabs
  * @param {number} props.attention how many records need attention (the Overview's count)
- * @param {React.ReactNode} props.actions the tab's own actions, before the refresh
- * @param {{ busy: boolean, checked: string, disabled?: boolean, onRefresh: () => void }}
- *   props.refresh when the page was read, and how to read it again
+ * @param {React.ReactNode} props.actions the tab's own actions (Settings' Save Config)
  * @param {React.ReactNode} [props.notice] a message under the tabs
  */
 export function PageFrame({
@@ -99,7 +57,6 @@ export function PageFrame({
   erpInfo,
   notice,
   onTab,
-  refresh,
   tab,
 }) {
   return (
@@ -110,10 +67,7 @@ export function PageFrame({
             <ErpStatus colors={erpInfo.colors} erp={erp} key={erp.id} />
           ))}
         </div>
-        <div className="band-actions">
-          {actions}
-          <Freshness {...refresh} />
-        </div>
+        {actions && <div className="band-actions">{actions}</div>}
       </div>
       <nav aria-label="ERP Integration sections" className="tabs">
         {TABS.map((item) => (

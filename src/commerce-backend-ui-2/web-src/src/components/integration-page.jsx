@@ -17,8 +17,7 @@ import { PanelContent } from "#web/components/panel-content.jsx";
 import { SettingsTab } from "#web/components/settings-tab.jsx";
 import { needsAttention } from "#web/history-view.js";
 import { erpColors, listedErps } from "#web/overview-view.js";
-import { publishLine } from "#web/scheduled-view.js";
-import { ago, clockTime } from "#web/time-view.js";
+import { ago } from "#web/time-view.js";
 
 const TICK_MS = 30 * 1000;
 
@@ -149,10 +148,8 @@ export function IntegrationPage({
     erps: erpInfo.erps,
     now,
   }).length;
-  const checked = ago(data.loadedAt.toISOString(), now);
-  // `own`: a tab's own refresh, and whether it is off (Settings, with unsaved changes).
   const frame = useCallback(
-    (actions, children, own = {}) => (
+    (actions, children) => (
       <PageFrame
         actions={actions}
         attention={attention}
@@ -165,30 +162,18 @@ export function IntegrationPage({
           )
         }
         onTab={choose}
-        refresh={{
-          busy: data.busy,
-          checked,
-          disabled: own.disabled,
-          onRefresh: own.onRefresh ?? data.refresh,
-        }}
         tab={tab}>
         {children}
       </PageFrame>
     ),
-    [
-      attention,
-      checked,
-      choose,
-      data.busy,
-      data.refresh,
-      dismiss,
-      erpInfo,
-      error,
-      tab,
-    ],
+    [attention, choose, dismiss, erpInfo, error, tab],
   );
-  const openScheduled = useCallback(() => setPanel({ kind: "scheduled" }), []);
-  const publish = publishLine(data.runs, now, (iso) => clockTime(iso));
+  // Each tab's refresh, beside what it updates (admin-refresh.jsx).
+  const refresh = {
+    busy: data.busy,
+    onRefresh: data.refresh,
+    updated: ago(data.loadedAt.toISOString(), now),
+  };
   const shared = { api, erpInfo, now, onError: setError, onOpen: setPanel };
   let body;
   if (tab === "settings") {
@@ -201,22 +186,21 @@ export function IntegrationPage({
         initialPage={settingsPage}
         key={picked.settings}
         onError={setError}
-        onRefresh={data.refresh}
         onSavedDefault={setSettingsPage}
+        refresh={refresh}
         scopes={settingsPage.scopes}
         scopesNote={settingsPage.scopesNote ?? null}
       />
     );
   } else if (tab === "activity") {
     body = frame(
-      <button className="band-link" onClick={openScheduled} type="button">
-        Next price publish <strong>{publish.next}</strong>. {publish.last}
-      </button>,
+      null,
       <ActivityTab
         {...shared}
         history={data.history}
         initialErp={picked.activity}
         key={picked.activity}
+        refresh={refresh}
       />,
     );
   } else if (tab === "data-map") {
@@ -225,6 +209,7 @@ export function IntegrationPage({
       <DataMapTab
         {...shared}
         history={data.history}
+        refresh={refresh}
         scopes={settingsPage.scopes}
       />,
     );
@@ -236,6 +221,7 @@ export function IntegrationPage({
         history={data.history}
         onChanged={data.readActivity}
         onShow={show}
+        refresh={refresh}
         runs={data.runs}
       />,
     );

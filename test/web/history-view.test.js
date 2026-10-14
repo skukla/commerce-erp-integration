@@ -47,14 +47,14 @@ const fromErp = (kind, ref, message, extra = {}) => ({
 describe("Given how a record ended", () => {
   test("Then the words are plain", () => {
     expect(RESULT).toStrictEqual({
-      applied: "Applied",
+      applied: "Done",
       done: "Done",
-      dropped: "Not sent",
+      dropped: "Failed",
       failed: "Failed",
-      held: "Waiting for the ERP",
-      refused: "Refused by Commerce",
-      sending: "Sending",
-      sent: "Sent",
+      held: "Waiting",
+      refused: "Failed",
+      sending: "In progress",
+      sent: "Done",
     });
   });
 
@@ -85,15 +85,16 @@ describe("Given an order sent to the ERPs", () => {
       },
     );
     expect(row).toMatchObject({
+      commerce: "Order 3000000022",
       direction: "to",
       directionLabel: "To ERP",
       erpIds: ["erp"],
+      erpRecord: "Sales order 0000001012",
       key: "order.3000000022",
       open: { kind: "trace", ref: "3000000022" },
       problem: false,
-      result: "Sent",
+      result: "Done",
       retriable: false,
-      sentence: "Order 3000000022: sales order 0000001012",
       tone: "ok",
       type: "orders",
       typeLabel: "Order",
@@ -113,13 +114,14 @@ describe("Given an order sent to the ERPs", () => {
       { erps: ERPS, now: NOW },
     );
     expect(row).toMatchObject({
+      commerce: "Order 3000000022",
       detail:
         "Northwind ERP took its part as sales order 0000001014. Contoso ERP is in maintenance until 15:55 UTC. Retries automatically for up to a day. 3 tries.",
+      details: "Order placed",
       problem: true,
-      result: "Waiting for the ERP",
+      result: "Waiting",
       retriable: true,
       retry: { incrementId: "3000000022" },
-      sentence: "Order 3000000022",
       tone: "warn",
     });
   });
@@ -134,7 +136,7 @@ describe("Given an order sent to the ERPs", () => {
       }),
       { erps: ERPS, now: NOW },
     );
-    expect(row.sentence).toBe("Order 3000000024");
+    expect(row.commerce).toBe("Order 3000000024");
     expect(row.detail).toMatch(HELD_DETAIL);
   });
 
@@ -158,7 +160,7 @@ describe("Given an order sent to the ERPs", () => {
         order("dropped", { erpIds, message, ref: sentence.split(" ")[1] }),
         { erps: ERPS, now: NOW },
       );
-      expect(row.sentence).toBe(sentence);
+      expect(row.commerce).toBe(sentence);
       expect(row.detail).toBe(detail);
     },
   );
@@ -196,7 +198,8 @@ describe("Given an update from an ERP", () => {
       "invoice",
       "3000000023",
       "order 3000000023: invoiced",
-      "Order 3000000023: invoiced",
+      // Without the event's fields it still reads as the phrase, then the record.
+      "Order invoiced: Order 3000000023",
       "orders",
       "Invoice",
       { kind: "trace", ref: "3000000023" },
@@ -257,7 +260,7 @@ describe("Given an update from an ERP", () => {
         direction: "from",
         directionLabel: "From ERP",
         open,
-        result: "Applied",
+        result: "Done",
         sentence,
         type,
         typeLabel,
@@ -295,7 +298,7 @@ describe("Given an update from an ERP", () => {
       detail: "Not applied: no Commerce company is paired with partner 100077.",
       open: { kind: "record" },
       problem: true,
-      result: "Refused by Commerce",
+      result: "Failed",
       retriable: true,
       retry: { eventId: "ev-1" },
       sentence: "Northwind customer 100077: 1 customer price in force",
@@ -355,11 +358,12 @@ describe("Given a change made in Commerce Admin", () => {
       { erps: ERPS, now: NOW },
     );
     expect(row).toMatchObject({
+      commerce: "Shipment 3000000011",
       detail: "Shipped in Commerce Admin.",
+      details: "Shipment created",
       erpIds: ["erp"],
       open: { kind: "trace", ref: "3000000021" },
       retriable: false,
-      sentence: "Shipment 3000000011: order 3000000021",
       typeLabel: "Shipment",
     });
   });
@@ -428,13 +432,14 @@ describe("Given a demo reset's line", () => {
       { erps: ERPS, now: NOW },
     );
     expect(row).toMatchObject({
+      commerce: "",
+      details: "Demo reset: no orders to close",
       direction: "reset",
       directionLabel: "Demo Builder",
       everyErp: true,
       open: { kind: "reset" },
       result: "Done",
       retriable: false,
-      sentence: "Demo reset: no orders to close",
       tone: "neutral",
       type: "reset",
     });
@@ -460,6 +465,7 @@ describe("Given a product deleted in Commerce", () => {
       { erps: ERPS, now: NOW },
     );
     expect(row).toMatchObject({
+      commerce: "SIGN1",
       detail: "Contoso ERP keeps it until its next reset.",
       direction: "commerce",
       directionLabel: "In Commerce",
@@ -469,11 +475,39 @@ describe("Given a product deleted in Commerce", () => {
       problem: false,
       result: "Done",
       retriable: false,
-      sentence: "Product SIGN1: deleted",
       tone: "neutral",
       type: "products",
       typeLabel: "Product deleted",
     });
+  });
+});
+
+describe("Given a record that did not get through", () => {
+  test("Then its reason says who stopped it, in the page's words", () => {
+    const refused = eventRow(
+      fromErp(
+        "contract",
+        "100077",
+        "partner 100077: 1 price line(s) in force — not applied: no Commerce company is paired with partner 100077",
+        { erpIds: ["erp"], outcome: "refused" },
+      ),
+      { erps: ERPS, now: NOW },
+    );
+    expect(refused).toMatchObject({ result: "Failed", tone: "bad" });
+    expect(refused.reason).toBe(
+      "Refused by Commerce: no Commerce company is paired with customer 100077",
+    );
+    const byErp = eventRow(
+      order("dropped", {
+        erpIds: ["erp"],
+        message:
+          "order 3000000025 was refused by the ERP: accesspoint quantity 0 is not allowed",
+      }),
+      { erps: ERPS, now: NOW },
+    );
+    expect(byErp.reason).toBe(
+      "Refused by Northwind ERP: accesspoint quantity 0 is not allowed",
+    );
   });
 });
 
@@ -519,6 +553,20 @@ describe("Given the feed's filters", () => {
     expect(
       rows.filter((r) => rowMatches(r, { ...all, problems: true })),
     ).toStrictEqual([rows[0]]);
+  });
+
+  test("Then a date range keeps the rows on its days, both ends included", () => {
+    const all = { erp: "", problems: false, type: "" };
+    const on = (from, to) =>
+      rows.filter((r) => rowMatches(r, { ...all, from, to }, "UTC"));
+    // rows[0] is on Sep 28, rows[1] on Sep 27 (UTC).
+    expect(on("2026-09-28", "2026-09-28")).toStrictEqual([rows[0]]);
+    expect(on("2026-09-27", "2026-09-28")).toHaveLength(2);
+    expect(on("2026-09-20", "2026-09-26")).toStrictEqual([]);
+    expect(on("", "")).toHaveLength(2);
+    // Either end may be open, as an Admin range filter's "from" and "to" can be.
+    expect(on("2026-09-28", "")).toStrictEqual([rows[0]]);
+    expect(on("", "2026-09-27")).toStrictEqual([rows[1]]);
   });
 
   test("Then a search keeps the rows holding every word typed, in any case or order", () => {

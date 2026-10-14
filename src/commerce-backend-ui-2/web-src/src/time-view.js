@@ -21,6 +21,29 @@ function dayKey(date, timeZone) {
 }
 
 /**
+ * The day a time falls on, as YYYY-MM-DD: what a date filter compares (Activity's Date range).
+ * @param {string} iso a time
+ * @param {string} [timeZone] the zone; the browser's when omitted
+ */
+export function dayOf(iso, timeZone) {
+  return dayKey(new Date(iso), timeZone);
+}
+
+/**
+ * @param {string} iso a time
+ * @param {string} [timeZone]
+ * @returns {string} "Oct 14, 2026", the Admin grids' date
+ */
+export function dateText(iso, timeZone) {
+  return new Intl.DateTimeFormat(LOCALE, {
+    day: "numeric",
+    month: "short",
+    timeZone,
+    year: "numeric",
+  }).format(new Date(iso));
+}
+
+/**
  * @param {string} iso a time
  * @param {string} [timeZone] the zone; the browser's when omitted
  * @returns {string} "2:44 PM"

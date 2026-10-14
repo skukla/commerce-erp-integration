@@ -21,6 +21,11 @@
   --s2-font-family-sans: var(--font);
 }
 
+/* Status: the dot and word, in the Admin's message colors. */
+.adm-status {
+  font-size: var(--type-body);
+}
+
 /* An ERP's name after a small square of its color (controls.jsx ErpName). */
 .erp-name {
   display: inline-flex;
@@ -35,11 +40,48 @@
   height: 10px;
   background: var(--erp);
 }
-/* One ERP in the band: its name, then whether it answers. */
-.band-erp {
+/* One ERP in the band (erp-identity.jsx): its mark on its color, its name over its status. */
+.erp-identity {
   display: inline-flex;
   gap: var(--space-3);
   align-items: center;
+}
+.erp-identity strong {
+  display: block;
+  font-size: var(--type-body);
+  font-weight: 600;
+  color: var(--text-strong);
+}
+.erp-identity .adm-status {
+  font-size: var(--type-small);
+  color: var(--text-muted);
+}
+.erp-badge {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  color: #fff;
+  background: var(--erp);
+  border-radius: 4px;
+}
+
+/* A tab's refresh: "Updated ..." and the button, at the right of its tools row. */
+.adm-refresh {
+  display: inline-flex;
+  gap: var(--space-3);
+  align-items: center;
+  margin-left: auto;
+  font-size: var(--type-small);
+}
+/* A tab's own row above its content: its controls on the left, its refresh on the right. */
+.adm-tab-tools {
+  display: flex;
+  gap: var(--space-6);
+  align-items: center;
+  justify-content: space-between;
+  margin: 0 0 var(--space-4);
 }
 
 /* A row of filters above a table. */
@@ -78,7 +120,21 @@
   margin-right: var(--space-2);
   color: var(--text-muted);
 }
-.adm-second {
+/* The Record cell: Commerce's record as a link to its story, the ERP's beneath it. */
+.adm-link {
+  color: var(--link);
+}
+.adm-under {
+  display: block;
+  margin-top: var(--space-1);
+  font-size: var(--type-small);
+  color: var(--text-muted);
+}
+.adm-missing {
+  font-style: italic;
+  color: var(--text-muted);
+}
+.adm-reason {
   display: block;
   margin-top: var(--space-1);
   font-size: var(--type-small);
@@ -94,25 +150,266 @@
   color: var(--text-muted);
 }
 
-/* Search: the Admin's square field, wide enough for its placeholder. */
-.adm-search > div {
-  min-width: 240px;
-  background-color: var(--page-bg);
-  border: 1px solid var(--line-strong);
-  border-radius: 0;
+/*
+ * Everything below takes the Commerce Admin's own values, read from its source on 2026-10-14
+ * (magento/magento2 2.4-develop, app/design/adminhtml/Magento/backend: variables/_forms.less,
+ * variables/_actions.less, _actions.less; Magento_Ui data-grid-header/_data-grid-filters.less).
+ * The Admin sets 1 rem to 10 px, so its 3.2 rem is 32 px. Values only: the markup is ours.
+ */
+:root {
+  --adm-field-border: #adadad;
+  --adm-field-border-hover: #878787;
+  --adm-focus: #007bdb;
+  --adm-rule: #ccc;
+  --adm-default-bg: #e3e3e3;
+  --adm-default-bg-hover: #dbdbdb;
+  --adm-default-text: #514943;
+  --adm-secondary-bg: #514943;
+  --adm-secondary-bg-hover: #35302c;
+  --adm-primary-bg: #eb5202;
+  --adm-primary-bg-hover: #ba4000;
+  --adm-primary-border-hover: #b84002;
+  --adm-remove: #adadad;
+  --adm-remove-hover: #949494;
+  --adm-filters-type: 13px;
 }
 
-/* Picker: the Admin's square field. */
-.adm-picker button {
-  background-color: var(--page-bg);
-  border: 1px solid var(--line-strong);
-  border-radius: 0;
+/*
+ * Fields (admin-fields.jsx): 32 px, white, a 1 px #adadad border, radius 1 px, 10 px inside,
+ * #303030 text; a darker border on hover, #007bdb on focus. Each Spectrum part draws its box on
+ * a different element (read from the preview): the search on its group, the picker on its
+ * button, a date on its first child, of role "presentation".
+ */
+.adm-search [role="group"],
+.adm-picker > button,
+.adm-date > div[role="presentation"] {
+  box-sizing: border-box;
+  height: 32px;
+  color: #303030;
+  background-color: #fff;
+  border: 1px solid var(--adm-field-border);
+  border-radius: 1px;
+  box-shadow: none;
 }
-.adm-picker button[data-hovered] {
-  border-color: var(--text-muted);
+.adm-search [role="group"][data-hovered],
+.adm-picker > button[data-hovered],
+.adm-date > div[role="presentation"][data-hovered] {
+  background-color: #fff;
+  border-color: var(--adm-field-border-hover);
+}
+.adm-search [role="group"]:focus-within,
+.adm-picker > button[data-focus-visible],
+.adm-date > div[role="presentation"]:focus-within {
+  border-color: var(--adm-focus);
+}
+.adm-search [role="group"] {
+  width: 320px;
+}
+.adm-picker > button {
+  width: 100%;
 }
 
-/* Status: the dot and word, in the Admin's message colors. */
-.adm-status {
+/*
+ * Buttons (admin-button.jsx): the Admin's four, by its names. 32 px, square, 14 px semibold,
+ * 1 em each side; the colored ones hover with a 1 px #007bdb ring, as the Admin's do.
+ */
+.adm-btn {
+  box-sizing: border-box;
+  height: 32px;
+  padding: 0 14px;
   font-size: var(--type-body);
+  font-weight: 600;
+  border: 1px solid transparent;
+  border-radius: 0;
+}
+.adm-btn-default {
+  color: var(--adm-default-text);
+  background-color: var(--adm-default-bg);
+  border-color: var(--adm-field-border);
+}
+.adm-btn-default[data-hovered] {
+  background-color: var(--adm-default-bg-hover);
+}
+.adm-btn-primary {
+  color: #fff;
+  text-shadow: 1px 1px 0 rgb(0 0 0 / 25%);
+  background-color: var(--adm-primary-bg);
+  border-color: var(--adm-primary-bg);
+}
+.adm-btn-primary[data-hovered] {
+  background-color: var(--adm-primary-bg-hover);
+  border-color: var(--adm-primary-border-hover);
+  box-shadow: 0 0 0 1px var(--adm-focus);
+}
+.adm-btn-secondary {
+  color: #fff;
+  text-shadow: 1px 1px 1px rgb(0 0 0 / 30%);
+  background-color: var(--adm-secondary-bg);
+  border-color: var(--adm-secondary-bg);
+}
+.adm-btn-secondary[data-hovered] {
+  background-color: var(--adm-secondary-bg-hover);
+  border-color: var(--adm-secondary-bg-hover);
+  box-shadow: 0 0 0 1px var(--adm-focus);
+}
+.adm-btn-tertiary,
+.adm-btn-tertiary[data-hovered] {
+  color: var(--adm-focus);
+  background-color: transparent;
+  border-color: transparent;
+}
+.adm-btn-tertiary[data-hovered] {
+  text-decoration: underline;
+}
+
+/*
+ * The Admin grid's header and filters (admin-filter-bar.jsx): the search on the left, the
+ * grid's actions on the right; the open Filters button turns white and semibold with a 3 px
+ * orange bar on top and joins the panel below it.
+ */
+.adm-filter-bar {
+  margin: 0 0 var(--space-4);
+}
+.adm-filter-row {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  gap: var(--space-3);
+  align-items: flex-end;
+}
+.adm-filter-row .adm-refresh {
+  margin-left: auto;
+}
+.adm-filter-row .adm-btn-default[aria-expanded="true"] {
+  position: relative;
+  height: 39px;
+  margin-bottom: -1px;
+  font-weight: 600;
+  background-color: #fff;
+  border-color: var(--adm-rule);
+  border-bottom-color: #fff;
+}
+.adm-filter-row .adm-btn-default[aria-expanded="true"]::after {
+  position: absolute;
+  right: -1px;
+  bottom: 100%;
+  left: -1px;
+  height: 3px;
+  content: "";
+  background-color: var(--adm-primary-bg);
+}
+/* The open panel: white, a #ccc rule above and below, 36 px over the fields and 30 under. */
+.adm-filter-panel {
+  padding: 36px 0 30px;
+  margin-top: var(--space-3);
+  font-size: var(--adm-filters-type);
+  border-top: 1px solid var(--adm-rule);
+  border-bottom: 1px solid var(--adm-rule);
+}
+.adm-filter-bar .adm-filter-panel {
+  margin-top: 0;
+}
+/* Four columns of fields, 20 px each side, 2 em under each; a field's label bold above it. */
+.adm-filter-fields {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin: 0 -20px;
+}
+.adm-filter-fields > * {
+  min-width: 0;
+  padding: 0 20px;
+  margin: 0 0 2em;
+}
+.adm-filter-fields .adm-picker > div:first-child,
+.adm-range legend {
+  padding: 0;
+  margin: 0 0 3px;
+  font-size: var(--adm-filters-type);
+  font-weight: 700;
+  color: var(--text-strong);
+}
+.adm-filter-fields .adm-picker > button,
+.adm-filter-fields .adm-search [role="group"] {
+  font-size: var(--adm-filters-type);
+}
+/* A range: "from" and "to" on the left of their fields, a quarter of the width, not bold. */
+.adm-range {
+  margin: 0 0 2em;
+  border: 0;
+}
+.adm-range-end {
+  display: flex;
+  align-items: center;
+  margin-bottom: 15px;
+}
+.adm-range-end:last-child {
+  margin-bottom: 0;
+}
+.adm-range-label {
+  flex: 0 0 25%;
+  padding-right: 1em;
+  font-weight: 400;
+}
+.adm-range-end .adm-date {
+  flex: 1;
+  min-width: 0;
+}
+.adm-filter-actions {
+  display: flex;
+  gap: var(--space-3);
+  align-items: center;
+  justify-content: flex-end;
+  font-size: var(--type-body);
+}
+
+/*
+ * Active filters: a #ccc rule above and below, 11 px over and 8 px under, 13 px type;
+ * "Active filters:" then each filter in semibold with a grey remove, and Clear all at the end.
+ */
+.adm-active {
+  display: flex;
+  align-items: flex-start;
+  padding: 11px 0 8px;
+  margin-top: var(--space-3);
+  font-size: var(--adm-filters-type);
+  border-top: 1px solid var(--adm-rule);
+  border-bottom: 1px solid var(--adm-rule);
+}
+.adm-active-title {
+  margin-right: 1em;
+  font-weight: 400;
+  white-space: nowrap;
+}
+.adm-active-list {
+  display: flex;
+  flex: 1;
+  flex-wrap: wrap;
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+.adm-chip {
+  display: inline-flex;
+  gap: 4px;
+  align-items: center;
+  margin: 0 10px 5px;
+  font-weight: 600;
+  color: var(--text-strong);
+}
+.adm-chip .adm-btn {
+  height: auto;
+  padding: 0;
+}
+.adm-chip-remove {
+  font-size: 16px;
+  line-height: 1;
+  color: var(--adm-remove);
+}
+.adm-chip .adm-btn[data-hovered] .adm-chip-remove {
+  color: var(--adm-remove-hover);
+}
+.adm-active > .adm-btn {
+  height: auto;
+  padding: 0;
+  white-space: nowrap;
 }

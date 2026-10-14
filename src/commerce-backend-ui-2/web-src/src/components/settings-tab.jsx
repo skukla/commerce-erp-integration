@@ -7,6 +7,7 @@
  */
 import { useCallback, useEffect, useState } from "react";
 
+import { AdminRefresh } from "#web/components/admin/admin-refresh.jsx";
 import { Alert, ConfirmDialog, Spinner } from "#web/components/controls.jsx";
 import {
   ConnectionCard,
@@ -201,8 +202,9 @@ function Cards({ cards, entries, entry, erpInfo, fields, row }) {
  *   the page frame, with the band's actions
  * @param {object} props.initialPage erp/settings at Default Config, with `confirmStatuses`
  * @param {string} [props.initialErp] the ERP a card's Settings link picked
- * @param {() => Promise<void>} props.onRefresh the page's own Refresh; Settings reads its own
- *   settings again first, and its refresh is off while there are unsaved changes
+ * @param {{ busy: boolean, updated: string, onRefresh: () => Promise<void> }} props.refresh
+ *   the page's own; Settings reads its own settings again first, and is off while there are
+ *   unsaved changes
  */
 export function SettingsTab({
   api,
@@ -211,7 +213,7 @@ export function SettingsTab({
   initialErp = "",
   initialPage,
   onError,
-  onRefresh,
+  refresh,
   onSavedDefault,
   scopes,
   scopesNote,
@@ -324,7 +326,7 @@ export function SettingsTab({
   ]);
 
   // Refresh reads the settings again, so it waits for unsaved changes to be saved first.
-  const refresh = useCallback(async () => {
+  const reread = useCallback(async () => {
     setSaved(false);
     setRound((n) => n + 1);
     if (scopeId === "") {
@@ -335,8 +337,8 @@ export function SettingsTab({
         onError(`Settings could not be read: ${e.message}`);
       }
     }
-    await onRefresh();
-  }, [api, onError, onRefresh, onSavedDefault, scopeId, statuses]);
+    await refresh.onRefresh();
+  }, [api, onError, onSavedDefault, refresh, scopeId, statuses]);
 
   const fields = shownFields(page, entry, values, edits, scopeLevel);
   const shownErp = entry ?? (erpInfo.several ? null : erpInfo.erps[0]);
@@ -366,15 +368,23 @@ export function SettingsTab({
     actions,
     <>
       {scopesNote && <Alert tone="warn">{scopesNote}</Alert>}
-      <ScopeBar
-        choices={choices}
-        erpId={erpId}
-        erps={erpInfo.erps}
-        onErp={askErp}
-        onScope={askScope}
-        scopeId={scopeId}
-        several={erpInfo.several}
-      />
+      <div className="adm-tab-tools">
+        <ScopeBar
+          choices={choices}
+          erpId={erpId}
+          erps={erpInfo.erps}
+          onErp={askErp}
+          onScope={askScope}
+          scopeId={scopeId}
+          several={erpInfo.several}
+        />
+        <AdminRefresh
+          busy={refresh.busy}
+          disabled={changed}
+          onRefresh={reread}
+          updated={refresh.updated}
+        />
+      </div>
       {page ? (
         <Cards
           cards={cards}
@@ -398,6 +408,5 @@ export function SettingsTab({
         />
       )}
     </>,
-    { disabled: changed, onRefresh: refresh },
   );
 }
