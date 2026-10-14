@@ -1,6 +1,6 @@
 /*
- * What the Data Map's content is: one entry per pair of business objects, each with an example
- * record on every side, and the arrow helper that says which way a pair moves.
+ * What the Data Map's pairs are: one entry per pair of business objects, and the arrow helper
+ * that says which way a pair moves. The records are read live (data-map-live.test.js).
  */
 import {
   arrowPathKey,
@@ -9,37 +9,21 @@ import {
 } from "#web/data-map-view.js";
 
 describe("Given the Data Map's entries", () => {
-  test("Then every entry has an id, a direction, an example on each side, and an icon", () => {
+  test("Then every entry has an id, a direction and an icon", () => {
     for (const entry of MAP_ENTRIES) {
       expect(entry.id, "id").toEqual(expect.any(String));
       expect(entry.moves, entry.id).toEqual(expect.any(String));
-      expect(["both", "to-erp", "to-commerce", "none"], entry.id).toContain(
-        entry.dir,
-      );
-      for (const slot of ["commerce", "primary", "secondary"]) {
-        expect(
-          entry.example[slot].length,
-          `${entry.id}.${slot}`,
-        ).toBeGreaterThanOrEqual(2);
-      }
+      expect(["both", "to-erp", "to-commerce"], entry.id).toContain(entry.dir);
       expect(MAP_ICON_PATHS[entry.id], `icon for ${entry.id}`).toEqual(
         expect.any(String),
       );
     }
   });
-
-  test("Then only Payment has no live connection", () => {
-    const gaps = MAP_ENTRIES.filter((entry) => entry.gap).map(
-      (entry) => entry.id,
-    );
-    expect(gaps).toStrictEqual(["payment"]);
-  });
 });
 
 describe("Given which way an arrow points, drawn from Commerce on the left", () => {
-  test("Then both and none keep their own path", () => {
+  test("Then both keeps its own path", () => {
     expect(arrowPathKey("both")).toBe("both");
-    expect(arrowPathKey("none")).toBe("none");
   });
 
   test("Then to-erp points right and to-commerce points left", () => {

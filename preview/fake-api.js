@@ -13,6 +13,7 @@ import { BODEA_SCOPE_TREE } from "../test/web/fixtures/bodea-scope-tree.js";
 import {
   fakeCompany,
   fakeCompanyNames,
+  fakeKeyMap,
   fakeProduct,
   fakeTrace,
   fakeTraceOneErp,
@@ -214,6 +215,7 @@ export function fakeApi({ allGood = false, oneErp = false } = {}) {
           )
           .filter((e) => oneErp || !erp || (e.erpIds ?? []).includes(erp)),
       }),
+    keyMap: () => answer(fakeKeyMap({ oneErp })),
     lookup: (query) => {
       if (query.companyName !== undefined) {
         return answer(fakeCompanyNames(query.companyName));
@@ -256,6 +258,20 @@ export function fakeApi({ allGood = false, oneErp = false } = {}) {
       return answer({ scheduled: jobsWithSchedules(scheduledRuns(), inForce) });
     },
     settings: (scope) => answer(settingsPage(scope, { oneErp })),
+    // erp/settings ?websites=&erp=: the ERP's own settings on top, per website.
+    settingsForErp: (websites, erpId) => {
+      const own = ERP_ENTRIES.find((e) => e.id === erpId)?.settings ?? {};
+      const { websites: perWebsite = {}, ...defaults } = own;
+      return answer({
+        default: defaults,
+        websites: Object.fromEntries(
+          websites.map((code) => [
+            code,
+            { ...defaults, ...(perWebsite[code] ?? {}) },
+          ]),
+        ),
+      });
+    },
     status: () =>
       answer(
         oneErp

@@ -47,6 +47,8 @@ export function makeApi(ims, origin = window.location.origin) {
       }).toString();
       return call(query ? `history?${query}` : "history");
     },
+    // The key map's pairs: each Commerce company's customer in each ERP (erp/keymap).
+    keyMap: () => call("keymap"),
     // `{ sku }` or `{ company }`: one entity as both systems hold it (erp/lookup).
     lookup: (query) => call(`lookup?${new URLSearchParams(query).toString()}`),
     // The product grid's stock move (erp/move-stock): the sources, then the move.
@@ -69,6 +71,11 @@ export function makeApi(ims, origin = window.location.origin) {
     // The scheduled runs: when each last ran and what it changed (erp/history).
     scheduled: () => call("history?scheduled=true"),
     settings: (scope, options) => call(settingsPath(scope, options)),
+    // One ERP's settings in force at each named website, its own on top (erp/settings).
+    settingsForErp: (websites, erp) =>
+      call(
+        `settings?${new URLSearchParams({ erp, websites: websites.join(",") }).toString()}`,
+      ),
     status: () => call("status"),
     // One order's whole life, gathered from Commerce, this history and the ERP.
     trace: (incrementId) =>

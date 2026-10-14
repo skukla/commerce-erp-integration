@@ -279,6 +279,25 @@ function partner(
   };
 }
 
+/** erp/keymap: each company's customer in each ERP, as Demo Builder pairs them. */
+export function fakeKeyMap({ oneErp }) {
+  return {
+    entries: Object.entries(COMPANIES).flatMap(([id, known]) =>
+      [
+        ["erp", known[5]],
+        ["contoso", oneErp ? null : known[6]],
+      ]
+        .filter(([, side]) => side)
+        .map(([erpId, side]) => ({
+          commerce: id,
+          erp: side[0],
+          erpId,
+          kind: "customer",
+        })),
+    ),
+  };
+}
+
 /** erp/lookup ?company: Commerce beside each ERP the company is a customer of. */
 export function fakeCompany(id, { oneErp }) {
   const known = COMPANIES[id];

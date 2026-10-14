@@ -13,7 +13,7 @@ const NONE = "–";
 const ENDED = /[.!?]$/u;
 
 /** The id the single ERP of an install has (src/lib/erps.js SINGLE_ERP_ID). */
-const SINGLE_ERP_ID = "erp";
+export const SINGLE_ERP_ID = "erp";
 
 /**
  * The ERP colors, from demo-erp's palettes (its lib/appearance.js `--accent` and

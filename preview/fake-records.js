@@ -172,7 +172,35 @@ export function historyRecords(allGood) {
       "contract",
       "100042",
       "partner 100042: 1 price line(s) in force",
-      { company: KUKLA },
+      {
+        company: KUKLA,
+        event: {
+          data: {
+            erpId: "erp",
+            lines: [{ discountPercent: 10, sku: "accesspoint" }],
+            partnerId: "100042",
+          },
+          type: "be-observer.contract",
+        },
+      },
+    ),
+    fromErp(
+      70,
+      "contoso",
+      "payment",
+      "3000000023",
+      "order 3000000023: paid (payment P-0000000017, 1859)",
+      {
+        event: {
+          data: {
+            amount: 1859,
+            erpId: "contoso",
+            incrementId: "3000000023",
+            paymentNumber: "P-0000000017",
+          },
+          type: "be-observer.payment",
+        },
+      },
     ),
     fromErp(
       9,

@@ -36,10 +36,6 @@
 .dm-svg[data-dir="to-erp"] {
   stroke: var(--primary-hover);
 }
-.dm-svg[data-dir="none"] {
-  stroke: #a0a0a0;
-  stroke-dasharray: 3 7;
-}
 
 /* One row per pair: Commerce · arrow · ERP · ERP, a real record in every cell. */
 .mg-head,
@@ -136,13 +132,7 @@ button.ex-cell:hover {
 button.ex-cell strong {
   color: var(--link);
 }
-/* A gap (Payment): a quieter icon and a dashed value, always last so it wins. */
-.is-gap .map-icon {
-  background: #f0f0f0;
-}
-.is-gap .map-icon svg {
-  fill: #9a9a9a;
-}
+/* An empty cell: no such record on that side. */
 .ex-cell.is-empty strong {
   font-weight: 400;
   color: #b0b0b0;

@@ -197,7 +197,11 @@ export function IntegrationPage({
         </span>
         {refresh}
       </>,
-      <DataMapTab {...shared} />,
+      <DataMapTab
+        {...shared}
+        history={data.history}
+        scopes={settingsPage.scopes}
+      />,
     );
   } else {
     body = frame(
