@@ -1,0 +1,59 @@
+# Runs only checks that need no credentials and nothing that deploys: no aio login,
+# no secrets, no writes to Adobe, GitHub or the ERP.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: commerce-erp-integration
+    steps:
+      # The box journeys reach the ERP as a sibling checkout (test/box/erp-in-process.js
+      # resolves ../demo-erp), so this repo and skukla/demo-erp sit side by side.
+      - uses: actions/checkout@v4
+        with:
+          path: commerce-erp-integration
+
+      - uses: actions/checkout@v4
+        with:
+          repository: skukla/demo-erp
+          path: demo-erp
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: |
+            commerce-erp-integration/package-lock.json
+            demo-erp/package-lock.json
+
+      - name: Install
+        run: npm ci
+
+      - name: Install the ERP beside it
+        working-directory: demo-erp
+        run: npm ci
+
+      - name: Generated files match their source
+        run: git diff --exit-code -- src
+
+      - name: Code check (biome)
+        run: npm run code:report
+
+      - name: Tests
+        run: npm test
+
+      - name: ERP contract matches demo-erp main
+        run: npm run contract:check
+
+      - name: Build the Admin page
+        run: npm run build:admin-ui
