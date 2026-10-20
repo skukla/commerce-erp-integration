@@ -3,10 +3,16 @@
   "extends": ["ultracite/biome/core"],
 
   "files": {
+    // preview/mockups holds static design mockups (HTML and CSS drawn before a screen is
+    // built); nothing ships from it, so it is not held to the code rules (2026-10-20).
     "ignoreUnknown": true,
     // The ERP contract is a copy of skukla/demo-erp's, in that repo's formatting;
     // scripts/contract-check.mjs compares it as parsed JSON.
-    "includes": ["!**/.generated", "!contract/erp-contract.json"]
+    "includes": [
+      "!**/.generated",
+      "!contract/erp-contract.json",
+      "!preview/mockups"
+    ]
   },
 
   "json": {

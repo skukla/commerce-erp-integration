@@ -81,27 +81,33 @@ export async function assessPlacement(order, deps) {
     // runs inside Commerce's hard timeout and every second is the shopper's.
     const askCredit = async () => {
       if (!partnerId) {
-        return { status: null, reason: null, net };
+        return { net, reason: null, status: null };
       }
       try {
         const answer = await creditCheck(erp, partnerId, net, currency);
-        return { status: answer.status, reason: answer.reason ?? null, net };
+        return { net, reason: answer.reason ?? null, status: answer.status };
       } catch (error) {
-        logger?.warn?.(`${erp.name} credit check unavailable: ${error.message}`);
-        return { status: UNAVAILABLE, reason: error.message, net };
+        logger?.warn?.(
+          `${erp.name} credit check unavailable: ${error.message}`,
+        );
+        return { net, reason: error.message, status: UNAVAILABLE };
       }
     };
     const askAvailability = async () => {
       try {
         return await availability(erp, lines);
       } catch (error) {
-        logger?.warn?.(`${erp.name} availability unavailable: ${error.message}`);
+        logger?.warn?.(
+          `${erp.name} availability unavailable: ${error.message}`,
+        );
         return null;
       }
     };
-    // biome-ignore lint/performance/noAwaitInLoops: one ERP at a time
-    const [credit, promises] = await Promise.all([askCredit(), askAvailability()]);
-    results.push({ erpId: erp.id, erpName: erp.name, credit, promises });
+    const [credit, promises] = await Promise.all([
+      askCredit(),
+      askAvailability(),
+    ]);
+    results.push({ credit, erpId: erp.id, erpName: erp.name, promises });
   }
   return { companyId, results };
 }
@@ -124,6 +130,8 @@ export function creditVerdict(assessment) {
   }
   return {
     block: true,
-    reason: denied.map((r) => r.credit.reason || `${r.erpName} declined`).join("; "),
+    reason: denied
+      .map((r) => r.credit.reason || `${r.erpName} declined`)
+      .join("; "),
   };
 }

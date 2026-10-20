@@ -6,11 +6,7 @@ import {
 } from "@adobe/aio-commerce-sdk/core/responses";
 import AioLogger from "@adobe/aio-lib-core-logging";
 
-import {
-  productAttributes,
-  sourceCodesOf,
-  websiteCodesOf,
-} from "#lib/commerce";
+import { productAttributes, websiteCodesOf } from "#lib/commerce";
 import { quantityOf } from "#lib/commerce-before";
 import { currentProducts, currentStockLines } from "#lib/erp-current";
 import { recordingErpEvent } from "#lib/erp-event-history";

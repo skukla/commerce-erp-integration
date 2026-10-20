@@ -17,7 +17,10 @@ import { readFileSync } from "node:fs";
 import { parse } from "yaml";
 
 const config = parse(
-  readFileSync(new URL("../../src/commerce-backend-ui-2/ext.config.yaml", import.meta.url), "utf8"),
+  readFileSync(
+    new URL("../../src/commerce-backend-ui-2/ext.config.yaml", import.meta.url),
+    "utf8",
+  ),
 );
 
 describe("Given the Admin page's static site", () => {
@@ -26,6 +29,8 @@ describe("Given the Admin page's static site", () => {
   });
 
   test("Then every HTML file is sent with no-cache, so an update shows on the next load", () => {
-    expect(config.web["response-headers"]).toEqual({ "/*.html": { "cache-control": "no-cache" } });
+    expect(config.web["response-headers"]).toEqual({
+      "/*.html": { "cache-control": "no-cache" },
+    });
   });
 });

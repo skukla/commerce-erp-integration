@@ -9,7 +9,6 @@ import {
   listSources,
   productAttributes,
   skusForProductIds,
-  sourceCodesOf,
   transferAllStock,
   transferSomeStock,
   warehousesOfSku,

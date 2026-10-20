@@ -64,7 +64,12 @@ export function promiseWords(promises) {
   ];
   if (later.length > 0) {
     pieces.push(
-      later.map((p) => `${p.sku} by ${p.promiseDate ?? "a date the ERP did not give"}`).join(", "),
+      later
+        .map(
+          (p) =>
+            `${p.sku} by ${p.promiseDate ?? "a date the ERP did not give"}`,
+        )
+        .join(", "),
     );
   }
   const unknown = promises.length - known.length;

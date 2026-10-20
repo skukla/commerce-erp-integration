@@ -27,7 +27,9 @@ describe("Given the app as Commerce installs it", () => {
     expect(hooks[0].runtimeAction).toBe("webhook/placement");
     // The removed cart hooks stay gone: nothing on the totals collector.
     expect(
-      hooks.filter((h) => h.webhook.webhook_method.includes("totals_collector")),
+      hooks.filter((h) =>
+        h.webhook.webhook_method.includes("totals_collector"),
+      ),
     ).toEqual([]);
   });
 
@@ -47,9 +49,9 @@ describe("Given the app as Commerce installs it", () => {
     );
     expect(ext).toContain("erp:");
     expect(ext).toContain("./actions/webhook/actions.config.yaml");
-    expect(readdirSync("src/commerce-extensibility-1/actions/webhook").sort()).toEqual(
-      ["actions.config.yaml", "placement"],
-    );
+    expect(
+      readdirSync("src/commerce-extensibility-1/actions/webhook").sort(),
+    ).toEqual(["actions.config.yaml", "placement"]);
     expect(existsSync("src/lib/cart-quotes.js")).toBe(false);
   });
 });

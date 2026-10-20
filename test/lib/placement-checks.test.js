@@ -4,32 +4,28 @@
  * answer; creditVerdict turns those answers into the webhook's block/allow, blocking only on a
  * definitive credit denial (pricing-and-live-checks.md).
  */
-import {
-  assessPlacement,
-  creditVerdict,
-  partNet,
-} from "#lib/placement-checks";
+import { assessPlacement, creditVerdict, partNet } from "#lib/placement-checks";
 
 const ACME = { id: "acme", name: "ACME ERP" };
 const NW = { id: "nw", name: "Northwind ERP" };
 
 /** An order line as the placement payload carries it. */
 const line = (sku, qty, price, extra = {}) => ({
-  sku,
-  qty_ordered: qty,
   base_price: price,
   item_id: `${sku}-i`,
+  qty_ordered: qty,
+  sku,
   ...extra,
 });
 
 /** Deps with sensible fakes; override per test. */
 function deps(over = {}) {
   return {
+    availability: async () => [{ canPromiseNow: true, sku: "A1" }],
     companyIdOf: async () => "7",
+    creditCheck: async () => ({ reason: null, status: "approved" }),
     erpCustomerOf: async (_companyId, erpId) => `C-${erpId}`,
     splitByErp: async () => [{ erp: ACME, lines: [line("A1", 2, 100)] }],
-    creditCheck: async () => ({ status: "approved", reason: null }),
-    availability: async () => [{ sku: "A1", canPromiseNow: true }],
     ...over,
   };
 }
@@ -42,10 +38,10 @@ test("a company order the ERP approves reports approved credit and the promise; 
   const a = await assessPlacement({}, deps());
   expect(a.results).toHaveLength(1);
   expect(a.results[0]).toMatchObject({
+    credit: { net: 200, status: "approved" },
     erpId: "acme",
-    credit: { status: "approved", net: 200 },
   });
-  expect(a.results[0].promises).toEqual([{ sku: "A1", canPromiseNow: true }]);
+  expect(a.results[0].promises).toEqual([{ canPromiseNow: true, sku: "A1" }]);
   expect(creditVerdict(a)).toEqual({ block: false });
 });
 
@@ -54,8 +50,8 @@ test("an over-limit company order reports held credit and creditVerdict blocks w
     {},
     deps({
       creditCheck: async () => ({
-        status: "held",
         reason: "Credit limit USD 1,000.00 exceeded by USD 100.00",
+        status: "held",
       }),
     }),
   );
@@ -71,9 +67,8 @@ test("a credit check that throws is reported unavailable and does NOT block (fai
   const a = await assessPlacement(
     {},
     deps({
-      creditCheck: async () => {
-        throw new Error("ERP timed out");
-      },
+      // A rejected promise, as an async stub that throws gives (useAwait).
+      creditCheck: () => Promise.reject(new Error("ERP timed out")),
       logger: { warn },
     }),
   );
@@ -86,9 +81,7 @@ test("availability that throws leaves a null promise and never blocks", async ()
   const a = await assessPlacement(
     {},
     deps({
-      availability: async () => {
-        throw new Error("ERP down");
-      },
+      availability: () => Promise.reject(new Error("ERP down")),
     }),
   );
   expect(a.results[0].promises).toBeNull();
@@ -110,14 +103,14 @@ test("several ERPs: each is asked for its own part; any one denial blocks the wh
   const a = await assessPlacement(
     {},
     deps({
+      creditCheck: async (erp, _partner, net) =>
+        erp.id === "nw"
+          ? { reason: `${erp.name}: over limit`, status: "held" }
+          : { _net: net, reason: null, status: "approved" },
       splitByErp: async () => [
         { erp: ACME, lines: [line("A1", 1, 100)] },
         { erp: NW, lines: [line("N1", 5, 40)] },
       ],
-      creditCheck: async (erp, _partner, net) =>
-        erp.id === "nw"
-          ? { status: "held", reason: `${erp.name}: over limit` }
-          : { status: "approved", reason: null, _net: net },
     }),
   );
   expect(a.results.map((r) => r.erpId)).toEqual(["acme", "nw"]);
@@ -132,14 +125,14 @@ test("one ERP down among several does not block; only the real denial would", as
   const a = await assessPlacement(
     {},
     deps({
+      creditCheck: (erp) =>
+        erp.id === "nw"
+          ? Promise.reject(new Error("timeout"))
+          : Promise.resolve({ reason: null, status: "approved" }),
       splitByErp: async () => [
         { erp: ACME, lines: [line("A1", 1, 100)] },
         { erp: NW, lines: [line("N1", 1, 40)] },
       ],
-      creditCheck: async (erp) => {
-        if (erp.id === "nw") throw new Error("timeout");
-        return { status: "approved", reason: null };
-      },
     }),
   );
   expect(a.results[1].credit.status).toBe("unavailable");

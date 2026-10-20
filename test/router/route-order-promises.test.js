@@ -73,7 +73,11 @@ function deps(over = {}) {
         });
       }),
     },
-    findOrder: vi.fn(async () => ({ entityId: 41, extOrderId: null, storeId: 3 })),
+    findOrder: vi.fn(async () => ({
+      entityId: 41,
+      extOrderId: null,
+      storeId: 3,
+    })),
     logger: { warn: vi.fn() },
     ownsSku: (p, sku, settings) =>
       ownsSku(p, sku, settings, {
@@ -81,18 +85,23 @@ function deps(over = {}) {
           OWNER[sku] ? { erp_owner: OWNER[sku] } : {},
         sourceCodesOf: async () => [],
       }),
-    promisesFor: vi.fn(async (_p, erp, lines) => {
-      calls.push(`ask:${erp.connection.baseUrl}:${lines.map((l) => l.sku).join("+")}`);
-      return PROMISE[erp.id];
+    promisesFor: vi.fn((_p, erp, lines) => {
+      calls.push(
+        `ask:${erp.connection.baseUrl}:${lines.map((l) => l.sku).join("+")}`,
+      );
+      return Promise.resolve(PROMISE[erp.id]);
     }),
     setExtOrderId: vi.fn(async () => ({})),
-    settingsFor: vi.fn(async () => ({ orders_hold_offline: true, orders_send: true })),
+    settingsFor: vi.fn(async () => ({
+      orders_hold_offline: true,
+      orders_send: true,
+    })),
     ...over,
   };
 }
 
-const stored = (state) =>
-  JSON.parse(state.store.get(orderPartsKey("000000042")));
+const stored = (fromState) =>
+  JSON.parse(fromState.store.get(orderPartsKey("000000042")));
 
 let state;
 beforeEach(() => {
@@ -125,10 +134,11 @@ describe("Given a split order and two ERPs", () => {
 
   test("Then an ask that fails leaves no promise, is logged, and the part is still sent", async () => {
     const d = deps({
-      promisesFor: vi.fn(async (_p, erp) => {
-        if (erp.id === "brand-b") throw new Error("ERP timed out");
-        return PROMISE["brand-a"];
-      }),
+      promisesFor: vi.fn((_p, erp) =>
+        erp.id === "brand-b"
+          ? Promise.reject(new Error("ERP timed out"))
+          : Promise.resolve(PROMISE["brand-a"]),
+      ),
     });
     const result = await routeOrder({}, ORDER, d, ERPS);
     expect(result.outcome).toBe("sent");
@@ -137,7 +147,9 @@ describe("Given a split order and two ERPs", () => {
     expect(record.parts["brand-b"]).not.toHaveProperty("promises");
     expect(record.parts["brand-b"].status).toBe("sent");
     expect(d.logger.warn).toHaveBeenCalledWith(
-      expect.stringContaining("Brand B ERP: availability not asked: ERP timed out"),
+      expect.stringContaining(
+        "Brand B ERP: availability not asked: ERP timed out",
+      ),
     );
   });
 
@@ -153,7 +165,11 @@ describe("Given a company's order and one ERP", () => {
   test("Then the whole order is asked about before the send, and the promise sits on its one part", async () => {
     const one = [ERPS[0]];
     const d = deps({ companyIdOf: vi.fn(async () => "7") });
-    const order = { ...ORDER, customer_id: 5, items: ORDER.items.filter((l) => l.sku !== "SIGN1") };
+    const order = {
+      ...ORDER,
+      customer_id: 5,
+      items: ORDER.items.filter((l) => l.sku !== "SIGN1"),
+    };
     // One ERP sends with the deploy's own base URL (lib/erps.js listErps), so name it.
     await routeOrder({ ERP_BASE_URL: "https://a.example" }, order, d, one);
     expect(d.calls[0]).toBe("ask:https://a.example:CAB1+CAB2+CAB2");
