@@ -49,6 +49,10 @@ jobs:
       - name: Code check (biome)
         run: npm run code:report
 
+      # test/web/admin-screens.test.js opens the built screens in headless Chromium.
+      - name: Install Chromium for the screen tests
+        run: npx playwright install --with-deps chromium
+
       - name: Tests
         run: npm test
 
