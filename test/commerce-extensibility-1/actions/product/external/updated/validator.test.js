@@ -10,12 +10,19 @@ describe("Given product external updated validator", () => {
     it.each([
       [
         {
-          data: { description: "DESC", name: "NAME", price: 99.99, sku: "SKU" },
+          data: {
+            changed: ["name", "price"],
+            description: "DESC",
+            name: "NAME",
+            price: 99.99,
+            sku: "SKU",
+          },
         },
       ], // required properties
       [
         {
           data: {
+            changed: ["price"],
             description: "DESC",
             extra: "EXTRA",
             name: "NAME",
@@ -31,10 +38,13 @@ describe("Given product external updated validator", () => {
   });
   describe("When data to validate is not valid", () => {
     it.each([
-      [{ data: { description: "DESC", name: "NAME", sku: "SKU" } }], // missing required properties
+      [{ data: { description: "DESC", name: "NAME", price: 1, sku: "SKU" } }], // no changed list (AB-60)
+      [{ data: { changed: [], sku: "SKU" } }], // nothing changed
+      [{ data: { changed: ["description"], sku: "SKU" } }], // a field Commerce is not sent
       [
         {
           data: {
+            changed: ["price"],
             description: "DESC",
             name: "NAME",
             price: "99.99",

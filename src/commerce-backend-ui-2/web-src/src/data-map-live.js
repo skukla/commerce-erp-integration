@@ -69,7 +69,7 @@ export function mapPicks(history, keyMap) {
     payment:
       newest((e) => e.kind === "payment" && e.outcome === "applied") ?? null,
     sku:
-      newest((e) => ["price", "stock", "product-changed"].includes(e.kind))
+      newest((e) => ["product", "stock", "product-changed"].includes(e.kind))
         ?.ref ?? null,
   };
 }

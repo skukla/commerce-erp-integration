@@ -85,6 +85,9 @@ const PRODUCT = {
   BaseUnit: "EA",
   ListPrice: 12,
   ParentProduct: null,
+  PrevListPrice: 11,
+  PrevProductName: "Trouser",
+  PrevSalesStatus: "sellable",
   Product: "A1",
   ProductName: "Trouser (ERP)",
   ProductType: "simple",
@@ -354,17 +357,34 @@ describe("Given an ERP event in the ERP's own words", () => {
     ]);
   });
 
-  test("When a product's name or list price changed, Then the product update is published; a sales status alone publishes nothing", async () => {
-    const changed = await translate("Product.Changed", {
+  // AB-60: only what changed, with what it was, so a rename never rewrites the price.
+  test("When a product's name or list price changed, Then the update carries just that and what it was; a sales status alone publishes nothing", async () => {
+    const renamed = await translate("Product.Changed", {
       ...PRODUCT,
       ChangedFields: ["ProductName"],
     });
-    expect(changed.events).toEqual([
+    expect(renamed.events).toEqual([
       {
         event: "be-observer.catalog_product_update",
-        payload: { name: "Trouser (ERP)", price: 12, sku: "A1" },
+        payload: {
+          changed: ["name"],
+          name: "Trouser (ERP)",
+          previous: { name: "Trouser" },
+          sku: "A1",
+        },
       },
     ]);
+    const both = await translate("Product.Changed", {
+      ...PRODUCT,
+      ChangedFields: ["ProductName", "ListPrice", "SalesStatus"],
+    });
+    expect(both.events[0].payload).toEqual({
+      changed: ["name", "price"],
+      name: "Trouser (ERP)",
+      previous: { name: "Trouser", price: 11 },
+      price: 12,
+      sku: "A1",
+    });
     const status = await translate("Product.Changed", {
       ...PRODUCT,
       ChangedFields: ["SalesStatus"],

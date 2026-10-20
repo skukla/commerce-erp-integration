@@ -245,6 +245,12 @@ function salesOrderEvents(d, id) {
 const changed = (d, field) =>
   Array.isArray(d.ChangedFields) && d.ChangedFields.includes(field);
 
+/** The ERP product fields Commerce hears about, and Commerce's name for each. */
+const PRODUCT_FIELDS = [
+  ["ProductName", "name"],
+  ["ListPrice", "price"],
+];
+
 const MASTER_TYPES = {
   "Customer.Changed": (d) => {
     const events = [];
@@ -273,20 +279,25 @@ const MASTER_TYPES = {
       payload: { lines: d.Lines, partnerId: d.Customer },
     },
   ],
-  // A sales status is the ERP's own: only a name or list price is Commerce's to hear.
-  "Product.Changed": (d) =>
-    changed(d, "ProductName") || changed(d, "ListPrice")
-      ? [
-          {
-            event: EVENTS.product,
-            payload: {
-              name: d.ProductName,
-              price: d.ListPrice,
-              sku: d.Product,
-            },
-          },
-        ]
-      : [],
+  // A sales status is the ERP's own: only a name or list price is Commerce's to hear. The
+  // update carries just what changed and what it was (contract version 22, AB-60), so a
+  // rename writes the name and never rewrites the price.
+  "Product.Changed": (d) => {
+    const fields = PRODUCT_FIELDS.filter(([erp]) => changed(d, erp));
+    if (fields.length === 0) {
+      return [];
+    }
+    const payload = {
+      changed: fields.map(([, commerce]) => commerce),
+      previous: {},
+      sku: d.Product,
+    };
+    for (const [erp, commerce] of fields) {
+      payload[commerce] = d[erp];
+      payload.previous[commerce] = d[`Prev${erp}`];
+    }
+    return [{ event: EVENTS.product, payload }];
+  },
   "ProductStock.Changed": (d) => [
     {
       event: EVENTS.stock,

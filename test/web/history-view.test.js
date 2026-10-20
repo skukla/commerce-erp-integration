@@ -176,13 +176,14 @@ describe("Given an order sent to the ERPs", () => {
 
 describe("Given an update from an ERP", () => {
   test.each([
+    // AB-60: a product change, not a "price" one: a rename read as a price change.
     [
-      "price",
+      "product",
       "accesspoint",
-      "SKU accesspoint: price 189",
-      "accesspoint: price 189",
-      "prices",
-      "Price",
+      "SKU accesspoint: price 180 to 189",
+      "accesspoint: price 180 to 189",
+      "products",
+      "Product",
       { kind: "product", sku: "accesspoint" },
     ],
     [
@@ -326,7 +327,7 @@ describe("Given an update from an ERP", () => {
   test("Then an update not applied yet is sent again by itself, and says so", () => {
     const row = eventRow(
       fromErp(
-        "price",
+        "product",
         "accesspoint",
         "SKU accesspoint: price 189 — not applied: Commerce did not answer",
         { attempts: 2, outcome: "failed" },
@@ -522,7 +523,7 @@ describe("Given the feed's filters", () => {
   const rows = [
     eventRow(order("held", { erpIds: ["contoso"] }), { erps: ERPS, now: NOW }),
     eventRow(
-      fromErp("price", "A", "SKU A: price 1", {
+      fromErp("product", "A", "SKU A: price 1", {
         erpIds: ["erp"],
         lastAt: "2026-09-27T18:00:00Z",
       }),
@@ -583,7 +584,7 @@ describe("Given the feed's filters", () => {
     const entries = [
       order("sent"),
       order("held", { ref: "3000000024" }),
-      fromErp("price", "A", "SKU A: price 1", { outcome: "refused" }),
+      fromErp("product", "A", "SKU A: price 1", { outcome: "refused" }),
     ];
     expect(
       needsAttention(entries, { erps: ERPS, now: NOW }).map((r) => r.key),

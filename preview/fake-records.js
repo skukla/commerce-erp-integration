@@ -156,12 +156,17 @@ function problems(allGood) {
     fromErp(
       30,
       "erp",
-      "price",
+      "product",
       "accesspoint",
-      "SKU accesspoint: price 189 — not applied: Commerce did not answer",
+      "SKU accesspoint: price 179 to 189 — not applied: Commerce did not answer",
       {
         attempts: 2,
-        data: { price: 189, sku: "accesspoint" },
+        data: {
+          changed: ["price"],
+          previous: { price: 179 },
+          price: 189,
+          sku: "accesspoint",
+        },
         outcome: "failed",
       },
     ),
@@ -366,10 +371,17 @@ export function historyRecords(allGood) {
     fromErp(
       24 * 60 + 240,
       "contoso",
-      "price",
+      "product",
       "proliantdl380",
-      "SKU proliantdl380: price 1660",
-      { data: { price: 1660, sku: "proliantdl380" } },
+      'SKU proliantdl380: name "ProLiant DL380" to "ProLiant DL380 Gen11"',
+      {
+        data: {
+          changed: ["name"],
+          name: "ProLiant DL380 Gen11",
+          previous: { name: "ProLiant DL380" },
+          sku: "proliantdl380",
+        },
+      },
     ),
     // Changes made in Commerce that reach the ERP (2026-10-14): a new product, a stock
     // quantity, and a company, which before left no row.

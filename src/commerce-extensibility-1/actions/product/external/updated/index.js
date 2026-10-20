@@ -7,7 +7,7 @@ import {
 import AioLogger from "@adobe/aio-lib-core-logging";
 
 import { nameOf, priceOf } from "#lib/commerce-before";
-import { currentPriceEvent, currentProduct } from "#lib/erp-current";
+import { currentProduct, currentProductEvent } from "#lib/erp-current";
 import { recordingErpEvent } from "#lib/erp-event-history";
 import { eventErpId, loadErps } from "#lib/erps";
 import { recordProductWrite } from "#lib/ledger";
@@ -52,7 +52,13 @@ async function handle(params) {
     if (!product) {
       return badRequest(`The ERP has no product ${sku}; nothing to apply`);
     }
-    const current = { ...params, data: currentPriceEvent(sku, product) };
+    const current = {
+      ...params,
+      data: currentProductEvent(sku, product, params.data.changed),
+    };
+    if (current.data.changed.length === 0) {
+      return ok("Nothing Commerce holds changed: no write");
+    }
     logger.debug(`Transform data: ${stringParameters(current)}`);
     const transformed = transformData(current);
     logger.debug(`Preprocess data: ${stringParameters(params)}`);
@@ -104,6 +110,6 @@ async function handle(params) {
 }
 
 /** Records how each event ended, for the Admin screen's history (lib/erp-event-history.js). */
-const main = recordingErpEvent("price", handle);
+const main = recordingErpEvent("product", handle);
 
 export { main };

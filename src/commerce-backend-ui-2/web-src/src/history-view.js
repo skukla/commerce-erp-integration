@@ -84,9 +84,10 @@ const KINDS = {
   order: { label: "Order", opens: "trace", type: "orders" },
   "order-status": { label: "Order status", opens: "trace", type: "orders" },
   payment: { label: "Payment", opens: "trace", type: "orders" },
-  price: { label: "Price", opens: "product", type: "prices" },
   // A price publish: one run, its rows moved in its panel (2026-10-14).
   "price-publish": { label: "Price publish", opens: "publish", type: "prices" },
+  // The ERP changed a product: its name, its price, or both (AB-60: was "Price", for a rename too).
+  product: { label: "Product", opens: "product", type: "products" },
   // A save in Commerce told to the product's ERP (2026-10-13).
   "product-changed": {
     label: "Product changed",

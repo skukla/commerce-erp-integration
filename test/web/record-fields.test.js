@@ -53,10 +53,21 @@ describe("Given the record's two sides", () => {
 
 describe("Given a record an ERP sent", () => {
   test.each([
+    // AB-60: each changed field with what it was; a rename is a rename, not a price change.
     [
-      "price",
-      { price: 189, sku: "AB1" },
-      ["AB1", "", "Price changed to 189.00"],
+      "product",
+      { changed: ["price"], previous: { price: 180 }, price: 189, sku: "AB1" },
+      ["AB1", "", "Price changed from 180.00 to 189.00"],
+    ],
+    [
+      "product",
+      {
+        changed: ["name"],
+        name: "Aurora Tote",
+        previous: { name: "Tote" },
+        sku: "AB1",
+      },
+      ["AB1", "", 'Name changed from "Tote" to "Aurora Tote"'],
     ],
     [
       "stock",
@@ -151,7 +162,7 @@ describe("Given a record an ERP sent", () => {
   });
 
   test("Then a record without the fields it is shown by falls back to its message", () => {
-    expect(recordFields(fromErp("price", "AB1", { sku: "AB1" }))).toBeNull();
+    expect(recordFields(fromErp("product", "AB1", { sku: "AB1" }))).toBeNull();
     expect(recordFields(fromErp("stock", "AB1", { erpId: "erp" }))).toBeNull();
     expect(recordFields(fromErp("unknown-kind", "AB1", {}))).toBeNull();
   });

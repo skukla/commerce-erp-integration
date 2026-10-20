@@ -90,7 +90,12 @@ describe("Given two ERPs", () => {
 
   test("Then a product event's price and name are ledgered as the ERP the event names", async () => {
     const res = await productUpdated.main({
-      data: { erpId: "contoso", price: 1, sku: "A1" },
+      data: {
+        changed: ["name", "price"],
+        erpId: "contoso",
+        price: 1,
+        sku: "A1",
+      },
     });
     expect(res.statusCode).toBe(200);
     expect(writtenErps()).toEqual([
@@ -100,7 +105,9 @@ describe("Given two ERPs", () => {
   });
 
   test("Then a product event naming no ERP is ledgered as the first ERP's", async () => {
-    await productUpdated.main({ data: { price: 1, sku: "B1" } });
+    await productUpdated.main({
+      data: { changed: ["name", "price"], price: 1, sku: "B1" },
+    });
     expect(writtenErps()).toEqual([
       ["B1", "price", "erp"],
       ["B1", "name", "erp"],
@@ -126,7 +133,9 @@ describe("Given one ERP", () => {
   beforeEach(() => loadErps.mockResolvedValue([entry("contoso")]));
 
   test("Then every write is that ERP's", async () => {
-    await productUpdated.main({ data: { price: 1, sku: "B1" } });
+    await productUpdated.main({
+      data: { changed: ["name", "price"], price: 1, sku: "B1" },
+    });
     await stockUpdated.main({
       data: [{ quantity: 1, sku: "B1", source: "east" }],
     });

@@ -161,13 +161,24 @@ const FROM_ERP = {
         : `Payment of ${amount} received`,
     );
   },
-  // A product is the same SKU on both sides: the ERP's side adds nothing.
-  price: (e, d) =>
-    row(d.sku ?? e.ref, "", `Price changed to ${money(d.price)}`),
   // A run, not one record: the prices in force on the ERP's side, the shared catalogs'
   // tier prices on Commerce's (lib/history.js recordPricePublish).
   "price-publish": (e) =>
     row("Shared catalog prices", "Customer prices", publishDetails(e)),
+  // A product is the same SKU on both sides: the ERP's side adds nothing. Each changed field
+  // with what it was (AB-60): a rename reads as a rename, not a price change.
+  product: (e, d) =>
+    row(
+      d.sku ?? e.ref,
+      "",
+      d.changed
+        .map((f) =>
+          f === "name"
+            ? `Name changed from "${d.previous?.name}" to "${d.name}"`
+            : `Price changed from ${money(d.previous?.price)} to ${money(d.price)}`,
+        )
+        .join("; "),
+    ),
   return: (e, d) => erpOrder(e, `Return order ${d.returnNumber} received`),
   shipment: (e) => erpOrder(e, "Order shipped"),
   stock: (e) => stockRow(e),
@@ -209,7 +220,7 @@ const NEEDS = {
   hold: ["held"],
   "order-status": ["status"],
   payment: ["amount"],
-  price: ["price"],
+  product: ["changed"],
   return: ["returnNumber"],
 };
 

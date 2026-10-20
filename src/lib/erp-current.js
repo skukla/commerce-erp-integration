@@ -42,20 +42,34 @@ export async function currentProduct(params, sku) {
 }
 
 /**
- * The product event rebuilt from the ERP's current product: its SKU, name and list price.
- * A configurable parent has no price of its own (its variants sell), so it carries none.
+ * The product event rebuilt from the ERP's current product, for the fields the event said
+ * changed (AB-60): the values are what the ERP holds NOW, so a late or repeated event never
+ * writes an old value (AB-62), and only the changed fields are written, so a rename never
+ * rewrites the price. A configurable parent has no price of its own (its variants sell), so
+ * a price is never written for one.
  *
  * @param {string} sku - the SKU the event named
  * @param {object} product - the ERP's current product document
- * @returns {{ sku: string, name?: string, price?: number }}
+ * @param {string[]} changed - the fields the event said changed, in Commerce's names
+ * @returns {{ sku: string, changed: string[], name?: string, price?: number }}
  */
-export function currentPriceEvent(sku, product) {
-  const event = { sku };
-  if (typeof product.name === "string" && product.name) {
+export function currentProductEvent(sku, product, changed) {
+  const event = { changed: [], sku };
+  if (
+    changed.includes("name") &&
+    typeof product.name === "string" &&
+    product.name
+  ) {
     event.name = product.name;
+    event.changed.push("name");
   }
-  if (product.type !== "configurable" && Number.isFinite(product.listPrice)) {
+  if (
+    changed.includes("price") &&
+    product.type !== "configurable" &&
+    Number.isFinite(product.listPrice)
+  ) {
     event.price = product.listPrice;
+    event.changed.push("price");
   }
   return event;
 }

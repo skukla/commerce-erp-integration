@@ -45,8 +45,10 @@ describe("Given an ERP event applied to Commerce", () => {
 
   test("Then the handler's answer is passed on unchanged, and the change is recorded in words", async () => {
     const answer = ok("Product updated successfully");
-    const handler = recordingErpEvent("price", async () => answer);
+    const handler = recordingErpEvent("product", async () => answer);
     const params = event("be-observer.catalog_product_update", {
+      changed: ["price"],
+      previous: { price: 40 },
       price: 42,
       sku: "ABC",
     });
@@ -58,14 +60,19 @@ describe("Given an ERP event applied to Commerce", () => {
       attempts: 1,
       direction: "from-erp",
       event: {
-        data: { price: 42, sku: "ABC" },
+        data: {
+          changed: ["price"],
+          previous: { price: 40 },
+          price: 42,
+          sku: "ABC",
+        },
         type: "be-observer.catalog_product_update",
       },
       eventId: "ev-1",
       firstAt: "2026-09-22T10:00:00.000Z",
-      kind: "price",
+      kind: "product",
       lastAt: "2026-09-22T10:00:00.000Z",
-      message: "SKU ABC: price 42",
+      message: "SKU ABC: price 40 to 42",
       outcome: "applied",
       ref: "ABC",
     });
@@ -166,18 +173,23 @@ describe("Given an ERP event applied to Commerce", () => {
   });
 
   test("Then an event Commerce refused is refused, and failed-only keeps it", async () => {
-    await recordingErpEvent("price", async () => badRequest("no such SKU"))(
-      event("t", { price: 1, sku: "ZZZ" }),
+    await recordingErpEvent("product", async () => badRequest("no such SKU"))(
+      event("t", {
+        changed: ["name"],
+        name: "Z",
+        previous: { name: "Y" },
+        sku: "ZZZ",
+      }),
     );
 
     expect((await readHistory({ failedOnly: true }))[0]).toMatchObject({
-      message: "SKU ZZZ: price 1 — not applied: no such SKU",
+      message: 'SKU ZZZ: name "Y" to "Z" — not applied: no such SKU',
       outcome: "refused",
     });
   });
 
   test("Then a handler that throws is recorded as failed, and the throw is passed on", async () => {
-    const handler = recordingErpEvent("price", () =>
+    const handler = recordingErpEvent("product", () =>
       Promise.reject(new Error("boom")),
     );
 
@@ -188,7 +200,7 @@ describe("Given an ERP event applied to Commerce", () => {
   });
 
   test("Then a person's retry is marked as theirs", async () => {
-    await recordingErpEvent("price", async () => ok("done"))({
+    await recordingErpEvent("product", async () => ok("done"))({
       ...event("t", { price: 1, sku: "A" }),
       __retriedBy: "admin",
     });

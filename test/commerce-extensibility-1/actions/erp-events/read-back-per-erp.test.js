@@ -82,7 +82,12 @@ describe("Given a product event and two ERPs", () => {
   test("Then the product is read back from the ERP the event names, with its own credential", async () => {
     const res = await productUpdated({
       ...OWN,
-      data: { erpId: "contoso", price: 1, sku: "S1" },
+      data: {
+        changed: ["name", "price"],
+        erpId: "contoso",
+        price: 1,
+        sku: "S1",
+      },
     });
     expect(res.statusCode).toBe(200);
     expect(reads()).toEqual([
@@ -98,7 +103,10 @@ describe("Given a product event and two ERPs", () => {
   });
 
   test("Then an event naming no ERP is the first ERP's", async () => {
-    await productUpdated({ ...OWN, data: { price: 1, sku: "S1" } });
+    await productUpdated({
+      ...OWN,
+      data: { changed: ["name", "price"], price: 1, sku: "S1" },
+    });
     expect(reads()).toEqual([
       {
         client: "integration-client",
@@ -110,7 +118,12 @@ describe("Given a product event and two ERPs", () => {
   test("Then an event naming an ERP not in the list is refused, and no ERP is asked", async () => {
     const res = await productUpdated({
       ...OWN,
-      data: { erpId: "brand-z", price: 1, sku: "S1" },
+      data: {
+        changed: ["name", "price"],
+        erpId: "brand-z",
+        price: 1,
+        sku: "S1",
+      },
     });
     expect(res.error.statusCode).toBe(400);
     expect(erp.calls).toEqual([]);
@@ -119,7 +132,10 @@ describe("Given a product event and two ERPs", () => {
 
 describe("Given a product event and one ERP", () => {
   test("Then it is read back from the ERP the integration deployed with, as before", async () => {
-    await productUpdated({ ...OWN, data: { price: 1, sku: "S1" } });
+    await productUpdated({
+      ...OWN,
+      data: { changed: ["name", "price"], price: 1, sku: "S1" },
+    });
     expect(reads()).toEqual([
       {
         client: "integration-client",
@@ -130,7 +146,10 @@ describe("Given a product event and one ERP", () => {
 
   test("Then a stored list of one ERP is read from as before too", async () => {
     stored([CONTOSO]);
-    await productUpdated({ ...OWN, data: { price: 1, sku: "S1" } });
+    await productUpdated({
+      ...OWN,
+      data: { changed: ["name", "price"], price: 1, sku: "S1" },
+    });
     expect(reads()[0].url).toBe(
       "https://a.example/api/v1/web/demo-erp/products/S1",
     );

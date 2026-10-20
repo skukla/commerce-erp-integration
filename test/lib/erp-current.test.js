@@ -8,8 +8,8 @@ vi.mock("#lib/erp", () => ({ erp: { product: vi.fn() } }));
 
 import { erp } from "#lib/erp";
 import {
-  currentPriceEvent,
   currentProduct,
+  currentProductEvent,
   currentProducts,
   currentStockLines,
 } from "#lib/erp-current";
@@ -38,25 +38,41 @@ describe("currentProduct", () => {
   });
 });
 
-describe("currentPriceEvent", () => {
-  test("carries the ERP's name and list price, never the event's", () => {
+describe("currentProductEvent", () => {
+  test("carries the ERP's current name and list price, never the event's", () => {
     expect(
-      currentPriceEvent("S1", {
-        listPrice: 49,
-        name: "Access Point",
-        type: "simple",
-      }),
-    ).toEqual({ name: "Access Point", price: 49, sku: "S1" });
+      currentProductEvent(
+        "S1",
+        { listPrice: 49, name: "Access Point", type: "simple" },
+        ["name", "price"],
+      ),
+    ).toEqual({
+      changed: ["name", "price"],
+      name: "Access Point",
+      price: 49,
+      sku: "S1",
+    });
   });
 
-  test("a configurable parent carries no price", () => {
+  // AB-60: a rename writes the name and leaves the price alone.
+  test("carries only the fields the event said changed", () => {
     expect(
-      currentPriceEvent("P1", {
-        listPrice: 0,
-        name: "Parent",
-        type: "configurable",
-      }),
-    ).toEqual({ name: "Parent", sku: "P1" });
+      currentProductEvent(
+        "S1",
+        { listPrice: 49, name: "Access Point", type: "simple" },
+        ["name"],
+      ),
+    ).toEqual({ changed: ["name"], name: "Access Point", sku: "S1" });
+  });
+
+  test("a configurable parent carries no price, so a price change of one writes nothing", () => {
+    expect(
+      currentProductEvent(
+        "P1",
+        { listPrice: 0, name: "Parent", type: "configurable" },
+        ["price"],
+      ),
+    ).toEqual({ changed: [], sku: "P1" });
   });
 });
 

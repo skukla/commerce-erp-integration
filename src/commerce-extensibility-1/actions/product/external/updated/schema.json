@@ -2,9 +2,15 @@
   "type": "object",
   "properties": {
     "sku": { "type": "string" },
+    "changed": {
+      "type": "array",
+      "items": { "enum": ["name", "price"] },
+      "minItems": 1
+    },
     "name": { "type": "string" },
-    "price": { "type": "number" }
+    "price": { "type": "number" },
+    "previous": { "type": "object" }
   },
-  "required": ["sku", "price"],
+  "required": ["sku", "changed"],
   "additionalProperties": true
 }

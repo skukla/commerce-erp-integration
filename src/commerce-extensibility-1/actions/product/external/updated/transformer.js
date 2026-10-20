@@ -1,19 +1,16 @@
 /**
- * An ERP product event becomes a sparse product save: name and price. (The kit's sample also
- * wrote a description custom attribute and attribute_set_id; a sparse save is safer on an
- * existing catalog.)
+ * An ERP product event becomes a sparse product save of exactly the fields that changed:
+ * a rename writes the name and leaves the price alone (AB-60). The event says which in
+ * `changed` (Commerce's names), translated from the ERP's ChangedFields.
  *
- * @param {object} params - the event (`data`: { sku, name, price })
+ * @param {object} params - the event (`data`: { sku, changed, name?, price?, previous })
  * @returns {{ product: object }}
  */
 function transformData(params) {
-  const product = { sku: params.data.sku };
-  // A configurable parent carries no price (lib/erp-current.js); a name may be absent too.
-  if (params.data.name !== undefined) {
-    product.name = params.data.name;
-  }
-  if (params.data.price !== undefined) {
-    product.price = params.data.price;
+  const { data } = params;
+  const product = { sku: data.sku };
+  for (const field of data.changed) {
+    product[field] = data[field];
   }
   return { product };
 }

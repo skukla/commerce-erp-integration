@@ -21,6 +21,9 @@ const companyOf = (d) =>
     ? { ref: d.partnerId, who: `customer ${d.partnerId}` }
     : { ref: d.companyId, who: `company ${d.companyId}` };
 
+/** A product field's value as the history writes it: a name in quotes, a price as it is. */
+const quoted = (field, value) => (field === "name" ? `"${value}"` : `${value}`);
+
 /** What each event changed, in the words a merchant reads, and the thing it is about. */
 const DESCRIBE = {
   block: (d) => ({
@@ -59,7 +62,13 @@ const DESCRIBE = {
     message: `order ${d.incrementId}: paid (payment ${d.paymentNumber}, ${d.amount})`,
     ref: d.incrementId,
   }),
-  price: (d) => ({ message: `SKU ${d.sku}: price ${d.price}`, ref: d.sku }),
+  // What changed and what it was: "SKU A1: name "Pants" to "Trouser", price 12 to 13" (AB-60).
+  product: (d) => ({
+    message: `SKU ${d.sku}: ${(d.changed ?? [])
+      .map((f) => `${f} ${quoted(f, d.previous?.[f])} to ${quoted(f, d[f])}`)
+      .join(", ")}`,
+    ref: d.sku,
+  }),
   return: (d) => ({
     message: `order ${d.incrementId}: return order ${d.returnNumber} received`,
     ref: d.incrementId,
@@ -154,7 +163,7 @@ export const HANDLER_ACTIONS = {
   invoice: "order-backoffice/invoice-created",
   "order-status": "order-backoffice/updated",
   payment: "order-backoffice/payment-received",
-  price: "product-backoffice/updated",
+  product: "product-backoffice/updated",
   return: "order-backoffice/return-updated",
   shipment: "order-backoffice/shipment-created",
   stock: "stock-backoffice/updated",

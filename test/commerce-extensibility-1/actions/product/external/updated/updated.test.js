@@ -53,7 +53,9 @@ describe("Given product external updated action", () => {
   });
   describe("When an exception is thrown", () => {
     test("Then return action error response", async () => {
-      const IGNORED_PARAMS = { data: {} };
+      const IGNORED_PARAMS = {
+        data: { changed: ["name", "price"], sku: "S1" },
+      };
       const SUCCESSFUL_VALIDATION_RESPONSE = {
         success: true,
       };
@@ -72,7 +74,9 @@ describe("Given product external updated action", () => {
   });
   describe("When product event data is valid", () => {
     test("Then returns action success response", async () => {
-      const IGNORED_PARAMS = { data: {} };
+      const IGNORED_PARAMS = {
+        data: { changed: ["name", "price"], sku: "S1" },
+      };
       const SUCCESSFUL_VALIDATION_RESPONSE = {
         success: true,
       };
@@ -90,9 +94,27 @@ describe("Given product external updated action", () => {
     test("Then Commerce is sent what the ERP holds now", async () => {
       validateData.mockReturnValue({ success: true });
       sendData.mockReturnValue({ success: true });
-      await action.main({ data: { name: "Old name", price: 55, sku: "S1" } });
+      await action.main({
+        data: {
+          changed: ["name", "price"],
+          name: "Old name",
+          price: 55,
+          sku: "S1",
+        },
+      });
       expect(sendData.mock.calls.at(-1)[1]).toEqual({
         product: { name: "Now", price: 10, sku: "S1" },
+      });
+    });
+    // AB-60: a rename writes the name, at the ERP's current value, and leaves the price alone.
+    test("Then only what the event says changed is written", async () => {
+      validateData.mockReturnValue({ success: true });
+      sendData.mockReturnValue({ success: true });
+      await action.main({
+        data: { changed: ["name"], name: "Old name", sku: "S1" },
+      });
+      expect(sendData.mock.calls.at(-1)[1]).toEqual({
+        product: { name: "Now", sku: "S1" },
       });
     });
     // AB-62: the save event this write raises must be known as the integration's own before
@@ -106,7 +128,14 @@ describe("Given product external updated action", () => {
         );
         return { success: true };
       });
-      await action.main({ data: { name: "Old name", price: 55, sku: "S1" } });
+      await action.main({
+        data: {
+          changed: ["name", "price"],
+          name: "Old name",
+          price: 55,
+          sku: "S1",
+        },
+      });
       expect(knownWhenSent).toEqual([true]);
       // The event's own values were not written, so a save carrying them is not an echo.
       expect(

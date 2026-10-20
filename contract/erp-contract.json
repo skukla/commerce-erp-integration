@@ -1,6 +1,6 @@
 {
   "name": "demo-erp",
-  "contractVersion": 21,
+  "contractVersion": 22,
   "description": "What the ERP promises its subscribers: the routes it serves, the shapes it accepts, and the events it publishes. The Commerce integration vendors this file and its tests fail when the two disagree.",
   "routes": {
     "health": [
@@ -662,14 +662,17 @@
           "BaseUnit",
           "ListPrice",
           "SalesStatus",
-          "ChangedFields"
+          "ChangedFields",
+          "PrevProductName",
+          "PrevListPrice",
+          "PrevSalesStatus"
         ],
         "changedFields": [
           "ProductName",
           "ListPrice",
           "SalesStatus"
         ],
-        "note": "the whole product record after an edit on the ERP, and which of its fields the edit changed (a name change is not a price change). SalesStatus is null for a configurable product"
+        "note": "the whole product record after an edit on the ERP, and which of its fields the edit changed (a name change is not a price change). SalesStatus is null for a configurable product. version 22 (AB-60, 2026-10-20): PrevProductName, PrevListPrice and PrevSalesStatus say what the three were before the edit, as ProductStock.Changed carries PrevQuantity; always all three, so a field not named in ChangedFields has the same value before and after"
       },
       "ProductStock.Changed": {
         "data": [

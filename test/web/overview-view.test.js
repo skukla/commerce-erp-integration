@@ -159,7 +159,7 @@ describe("Given today's Activity", () => {
       [
         today({ direction: "to-erp", kind: "order", outcome: "sent" }),
         today({ direction: "to-erp", kind: "order", outcome: "held" }),
-        today({ direction: "from-erp", kind: "price", outcome: "applied" }),
+        today({ direction: "from-erp", kind: "product", outcome: "applied" }),
         today({ direction: "from-erp", kind: "stock", outcome: "refused" }),
         today({ direction: "to-erp", kind: "shipped", outcome: "sent" }),
         // A product, stock or company change made in Commerce counts as one too.

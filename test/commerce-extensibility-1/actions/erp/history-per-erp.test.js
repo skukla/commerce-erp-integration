@@ -35,7 +35,7 @@ const FROM_CONTOSO = {
   direction: "from-erp",
   event: { data: { erpId: "contoso", sku: "SIGN-A2" } },
   eventId: "ev-1",
-  kind: "price",
+  kind: "product",
   lastAt: "2026-09-28T09:00:00Z",
   outcome: "applied",
   ref: "SIGN-A2",
