@@ -184,7 +184,8 @@ describe("Given two ERPs in the list", () => {
         params.ERP_BASE_URL === "https://a.example"
           ? {
               data: {
-                counts: { products: 120, salesOrders: 4 },
+                counts: { events: 7, products: 120, salesOrders: 4 },
+                eventsPending: 2,
                 lastImportAt: "2026-09-28T09:00:00Z",
                 lastWipeAt: null,
                 ok: true,
@@ -207,7 +208,8 @@ describe("Given two ERPs in the list", () => {
 
     expect(res.body.erps).toStrictEqual([
       {
-        counts: { products: 120, salesOrders: 4 },
+        counts: { events: 7, products: 120, salesOrders: 4 },
+        eventsPending: 2,
         id: "brand-a",
         lastImportAt: "2026-09-28T09:00:00Z",
         lastWipeAt: null,

@@ -11,13 +11,16 @@ import {
   listedErps,
   PALETTES,
   todayCounts,
+  waitingNow,
 } from "#web/overview-view.js";
 
 const NOW = new Date("2026-09-28T15:00:00Z");
 
 const NORTHWIND = {
   appearance: { logo: "cube", nav: "rail", palette: "teal" },
-  counts: { businessPartners: 5, events: 0, products: 3, salesOrders: 3 },
+  // Four messages on record, all delivered: none waits (JustRite, 2026-10-22).
+  counts: { businessPartners: 5, events: 4, products: 3, salesOrders: 3 },
+  eventsPending: 0,
   id: "erp",
   lastImportAt: "2026-09-28T14:06:00Z",
   lastWipeAt: "2026-09-28T14:04:00Z",
@@ -181,5 +184,24 @@ describe("Given today's Activity", () => {
       notThrough: 2,
       ordersSent: 1,
     });
+  });
+});
+
+describe("Given what waits to be sent now", () => {
+  test("Then it counts only the messages each ERP has not delivered", () => {
+    const behind = {
+      ...NORTHWIND,
+      eventsPending: 2,
+      id: "behind",
+      name: "Behind ERP",
+    };
+    expect(waitingNow([NORTHWIND, behind, CONTOSO])).toStrictEqual({
+      foot: "Behind ERP: 2",
+      total: 2,
+    });
+  });
+
+  test("Then with nothing undelivered it is zero, with no ERP named", () => {
+    expect(waitingNow([NORTHWIND])).toStrictEqual({ foot: "", total: 0 });
   });
 });

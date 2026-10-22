@@ -122,7 +122,7 @@ export function erpRow(entry, history, now, options = {}) {
       record.direction === "from-erp" &&
       (options.onlyErp || (record.erpIds ?? []).includes(entry.id)),
   );
-  const waiting = entry.counts?.events;
+  const waiting = entry.eventsPending;
   return {
     key: entry.id,
     lastUpdate: last ? ago(last.lastAt, now) : "Nothing yet",
@@ -152,5 +152,20 @@ export function todayCounts(history, now, timeZone) {
     ),
     notThrough: counted((r) => isProblem(r, now.getTime())),
     ordersSent: counted((r) => r.kind === "order" && r.outcome === "sent"),
+  };
+}
+
+/**
+ * What waits to be sent now, over every ERP: the messages each has not delivered yet, and a
+ * line naming the ERPs that have any. Not `counts.events`, which counts delivered ones too
+ * (JustRite 2026-10-22: 4 shown waiting, none were).
+ * @param {object[]} erps the listed ERPs
+ * @returns {{ total: number, foot: string }}
+ */
+export function waitingNow(erps) {
+  const waiting = erps.filter((erp) => erp.eventsPending > 0);
+  return {
+    foot: waiting.map((erp) => `${erp.name}: ${erp.eventsPending}`).join(", "),
+    total: waiting.reduce((sum, erp) => sum + erp.eventsPending, 0),
   };
 }

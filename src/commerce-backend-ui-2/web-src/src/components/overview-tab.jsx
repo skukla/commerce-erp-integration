@@ -20,24 +20,21 @@ import { LOG_CELLS, LOG_COLUMNS } from "#web/components/admin/log-cells.jsx";
 import { ErpName } from "#web/components/controls.jsx";
 import { SearchBox } from "#web/components/search-box.jsx";
 import { needsAttention } from "#web/history-view.js";
-import { erpRow, todayCounts } from "#web/overview-view.js";
+import { erpRow, todayCounts, waitingNow } from "#web/overview-view.js";
 import { nextPublishText, scheduledRunRows } from "#web/scheduled-view.js";
 import { clockTime, whenText } from "#web/time-view.js";
 
 /** Today's counts, and what waits to be sent now, as the Dashboard's totals. */
 function Today({ counts, erpInfo }) {
-  const waiting = erpInfo.erps.filter((erp) => erp.counts?.events > 0);
-  const total = waiting.reduce((sum, erp) => sum + erp.counts.events, 0);
+  const waiting = waitingNow(erpInfo.erps);
   const items = [
     { label: "Orders sent today", value: counts.ordersSent },
     { label: "Updates from the ERPs today", value: counts.erpApplied },
     { label: "Changes to the ERPs today", value: counts.commerceSent },
     {
-      foot: waiting
-        .map((erp) => `${erp.name}: ${erp.counts.events}`)
-        .join(", "),
+      foot: waiting.foot,
       label: "Waiting to send now",
-      value: total,
+      value: waiting.total,
     },
   ];
   return <AdminTotals items={items} label="Today" />;

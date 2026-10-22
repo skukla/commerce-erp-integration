@@ -29,8 +29,16 @@ const maintenanceReason = (data) => data?.maintenance?.message;
 /**
  * What the Admin page's Overview shows per ERP, as far as its health gives it: its figures, and
  * how it looks (demo-erp's `appearance`, whose palette colors the ERP on the page).
+ * `eventsPending` is what waits to be sent; `counts.events` is every message on record,
+ * delivered ones included.
  */
-const FIGURES = ["appearance", "counts", "lastImportAt", "lastWipeAt"];
+const FIGURES = [
+  "appearance",
+  "counts",
+  "eventsPending",
+  "lastImportAt",
+  "lastWipeAt",
+];
 
 function figuresOf(data) {
   return Object.fromEntries(
