@@ -269,7 +269,7 @@ describe("Given a record the integration made", () => {
 
   test.each([
     "21 orders canceled, 3 noted as closed",
-    "21 orders canceled, 4 refunded and closed, 3 left open with a note, 2 returns closed",
+    "21 orders canceled, 4 refunded, 3 left open with a note, 2 returns closed",
     "no orders to close",
   ])("Then a demo reset says what it closed (%s)", (what) => {
     const entry = {

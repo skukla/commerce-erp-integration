@@ -8,6 +8,7 @@ import {
   hasResetNote,
   openReturns,
   refundedNote,
+  refundedOpenNote,
   refundOf,
   resetStepOf,
 } from "#lib/reset-rule";
@@ -18,10 +19,11 @@ import { RESET_RULE_CASES } from "./reset-rule-orders.js";
 const OUTCOME = {
   cancel: "canceled",
   refund: "refunded",
+  stuck: "noted",
   untouched: "untouched",
 };
 
-describe("Given the five example orders of the one reset rule", () => {
+describe("Given the example orders of the one reset rule", () => {
   test.each(RESET_RULE_CASES.map((c) => [c.name, c]))(
     "%s",
     (_name, { order, returns, expected, closesReturn }) => {
@@ -47,6 +49,19 @@ describe("Given the five example orders of the one reset rule", () => {
       { order_item_id: 73, qty: 3 },
     ]);
     expect(refundOf(shipped.order).arguments.shipping_amount).toBe(5);
+  });
+});
+
+test("Then a partly invoiced order is refunded only its invoiced line and the invoiced shipping", () => {
+  const partly = RESET_RULE_CASES.find((c) => c.staysOpen);
+  expect(refundOf(partly.order)).toEqual({
+    arguments: {
+      adjustment_negative: 0,
+      adjustment_positive: 0,
+      shipping_amount: 5,
+    },
+    items: [{ order_item_id: 77, qty: 1 }],
+    notify: false,
   });
 });
 
@@ -116,6 +131,17 @@ describe("Given an order the five cases do not cover", () => {
     );
     const all = { items: [line({ qty_invoiced: 2, qty_refunded: 2 })] };
     expect(refundOf(all)).toBeNull();
+  });
+
+  test("Then the note of a refund Commerce kept open says so, and a second run knows it too", () => {
+    expect(refundedOpenNote("2026-10-30")).toBe(
+      "Refunded the invoiced items by the demo reset on 2026-10-30.",
+    );
+    expect(
+      hasResetNote({
+        status_histories: [{ comment: refundedOpenNote("2026-10-30") }],
+      }),
+    ).toBe(true);
   });
 
   test("Then the refund's note carries the words a second run looks for", () => {

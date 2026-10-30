@@ -1,10 +1,11 @@
 /*
  * Pair-in-a-box: the ONE reset rule (owner, 2026-10-30), end to end, with the REAL mock ERP in this
- * process and the fake Commerce in front. The five example orders (the owner's names, shared with
+ * process and the fake Commerce in front. The seven example orders (the owner's names, shared with
  * Demo Builder's store wipe: test/lib/reset-rule-orders.js) are each sent to the ERP, then given
  * the case's quantities and state in Commerce. erp/detach with closeOrders, as Demo Builder's
  * reset runs it, then: cancels (1), refunds offline so Commerce closes (2, 3, 4), closes (4)'s
- * open return, and leaves (5) alone.
+ * open return, leaves (5) alone, only notes the order shipped but never invoiced, and refunds
+ * the partly invoiced one, which Commerce keeps open.
  *
  * Every event Commerce raised for those writes is then delivered to the handlers, as I/O Events
  * would: the order saves to order-commerce/created and changed, the return save to
@@ -63,10 +64,20 @@ import { fillErp } from "./fill-erp.js";
 const DAY = "2026-10-30";
 const NOTES = {
   canceled: `Canceled by the demo reset on ${DAY}.`,
+  noted: `The ERP documents for this order were removed by the demo reset on ${DAY}.`,
   refunded: `Refunded and closed by the demo reset on ${DAY}.`,
+  refundedOpen: `Refunded the invoiced items by the demo reset on ${DAY}.`,
 };
 /** The state each outcome leaves the order in. */
-const STATE = { canceled: "canceled", refunded: "closed", untouched: "closed" };
+const STATE = {
+  canceled: "canceled",
+  noted: "processing",
+  refunded: "closed",
+  refundedOpen: "processing",
+  untouched: "closed",
+};
+/** A case's outcome, telling a refund Commerce kept open from one it closed. */
+const outcomeOf = (c) => (c.staysOpen ? "refundedOpen" : c.expected);
 
 const statusOf = (res) => res.statusCode ?? res.error?.statusCode;
 const orderOf = (id) => box.commerce.db.orders.get(id);
@@ -157,62 +168,63 @@ beforeAll(async () => {
 });
 afterAll(() => vi.useRealTimers());
 
-describe("Pair in a box: the one reset rule on the five example orders", () => {
-  test("Then the reset answers what it did: one canceled, three refunded, one return closed, one already closed", () => {
+describe("Pair in a box: the one reset rule on the example orders", () => {
+  test("Then the reset answers what it did: one canceled, four refunded, one noted, one return closed, one already closed", () => {
     expect(statusOf(run.first)).toBe(200);
     expect(run.first.body.closed).toEqual({
       alreadyClosed: 1,
       cancelled: 1,
-      commented: 0,
+      commented: 1,
       failed: [],
-      partsRemoved: 5,
-      refunded: 3,
+      partsRemoved: RESET_RULE_CASES.length,
+      refunded: 4,
       returnsClosed: 1,
     });
   });
 
-  test.each(RESET_RULE_CASES.map((c) => [c.name, c]))(
-    "%s",
-    (_name, { order, expected, closesReturn }) => {
-      const id = order.entity_id;
-      expect(orderOf(id).state).toBe(STATE[expected]);
-      expect(orderOf(id).ext_order_id).toBe("");
-      const refunds = writesOn(id).filter((w) => w.kind === "refundOrder");
-      if (expected === "untouched") {
-        // Only the ERP number the ERP gave it is cleared; nothing is canceled, refunded or noted.
-        expect(writesOn(id).map((w) => w.kind)).toEqual(["clearExtOrderId"]);
-        return;
-      }
-      expect(resetNotesOn(id)).toEqual([NOTES[expected]]);
-      if (expected === "canceled") {
-        expect(refunds).toEqual([]);
-        return;
-      }
-      expect(refunds).toHaveLength(1);
-      expect(refunds[0].body).toEqual({
-        arguments: {
-          adjustment_negative: 0,
-          adjustment_positive: 0,
-          shipping_amount: order.base_shipping_invoiced,
-        },
-        items: order.items.map((line) => ({
+  test.each(RESET_RULE_CASES.map((c) => [c.name, c]))("%s", (_name, c) => {
+    const { order, expected, closesReturn } = c;
+    const id = order.entity_id;
+    expect(orderOf(id).state).toBe(STATE[outcomeOf(c)]);
+    expect(orderOf(id).ext_order_id).toBe("");
+    const refunds = writesOn(id).filter((w) => w.kind === "refundOrder");
+    if (expected === "untouched") {
+      // Only the ERP number the ERP gave it is cleared; nothing is canceled, refunded or noted.
+      expect(writesOn(id).map((w) => w.kind)).toEqual(["clearExtOrderId"]);
+      return;
+    }
+    expect(resetNotesOn(id)).toEqual([NOTES[outcomeOf(c)]]);
+    if (expected === "canceled" || expected === "noted") {
+      expect(refunds).toEqual([]);
+      return;
+    }
+    expect(refunds).toHaveLength(1);
+    expect(refunds[0].body).toEqual({
+      arguments: {
+        adjustment_negative: 0,
+        adjustment_positive: 0,
+        shipping_amount: order.base_shipping_invoiced,
+      },
+      items: order.items
+        .filter((line) => line.qty_invoiced > 0)
+        .map((line) => ({
           order_item_id: line.item_id,
           qty: line.qty_invoiced,
         })),
-        notify: false,
-      });
-      for (const returnId of run.returns[id]) {
-        expect(closesReturn).toBeDefined();
-        expect(box.commerce.db.returns.get(returnId).status).toBe("closed");
-      }
-    },
-  );
+      notify: false,
+    });
+    for (const returnId of run.returns[id]) {
+      expect(closesReturn).toBeDefined();
+      expect(box.commerce.db.returns.get(returnId).status).toBe("closed");
+    }
+  });
 
   test("Then every event the reset's writes raised, delivered to its handler, reaches no ERP", async () => {
     const orderSaves = box.commerce.orderSaves.slice(run.savesBefore);
     const returnSaves = box.commerce.returnSaves.slice(run.returnSavesBefore);
-    // The cancel and three refunds at least; the one return close.
-    expect(orderSaves.length).toBeGreaterThanOrEqual(4);
+    // The cancel and four refunds at least (a note raises no save here); the one return close.
+    const namingSaves = 5;
+    expect(orderSaves.length).toBeGreaterThanOrEqual(namingSaves);
     expect(returnSaves).toHaveLength(1);
     const answers = [];
     for (const event of orderSaves) {
@@ -238,7 +250,7 @@ describe("Pair in a box: the one reset rule on the five example orders", () => {
       }
     }
     expect(answers.filter(([number]) => number)).toHaveLength(
-      2 * 4 + returnSaves.length,
+      2 * namingSaves + returnSaves.length,
     );
     // The reset and its events only read the ERP's order list and orders: nothing was created,
     // canceled, refunded, held or returned there.
@@ -251,7 +263,7 @@ describe("Pair in a box: the one reset rule on the five example orders", () => {
     const returnSaves = box.commerce.returnSaves.length;
     const again = await closeAll();
     expect(again.body.closed).toEqual({
-      alreadyClosed: 5,
+      alreadyClosed: RESET_RULE_CASES.length,
       cancelled: 0,
       commented: 0,
       failed: [],

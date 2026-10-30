@@ -141,7 +141,7 @@ const returnsCount = (count) =>
 export function resetLine(day, closed) {
   const done = [
     [closed.cancelled, "canceled"],
-    [closed.refunded ?? 0, "refunded and closed"],
+    [closed.refunded ?? 0, "refunded"],
     [closed.commented, "left open with a note"],
   ]
     .filter(([count]) => count > 0)

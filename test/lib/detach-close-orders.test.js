@@ -13,6 +13,7 @@ import { detach } from "#lib/detach";
 const DAY = "2026-09-28";
 const CANCELLED = `Canceled by the demo reset on ${DAY}.`;
 const REFUNDED = `Refunded and closed by the demo reset on ${DAY}.`;
+const REFUNDED_OPEN = `Refunded the invoiced items by the demo reset on ${DAY}.`;
 const REMOVED = `The ERP documents for this order were removed by the demo reset on ${DAY}.`;
 
 /** The close's counts with nothing done, for `toEqual` over a whole answer. */
@@ -52,6 +53,7 @@ function fakeCommerce(orders) {
   const calls = [];
   const byId = new Map(orders.map((o) => [String(o.entity_id), o]));
   return {
+    byId,
     calls,
     clearExtOrderId: vi.fn(async (_p, id) => {
       calls.push(["clearExtOrderId", String(id)]);
@@ -87,9 +89,12 @@ function fakeCommerce(orders) {
 
 /**
  * The refund and return calls (#src/order/commerce-order-api-client), over a map of returns by
- * id; `keepOpen` names returns Commerce saves without closing.
+ * id and the fake Commerce's orders; `keepOpen` names returns Commerce saves without closing,
+ * `ordersKeptOpen` orders a refund leaves open (a line never invoiced). Any other refunded order
+ * reads back closed.
  */
-function fakeOrderClient(calls, returns = [], { keepOpen = [] } = {}) {
+function fakeOrderClient(calls, returns = [], options = {}) {
+  const { keepOpen = [], orders, ordersKeptOpen = [] } = options;
   const byId = new Map(returns.map((r) => [Number(r.entity_id), r]));
   return {
     getReturn: vi.fn(async (_p, id) => structuredClone(byId.get(Number(id)))),
@@ -101,6 +106,9 @@ function fakeOrderClient(calls, returns = [], { keepOpen = [] } = {}) {
     }),
     refundOrder: vi.fn(async (_p, id, body) => {
       calls.push(["refundOrder", String(id), body]);
+      if (!ordersKeptOpen.includes(Number(id))) {
+        orders.get(String(id)).state = "closed";
+      }
       return "901";
     }),
     returns: byId,
@@ -140,10 +148,21 @@ const ledger = {
   revertLedger: vi.fn(async () => ({ failed: [], reverted: 0 })),
 };
 
-function setUp(orders, { listed = [], parts = [], returns, keepOpen } = {}) {
+function setUp(orders, options = {}) {
+  const {
+    listed = [],
+    parts = [],
+    returns,
+    keepOpen,
+    ordersKeptOpen,
+  } = options;
   const commerce = fakeCommerce(orders);
   const orderParts = fakeOrderParts(parts, commerce.calls);
-  const orderClient = fakeOrderClient(commerce.calls, returns, { keepOpen });
+  const orderClient = fakeOrderClient(commerce.calls, returns, {
+    keepOpen,
+    orders: commerce.byId,
+    ordersKeptOpen,
+  });
   const deps = {
     commerce,
     erp: listing(listed),
@@ -239,6 +258,39 @@ describe("Given detach asked to close the orders", () => {
       [{ closeOrders: true }, 57, REFUNDED],
     ]);
     expect(result.closed).toEqual({ ...NOTHING, refunded: 2 });
+  });
+
+  test("Then a partly invoiced order Commerce keeps open after the refund is read back and noted as refunded, not closed", async () => {
+    const partly = order(63, {
+      items: [line({ qty_invoiced: 2 }), line({ item_id: 2, sku: "B2" })],
+      state: "processing",
+    });
+    const { commerce, deps, orderClient } = setUp([partly], {
+      listed: [{ purchaseOrderByCustomer: "0000063" }],
+      ordersKeptOpen: [63],
+    });
+
+    const result = await detach({ closeOrders: true }, deps);
+
+    expect(orderClient.refundOrder.mock.calls[0][2].items).toEqual([
+      { order_item_id: 1, qty: 2 },
+    ]);
+    const names = commerce.calls.map(([name]) => name);
+    expect(names.slice(names.indexOf("refundOrder"))).toEqual([
+      "refundOrder",
+      "comment",
+    ]);
+    // The read after the refund: the state Commerce gave the order decides the note.
+    expect(commerce.orders.get).toHaveBeenLastCalledWith(
+      { closeOrders: true },
+      63,
+    );
+    expect(commerce.orders.comment).toHaveBeenCalledWith(
+      { closeOrders: true },
+      63,
+      REFUNDED_OPEN,
+    );
+    expect(result.closed).toEqual({ ...NOTHING, refunded: 1 });
   });
 
   test("Then an order shipped but never invoiced is only noted and counted: Commerce credits only what was invoiced, and the rule cancels nothing shipped", async () => {

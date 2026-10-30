@@ -78,7 +78,7 @@ describe("Given what a reset closed", () => {
   test.each([
     [
       { cancelled: 21, commented: 3, refunded: 4, returnsClosed: 2 },
-      "21 orders canceled, 4 refunded and closed, 3 left open with a note, 2 returns closed; the ERPs' changes in Commerce undone.",
+      "21 orders canceled, 4 refunded, 3 left open with a note, 2 returns closed; the ERPs' changes in Commerce undone.",
     ],
     [
       { cancelled: 1, commented: 0, refunded: 0, returnsClosed: 0 },
@@ -86,7 +86,7 @@ describe("Given what a reset closed", () => {
     ],
     [
       { cancelled: 0, commented: 0, refunded: 1, returnsClosed: 1 },
-      "1 order refunded and closed, 1 return closed; the ERPs' changes in Commerce undone.",
+      "1 order refunded, 1 return closed; the ERPs' changes in Commerce undone.",
     ],
     [
       { cancelled: 0, commented: 2, refunded: 0, returnsClosed: 0 },

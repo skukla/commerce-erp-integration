@@ -299,7 +299,7 @@ const OWN = {
   "product-created": (e) => row(e.ref, "", productSent("Product created", e)),
   "product-deleted": (e) => row(e.ref, "", "Product deleted"),
   reset: (e) => {
-    // "21 orders canceled, 4 refunded and closed, 3 left open with a note, 2 returns closed" or
+    // "21 orders canceled, 4 refunded, 3 left open with a note, 2 returns closed" or
     // "no orders to close" (lib/detach.js resetLine).
     const what = RESET_WHAT.exec(message(e))?.[1]?.trim();
     return row("", "", what ? `Demo reset: ${what}` : "Demo reset");

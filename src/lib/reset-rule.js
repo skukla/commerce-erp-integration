@@ -7,7 +7,8 @@
  *    "Canceled by the demo reset on <day>.";
  * 2. any other order not already canceled or closed: what is invoiced is refunded with an offline
  *    credit memo, so the order becomes Closed, noted "Refunded and closed by the demo reset on
- *    <day>.";
+ *    <day>."; read back, an order Commerce kept open (a line never invoiced) is noted "Refunded
+ *    the invoiced items by the demo reset on <day>." instead;
  * 3. its open returns: Closed (lib/close-orders.js);
  * 4. run twice, nothing new: an order whose history carries RESET_NOTE was handled before;
  * 5. an order Commerce can neither cancel nor credit (shipped but never invoiced; in payment
@@ -24,6 +25,9 @@ export const RESET_NOTE = "by the demo reset on";
 export const cancelledNote = (day) => `Canceled by the demo reset on ${day}.`;
 export const refundedNote = (day) =>
   `Refunded and closed by the demo reset on ${day}.`;
+/** A refund Commerce kept open: a line was never invoiced, so the order still has some to bill. */
+export const refundedOpenNote = (day) =>
+  `Refunded the invoiced items by the demo reset on ${day}.`;
 export const removedNote = (day) =>
   `The ERP documents for this order were removed by the demo reset on ${day}.`;
 

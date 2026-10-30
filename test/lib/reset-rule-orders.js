@@ -35,8 +35,11 @@ const openReturn = (id, orderId, number) => ({
 });
 
 /**
+ * `staysOpen`: refunded, but Commerce keeps the order open (a line was never invoiced), so its
+ * note says only the invoiced items were refunded.
  * @type {Array<{ name: string, order: object, returns: object[],
- *   expected: "canceled"|"refunded"|"untouched", closesReturn?: number }>}
+ *   expected: "canceled"|"refunded"|"noted"|"untouched", closesReturn?: number,
+ *   staysOpen?: true }>}
  */
 export const RESET_RULE_CASES = [
   {
@@ -110,5 +113,36 @@ export const RESET_RULE_CASES = [
       store_id: RESET_RULE_VIEW,
     },
     returns: [],
+  },
+  {
+    expected: "noted",
+    name: "shipped, not invoiced → noted",
+    order: {
+      base_shipping_invoiced: 0,
+      base_shipping_refunded: 0,
+      entity_id: 706,
+      increment_id: "000000706",
+      items: [line(76, 2, 0, 2)],
+      state: "processing",
+      status: "processing",
+      store_id: RESET_RULE_VIEW,
+    },
+    returns: [],
+  },
+  {
+    expected: "refunded",
+    name: "partly invoiced → refunded, not closed",
+    order: {
+      base_shipping_invoiced: 5,
+      base_shipping_refunded: 0,
+      entity_id: 707,
+      increment_id: "000000707",
+      items: [line(77, 1, 1), line(78, 1)],
+      state: "processing",
+      status: "processing",
+      store_id: RESET_RULE_VIEW,
+    },
+    returns: [],
+    staysOpen: true,
   },
 ];
