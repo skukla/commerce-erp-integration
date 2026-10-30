@@ -75,7 +75,7 @@ describe("Given the id a caller names its detach run by", () => {
 
   test("Then a kind nothing tracks is refused in words", () => {
     expect(() => runKey("wipe", RUN)).toThrow(
-      "wipe is not a kind of run; the kinds are detach, prices",
+      "wipe is not a kind of run; the kinds are close-orders, detach, prices",
     );
   });
 });

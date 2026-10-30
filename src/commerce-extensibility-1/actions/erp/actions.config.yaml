@@ -101,6 +101,25 @@ detach:
   annotations:
     require-adobe-auth: true
     final: true
+# Closes the orders of some stores only, by the one reset rule: Demo Builder's store wipe of a
+# store an ERP serves (lib/close-store-orders.js). It asks no ERP anything, so it has no ERP inputs.
+close-orders:
+  function: ./close-orders/index.js
+  web: 'yes'
+  runtime: nodejs:24
+  limits:
+    timeout: 300000
+  inputs:
+    LOG_LEVEL: $LOG_LEVEL
+    AIO_COMMERCE_AUTH_IMS_CLIENT_ID: $AIO_COMMERCE_AUTH_IMS_CLIENT_ID
+    AIO_COMMERCE_AUTH_IMS_CLIENT_SECRETS: $AIO_COMMERCE_AUTH_IMS_CLIENT_SECRETS
+    AIO_COMMERCE_AUTH_IMS_TECHNICAL_ACCOUNT_ID: $AIO_COMMERCE_AUTH_IMS_TECHNICAL_ACCOUNT_ID
+    AIO_COMMERCE_AUTH_IMS_TECHNICAL_ACCOUNT_EMAIL: $AIO_COMMERCE_AUTH_IMS_TECHNICAL_ACCOUNT_EMAIL
+    AIO_COMMERCE_AUTH_IMS_ORG_ID: $AIO_COMMERCE_AUTH_IMS_ORG_ID
+    AIO_COMMERCE_AUTH_IMS_SCOPES: $AIO_COMMERCE_AUTH_IMS_SCOPES
+  annotations:
+    require-adobe-auth: true
+    final: true
 keymap:
   function: ./keymap/index.js
   web: 'yes'

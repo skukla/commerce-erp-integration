@@ -44,8 +44,30 @@ const NOTES = {
   refundedOpen: refundedOpenNote,
 };
 
+/** Read each order whole, together; one Commerce cannot answer is a failure, the rest go on. */
+async function readOrders(params, ids, commerce) {
+  const failed = [];
+  // The reads run together: this runs inside a web action with a 60-second answer window, and
+  // one read at a time over a day of test orders outran it (Justrite, 2026-10-02).
+  const read = await Promise.all(
+    [...ids].map(async (id) => {
+      try {
+        return await commerce.orders.get(params, id);
+      } catch (error) {
+        failed.push({
+          error: `order ${id}: not read from Commerce: ${error.message}`,
+          orderId: id,
+        });
+        return null;
+      }
+    }),
+  );
+  return { failed, orders: read.filter(Boolean) };
+}
+
 /**
- * The orders to close: every one an ERP listed, and every one with a parts record, each read once.
+ * The orders a whole reset closes: every one an ERP listed, and every one with a parts record,
+ * each read once.
  * @param {object} params action params
  * @param {string[]} listedIds the Commerce order ids the ERPs' order lists name
  * @param {object} deps `{ commerce, orderParts }`
@@ -54,9 +76,6 @@ const NOTES = {
  */
 async function readTargets(params, listedIds, { commerce, orderParts }) {
   const ids = new Set(listedIds.map(String));
-  const failed = [];
-  // The reads run together: this runs inside detach, a web action with a 60-second answer
-  // window, and one read at a time over a day of test orders outran it (Justrite, 2026-10-02).
   const numbers = await orderParts.listOrderPartsIds();
   const hits = await Promise.all(
     numbers.map((incrementId) =>
@@ -73,24 +92,20 @@ async function readTargets(params, listedIds, { commerce, orderParts }) {
       stale += 1;
     }
   }
-  const read = await Promise.all(
-    [...ids].map(async (id) => {
-      try {
-        return await commerce.orders.get(params, id);
-      } catch (error) {
-        failed.push({
-          error: `order ${id}: not read from Commerce: ${error.message}`,
-          orderId: id,
-        });
-        return null;
-      }
-    }),
-  );
-  return { failed, orders: read.filter(Boolean), stale };
+  return { ...(await readOrders(params, ids, commerce)), stale };
+}
+
+/** Mark every order closed, before anything is written to Commerce. */
+async function markAll(orders, deps, day) {
+  for (const order of orders) {
+    // biome-ignore lint/performance/noAwaitInLoops: one mark at a time, few orders
+    await deps.orderParts.markClosedByReset(order.increment_id, day);
+  }
 }
 
 /**
- * Read every order to close and mark each closed, before anything is written to Commerce.
+ * Read every order a whole reset closes and mark each closed, before anything is written to
+ * Commerce.
  * @param {object} params action params
  * @param {string[]} listedIds the Commerce order ids the ERPs' order lists name
  * @param {object} deps `{ commerce, orderParts, today() }`
@@ -99,11 +114,23 @@ async function readTargets(params, listedIds, { commerce, orderParts }) {
 export async function prepareClose(params, listedIds, deps) {
   const day = deps.today();
   const targets = await readTargets(params, listedIds, deps);
-  for (const order of targets.orders) {
-    // biome-ignore lint/performance/noAwaitInLoops: one mark at a time, few orders
-    await deps.orderParts.markClosedByReset(order.increment_id, day);
-  }
+  await markAll(targets.orders, deps, day);
   return { day, ...targets };
+}
+
+/**
+ * Read exactly these orders and mark each closed, before anything is written to Commerce: a
+ * store-scoped close (lib/close-store-orders.js), which closes the orders of some stores only.
+ * @param {object} params action params
+ * @param {string[]} orderIds the Commerce order ids to close
+ * @param {object} deps `{ commerce, orderParts, today() }`
+ * @returns {Promise<{ day: string, orders: object[], failed: object[], stale: number }>}
+ */
+export async function prepareCloseOf(params, orderIds, deps) {
+  const day = deps.today();
+  const targets = await readOrders(params, orderIds.map(String), deps.commerce);
+  await markAll(targets.orders, deps, day);
+  return { day, ...targets, stale: 0 };
 }
 
 /** Forget the order: its parts record, and its ERP number unless detach cleared it already. */
@@ -189,6 +216,11 @@ async function settle(params, order, next, deps, step) {
   return "commented";
 }
 
+/** Record what was done to one order, for a caller that asked for the list (`done.touched`). */
+function touch(tally, order, outcome) {
+  tally.touched?.push({ orderId: String(order.increment_id), outcome });
+}
+
 /** Close one order; `step` names what was being done when a call fails. */
 async function closeOne(params, order, deps, tally) {
   const id = order.entity_id;
@@ -200,6 +232,7 @@ async function closeOne(params, order, deps, tally) {
     const next = resetStepOf(order);
     if (hasResetNote(order) || next === "untouched") {
       tally.closed.alreadyClosed += 1;
+      touch(tally, order, "alreadyClosed");
       return;
     }
     if (order.state === "holded") {
@@ -213,7 +246,9 @@ async function closeOne(params, order, deps, tally) {
     await deps.commerce.orders.comment(params, id, NOTES[outcome](tally.day));
     // Every refund counts as refunded, closed or not: the note tells the two apart.
     tally.closed[outcome === "refundedOpen" ? "refunded" : outcome] += 1;
+    touch(tally, order, outcome);
   } catch (error) {
+    touch(tally, order, "failed");
     tally.closed.failed.push({
       error: `order ${order.increment_id}: ${step.name} failed: ${error.message}`,
       orderId: String(order.increment_id),
@@ -229,7 +264,9 @@ async function closeOne(params, order, deps, tally) {
  *   prepareClose's answer
  * @param {object} deps `{ commerce, orderClient: { listOrderReturns, getReturn, updateReturn,
  *   refundOrder }, orderParts }`
- * @param {{ cleared: Set<string>, orders: object, holds: object }} done detach's counts
+ * @param {{ cleared: Set<string>, orders: object, holds: object, touched?: object[] }} done
+ *   detach's counts; with `touched`, each order is added to it as `{ orderId, outcome }`
+ *   (`cancelled`, `refunded`, `refundedOpen`, `commented`, `alreadyClosed` or `failed`)
  * @returns {Promise<{ cancelled: number, refunded: number, commented: number,
  *   alreadyClosed: number, returnsClosed: number, partsRemoved: number, failed: object[] }>}
  *   `commented`: orders Commerce could neither cancel nor credit, left open with a note;

@@ -642,6 +642,34 @@ export function createFakeCommerce() {
     },
   };
 
+  /**
+   * The store's structure and its orders by store view (the shape #lib/commerce-store-scope
+   * answers). Two websites with one store and one view each, as websiteCodeOfStore maps them
+   * (view 1 on base, view 2 on eu), and a website with no store at all.
+   */
+  const storeScope = {
+    orderIdsInViews: async (_p, viewIds) =>
+      [...db.orders.values()]
+        .filter((o) => viewIds.includes(Number(o.store_id)))
+        .map((o) => String(o.entity_id)),
+    readStoreStructure: async () => ({
+      storeGroups: [
+        { code: "main_website_store", id: 1, website_id: 1 },
+        { code: "eu_store", id: 2, website_id: 2 },
+      ],
+      storeViews: [
+        { code: "default", id: 1, store_group_id: 1, website_id: 1 },
+        { code: "eu_en", id: 2, store_group_id: 2, website_id: 2 },
+      ],
+      websites: [
+        { code: "admin", id: 0 },
+        { code: "base", id: 1 },
+        { code: "eu", id: 2 },
+        { code: "bare", id: 3 },
+      ],
+    }),
+  };
+
   /** What Commerce holds right now, for the ledger (the shape #lib/commerce-before answers). */
   const before = {
     nameOf: async (_p, sku) => db.products.get(sku)?.name,
@@ -759,6 +787,7 @@ export function createFakeCommerce() {
     },
     shipmentClient,
     stockClient,
+    storeScope,
     tierPrices,
     writes,
   };

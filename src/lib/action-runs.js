@@ -15,7 +15,7 @@
 import stateLib from "@adobe/aio-lib-state";
 
 /** The actions whose runs are tracked, each the prefix of its own records. */
-const KINDS = ["detach", "prices"];
+const KINDS = ["close-orders", "detach", "prices"];
 const TTL_SECONDS = 24 * 60 * 60;
 /** A caller-chosen id; every character is one a State key takes. */
 const RUN_ID = /^[A-Za-z0-9_-]{8,64}$/u;
@@ -35,7 +35,7 @@ export function resetRunsClient(client) {
 
 /**
  * The State key of a run's record.
- * @param {"detach"|"prices"} kind the action that ran
+ * @param {"close-orders"|"detach"|"prices"} kind the action that ran
  * @param {string} run the caller's id
  */
 export function runKey(kind, run) {
@@ -78,7 +78,7 @@ async function writeOutcome(kind, record) {
  * done or failed after. A run that cannot be recorded as started does no work and throws:
  * nobody could ask about it.
  * @template T
- * @param {"detach"|"prices"} kind the action that runs
+ * @param {"close-orders"|"detach"|"prices"} kind the action that runs
  * @param {string} run the caller's id (see `runProblem`)
  * @param {() => Promise<T>} work the action's work
  * @param {() => string} [now] the time, ISO 8601
@@ -115,7 +115,7 @@ export async function trackRun(
 }
 
 /**
- * @param {"detach"|"prices"} kind the action that ran
+ * @param {"close-orders"|"detach"|"prices"} kind the action that ran
  * @param {string} run the caller's id
  * @returns {Promise<object|null>} the run's record, or null when no run of that kind was
  *   started by that id (or its record is older than a day)
