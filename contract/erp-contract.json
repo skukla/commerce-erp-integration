@@ -1,6 +1,6 @@
 {
   "name": "demo-erp",
-  "contractVersion": 23,
+  "contractVersion": 24,
   "description": "What the ERP promises its subscribers: the routes it serves, the shapes it accepts, and the events it publishes. The Commerce integration vendors this file and its tests fail when the two disagree.",
   "routes": {
     "health": [
@@ -175,7 +175,7 @@
       "partnerGroups",
       "contracts"
     ],
-    "seedNote": "version 10: the ONE-TIME setup seed of pricing from Commerce's custom shared catalogs (Demo Builder's fill, AB-44), sent after products and partners exist. priceGroups [{code,name}] is a group per custom shared catalog; partnerGroups [{id,priceGroup}] sets each customer's price group from its catalog membership; contracts [{priceGroup,description,startingDate,lines}] is the catalog's tier prices as the group's ACTIVE price list. Silent: the prices are Commerce's already, so nothing is echoed back (no contract.changed); a seed-only import journals nothing and does not move lastImportAt"
+    "seedNote": "version 10: the ONE-TIME setup seed of pricing from Commerce's custom shared catalogs (Demo Builder's fill, AB-44), sent after products and partners exist. priceGroups [{code,name}] is a group per custom shared catalog; partnerGroups [{id,priceGroup}] sets each customer's price group from its catalog membership; contracts [{priceGroup,description,startingDate,lines}] is the catalog's tier prices as the group's ACTIVE price list. Silent: the prices are Commerce's already, so nothing is echoed back (no contract.changed); a seed-only import journals nothing and does not move lastImportAt. version 24: the seed is idempotent per price group, since Demo Builder's fill also runs over an ERP that keeps other demos' records (a store wipe refills it): the list it writes carries source \"seed\" and a later seed updates that list in place (lines, term, description; its number, createdAt and status kept) instead of adding one. A list made by hand (no source) is never touched. Lists seeded before version 24 carry no source; one for the group that is active, was written once (createdAt equal to updatedAt) and is described by the group's name or code is taken as seeded: the newest is kept and marked, the others removed"
   },
   "availability": {
     "request": [
@@ -258,7 +258,8 @@
       "status",
       "lines",
       "createdAt",
-      "updatedAt"
+      "updatedAt",
+      "source"
     ],
     "appliesTo": [
       "customer",

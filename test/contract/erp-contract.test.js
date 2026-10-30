@@ -163,6 +163,14 @@ describe("Given the ERP contract", () => {
     );
   });
 
+  // Contract version 24 (2026-10-30): the pricing seed Demo Builder's fill sends is idempotent per
+  // price group, and a price list carries `source`. This app reads no price list's fields (it
+  // reads contracts/in-force), so nothing here changes; the pin says the vendored copy is 24.
+  test("Then from version 24 a price list may carry source, which this app does not read", () => {
+    expect(contract.contractVersion).toBeGreaterThanOrEqual(24);
+    expect(contract.contracts.contract).toContain("source");
+  });
+
   test("Then the ERP routes this app calls are routes the ERP serves", () => {
     const erpClient = readFileSync("src/lib/erp.js", "utf8");
     const called = [...erpClient.matchAll(ERP_ROUTE_CALL)].map((m) => m[1]);
