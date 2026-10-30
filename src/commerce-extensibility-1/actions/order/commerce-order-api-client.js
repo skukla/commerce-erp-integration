@@ -177,6 +177,61 @@ async function refundOrderItems(params, orderId, items, comment) {
 }
 
 /**
+ * Refund what a demo reset refunds (lib/reset-rule.js refundOf): an offline credit memo, the body
+ * as given. POST order/{orderId}/refund is the route Adobe documents as "Issues an offline
+ * refund" (developer.adobe.com/commerce/webapi/rest/tutorials/orders/order-issue-refund/, read
+ * 2026-10-30); its answer is the credit memo's id (measured 2026-10-02, refundOrderItems above).
+ * @param {object} params - Environment params from the IO Runtime request
+ * @param {number} orderId - order id
+ * @param {{ items: object[], notify: boolean, arguments: object }} body - the credit memo
+ * @returns {Promise<string>} the credit memo id
+ */
+async function refundOrder(params, orderId, body) {
+  const client = await getCommerceClient(
+    resolveImsAuthParams(params),
+    COMMERCE_FETCH_OPTIONS,
+  );
+  return await client.post(`order/${orderId}/refund`, { json: body }).json();
+}
+
+const NOT_FOUND = 404;
+
+/**
+ * The returns (RMA) of an order: GET returns filtered on `order_id` (Adobe's REST reference,
+ * GetV1Returns; its search answers `{ items, total_count }` like every Commerce search). NOT
+ * captured live. A store without returns answers 404, read as none (as Demo Builder's wipe reads
+ * it). Each item carries its header (entity_id, increment_id, status); read the return itself
+ * for its items.
+ * @param {object} params - Environment params from the IO Runtime request
+ * @param {number} orderId - the order's entity id
+ * @returns {Promise<object[]>} the returns
+ */
+async function listOrderReturns(params, orderId) {
+  const client = await getCommerceClient(
+    resolveImsAuthParams(params),
+    COMMERCE_FETCH_OPTIONS,
+  );
+  try {
+    const page = await client
+      .get("returns", {
+        searchParams: {
+          "searchCriteria[filter_groups][0][filters][0][condition_type]": "eq",
+          "searchCriteria[filter_groups][0][filters][0][field]": "order_id",
+          "searchCriteria[filter_groups][0][filters][0][value]":
+            String(orderId),
+        },
+      })
+      .json();
+    return page?.items ?? [];
+  } catch (error) {
+    if (error.response?.status === NOT_FOUND) {
+      return [];
+    }
+    throw error;
+  }
+}
+
+/**
  * Read a return (RMA) with its items.
  * @param {object} params - Environment params from the IO Runtime request
  * @param {number} returnId - the return's entity id
@@ -264,6 +319,8 @@ export {
   invoiceOrder,
   invoiceOrderItems,
   listOrderInvoices,
+  listOrderReturns,
+  refundOrder,
   refundOrderItems,
   returnReasonLabels,
   unholdOrder,

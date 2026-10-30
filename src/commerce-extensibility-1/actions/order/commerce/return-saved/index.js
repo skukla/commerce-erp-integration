@@ -7,7 +7,9 @@ import {
 import AioLogger from "@adobe/aio-lib-core-logging";
 
 import { recordCommerceChange } from "#lib/history";
+import { resetClosedAnswerOfOrder } from "#lib/reset-closed";
 import { returnToErps } from "#router/return-pieces";
+import { getOrder } from "#src/order/commerce-order-api-client";
 
 /**
  * observer.rma_save_commit_after: a return was saved in Commerce. Each ERP that sold its lines
@@ -28,7 +30,11 @@ async function main(params) {
     return badRequest("the return event carries no entity_id");
   }
   try {
-    const result = await returnToErps(params, returnId);
+    // A return on an order a demo reset closed (the reset closes its open returns) tells no ERP
+    // (lib/reset-closed.js).
+    const result =
+      (await resetClosedAnswerOfOrder(params, value?.order_id, getOrder)) ??
+      (await returnToErps(params, returnId));
     logger.info(result.message);
     await recordCommerceChange("returned", value, result, { logger });
     if (result.outcome === "held") {

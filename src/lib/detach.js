@@ -59,11 +59,13 @@ function ledgerWriters(params, { balance, commerce, tierPrices }) {
  * orders), leaving the other ERPs' writes. The caller checks the id is listed (erp/detach).
  *
  * With `params.closeOrders` (a whole detach only; the caller refuses it with `erp`), every order
- * the ERPs hold is closed off too, before a reset wipes them (lib/close-orders.js, AB-16n): each
- * is marked closed before the first Commerce write, and the answer carries `closed`.
+ * the ERPs hold is closed off too, before a reset wipes them, by the one reset rule
+ * (lib/close-orders.js, lib/reset-rule.js; AB-16n): canceled, or refunded offline so it closes,
+ * its open returns closed. Each is marked closed before the first Commerce write, and the answer
+ * carries `closed`.
  *
  * @param {object} params action params; `erp` the one ERP to undo; `closeOrders` true to close
- * @param {object} deps `{ erps?, commerce: { clearExtOrderId, unholdIfHeld, getCompany, setCompanyCreditLimit, setCompanyCustomAttributes, setCompanyStatus, setProductName, setProductPrice, setStock, findOrderByIncrementId, orders: { get, cancel, comment } }, erp: { listOrders }, ledger, tierPrices: { revertTierPrice }, balance: { decreaseCompanyBalance }, orderParts?, today? }`
+ * @param {object} deps `{ erps?, commerce: { clearExtOrderId, unholdIfHeld, getCompany, setCompanyCreditLimit, setCompanyCustomAttributes, setCompanyStatus, setProductName, setProductPrice, setStock, findOrderByIncrementId, orders: { get, cancel, comment } }, erp: { listOrders }, ledger, tierPrices: { revertTierPrice }, balance: { decreaseCompanyBalance }, orderClient?: { listOrderReturns, getReturn, updateReturn, refundOrder }, orderParts?, today? }`
  * @returns {Promise<{ erp?: string, reverted: object, orders: { cleared: number, failed: object[] }, holds: { released: number, failed: object[] }, closed?: object }>}
  */
 export async function detach(params, deps) {
@@ -125,25 +127,30 @@ async function clearActivity(closed, deps) {
 }
 
 const ordersCount = (count) => `${count} ${count === 1 ? "order" : "orders"}`;
+const returnsCount = (count) =>
+  `${count} ${count === 1 ? "return" : "returns"}`;
 
 /**
  * The one line a reset leaves on the Admin page's Activity: only what it did, so a reset of an
- * empty store does not read "0 orders canceled, 0 noted as closed".
+ * empty store does not read "0 orders canceled, 0 refunded".
  * @param {string} day the reset's day, YYYY-MM-DD
- * @param {{ cancelled: number, commented: number }} closed what closeOrders closed
+ * @param {{ cancelled: number, refunded?: number, commented: number, returnsClosed?: number }}
+ *   closed what closeOrders closed
  * @returns {string}
  */
 export function resetLine(day, closed) {
-  const done = [];
-  if (closed.cancelled > 0) {
-    done.push(`${ordersCount(closed.cancelled)} canceled`);
-  }
-  if (closed.commented > 0) {
-    done.push(
-      done.length > 0
-        ? `${closed.commented} noted as closed`
-        : `${ordersCount(closed.commented)} noted as closed`,
+  const done = [
+    [closed.cancelled, "canceled"],
+    [closed.refunded ?? 0, "refunded and closed"],
+    [closed.commented, "left open with a note"],
+  ]
+    .filter(([count]) => count > 0)
+    .map(([count, words], index) =>
+      index === 0 ? `${ordersCount(count)} ${words}` : `${count} ${words}`,
     );
+  const returns = closed.returnsClosed ?? 0;
+  if (returns > 0) {
+    done.push(`${returnsCount(returns)} closed`);
   }
   const what = done.length > 0 ? done.join(", ") : "no orders to close";
   return `Demo reset on ${day}: ${what}; the ERPs' changes in Commerce undone. The activity before it was cleared.`;

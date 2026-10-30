@@ -77,19 +77,23 @@ describe("Given a detach that is not a reset (removing the integration)", () => 
 describe("Given what a reset closed", () => {
   test.each([
     [
-      { cancelled: 21, commented: 3 },
-      "21 orders canceled, 3 noted as closed; the ERPs' changes in Commerce undone.",
+      { cancelled: 21, commented: 3, refunded: 4, returnsClosed: 2 },
+      "21 orders canceled, 4 refunded and closed, 3 left open with a note, 2 returns closed; the ERPs' changes in Commerce undone.",
     ],
     [
-      { cancelled: 1, commented: 0 },
+      { cancelled: 1, commented: 0, refunded: 0, returnsClosed: 0 },
       "1 order canceled; the ERPs' changes in Commerce undone.",
     ],
     [
-      { cancelled: 0, commented: 2 },
-      "2 orders noted as closed; the ERPs' changes in Commerce undone.",
+      { cancelled: 0, commented: 0, refunded: 1, returnsClosed: 1 },
+      "1 order refunded and closed, 1 return closed; the ERPs' changes in Commerce undone.",
     ],
     [
-      { cancelled: 0, commented: 0 },
+      { cancelled: 0, commented: 2, refunded: 0, returnsClosed: 0 },
+      "2 orders left open with a note; the ERPs' changes in Commerce undone.",
+    ],
+    [
+      { cancelled: 0, commented: 0, refunded: 0, returnsClosed: 0 },
       "no orders to close; the ERPs' changes in Commerce undone.",
     ],
   ])("Then the reset's line says only what it did (%o)", (closed, said) => {

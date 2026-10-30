@@ -41,6 +41,14 @@ describe("Given the status action", () => {
     const res = await status.main({});
     expect(res.body.closesOrdersOnReset).toBe(true);
   });
+  // The one reset rule (2026-10-30): a deployment from before it leaves every invoiced order open
+  // (noted only) and every return open, so Demo Builder asks this before it tells the SC a reset
+  // refunds and closes them.
+  test("Then it says a reset refunds what is invoiced and closes the returns", async () => {
+    erp.health.mockResolvedValue({ data: {}, ok: true, status: 200 });
+    const res = await status.main({});
+    expect(res.body.refundsOnReset).toBe(true);
+  });
   // A deployment from before detach runs could be asked about ignores the method and would RUN
   // a detach on GET, so Demo Builder asks this before it polls one.
   test("Then it says a detach run can be asked about", async () => {

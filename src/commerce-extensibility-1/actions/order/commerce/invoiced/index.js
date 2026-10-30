@@ -10,6 +10,7 @@ import { checkoutInvoiceOf } from "#lib/checkout-invoice";
 import { invoiceFromCommerce } from "#lib/commerce-changes";
 import { erp } from "#lib/erp";
 import { recordCommerceChange } from "#lib/history";
+import { resetClosedAnswerOfOrder } from "#lib/reset-closed";
 import { settingsFor } from "#lib/settings";
 import { fulfilmentFromCommerce } from "#router/part-fulfilment";
 import { getInvoice, getOrder } from "#src/order/commerce-order-api-client";
@@ -28,7 +29,9 @@ async function main(params) {
     const value = params.data?.value ?? params.data;
     // The invoice Commerce made at checkout is no ERP's (lib/checkout-invoice.js, AB-66); a
     // split order's other invoices reach each ERP with only its own lines (router/part-fulfilment.js).
+    // An invoice on an order a demo reset closed tells no ERP (lib/reset-closed.js).
     const result =
+      (await resetClosedAnswerOfOrder(params, value?.order_id, getOrder)) ??
       (await checkoutInvoiceOf(params, value, { getInvoice, getOrder })) ??
       (await fulfilmentFromCommerce(params, "invoice", value)) ??
       (await invoiceFromCommerce(params, value, {

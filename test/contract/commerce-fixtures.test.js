@@ -16,7 +16,6 @@ vi.mock("@adobe/aio-commerce-sdk/auth", () => ({
   resolveImsAuthParams: vi.fn(() => ({})),
 }));
 
-import { cancellableByReset, hasResetNote } from "#lib/close-orders";
 import {
   customerCompanyId,
   findOrderByIncrementId,
@@ -28,6 +27,12 @@ import {
   warehousesOfSku,
 } from "#lib/commerce";
 import { paymentReferenceOf } from "#lib/payment-reference";
+import {
+  cancellableByReset,
+  hasResetNote,
+  refundOf,
+  resetStepOf,
+} from "#lib/reset-rule";
 
 /** A captured body, as Commerce answered it. */
 function captured(name) {
@@ -162,6 +167,23 @@ describe("Given Commerce's own answers about orders", () => {
       state: "new",
     };
     expect(cancellableByReset(untouched)).toBe(true);
+  });
+
+  // The one reset rule (2026-10-30): a complete order is refunded, its invoiced lines and the
+  // shipping it invoiced, read under the names Commerce answers them with. Commerce answers no
+  // base_shipping_refunded on an order never refunded, which reads as nothing refunded.
+  test("Then an invoiced and shipped order is refunded: its invoiced line and its invoiced shipping", () => {
+    const order = captured("order-11");
+    expect(resetStepOf(order)).toBe("refund");
+    expect(refundOf(order)).toEqual({
+      arguments: {
+        adjustment_negative: 0,
+        adjustment_positive: 0,
+        shipping_amount: 20,
+      },
+      items: [{ order_item_id: 11, qty: 4 }],
+      notify: false,
+    });
   });
 
   test("Then an order's history is read for the reset's note", () => {

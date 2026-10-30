@@ -19,6 +19,7 @@ import { createFakeBalance } from "./fake-commerce-balance.js";
 import {
   createFakeReturns,
   INVOICED_LATER_AT,
+  refusal400,
 } from "./fake-commerce-returns.js";
 
 const clone = (v) => JSON.parse(JSON.stringify(v));
@@ -160,15 +161,6 @@ const qtyToInvoice = (i) =>
   Number(i.qty_ordered) -
   Number(i.qty_invoiced ?? 0) -
   Number(i.qty_canceled ?? 0);
-
-/** Commerce's refusal of a REST call: the client throws, the way ky's HTTPError carries it. */
-function refusal400(message) {
-  const error = new Error(
-    `Request failed with status code 400 Bad Request: ${message}`,
-  );
-  error.response = { status: 400, statusCode: 400 };
-  return error;
-}
 
 /**
  * Why Commerce refuses POST order/{id}/invoice, or null when it invoices: its InvoiceOrder
@@ -483,6 +475,7 @@ export function createFakeCommerce() {
     fulfilmentState,
     invoiceRefusal,
     order,
+    raiseOrderSave,
     record,
   });
   // A company's credit balance, moved by the payment leg (fake-commerce-balance.js).
@@ -758,6 +751,11 @@ export function createFakeCommerce() {
       db = seed();
       writes.length = 0;
       orderSaves.length = 0;
+      returns.returnSaves.length = 0;
+    },
+    /** The return save events Commerce raised for the writes, oldest first. */
+    get returnSaves() {
+      return returns.returnSaves;
     },
     shipmentClient,
     stockClient,

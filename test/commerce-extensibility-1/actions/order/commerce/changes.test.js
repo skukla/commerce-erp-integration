@@ -27,15 +27,23 @@ vi.mock("#src/order/commerce-order-api-client", () => ({
 
 import { erp } from "#lib/erp";
 import { recordCommerceChange } from "#lib/history";
+import { resetOrderPartsClient } from "#lib/order-parts";
 import { resetOwnWritesClient } from "#lib/own-writes";
 import * as changed from "#src/order/commerce/changed/index";
 import * as shipped from "#src/order/commerce/shipped/index";
 
 import { fakeState } from "../../../../box/state.js";
 
-/* A change sent to the ERP is remembered in State so its echo is known (lib/own-writes.js). */
-beforeEach(() => resetOwnWritesClient(fakeState()));
-afterEach(() => resetOwnWritesClient());
+/* A change sent to the ERP is remembered in State so its echo is known (lib/own-writes.js); the
+ * handlers read State for a demo reset's mark first (lib/reset-closed.js). */
+beforeEach(() => {
+  resetOwnWritesClient(fakeState());
+  resetOrderPartsClient(fakeState());
+});
+afterEach(() => {
+  resetOwnWritesClient();
+  resetOrderPartsClient();
+});
 
 afterEach(() => {
   vi.clearAllMocks();

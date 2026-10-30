@@ -17,6 +17,7 @@ import { clearHistory, recordReset } from "#lib/history";
 import * as ledger from "#lib/ledger";
 import * as orderParts from "#lib/order-parts";
 import { clearScheduledRuns } from "#lib/scheduled-runs";
+import * as orderClient from "#src/order/commerce-order-api-client";
 
 const NOT_FOUND = 404;
 
@@ -51,7 +52,7 @@ function closeOneProblem(params) {
 /** The close's counts for the log line, or nothing when the orders were not closed. */
 const closedSummary = (closed) =>
   closed
-    ? `, cancelled ${closed.cancelled} order(s), noted ${closed.commented}, ${closed.failed.length} failed`
+    ? `, cancelled ${closed.cancelled} order(s), refunded ${closed.refunded}, left open ${closed.commented}, closed ${closed.returnsClosed} return(s), ${closed.failed.length} failed`
     : "";
 
 /** Why the run a caller named cannot be one, or null when it can (or none was named). */
@@ -97,6 +98,7 @@ async function undo(params, logger) {
       erp,
       erps,
       ledger,
+      orderClient,
       orderParts,
       tierPrices,
     });

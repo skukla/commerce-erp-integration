@@ -299,12 +299,13 @@ describe("Pair in a box: an order split between two ERPs, one of them away", () 
  * A reset closes every order the ERPs hold before it wipes them (AB-16n, owner 2026-09-28). The
  * box places three orders across the two ERPs, runs erp/detach with closeOrders as Demo Builder's
  * reset does, and then delivers every order save Commerce raised for the close to BOTH order
- * handlers, as I/O Events would: the cancellations must reach no ERP.
+ * handlers, as I/O Events would: the cancellations and the refund must reach no ERP (the one
+ * reset rule, owner 2026-10-30).
  */
 describe("Pair in a box: a reset closes the orders the two ERPs hold", () => {
   const DAY = "2026-09-28";
   const CANCELLED = `Canceled by the demo reset on ${DAY}.`;
-  const REMOVED = `The ERP documents for this order were removed by the demo reset on ${DAY}.`;
+  const REFUNDED = `Refunded and closed by the demo reset on ${DAY}.`;
   const SPLIT = 55;
   const INVOICED = 56;
   const HELD = 57;
@@ -353,7 +354,7 @@ describe("Pair in a box: a reset closes the orders the two ERPs hold", () => {
   });
   afterEach(() => vi.useRealTimers());
 
-  test("Then the open split order and the held order are cancelled with a note, the invoiced one only noted, no parts record is left, no ERP is sent anything, a second run changes nothing, and a fresh order routes to both ERPs", async () => {
+  test("Then the open split order and the held order are cancelled with a note, the invoiced one refunded and closed, no parts record is left, no ERP is sent anything, a second run changes nothing, and a fresh order routes to both ERPs", async () => {
     // The split order: A1 to ERP A, B2 to ERP B.
     expect(statusOf(await placeOrder(SPLIT))).toBe(200);
     // ERP A's order alone, then invoiced in Commerce.
@@ -387,22 +388,24 @@ describe("Pair in a box: a reset closes the orders the two ERPs hold", () => {
     expect(res.body.closed).toEqual({
       alreadyClosed: 0,
       cancelled: 2,
-      commented: 1,
+      commented: 0,
       failed: [],
       partsRemoved: 3,
+      refunded: 1,
+      returnsClosed: 0,
     });
     const orderOf = (id) => box.commerce.db.orders.get(id);
     expect(orderOf(SPLIT).state).toBe("canceled");
     expect(orderOf(HELD).state).toBe("canceled");
-    expect(orderOf(INVOICED).state).toBe("complete");
+    expect(orderOf(INVOICED).state).toBe("closed");
     expect(resetNotesOn(SPLIT)).toEqual([CANCELLED]);
     expect(resetNotesOn(HELD)).toEqual([CANCELLED]);
-    expect(resetNotesOn(INVOICED)).toEqual([REMOVED]);
+    expect(resetNotesOn(INVOICED)).toEqual([REFUNDED]);
     expect(await listOrderPartsIds()).toEqual([]);
 
-    // The saves the close made: the release of the hold and the two cancels, at least.
+    // The saves the close made: the release of the hold, the two cancels and the refund, at least.
     expect(box.commerce.orderSaves.length - savesBefore).toBeGreaterThanOrEqual(
-      3,
+      4,
     );
     const answers = await deliverOrderSaves(savesBefore);
     expect(answers.every(([a, b]) => a < 500 && b < 500)).toBe(true);
@@ -425,6 +428,8 @@ describe("Pair in a box: a reset closes the orders the two ERPs hold", () => {
       commented: 0,
       failed: [],
       partsRemoved: 0,
+      refunded: 0,
+      returnsClosed: 0,
     });
     expect(box.commerce.writes.filter((w) => w.kind === "comment").length).toBe(
       notesBefore,

@@ -9,6 +9,7 @@ import AioLogger from "@adobe/aio-lib-core-logging";
 import { orderChangeFromCommerce } from "#lib/commerce-changes";
 import { erp } from "#lib/erp";
 import { recordCommerceChange } from "#lib/history";
+import { resetClosedAnswer } from "#lib/reset-closed";
 import { settingsFor } from "#lib/settings";
 import { orderChangeToParts } from "#router/part-changes";
 
@@ -17,6 +18,7 @@ import { orderChangeToParts } from "#router/part-changes";
  * hold made in Commerce reaches the ERP, and an order taken off hold in Commerce releases the hold
  * Commerce made (bidirectional review, G4). On an order several ERPs share, each ERP holding an
  * open part is told about its own sales order. The new order itself is order-commerce/created's.
+ * An order a demo reset closed tells no ERP, whatever the save (the one reset rule).
  * A 503 answer asks I/O Events to deliver again later; a 400 ends the delivery.
  */
 async function main(params) {
@@ -25,8 +27,10 @@ async function main(params) {
   });
   try {
     const order = params.data?.value ?? params.data;
-    // A split order: every ERP holding an open part is told (router/part-changes.js).
+    // An order a demo reset closed tells no ERP (lib/reset-closed.js); a split order: every ERP
+    // holding an open part is told (router/part-changes.js).
     const result =
+      (await resetClosedAnswer(order?.increment_id)) ??
       (await orderChangeToParts(params, order)) ??
       (await orderChangeFromCommerce(params, order, { erp, settingsFor }));
     logger.info(result.message);

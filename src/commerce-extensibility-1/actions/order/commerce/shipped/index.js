@@ -9,6 +9,7 @@ import AioLogger from "@adobe/aio-lib-core-logging";
 import { shipmentFromCommerce } from "#lib/commerce-changes";
 import { erp } from "#lib/erp";
 import { recordCommerceChange } from "#lib/history";
+import { resetClosedAnswerOfOrder } from "#lib/reset-closed";
 import { settingsFor } from "#lib/settings";
 import { fulfilmentFromCommerce } from "#router/part-fulfilment";
 import { getOrder } from "#src/order/commerce-order-api-client";
@@ -23,8 +24,11 @@ async function main(params) {
     level: params.LOG_LEVEL || "info",
   });
   try {
-    // A split order: each ERP hears only its own lines (router/part-fulfilment.js).
+    const shipment = params.data?.value ?? params.data;
+    // An order a demo reset closed tells no ERP (lib/reset-closed.js); a split order: each ERP
+    // hears only its own lines (router/part-fulfilment.js).
     const result =
+      (await resetClosedAnswerOfOrder(params, shipment?.order_id, getOrder)) ??
       (await fulfilmentFromCommerce(
         params,
         "shipment",

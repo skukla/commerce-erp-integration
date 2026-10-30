@@ -1,68 +1,45 @@
 /*
- * Close off every order the ERPs hold, before a reset wipes them (AB-16n, owner 2026-09-28).
- * Commerce cannot delete an order, so an order a reset leaves behind would stay open in Admin,
- * pointing at ERP documents that no longer exist. Instead:
- * - an order Commerce can still cancel, with nothing invoiced and nothing shipped, is cancelled
- *   and noted "Cancelled by the demo reset on <day>.";
- * - any other order stays as history, noted that its ERP documents were removed;
+ * Close off every order the ERPs hold, before a reset wipes them (AB-16n, owner 2026-09-28), by
+ * the ONE reset rule shared with Demo Builder's store wipe (lib/reset-rule.js, owner 2026-10-30):
+ * a reset resets everything. Commerce cannot delete an order, so instead:
+ * - its open returns are closed (PUT returns/{id}, status "closed");
+ * - an order with nothing invoiced and nothing shipped, that Commerce can still cancel, is
+ *   canceled and noted "Canceled by the demo reset on <day>.";
+ * - any other not already canceled or closed has what is invoiced refunded with an offline credit
+ *   memo (POST order/{orderId}/refund), so Commerce closes it, and is noted "Refunded and closed
+ *   by the demo reset on <day>.";
+ * - one Commerce can neither cancel nor credit (shipped but never invoiced; in payment review)
+ *   stays open, noted that its ERP documents were removed, and is counted as `commented`;
  * - the integration forgets the order: its parts record, its ERP number, its hold.
  *
- * The cancellations must not reach an ERP. Every order is marked closed in State BEFORE the
- * first Commerce write (lib/order-parts.js markClosedByReset): the new-order path would otherwise
- * read a cancelled order with no ERP number and no parts record as never sent, and send it
- * (order-commerce/created checks the mark). The change path needs no mark: by the time the cancel
- * is saved its ERP number is cleared and its parts record deleted, so it finds no ERP to tell.
+ * None of it may reach an ERP. Every order is marked closed in State BEFORE the first Commerce
+ * write (lib/order-parts.js markClosedByReset), and every handler of an event those writes raise
+ * reads the mark first and sends nothing (lib/reset-closed.js): the order save (order-commerce/
+ * created and changed: a cancel, a refund, a hold released, a note, the ERP number cleared), the
+ * invoice save (order-commerce/invoiced, in case Commerce saves the invoice a refund credits) and
+ * the return save (order-commerce/return-saved). A credit memo save raises no event this app
+ * subscribes to (app.commerce.config.ts).
  *
  * Run twice, nothing new happens: an order whose history already carries a reset's note is
- * counted as already closed and gets no second note (Commerce's own history is the record).
+ * counted as already closed and gets no second note (Commerce's own history is the record), and a
+ * closed return is no longer open.
  */
+import {
+  cancelledNote,
+  hasResetNote,
+  openReturns,
+  refundedNote,
+  refundOf,
+  removedNote,
+  resetStepOf,
+} from "#lib/reset-rule";
 
-/** Words both of the reset's notes carry; an order whose history holds them was closed before. */
-const RESET_NOTE = "by the demo reset on";
-
-export const cancelledNote = (day) => `Canceled by the demo reset on ${day}.`;
-export const removedNote = (day) =>
-  `The ERP documents for this order were removed by the demo reset on ${day}.`;
-
-/*
- * The states in which Commerce's Order::canCancel() refuses, whatever the lines say (Magento
- * 2.4-develop, app/code/Magento/Sales/Model/Order.php canCancel and _canVoidOrder; POST
- * orders/{id}/cancel answers false for them, Model/Service/OrderService.php cancelOrder). On hold
- * is also one, but the close takes an order off hold first.
- */
-const UNCANCELLABLE_STATES = new Set([
-  "canceled",
-  "closed",
-  "complete",
-  "payment_review",
-]);
-
-const qty = (value) => Number(value ?? 0);
-
-/**
- * Whether the reset cancels this order: the owner's rule, nothing invoiced and nothing shipped,
- * inside Commerce's own (a state it can cancel from, something left to invoice: canCancel answers
- * false when every line is invoiced, Order.php). Commerce's answer to the cancel is the last word.
- * @param {object} order the order as `GET orders/{id}` answers it
- */
-export function cancellableByReset(order) {
-  if (UNCANCELLABLE_STATES.has(order.state)) {
-    return false;
-  }
-  const items = Array.isArray(order.items)
-    ? order.items
-    : Object.values(order.items ?? {});
-  if (items.some((i) => qty(i.qty_invoiced) > 0 || qty(i.qty_shipped) > 0)) {
-    return false;
-  }
-  return items.some((i) => qty(i.qty_ordered) - qty(i.qty_canceled) > 0);
-}
-
-/** Whether an order's history already carries a reset's note (it was closed before). */
-export const hasResetNote = (order) =>
-  (order.status_histories ?? []).some((h) =>
-    String(h?.comment ?? "").includes(RESET_NOTE),
-  );
+/** Each outcome's note. */
+const NOTES = {
+  cancelled: cancelledNote,
+  commented: removedNote,
+  refunded: refundedNote,
+};
 
 /**
  * The orders to close: every one an ERP listed, and every one with a parts record, each read once.
@@ -126,38 +103,106 @@ export async function prepareClose(params, listedIds, deps) {
   return { day, ...targets };
 }
 
+/** Forget the order: its parts record, and its ERP number unless detach cleared it already. */
+async function forget(params, order, deps, tally, step) {
+  if (await deps.orderParts.deleteOrderParts(order.increment_id)) {
+    tally.closed.partsRemoved += 1;
+  }
+  if (order.ext_order_id && !tally.cleared.has(String(order.entity_id))) {
+    step.name = "the ERP number clear";
+    await deps.commerce.clearExtOrderId(params, order.entity_id);
+    tally.orders.cleared += 1;
+  }
+}
+
+/**
+ * Close one return: read it whole, write back its header with status "closed". Adobe names
+ * "Closed" the status a merchant gives a return whose items are not processed for return
+ * (experienceleague.adobe.com/en/docs/commerce-admin/stores-sales/order-management/returns/returns,
+ * read 2026-10-30). Written as router/return-statuses.js writes a return (both measured on the
+ * Justrite sandbox 2026-10-02): with its increment_id, or Commerce renumbers it; without its
+ * comments and tracks, which are saved through their own routes; and with no items, which
+ * Commerce keeps as they are (it refuses an approved item sent back, even unchanged). Read back:
+ * a return Commerce did not close is a failure, in words.
+ */
+async function closeReturn(params, rma, client) {
+  const {
+    comments: _c,
+    tracks: _t,
+    ...whole
+  } = await client.getReturn(params, rma.entity_id);
+  await client.updateReturn(params, rma.entity_id, {
+    ...whole,
+    items: [],
+    status: "closed",
+  });
+  const saved = await client.getReturn(params, rma.entity_id);
+  if (saved?.status !== "closed") {
+    throw new Error(`Commerce kept it ${saved?.status ?? "open"}`);
+  }
+}
+
+/** Close the order's open returns, each on its own: one that fails is reported, the rest go on. */
+async function closeReturnsOf(params, order, deps, tally) {
+  const client = deps.orderClient;
+  const open = openReturns(
+    await client.listOrderReturns(params, order.entity_id),
+  );
+  for (const rma of open) {
+    try {
+      // biome-ignore lint/performance/noAwaitInLoops: one return at a time, few returns
+      await closeReturn(params, rma, client);
+      tally.closed.returnsClosed += 1;
+    } catch (error) {
+      tally.closed.failed.push({
+        error: `order ${order.increment_id}: return ${rma.increment_id ?? rma.entity_id}: the close failed: ${error.message}`,
+        orderId: String(order.increment_id),
+      });
+    }
+  }
+}
+
+/** Cancel or refund the order as the rule says, then note it; answers the outcome counted. */
+async function settle(params, order, next, deps, step) {
+  const id = order.entity_id;
+  if (next === "cancel") {
+    step.name = "the cancel";
+    // Commerce's answer is the last word: a refused cancel is noted as one it could not make.
+    return (await deps.commerce.orders.cancel(params, id)) === true
+      ? "cancelled"
+      : "commented";
+  }
+  if (next === "refund") {
+    step.name = "the refund";
+    await deps.orderClient.refundOrder(params, id, refundOf(order));
+    return "refunded";
+  }
+  return "commented";
+}
+
 /** Close one order; `step` names what was being done when a call fails. */
 async function closeOne(params, order, deps, tally) {
-  const { commerce, orderParts } = deps;
   const id = order.entity_id;
   const step = { name: "the parts record delete" };
   try {
-    if (await orderParts.deleteOrderParts(order.increment_id)) {
-      tally.closed.partsRemoved += 1;
-    }
-    if (order.ext_order_id && !tally.cleared.has(String(id))) {
-      step.name = "the ERP number clear";
-      await commerce.clearExtOrderId(params, id);
-      tally.orders.cleared += 1;
-    }
-    if (hasResetNote(order)) {
+    await forget(params, order, deps, tally, step);
+    step.name = "the read of its returns";
+    await closeReturnsOf(params, order, deps, tally);
+    const next = resetStepOf(order);
+    if (hasResetNote(order) || next === "untouched") {
       tally.closed.alreadyClosed += 1;
       return;
     }
     if (order.state === "holded") {
       step.name = "the release of its hold";
-      if (await commerce.unholdIfHeld(params, id)) {
+      if (await deps.commerce.unholdIfHeld(params, id)) {
         tally.holds.released += 1;
       }
     }
-    step.name = "the cancel";
-    const cancelled =
-      cancellableByReset(order) &&
-      (await commerce.orders.cancel(params, id)) === true;
+    const outcome = await settle(params, order, next, deps, step);
     step.name = "the note";
-    const note = cancelled ? cancelledNote(tally.day) : removedNote(tally.day);
-    await commerce.orders.comment(params, id, note);
-    tally.closed[cancelled ? "cancelled" : "commented"] += 1;
+    await deps.commerce.orders.comment(params, id, NOTES[outcome](tally.day));
+    tally.closed[outcome] += 1;
   } catch (error) {
     tally.closed.failed.push({
       error: `order ${order.increment_id}: ${step.name} failed: ${error.message}`,
@@ -172,10 +217,12 @@ async function closeOne(params, order, deps, tally) {
  * @param {object} params action params
  * @param {{ day: string, orders: object[], failed: object[], stale: number }} prepared
  *   prepareClose's answer
- * @param {object} deps `{ commerce, orderParts }`
+ * @param {object} deps `{ commerce, orderClient: { listOrderReturns, getReturn, updateReturn,
+ *   refundOrder }, orderParts }`
  * @param {{ cleared: Set<string>, orders: object, holds: object }} done detach's counts
- * @returns {Promise<{ cancelled: number, commented: number, alreadyClosed: number,
- *   partsRemoved: number, failed: object[] }>}
+ * @returns {Promise<{ cancelled: number, refunded: number, commented: number,
+ *   alreadyClosed: number, returnsClosed: number, partsRemoved: number, failed: object[] }>}
+ *   `commented`: orders Commerce could neither cancel nor credit, left open with a note
  */
 export async function closeOrders(params, prepared, deps, done) {
   const closed = {
@@ -184,6 +231,8 @@ export async function closeOrders(params, prepared, deps, done) {
     commented: 0,
     failed: [...prepared.failed],
     partsRemoved: prepared.stale,
+    refunded: 0,
+    returnsClosed: 0,
   };
   const tally = { ...done, closed, day: prepared.day };
   for (const order of prepared.orders) {

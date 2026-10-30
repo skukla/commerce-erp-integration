@@ -267,18 +267,19 @@ describe("Given a record the integration made", () => {
     expect(shown(entry)).toStrictEqual(expected);
   });
 
-  test.each(["21 orders canceled, 3 noted as closed", "no orders to close"])(
-    "Then a demo reset says what it closed (%s)",
-    (what) => {
-      const entry = {
-        direction: "reset",
-        kind: "reset",
-        message: `Demo reset on 2026-09-27: ${what}; the ERPs' changes in Commerce undone. The activity before it was cleared.`,
-        ref: "2026-09-27",
-      };
-      expect(recordFields(entry).details).toBe(`Demo reset: ${what}`);
-    },
-  );
+  test.each([
+    "21 orders canceled, 3 noted as closed",
+    "21 orders canceled, 4 refunded and closed, 3 left open with a note, 2 returns closed",
+    "no orders to close",
+  ])("Then a demo reset says what it closed (%s)", (what) => {
+    const entry = {
+      direction: "reset",
+      kind: "reset",
+      message: `Demo reset on 2026-09-27: ${what}; the ERPs' changes in Commerce undone. The activity before it was cleared.`,
+      ref: "2026-09-27",
+    };
+    expect(recordFields(entry).details).toBe(`Demo reset: ${what}`);
+  });
 });
 
 describe("Given a place with no columns", () => {

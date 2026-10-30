@@ -121,6 +121,10 @@ async function healthOf(params) {
  * `erp` and undoes every ERP, so a caller checks this before asking for one ERP.
  * `closesOrdersOnReset` says erp/detach honours `closeOrders` (AB-16n): a deployment from before
  * it ignores the flag and leaves every order open, so a reset checks this first.
+ * `refundsOnReset` says that close follows the one reset rule (2026-10-30, lib/reset-rule.js): an
+ * invoiced order is refunded offline so Commerce closes it, and the order's open returns are
+ * closed. A deployment from before it cancels the same orders but only notes an invoiced one and
+ * leaves its returns open, so a caller checks this before it says a reset refunds.
  * `detachRuns` says erp/detach answers `GET detach?run=<id>` with how a named run went
  * (lib/action-runs.js): a deployment from before it ignores the method and would RUN a detach
  * on that GET, so a caller checks this before it polls.
@@ -152,6 +156,7 @@ async function main(params) {
         ...(erps ? { erps } : {}),
         ledger: { entries: ledger.length },
         priceRuns: true,
+        refundsOnReset: true,
       },
     });
   } catch (error) {
