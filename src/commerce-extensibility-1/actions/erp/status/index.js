@@ -126,7 +126,8 @@ async function healthOf(params) {
  * closed. A deployment from before it cancels the same orders but only notes an invoiced one and
  * leaves its returns open, so a caller checks this before it says a reset refunds.
  * `closesOrdersByStore` says erp/close-orders exists (2026-10-30): the orders of some stores only
- * closed by the same rule, with no wipe and no ledger undone. A deployment from before it has no
+ * closed by the same rule, each ERP that held one removing its own sales orders for them, with no
+ * wipe and no ledger undone. A deployment from before it has no
  * such action, so Demo Builder's store wipe checks this before it hands a store's orders over.
  * `detachRuns` says erp/detach answers `GET detach?run=<id>` with how a named run went
  * (lib/action-runs.js): a deployment from before it ignores the method and would RUN a detach

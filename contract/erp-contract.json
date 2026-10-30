@@ -1,6 +1,6 @@
 {
   "name": "demo-erp",
-  "contractVersion": 22,
+  "contractVersion": 23,
   "description": "What the ERP promises its subscribers: the routes it serves, the shapes it accepts, and the events it publishes. The Commerce integration vendors this file and its tests fail when the two disagree.",
   "routes": {
     "health": [
@@ -18,7 +18,8 @@
     ],
     "admin": [
       "POST /wipe",
-      "POST /import"
+      "POST /import",
+      "POST /remove-orders"
     ],
     "products": [
       "GET",
@@ -753,5 +754,26 @@
         "maintenanceUntil"
       ]
     }
+  },
+  "removeOrders": {
+    "request": [
+      "references"
+    ],
+    "answer": {
+      "removed": [
+        "salesOrders",
+        "shipments",
+        "invoices",
+        "creditMemos",
+        "returnOrders",
+        "payments",
+        "events"
+      ],
+      "references": [
+        "removed",
+        "notFound"
+      ]
+    },
+    "note": "version 23: POST admin/remove-orders { references } removes the sales orders whose customer reference (purchaseOrderByCustomer, the web shop's order number) is named, with every document on them or pointing at them: their shipments, invoice and credit memos, their return orders, their payments, a repeat the ERP made of one, and their journal entries. Everything else stays and no counter moves. A reference no order has is answered in notFound, not refused, so removing twice removes nothing the second time; a call with no references is a 400. An ERP from before version 23 answers 404 (NO_ROUTE)."
   }
 }

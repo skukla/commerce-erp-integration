@@ -63,6 +63,13 @@ export function erpClientModule(call) {
         }),
       product: (params, sku) =>
         call("products", { params, path: `/${encodeURIComponent(sku)}` }),
+      removeOrders: (params, references) =>
+        call("admin", {
+          body: { references },
+          method: "POST",
+          params,
+          path: "/remove-orders",
+        }),
       settings: (params) => call("settings", { params }),
     },
     erpAuthHeaders: async () => ({}),

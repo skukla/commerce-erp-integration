@@ -193,5 +193,18 @@ export const erp = {
       path: `/${encodeURIComponent(sku)}`,
       timeoutMs,
     }),
+  /**
+   * Remove the sales orders these web shop order numbers name, with every document on them
+   * (contract version 23, admin/remove-orders): `{ removed: { salesOrders, shipments, invoices,
+   * creditMemos, returnOrders, payments, events }, references: { removed, notFound } }`. An ERP
+   * from before version 23 answers 404.
+   */
+  removeOrders: (params, references) =>
+    erpRequest(params, "admin", {
+      body: { references },
+      method: "POST",
+      path: "/remove-orders",
+      timeoutMs: 60_000,
+    }),
   settings: (params) => erpRequest(params, "settings"),
 };

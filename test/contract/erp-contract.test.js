@@ -150,6 +150,19 @@ describe("Given the ERP contract", () => {
     expect(contract.order.nextStepNote).toMatch(CANCEL_REMOVES_WAITING);
   });
 
+  // Contract version 23 (owner 2026-10-30): a store-scoped close (erp/close-orders) has each ERP
+  // that held one of its orders remove its sales orders for them; this app reads `removed` and
+  // `references.notFound` from the answer (lib/close-store-orders.js), and an older ERP's 404.
+  test("Then from version 23 the ERP removes named orders, answering what this app reads", () => {
+    expect(contract.contractVersion).toBeGreaterThanOrEqual(23);
+    expect(contract.routes.admin).toContain("POST /remove-orders");
+    expect(contract.removeOrders.request).toEqual(["references"]);
+    expect(contract.removeOrders.answer.references).toContain("notFound");
+    expect(contract.removeOrders.answer.removed).toEqual(
+      expect.arrayContaining(["salesOrders", "shipments", "invoices"]),
+    );
+  });
+
   test("Then the ERP routes this app calls are routes the ERP serves", () => {
     const erpClient = readFileSync("src/lib/erp.js", "utf8");
     const called = [...erpClient.matchAll(ERP_ROUTE_CALL)].map((m) => m[1]);

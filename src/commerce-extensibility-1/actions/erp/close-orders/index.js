@@ -10,6 +10,8 @@ import { readRun, runProblem, trackRun } from "#lib/action-runs";
 import { closeStoreOrders, resolveScope } from "#lib/close-store-orders";
 import * as commerce from "#lib/commerce";
 import * as storeScope from "#lib/commerce-store-scope";
+import { erp } from "#lib/erp";
+import { loadErps } from "#lib/erps";
 import * as orderParts from "#lib/order-parts";
 import { scopeIsEmpty, scopeOf } from "#lib/store-scope";
 import * as orderClient from "#src/order/commerce-order-api-client";
@@ -58,7 +60,15 @@ async function close(params, logger) {
   if (problem) {
     return badRequest(problem);
   }
-  const deps = { commerce, orderClient, orderParts, storeScope, today };
+  const deps = {
+    commerce,
+    erp,
+    erps: await loadErps(params),
+    orderClient,
+    orderParts,
+    storeScope,
+    today,
+  };
   const { viewIds, unknown } = await resolveScope(params, scope, deps);
   if (unknown.length > 0) {
     return badRequest(
@@ -85,8 +95,10 @@ async function close(params, logger) {
  * `websites` (website codes, every store of each), as lists or comma-separated. Every order
  * placed in their store views is closed: canceled, refunded or noted, its returns closed, its
  * parts record, ERP number and hold forgotten, each marked closed before the first write so no
- * event it raises reaches an ERP. No other order is touched, the ERP is not wiped, and no
- * ledgered write is undone: that is erp/detach's whole reset.
+ * event it raises reaches an ERP. Then each ERP that held one is asked to remove its sales orders
+ * for them, with their invoices and shipments (admin/remove-orders, contract version 23); it
+ * keeps everything else. No other order is touched, no ERP is wiped, and no ledgered write is
+ * undone: that is erp/detach's whole reset.
  *
  * Refused with a 400 before anything is written: `erp` (the close is the whole integration's),
  * no store or website named, a code the store does not have. A scope with no orders in it closes
@@ -94,7 +106,8 @@ async function close(params, logger) {
  *
  * Answers `{ scope: { stores, websites, storeViewIds }, closed: { cancelled, refunded, commented,
  * alreadyClosed, returnsClosed, partsRemoved, failed }, touched: [{ orderId, outcome }],
- * orders: { cleared, failed }, holds: { released, failed } }`. With `run` (8 to 64 letters,
+ * erpRemoved: { <erpId>: { removed, notFound } | "unsupported" | { failed } }, orders: { cleared,
+ * failed }, holds: { released, failed } }`. With `run` (8 to 64 letters,
  * digits, hyphens and underscores), `GET close-orders?run=<id>` answers the run's record, as
  * erp/detach's does (lib/action-runs.js): a web action's answer is cut off at 60 seconds while
  * the close runs on.

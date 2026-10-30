@@ -102,7 +102,8 @@ detach:
     require-adobe-auth: true
     final: true
 # Closes the orders of some stores only, by the one reset rule: Demo Builder's store wipe of a
-# store an ERP serves (lib/close-store-orders.js). It asks no ERP anything, so it has no ERP inputs.
+# store an ERP serves (lib/close-store-orders.js); then each ERP that held one removes its own
+# sales orders for them (admin/remove-orders).
 close-orders:
   function: ./close-orders/index.js
   web: 'yes'
@@ -117,6 +118,8 @@ close-orders:
     AIO_COMMERCE_AUTH_IMS_TECHNICAL_ACCOUNT_EMAIL: $AIO_COMMERCE_AUTH_IMS_TECHNICAL_ACCOUNT_EMAIL
     AIO_COMMERCE_AUTH_IMS_ORG_ID: $AIO_COMMERCE_AUTH_IMS_ORG_ID
     AIO_COMMERCE_AUTH_IMS_SCOPES: $AIO_COMMERCE_AUTH_IMS_SCOPES
+    ERP_BASE_URL: $ERP_BASE_URL
+    ERP_DISPLAY_NAME: $ERP_DISPLAY_NAME
   annotations:
     require-adobe-auth: true
     final: true

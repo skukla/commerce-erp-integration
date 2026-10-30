@@ -5,8 +5,10 @@
  * (test/lib/reset-rule-orders.js) are placed in the main website's store and sent to the REAL mock
  * ERP; a decoy order is placed in the eu website's store. Closing the main store must close the
  * seven by the one reset rule (the same lib/close-orders.js the whole reset runs), forget them,
- * leave the decoy and the ledger alone, wipe nothing in the ERP, and send it nothing, the close's
- * events included.
+ * and leave the decoy and the ledger alone. The ERP is transient (owner, 2026-10-30): it is then
+ * asked once to remove its own sales orders for the seven, with their invoices and shipments
+ * (admin/remove-orders, contract version 23), and keeps the decoy's. The close's events send it
+ * nothing. An ERP from before version 23 is named as unsupported and the close still finishes.
  */
 const box = await vi.hoisted(async () => {
   const { createFakeCommerce } = await import("./fake-commerce.js");
@@ -16,18 +18,28 @@ const box = await vi.hoisted(async () => {
   const erpBox = startErp();
   // Every request the ERP was sent: the action, the method and the path.
   const requests = [];
+  // "old": the ERP answers as one from before contract version 23, which has no remove-orders.
+  const erpMode = { contract: "current" };
   const call = (action, request = {}) => {
     requests.push({
       action,
       method: request.method ?? "GET",
       path: request.path ?? "",
     });
+    if (erpMode.contract === "old" && request.path === "/remove-orders") {
+      return Promise.resolve({
+        data: { error: { code: "NO_ROUTE" } },
+        ok: false,
+        status: 404,
+      });
+    }
     return erpBox.call(action, request);
   };
   return {
     commerce: createFakeCommerce(),
     erp: erpBox,
     erpClient: erpClientModule(call),
+    erpMode,
     requests,
     settings: settingsModule(),
     state: fakeState(),
@@ -76,6 +88,26 @@ const TOUCHED = {
 const statusOf = (res) => res.statusCode ?? res.error?.statusCode;
 const messageOf = (res) => res.body?.message ?? res.error?.body?.message;
 const orderOf = (id) => box.commerce.db.orders.get(id);
+/** The ERP's own sales orders, by the web shop's order number. */
+const erpOrders = async () =>
+  (await box.erp.call("orders")).data.items.map(
+    (o) => o.purchaseOrderByCustomer,
+  );
+const erpCall = (action, method, path) =>
+  box.erp.call(action, { method, path });
+/** Ship and invoice the web shop order's sales order in the ERP: a shipment and an invoice on it. */
+async function shipAndInvoiceInErp(incrementId) {
+  const order = (await box.erp.call("orders")).data.items.find(
+    (o) => o.purchaseOrderByCustomer === incrementId,
+  );
+  await erpCall("orders", "POST", `/${order.number}/confirm`);
+  await box.erp.call("orders", {
+    body: { status: "shipped" },
+    method: "POST",
+    path: `/${order.number}/status`,
+  });
+  await erpCall("orders", "POST", `/${order.number}/invoice`);
+}
 const closeStore = (extra = {}) =>
   closeAction.main({
     __ow_method: "post",
@@ -159,6 +191,11 @@ beforeAll(async () => {
     ),
   ).toBe(200);
   run.decoyBefore = structuredClone(orderOf(DECOY));
+  // In the ERP: one of the main store's orders and the decoy shipped and invoiced there.
+  await shipAndInvoiceInErp("000000703");
+  await shipAndInvoiceInErp("000000042");
+  run.erpBefore = await erpOrders();
+  run.erpInvoicesBefore = (await box.erp.call("invoices")).data.items.length;
   // A write the ERP made on Commerce, ledgered: only the whole reset puts it back.
   await ledger.recordProductWrite({
     after: 12,
@@ -168,12 +205,12 @@ beforeAll(async () => {
     sku: "A1",
   });
   run.ledgerBefore = await ledger.readLedger();
-  run.erpOrdersBefore = (await box.erp.call("orders")).data.items.length;
   run.requestsBefore = box.requests.length;
   run.savesBefore = box.commerce.orderSaves.length;
   run.returnSavesBefore = box.commerce.returnSaves.length;
   run.writesBefore = box.commerce.writes.length;
   run.first = await closeStore({ run: RUN });
+  run.closeRequests = box.requests.slice(run.requestsBefore);
 });
 afterAll(() => vi.useRealTimers());
 
@@ -189,6 +226,20 @@ describe("Pair in a box: a store-scoped close of the main store", () => {
         partsRemoved: RESET_RULE_CASES.length,
         refunded: 4,
         returnsClosed: 1,
+      },
+      erpRemoved: {
+        erp: {
+          notFound: [],
+          removed: {
+            creditMemos: 0,
+            events: expect.any(Number),
+            invoices: 1,
+            payments: 0,
+            returnOrders: 0,
+            salesOrders: RESET_RULE_CASES.length,
+            shipments: 1,
+          },
+        },
       },
       holds: { failed: [], released: 0 },
       orders: { cleared: RESET_RULE_CASES.length, failed: [] },
@@ -227,18 +278,39 @@ describe("Pair in a box: a store-scoped close of the main store", () => {
     ).toEqual([]);
   });
 
+  test("Then the ERP keeps none of the main store's sales orders, invoices or shipments, and keeps the decoy's", async () => {
+    // Control: before the close the ERP held all eight.
+    expect(run.erpBefore.sort()).toEqual(
+      [
+        "000000042",
+        ...RESET_RULE_CASES.map((c) => c.order.increment_id),
+      ].sort(),
+    );
+    expect(run.erpInvoicesBefore).toBe(2);
+    expect(await erpOrders()).toEqual(["000000042"]);
+    const invoices = (await box.erp.call("invoices")).data.items;
+    expect(invoices).toHaveLength(1);
+    const [decoy] = (await box.erp.call("orders")).data.items;
+    expect(decoy.shipments).toHaveLength(1);
+  });
+
   test("Then the ledger is not undone and the ERP is not wiped: that stays the whole reset's job", async () => {
     expect(await ledger.readLedger()).toEqual(run.ledgerBefore);
     const kinds = box.commerce.writes
       .slice(run.writesBefore)
       .map((w) => w.kind);
     expect(kinds).not.toContain("setProductPrice");
-    expect((await box.erp.call("orders")).data.items).toHaveLength(
-      run.erpOrdersBefore,
+    // The fill the reset brings back is not needed for the decoy: its customer and products stay.
+    expect((await box.erp.call("products")).data.items.length).toBeGreaterThan(
+      0,
     );
   });
 
-  test("Then the close, and every event its writes raised, sent the ERP nothing", async () => {
+  test("Then the close asked the ERP one thing, to remove the main store's orders, and its events sent it nothing", async () => {
+    expect(run.closeRequests).toEqual([
+      { action: "admin", method: "POST", path: "/remove-orders" },
+    ]);
+    const before = box.requests.length;
     const answers = [];
     for (const event of box.commerce.orderSaves.slice(run.savesBefore)) {
       // biome-ignore lint/performance/noAwaitInLoops: events are delivered in order, as raised
@@ -251,7 +323,7 @@ describe("Pair in a box: a store-scoped close of the main store", () => {
     }
     expect(answers.length).toBeGreaterThan(0);
     expect(answers.every((res) => statusOf(res) < 500)).toBe(true);
-    expect(box.requests.slice(run.requestsBefore)).toEqual([]);
+    expect(box.requests.slice(before)).toEqual([]);
   });
 
   test("Then the run can be asked about, and answers what the POST answered", async () => {
@@ -319,6 +391,34 @@ describe("Given a store-scoped close that cannot run", () => {
     expect(statusOf(res)).toBe(200);
     expect(res.body.touched).toEqual([]);
     expect(res.body.scope.storeViewIds).toEqual([]);
+  });
+
+  test("Then an ERP from before contract version 23 is named unsupported, and the Commerce close still finishes", async () => {
+    const id = 708;
+    addOrder({
+      order: {
+        entity_id: id,
+        increment_id: "000000708",
+        items: [{ item_id: 81, qty_ordered: 1 }],
+      },
+    });
+    await orderCreated.main(
+      box.commerce.events.orderSaved(id, { isNew: true }),
+    );
+    box.erpMode.contract = "old";
+    try {
+      const res = await closeStore();
+      expect(statusOf(res)).toBe(200);
+      expect(res.body.erpRemoved).toEqual({ erp: "unsupported" });
+      expect(res.body.touched).toContainEqual({
+        orderId: "000000708",
+        outcome: "cancelled",
+      });
+      expect(orderOf(id).state).toBe("canceled");
+      expect(await erpOrders()).toContain("000000708");
+    } finally {
+      box.erpMode.contract = "current";
+    }
   });
 
   test("Then a GET without a run is refused, and GET never closes", async () => {
