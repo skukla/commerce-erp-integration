@@ -269,3 +269,5 @@ exists. It runs with `npm test`.
 
 Apache-2.0. The scaffolding is the starter kit's, which is Adobe's under the same license
 (see COPYRIGHT).
+
+**Releasing:** a push to `main` reaches nobody; a published release does. See [RELEASING.md](RELEASING.md).
