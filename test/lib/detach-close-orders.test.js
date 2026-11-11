@@ -1,11 +1,12 @@
 /*
- * erp/detach with closeOrders (AB-16n; the one reset rule, owner 2026-10-30): before the ERPs are
- * wiped, every order they hold is closed off in Commerce by the rule lib/reset-rule.js states. An
- * order with nothing invoiced and nothing shipped is canceled; any other not already canceled or
- * closed has what is invoiced refunded offline, so it closes; its open returns are closed; one
- * Commerce can neither cancel nor credit is only noted. Its parts record goes, its ERP number goes,
- * and its hold comes off. Every order is marked closed BEFORE the first Commerce write, so the
- * events those writes raise send nothing to an ERP.
+ * erp/detach with closeOrders (AB-16n; the one reset rule, owner 2026-10-30, changed 2026-11-11):
+ * before the ERPs are wiped, every order they hold is closed off in Commerce by the rule
+ * lib/reset-rule.js states. An order with nothing invoiced and nothing shipped is canceled; any
+ * other not already canceled or closed, outside payment review, has what is not invoiced invoiced,
+ * then everything invoiced refunded offline, so it closes; its open returns are closed; one in
+ * payment review is only noted. Its parts record goes, its ERP number goes, and its hold comes off.
+ * Every order is marked closed BEFORE the first Commerce write, and its reset note is the first
+ * write to it, so the events those writes raise send nothing to an ERP.
  */
 // biome-ignore-all lint/suspicious/useAwait: the fakes answer promises without waiting on anything; the real collaborators are async and detach awaits them
 import { detach } from "#lib/detach";
@@ -88,16 +89,23 @@ function fakeCommerce(orders) {
 }
 
 /**
- * The refund and return calls (#src/order/commerce-order-api-client), over a map of returns by
- * id and the fake Commerce's orders; `keepOpen` names returns Commerce saves without closing,
- * `ordersKeptOpen` orders a refund leaves open (a line never invoiced). Any other refunded order
- * reads back closed.
+ * The invoice, refund and return calls (#src/order/commerce-order-api-client), over a map of
+ * returns by id and the fake Commerce's orders; `keepOpen` names returns Commerce saves without
+ * closing, `ordersKeptOpen` orders a refund leaves open. Any other refunded order reads back
+ * closed. The invoice bills every line's remainder, as POST order/{id}/invoice without items does.
  */
 function fakeOrderClient(calls, returns = [], options = {}) {
   const { keepOpen = [], orders, ordersKeptOpen = [] } = options;
   const byId = new Map(returns.map((r) => [Number(r.entity_id), r]));
   return {
     getReturn: vi.fn(async (_p, id) => structuredClone(byId.get(Number(id)))),
+    invoiceRemainder: vi.fn(async (_p, id) => {
+      calls.push(["invoiceRemainder", String(id)]);
+      for (const i of orders.get(String(id)).items) {
+        i.qty_invoiced = i.qty_ordered - i.qty_canceled;
+      }
+      return 902;
+    }),
     listOrderReturns: vi.fn(async (_p, orderId) => {
       calls.push(["listOrderReturns", String(orderId)]);
       return structuredClone(
@@ -205,10 +213,10 @@ describe("Given detach asked to close the orders", () => {
     expect(commerce.calls).toEqual([
       ["markClosedByReset", "0000055"],
       ["clearExtOrderId", "55"],
+      ["comment", "55", CANCELLED],
       ["deleteOrderParts", "0000055"],
       ["listOrderReturns", "55"],
       ["cancel", "55"],
-      ["comment", "55", CANCELLED],
     ]);
     expect(result.orders.cleared).toBe(1);
   });
@@ -260,42 +268,77 @@ describe("Given detach asked to close the orders", () => {
     expect(result.closed).toEqual({ ...NOTHING, refunded: 2 });
   });
 
-  test("Then a partly invoiced order Commerce keeps open after the refund is read back and noted as refunded, not closed", async () => {
+  test("Then a partly invoiced order is noted, invoiced for the rest, then refunded everything, so Commerce closes it", async () => {
     const partly = order(63, {
+      base_shipping_invoiced: 5,
       items: [line({ qty_invoiced: 2 }), line({ item_id: 2, sku: "B2" })],
       state: "processing",
     });
-    const { commerce, deps, orderClient } = setUp([partly], {
+    const { commerce, deps } = setUp([partly], {
       listed: [{ purchaseOrderByCustomer: "0000063" }],
-      ordersKeptOpen: [63],
     });
 
     const result = await detach({ closeOrders: true }, deps);
 
-    expect(orderClient.refundOrder.mock.calls[0][2].items).toEqual([
-      { order_item_id: 1, qty: 2 },
+    const writes = commerce.calls.filter(([name]) =>
+      ["comment", "invoiceRemainder", "refundOrder"].includes(name),
+    );
+    expect(writes).toEqual([
+      ["comment", "63", REFUNDED],
+      ["invoiceRemainder", "63"],
+      [
+        "refundOrder",
+        "63",
+        {
+          arguments: {
+            adjustment_negative: 0,
+            adjustment_positive: 0,
+            shipping_amount: 5,
+          },
+          items: [
+            { order_item_id: 1, qty: 2 },
+            { order_item_id: 2, qty: 2 },
+          ],
+          notify: false,
+        },
+      ],
     ]);
+    // The read after the refund: the state Commerce gave the order decides whether it is corrected.
+    expect(commerce.orders.get).toHaveBeenLastCalledWith(
+      { closeOrders: true },
+      63,
+    );
+    expect(commerce.byId.get("63").state).toBe("closed");
+    expect(result.closed).toEqual({ ...NOTHING, refunded: 1 });
+  });
+
+  test("Then a refunded order Commerce still keeps open gets one correcting note after the refund", async () => {
+    const invoiced = order(66, {
+      items: [line({ qty_invoiced: 2 })],
+      state: "processing",
+    });
+    const { commerce, deps } = setUp([invoiced], {
+      listed: [{ purchaseOrderByCustomer: "0000066" }],
+      ordersKeptOpen: [66],
+    });
+
+    const result = await detach({ closeOrders: true }, deps);
+
     const names = commerce.calls.map(([name]) => name);
     expect(names.slice(names.indexOf("refundOrder"))).toEqual([
       "refundOrder",
       "comment",
     ]);
-    // The read after the refund: the state Commerce gave the order decides the note.
-    expect(commerce.orders.get).toHaveBeenLastCalledWith(
-      { closeOrders: true },
-      63,
-    );
-    expect(commerce.orders.comment).toHaveBeenCalledWith(
-      { closeOrders: true },
-      63,
-      REFUNDED_OPEN,
-    );
+    expect(commerce.orders.comment.mock.calls).toEqual([
+      [{ closeOrders: true }, 66, REFUNDED],
+      [{ closeOrders: true }, 66, REFUNDED_OPEN],
+    ]);
     expect(result.closed).toEqual({ ...NOTHING, refunded: 1 });
   });
 
-  test("Then an order shipped but never invoiced is only noted and counted: Commerce credits only what was invoiced, and the rule cancels nothing shipped", async () => {
+  test("Then an order shipped but never invoiced is noted, invoiced, then refunded, so Commerce closes it", async () => {
     const shipped = order(57, {
-      items: [line({ qty_shipped: 1 })],
+      items: [line({ qty_shipped: 2 })],
       state: "processing",
     });
     const { commerce, deps, orderClient } = setUp([shipped], {
@@ -305,18 +348,54 @@ describe("Given detach asked to close the orders", () => {
     const result = await detach({ closeOrders: true }, deps);
 
     expect(commerce.orders.cancel).not.toHaveBeenCalled();
-    expect(orderClient.refundOrder).not.toHaveBeenCalled();
-    expect(commerce.orders.comment).toHaveBeenCalledWith(
+    const names = commerce.calls.map(([name]) => name);
+    expect(names.slice(names.indexOf("comment"))).toEqual([
+      "comment",
+      "deleteOrderParts",
+      "listOrderReturns",
+      "invoiceRemainder",
+      "refundOrder",
+    ]);
+    expect(orderClient.invoiceRemainder).toHaveBeenCalledExactlyOnceWith(
       { closeOrders: true },
       57,
-      REMOVED,
     );
-    expect(result.closed).toEqual({ ...NOTHING, commented: 1 });
+    expect(orderClient.refundOrder.mock.calls[0][2].items).toEqual([
+      { order_item_id: 1, qty: 2 },
+    ]);
+    expect(commerce.orders.comment.mock.calls).toEqual([
+      [{ closeOrders: true }, 57, REFUNDED],
+    ]);
+    expect(result.closed).toEqual({ ...NOTHING, refunded: 1 });
   });
 
-  test("Then an order in payment review, which Commerce neither cancels nor credits, is only noted", async () => {
+  test("Then an order Commerce has nothing left to refund on after its invoice is reported in words, its note already written", async () => {
+    const shipped = order(67, {
+      items: [line({ qty_shipped: 2 })],
+      state: "processing",
+    });
+    const { commerce, deps, orderClient } = setUp([shipped], {
+      listed: [{ purchaseOrderByCustomer: "0000067" }],
+    });
+    // Commerce answers the invoice but bills nothing.
+    orderClient.invoiceRemainder.mockResolvedValueOnce(902);
+
+    const result = await detach({ closeOrders: true }, deps);
+
+    expect(orderClient.refundOrder).not.toHaveBeenCalled();
+    expect(commerce.orders.comment).toHaveBeenCalledTimes(1);
+    expect(result.closed.failed).toEqual([
+      {
+        error:
+          "order 0000067: the refund failed: Commerce has nothing invoiced left to refund on it",
+        orderId: "0000067",
+      },
+    ]);
+  });
+
+  test("Then an order in payment review, which Commerce neither invoices nor credits, is only noted that it was left open", async () => {
     const review = order(58, {
-      items: [line({ qty_invoiced: 2 })],
+      items: [line({ qty_invoiced: 1 })],
       state: "payment_review",
     });
     const { commerce, deps, orderClient } = setUp([review], {
@@ -324,8 +403,51 @@ describe("Given detach asked to close the orders", () => {
     });
     const result = await detach({ closeOrders: true }, deps);
     expect(commerce.orders.cancel).not.toHaveBeenCalled();
+    expect(orderClient.invoiceRemainder).not.toHaveBeenCalled();
     expect(orderClient.refundOrder).not.toHaveBeenCalled();
-    expect(result.closed.commented).toBe(1);
+    expect(commerce.orders.comment.mock.calls).toEqual([
+      [{ closeOrders: true }, 58, REMOVED],
+    ]);
+    expect(result.closed).toEqual({ ...NOTHING, commented: 1 });
+  });
+
+  test("Then an order in payment review a reset left open before is left alone on a rerun: no second note", async () => {
+    const review = order(58, {
+      items: [line({ qty_invoiced: 1 })],
+      state: "payment_review",
+      status_histories: [
+        {
+          comment:
+            "The ERP documents for this order were removed by the demo reset on 2026-09-27.",
+        },
+      ],
+    });
+    const { commerce, deps, orderClient } = setUp([review], {
+      listed: [{ purchaseOrderByCustomer: "0000058" }],
+    });
+    const result = await detach({ closeOrders: true }, deps);
+    expect(commerce.orders.comment).not.toHaveBeenCalled();
+    expect(orderClient.invoiceRemainder).not.toHaveBeenCalled();
+    expect(orderClient.refundOrder).not.toHaveBeenCalled();
+    expect(result.closed).toEqual({ ...NOTHING, alreadyClosed: 1 });
+  });
+
+  test("Then an order a stopped run noted but did not close is finished on a rerun, without a second note", async () => {
+    const stopped = order(68, {
+      items: [line({ qty_invoiced: 2 })],
+      state: "processing",
+      status_histories: [
+        { comment: "Refunded and closed by the demo reset on 2026-09-27." },
+      ],
+    });
+    const { commerce, deps, orderClient } = setUp([stopped], {
+      listed: [{ purchaseOrderByCustomer: "0000068" }],
+    });
+    const result = await detach({ closeOrders: true }, deps);
+    expect(commerce.orders.comment).not.toHaveBeenCalled();
+    expect(orderClient.refundOrder).toHaveBeenCalledTimes(1);
+    expect(commerce.byId.get("68").state).toBe("closed");
+    expect(result.closed).toEqual({ ...NOTHING, refunded: 1 });
   });
 
   test.each([["closed"], ["canceled"]])(
@@ -343,7 +465,7 @@ describe("Given detach asked to close the orders", () => {
     },
   );
 
-  test("Then an open return on an invoiced order is closed before the order is refunded, written back without its comments, tracks or items", async () => {
+  test("Then an open return on an invoiced order is closed after the note and before the order is refunded, written back without its comments, tracks or items", async () => {
     const invoiced = order(60, {
       items: [line({ qty_invoiced: 2, qty_shipped: 2 })],
       state: "complete",
@@ -356,6 +478,9 @@ describe("Given detach asked to close the orders", () => {
     const result = await detach({ closeOrders: true }, deps);
 
     const names = commerce.calls.map(([name]) => name);
+    expect(names.indexOf("comment")).toBeLessThan(
+      names.indexOf("updateReturn"),
+    );
     expect(names.indexOf("updateReturn")).toBeLessThan(
       names.indexOf("refundOrder"),
     );
@@ -377,12 +502,12 @@ describe("Given detach asked to close the orders", () => {
     });
   });
 
-  test("Then a return Commerce saves without closing is reported in words, and the order is still refunded", async () => {
+  test("Then a return Commerce saves without closing is reported in words, and the order stops there for the next run", async () => {
     const invoiced = order(61, {
       items: [line({ qty_invoiced: 2 })],
       state: "processing",
     });
-    const { deps } = setUp([invoiced], {
+    const { deps, orderClient } = setUp([invoiced], {
       keepOpen: [9],
       listed: [{ purchaseOrderByCustomer: "0000061" }],
       returns: [aReturn(9, 61)],
@@ -397,10 +522,11 @@ describe("Given detach asked to close the orders", () => {
         orderId: "0000061",
       },
     ]);
-    expect(result.closed).toMatchObject({ refunded: 1, returnsClosed: 0 });
+    expect(result.closed).toMatchObject({ refunded: 0, returnsClosed: 0 });
+    expect(orderClient.refundOrder).not.toHaveBeenCalled();
   });
 
-  test("Then Commerce refusing the refund is reported in words and the order gets no note, so the next run tries again", async () => {
+  test("Then Commerce refusing the refund is reported in words, after its one leading note, so the next run tries again", async () => {
     const invoiced = order(62, {
       items: [line({ qty_invoiced: 2 })],
       state: "processing",
@@ -421,7 +547,9 @@ describe("Given detach asked to close the orders", () => {
         orderId: "0000062",
       },
     ]);
-    expect(commerce.orders.comment).not.toHaveBeenCalled();
+    expect(commerce.orders.comment.mock.calls).toEqual([
+      [{ closeOrders: true }, 62, REFUNDED],
+    ]);
     expect(result.closed.refunded).toBe(0);
   });
 
@@ -434,6 +562,9 @@ describe("Given detach asked to close the orders", () => {
     const result = await detach({ closeOrders: true }, deps);
 
     const names = commerce.calls.map(([name]) => name);
+    expect(names.indexOf("comment")).toBeLessThan(
+      names.indexOf("unholdIfHeld"),
+    );
     expect(names.indexOf("unholdIfHeld")).toBeLessThan(names.indexOf("cancel"));
     expect(result.holds.released).toBe(1);
     expect(result.closed.cancelled).toBe(1);
@@ -455,7 +586,7 @@ describe("Given detach asked to close the orders", () => {
     expect(result.closed).toMatchObject({ cancelled: 1, partsRemoved: 1 });
   });
 
-  test("Then Commerce refusing the cancel leaves a note instead, as for an order it cannot cancel", async () => {
+  test("Then Commerce refusing the cancel adds one correcting note after the cancel note", async () => {
     const { commerce, deps } = setUp([order(61)], {
       listed: [{ purchaseOrderByCustomer: "0000061" }],
     });
@@ -463,11 +594,10 @@ describe("Given detach asked to close the orders", () => {
 
     const result = await detach({ closeOrders: true }, deps);
 
-    expect(commerce.orders.comment).toHaveBeenCalledWith(
-      { closeOrders: true },
-      61,
-      REMOVED,
-    );
+    expect(commerce.orders.comment.mock.calls).toEqual([
+      [{ closeOrders: true }, 61, CANCELLED],
+      [{ closeOrders: true }, 61, REMOVED],
+    ]);
     expect(result.closed).toMatchObject({ cancelled: 0, commented: 1 });
   });
 

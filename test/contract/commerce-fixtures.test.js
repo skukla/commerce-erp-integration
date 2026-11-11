@@ -31,7 +31,7 @@ import {
   cancellableByReset,
   hasResetNote,
   refundOf,
-  resetStepOf,
+  resetPlanOf,
 } from "#lib/reset-rule";
 
 /** A captured body, as Commerce answered it. */
@@ -174,7 +174,10 @@ describe("Given Commerce's own answers about orders", () => {
   // base_shipping_refunded on an order never refunded, which reads as nothing refunded.
   test("Then an invoiced and shipped order is refunded: its invoiced line and its invoiced shipping", () => {
     const order = captured("order-11");
-    expect(resetStepOf(order)).toBe("refund");
+    expect(resetPlanOf(order)).toMatchObject({
+      action: "refund",
+      invoice: false,
+    });
     expect(refundOf(order)).toEqual({
       arguments: {
         adjustment_negative: 0,

@@ -4,7 +4,8 @@
  * of them, then refreshes the ERP from Commerce. The seven shared example orders
  * (test/lib/reset-rule-orders.js) are placed in the main website's store and sent to the REAL mock
  * ERP; a decoy order is placed in the eu website's store. Closing the main store must close the
- * seven by the one reset rule (the same lib/close-orders.js the whole reset runs), forget them,
+ * seven by the one reset rule (the same lib/close-orders.js the whole reset runs; every one ends
+ * Canceled or Closed, the last two invoiced for what was left before the refund), forget them,
  * and leave the decoy and the ledger alone. The ERP is transient (owner, 2026-10-30): it is then
  * asked once to remove its own sales orders for the seven, with their invoices and shipments
  * (admin/remove-orders, contract version 23), and keeps the decoy's. The close's events send it
@@ -69,6 +70,7 @@ import * as closeAction from "#src/erp/close-orders/index";
 import * as statusAction from "#src/erp/status/index";
 import * as orderChanged from "#src/order/commerce/changed/index";
 import * as orderCreated from "#src/order/commerce/created/index";
+import * as invoiced from "#src/order/commerce/invoiced/index";
 import * as returnSaved from "#src/order/commerce/return-saved/index";
 
 import { RESET_RULE_CASES } from "../lib/reset-rule-orders.js";
@@ -80,7 +82,6 @@ const RUN = "store-close-0001";
 /** What the close answers per order, in the words of `touched`. */
 const TOUCHED = {
   canceled: "cancelled",
-  noted: "commented",
   refunded: "refunded",
   untouched: "alreadyClosed",
 };
@@ -208,6 +209,7 @@ beforeAll(async () => {
   run.requestsBefore = box.requests.length;
   run.savesBefore = box.commerce.orderSaves.length;
   run.returnSavesBefore = box.commerce.returnSaves.length;
+  run.invoiceSavesBefore = box.commerce.invoiceSaves.length;
   run.writesBefore = box.commerce.writes.length;
   run.first = await closeStore({ run: RUN });
   run.closeRequests = box.requests.slice(run.requestsBefore);
@@ -221,10 +223,10 @@ describe("Pair in a box: a store-scoped close of the main store", () => {
       closed: {
         alreadyClosed: 1,
         cancelled: 1,
-        commented: 1,
+        commented: 0,
         failed: [],
         partsRemoved: RESET_RULE_CASES.length,
-        refunded: 4,
+        refunded: 5,
         returnsClosed: 1,
       },
       erpRemoved: {
@@ -250,20 +252,18 @@ describe("Pair in a box: a store-scoped close of the main store", () => {
       },
       touched: RESET_RULE_CASES.map((c) => ({
         orderId: c.order.increment_id,
-        outcome: c.staysOpen ? "refundedOpen" : TOUCHED[c.expected],
+        outcome: TOUCHED[c.expected],
       })),
     });
   });
 
   test("Then each example order ends as the one reset rule says and is forgotten", async () => {
-    for (const { order, expected, staysOpen } of RESET_RULE_CASES) {
+    for (const { order, expected } of RESET_RULE_CASES) {
       const stored = orderOf(order.entity_id);
       expect(stored.ext_order_id).toBe("");
-      if (expected === "canceled") {
-        expect(stored.state).toBe("canceled");
-      } else if (expected === "refunded" && !staysOpen) {
-        expect(stored.state).toBe("closed");
-      }
+      expect(stored.state).toBe(
+        expected === "canceled" ? "canceled" : "closed",
+      );
     }
     expect(await listOrderPartsIds()).toEqual(["000000042"]);
   });
@@ -320,6 +320,15 @@ describe("Pair in a box: a store-scoped close of the main store", () => {
     for (const event of box.commerce.returnSaves.slice(run.returnSavesBefore)) {
       // biome-ignore lint/performance/noAwaitInLoops: events are delivered in order, as raised
       answers.push(await returnSaved.main(structuredClone(event)));
+    }
+    const invoiceSaves = box.commerce.invoiceSaves.slice(
+      run.invoiceSavesBefore,
+    );
+    // The two invoices of what was left, before their refunds.
+    expect(invoiceSaves).toHaveLength(2);
+    for (const event of invoiceSaves) {
+      // biome-ignore lint/performance/noAwaitInLoops: events are delivered in order, as raised
+      answers.push(await invoiced.main(structuredClone(event)));
     }
     expect(answers.length).toBeGreaterThan(0);
     expect(answers.every((res) => statusOf(res) < 500)).toBe(true);

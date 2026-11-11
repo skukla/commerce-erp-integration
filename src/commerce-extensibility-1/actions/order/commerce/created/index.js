@@ -15,9 +15,10 @@ import { routeOrder } from "#router/route-order";
  * observer.sales_order_save_commit_after: a new Commerce order goes to the router, which
  * hands each ERP its part through that ERP's adapter (src/router/route-order.js); the ERP's
  * number comes back onto the order (lib/order-sync.js). An order a demo reset closed is never
- * sent (AB-16n, lib/reset-closed.js): the reset clears its ERP number and parts record before it
- * cancels or refunds it, so each save would otherwise read as a new order never sent. A 503
- * answer asks I/O Events to deliver again later; a 400 ends the delivery.
+ * sent (AB-16n, lib/reset-closed.js): this app's reset marks it in State, and Demo Builder's Clear
+ * notes it in Commerce's history first (read from Commerce, since the event carries no history);
+ * either way each save would otherwise read as a new order never sent. A 503 answer asks I/O
+ * Events to deliver again later; a 400 ends the delivery.
  */
 async function main(params) {
   const logger = AioLogger("order-commerce-created", {
@@ -26,7 +27,7 @@ async function main(params) {
   try {
     const order = params.data?.value ?? params.data;
     const result =
-      (await resetClosedAnswer(order?.increment_id)) ??
+      (await resetClosedAnswer(params, order)) ??
       (await routeOrder(params, order, orderSyncDeps(logger)));
     logger.info(result.message);
     // For the Commerce Admin screen's history and its Retry (lib/history.js).

@@ -1,48 +1,43 @@
 /*
  * Close off every order the ERPs hold, before a reset wipes them (AB-16n, owner 2026-09-28), by
- * the ONE reset rule shared with Demo Builder's store wipe (lib/reset-rule.js, owner 2026-10-30):
- * a reset resets everything. Commerce cannot delete an order, so instead:
- * - its open returns are closed (PUT returns/{id}, status "closed");
- * - an order with nothing invoiced and nothing shipped, that Commerce can still cancel, is
- *   canceled and noted "Canceled by the demo reset on <day>.";
- * - any other not already canceled or closed has what is invoiced refunded with an offline credit
- *   memo (POST order/{orderId}/refund), so Commerce closes it, and is noted "Refunded and closed
- *   by the demo reset on <day>." (read back: one Commerce keeps open, partly invoiced, is noted
- *   "Refunded the invoiced items by the demo reset on <day>.");
- * - one Commerce can neither cancel nor credit (shipped but never invoiced; in payment review)
- *   stays open, noted that its ERP documents were removed, and is counted as `commented`;
- * - the integration forgets the order: its parts record, its ERP number, its hold.
+ * the ONE reset rule shared with Demo Builder's Clear (lib/reset-rule.js, owner 2026-10-30,
+ * changed 2026-11-11). Commerce cannot delete an order, so each one gets, in this order:
+ *
+ * 1. its reset note FIRST, decided from the plan (lib/reset-rule.js leadingNoteOf): "Canceled by
+ *    the demo reset on <day>.", "Refunded and closed by the demo reset on <day>.", or, for one in
+ *    payment review, "The ERP documents for this order were removed by the demo reset on <day>.";
+ *    none when a stopped run already wrote a reset note;
+ * 2. the integration forgets it: its parts record, and its ERP number unless detach cleared it;
+ * 3. its open returns closed (PUT returns/{id}, status "closed", read back); one Commerce keeps
+ *    open stops the order there, reported, for the next run;
+ * 4. off hold, if held;
+ * 5. canceled; or invoiced for whatever is not yet invoiced (POST order/{orderId}/invoice,
+ *    `{ capture: false, notify: false }`, every remaining line), read back, and everything
+ *    invoiced refunded offline (POST order/{orderId}/refund), so Commerce closes it;
+ * 6. ONE correcting note only when Commerce's answer differs: a cancel not answered `true` gets the
+ *    left-open note and counts `commented`; a refund after which the order does not read Closed
+ *    gets "Refunded the invoiced items by the demo reset on <day>." (still counted `refunded`).
  *
  * None of it may reach an ERP. Every order is marked closed in State BEFORE the first Commerce
- * write (lib/order-parts.js markClosedByReset), and every handler of an event those writes raise
- * reads the mark first and sends nothing (lib/reset-closed.js): the order save (order-commerce/
- * created and changed: a cancel, a refund, a hold released, a note, the ERP number cleared), the
- * invoice save (order-commerce/invoiced, in case Commerce saves the invoice a refund credits) and
- * the return save (order-commerce/return-saved). A credit memo save raises no event this app
- * subscribes to (app.commerce.config.ts).
+ * write (lib/order-parts.js markClosedByReset), and its note is the first write to it; every
+ * handler of an event those writes raise finds the mark or the note and sends nothing
+ * (lib/reset-closed.js): the order save (order-commerce/created and changed), the invoice save
+ * (order-commerce/invoiced, which the invoice step raises) and the return save
+ * (order-commerce/return-saved). A credit memo save raises no event this app subscribes to
+ * (app.commerce.config.ts).
  *
- * Run twice, nothing new happens: an order whose history already carries a reset's note is
- * counted as already closed and gets no second note (Commerce's own history is the record), and a
- * closed return is no longer open.
+ * Run twice, nothing new happens: an order already canceled or closed, or carrying the left-open
+ * note, is counted as already closed and gets no write; one a stopped run noted but did not close
+ * is finished without a second note; a closed return is no longer open.
  */
 import {
-  cancelledNote,
-  hasResetNote,
+  leadingNoteOf,
   openReturns,
-  refundedNote,
   refundedOpenNote,
   refundOf,
   removedNote,
-  resetStepOf,
+  resetPlanOf,
 } from "#lib/reset-rule";
-
-/** Each outcome's note; a refund's depends on the state Commerce then gave the order. */
-const NOTES = {
-  cancelled: cancelledNote,
-  commented: removedNote,
-  refunded: refundedNote,
-  refundedOpen: refundedOpenNote,
-};
 
 /** Read each order whole, together; one Commerce cannot answer is a failure, the rest go on. */
 async function readOrders(params, ids, commerce) {
@@ -172,48 +167,74 @@ async function closeReturn(params, rma, client) {
   }
 }
 
-/** Close the order's open returns, each on its own: one that fails is reported, the rest go on. */
-async function closeReturnsOf(params, order, deps, tally) {
+/**
+ * Close the order's open returns in turn. The first that fails stops the order (thrown, named in
+ * `step`), as Demo Builder's copy does: the note is already written, so the next run finishes it.
+ */
+async function closeReturnsOf(params, order, deps, tally, step) {
   const client = deps.orderClient;
   const open = openReturns(
     await client.listOrderReturns(params, order.entity_id),
   );
   for (const rma of open) {
-    try {
-      // biome-ignore lint/performance/noAwaitInLoops: one return at a time, few returns
-      await closeReturn(params, rma, client);
-      tally.closed.returnsClosed += 1;
-    } catch (error) {
-      tally.closed.failed.push({
-        error: `order ${order.increment_id}: return ${rma.increment_id ?? rma.entity_id}: the close failed: ${error.message}`,
-        orderId: String(order.increment_id),
-      });
-    }
+    step.name = `return ${rma.increment_id ?? rma.entity_id}: the close`;
+    // biome-ignore lint/performance/noAwaitInLoops: one return at a time, few returns
+    await closeReturn(params, rma, client);
+    tally.closed.returnsClosed += 1;
   }
 }
 
 /**
- * Cancel or refund the order as the rule says; answers which note it gets (NOTES). A refund is
- * read back: Commerce closes an order only once nothing is left to invoice or credit, so a partly
- * invoiced order stays open and its note says only the invoiced items were refunded.
+ * Refund everything invoiced, read from Commerce after any invoice, then read the order back;
+ * answers whether Commerce closed it. Throws when Commerce has nothing invoiced left to refund.
  */
-async function settle(params, order, next, deps, step) {
+async function refundAll(params, id, deps, step) {
+  step.name = "the read before the refund";
+  const now = await deps.commerce.orders.get(params, id);
+  step.name = "the refund";
+  const body = now ? refundOf(now) : null;
+  if (!body) {
+    throw new Error("Commerce has nothing invoiced left to refund on it");
+  }
+  await deps.orderClient.refundOrder(params, id, body);
+  step.name = "the read after the refund";
+  const after = await deps.commerce.orders.get(params, id);
+  return after?.state === "closed";
+}
+
+/**
+ * Release, then cancel or invoice-and-refund, after the note and the returns; ONE correcting note
+ * when Commerce's answer differs from the leading note. Answers the order's outcome.
+ */
+async function settle(params, order, plan, deps, tally, step) {
   const id = order.entity_id;
-  if (next === "cancel") {
+  const note = (text) => {
+    step.name = "the correcting note";
+    return deps.commerce.orders.comment(params, id, text);
+  };
+  if (plan.unhold) {
+    step.name = "the release of its hold";
+    if (await deps.commerce.unholdIfHeld(params, id)) {
+      tally.holds.released += 1;
+    }
+  }
+  if (plan.action === "cancel") {
     step.name = "the cancel";
-    // Commerce's answer is the last word: a refused cancel is noted as one it could not make.
-    return (await deps.commerce.orders.cancel(params, id)) === true
-      ? "cancelled"
-      : "commented";
+    if ((await deps.commerce.orders.cancel(params, id)) === true) {
+      return "cancelled";
+    }
+    await note(removedNote(tally.day));
+    return "commented";
   }
-  if (next === "refund") {
-    step.name = "the refund";
-    await deps.orderClient.refundOrder(params, id, refundOf(order));
-    step.name = "the read after the refund";
-    const after = await deps.commerce.orders.get(params, id);
-    return after?.state === "closed" ? "refunded" : "refundedOpen";
+  if (plan.invoice) {
+    step.name = "the invoice";
+    await deps.orderClient.invoiceRemainder(params, id);
   }
-  return "commented";
+  if (await refundAll(params, id, deps, step)) {
+    return "refunded";
+  }
+  await note(refundedOpenNote(tally.day));
+  return "refundedOpen";
 }
 
 /** Record what was done to one order, for a caller that asked for the list (`done.touched`). */
@@ -221,32 +242,40 @@ function touch(tally, order, outcome) {
   tally.touched?.push({ orderId: String(order.increment_id), outcome });
 }
 
+/** Count and record one order's outcome; every refund counts as refunded, closed or not. */
+function count(tally, order, outcome) {
+  tally.closed[outcome === "refundedOpen" ? "refunded" : outcome] += 1;
+  touch(tally, order, outcome);
+}
+
 /** Close one order; `step` names what was being done when a call fails. */
 async function closeOne(params, order, deps, tally) {
-  const id = order.entity_id;
+  const plan = resetPlanOf(order);
   const step = { name: "the parts record delete" };
   try {
-    await forget(params, order, deps, tally, step);
-    step.name = "the read of its returns";
-    await closeReturnsOf(params, order, deps, tally);
-    const next = resetStepOf(order);
-    if (hasResetNote(order) || next === "untouched") {
-      tally.closed.alreadyClosed += 1;
-      touch(tally, order, "alreadyClosed");
+    if (plan === "done") {
+      await forget(params, order, deps, tally, step);
+      count(tally, order, "alreadyClosed");
       return;
     }
-    if (order.state === "holded") {
-      step.name = "the release of its hold";
-      if (await deps.commerce.unholdIfHeld(params, id)) {
-        tally.holds.released += 1;
-      }
+    // A left-open order is finished only by its own note, so a rerun writes that one even after another.
+    if (!plan.noted || plan.action === "note") {
+      step.name = "the note";
+      await deps.commerce.orders.comment(
+        params,
+        order.entity_id,
+        leadingNoteOf(plan.action, tally.day),
+      );
     }
-    const outcome = await settle(params, order, next, deps, step);
-    step.name = "the note";
-    await deps.commerce.orders.comment(params, id, NOTES[outcome](tally.day));
-    // Every refund counts as refunded, closed or not: the note tells the two apart.
-    tally.closed[outcome === "refundedOpen" ? "refunded" : outcome] += 1;
-    touch(tally, order, outcome);
+    step.name = "the parts record delete";
+    await forget(params, order, deps, tally, step);
+    step.name = "the read of its returns";
+    await closeReturnsOf(params, order, deps, tally, step);
+    const outcome =
+      plan.action === "note"
+        ? "commented"
+        : await settle(params, order, plan, deps, tally, step);
+    count(tally, order, outcome);
   } catch (error) {
     touch(tally, order, "failed");
     tally.closed.failed.push({
@@ -263,14 +292,14 @@ async function closeOne(params, order, deps, tally) {
  * @param {{ day: string, orders: object[], failed: object[], stale: number }} prepared
  *   prepareClose's answer
  * @param {object} deps `{ commerce, orderClient: { listOrderReturns, getReturn, updateReturn,
- *   refundOrder }, orderParts }`
+ *   invoiceRemainder, refundOrder }, orderParts }`
  * @param {{ cleared: Set<string>, orders: object, holds: object, touched?: object[] }} done
  *   detach's counts; with `touched`, each order is added to it as `{ orderId, outcome }`
  *   (`cancelled`, `refunded`, `refundedOpen`, `commented`, `alreadyClosed` or `failed`)
  * @returns {Promise<{ cancelled: number, refunded: number, commented: number,
  *   alreadyClosed: number, returnsClosed: number, partsRemoved: number, failed: object[] }>}
- *   `commented`: orders Commerce could neither cancel nor credit, left open with a note;
- *   `refunded`: every order refunded, including one Commerce kept open (partly invoiced)
+ *   `commented`: orders left open with a note (payment review, nothing to refund, or a cancel
+ *   Commerce refused); `refunded`: every order refunded, including one Commerce kept open
  */
 export async function closeOrders(params, prepared, deps, done) {
   const closed = {

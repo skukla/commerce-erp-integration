@@ -18,7 +18,10 @@ import { getInvoice, getOrder } from "#src/order/commerce-order-api-client";
 /**
  * observer.sales_order_invoice_save_after: an invoice made in Commerce invoices the ERP order,
  * with an origin marker so the ERP does not invoice it again (bidirectional review, item 1).
- * The invoice Commerce made at checkout, when a card was captured, is told to no ERP (AB-66).
+ * The invoice Commerce made at checkout, when a card was captured, is told to no ERP (AB-66). An
+ * invoice on an order a demo reset closed is told to no ERP either: the reset invoices what is
+ * left before it refunds (lib/reset-rule.js), and the order's State mark or its reset note in
+ * Commerce's history says so (lib/reset-closed.js).
  * A 503 answer asks I/O Events to deliver again later; a 400 ends the delivery.
  */
 async function main(params) {

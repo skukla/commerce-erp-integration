@@ -1,25 +1,32 @@
 /*
- * The ONE reset rule for orders (owner, 2026-10-30), shared with Demo Builder's store wipe
- * (demo-builder-vscode src/features/data-installer/services/demoDataWipe/wipeOrders.ts): a reset
- * resets everything. Commerce cannot delete an order, so each one is closed off:
+ * The ONE reset rule for orders (owner, 2026-10-30; changed 2026-11-11), shared with Demo
+ * Builder's Clear (demo-builder-vscode src/features/data-installer/services/demoDataWipe/
+ * wipeOrders.ts, which must say the same). Commerce cannot delete an order, so each one is closed
+ * off, and every order ends Canceled or Closed except one in payment review:
  *
- * 1. nothing invoiced and nothing shipped, in a state Commerce can cancel from: canceled, noted
- *    "Canceled by the demo reset on <day>.";
- * 2. any other order not already canceled or closed: what is invoiced is refunded with an offline
- *    credit memo, so the order becomes Closed, noted "Refunded and closed by the demo reset on
- *    <day>."; read back, an order Commerce kept open (a line never invoiced) is noted "Refunded
- *    the invoiced items by the demo reset on <day>." instead;
- * 3. its open returns: Closed (lib/close-orders.js);
- * 4. run twice, nothing new: an order whose history carries RESET_NOTE was handled before;
- * 5. an order Commerce can neither cancel nor credit (shipped but never invoiced; in payment
- *    review) is left open, noted "The ERP documents for this order were removed by the demo reset
- *    on <day>." and counted.
+ * | The order | What it gets | Its note |
+ * |---|---|---|
+ * | already Canceled or Closed | nothing (`done`) | none |
+ * | nothing invoiced, nothing shipped, a state Commerce can cancel from | canceled | `cancelledNote`; `removedNote` added when Commerce answers the cancel with anything but `true` |
+ * | in payment review (Commerce refuses an invoice and a credit memo there) | only the note | `removedNote` |
+ * | anything else with something to invoice or refund | what is not invoiced is invoiced (every remaining line), then everything invoiced is refunded offline, so Commerce closes it | `refundedNote`; `refundedOpenNote` added when the order does not then read Closed |
+ * | anything else, with nothing to invoice or refund | only the note | `removedNote` |
  *
- * Pure: it decides from the order as `GET orders/{id}` answers it. Commerce's answer to each call
- * is still the last word.
+ * Why invoice first (Experience League, read 2026-11-11, docs/order-close-ownership.md): an order
+ * is Closed once it has a credit memo and the customer was refunded; a credit memo needs an
+ * invoice; an offline refund works for any payment method.
  *
- * Changing (owner, 2026-11-11): step 5's "shipped but never invoiced" is invoiced, then refunded,
- * so it ends Closed; and Demo Builder's Clear stops handing orders to this app. Read
+ * The note comes FIRST, decided from the plan up front (`leadingNoteOf`), before an order's
+ * returns are closed, its hold released, or it is canceled, invoiced or refunded: every handler of
+ * the events those writes raise treats an order whose history carries RESET_NOTE as closed by a
+ * reset and tells no ERP (lib/reset-closed.js). When Commerce's answer then differs, ONE
+ * correcting note is added, so Commerce's answer stays the last word.
+ *
+ * Run twice, nothing new: an order is `done` when Canceled or Closed, or when its history carries
+ * the left-open note (LEFT_OPEN_NOTE). One carrying another reset note but not closed (a run
+ * stopped after its note) is planned again, marked `noted`, so it gets no second leading note.
+ *
+ * Pure: it decides from the order as `GET orders/{id}` answers it. Read
  * docs/order-close-ownership.md before changing this file.
  */
 
@@ -29,11 +36,25 @@ export const RESET_NOTE = "by the demo reset on";
 export const cancelledNote = (day) => `Canceled by the demo reset on ${day}.`;
 export const refundedNote = (day) =>
   `Refunded and closed by the demo reset on ${day}.`;
-/** A refund Commerce kept open: a line was never invoiced, so the order still has some to bill. */
+/** The correcting note when a refunded order does not then read Closed. */
 export const refundedOpenNote = (day) =>
   `Refunded the invoiced items by the demo reset on ${day}.`;
-export const removedNote = (day) =>
-  `The ERP documents for this order were removed by the demo reset on ${day}.`;
+/** The words only the left-open note carries: an order whose history holds them is finished with. */
+export const LEFT_OPEN_NOTE =
+  "The ERP documents for this order were removed by the demo reset on";
+export const removedNote = (day) => `${LEFT_OPEN_NOTE} ${day}.`;
+
+/**
+ * The note an order's work starts with, decided from its plan before anything is written.
+ * @param {"cancel"|"refund"|"note"} action the plan's action
+ * @param {string} day the day the note names
+ */
+export function leadingNoteOf(action, day) {
+  if (action === "cancel") {
+    return cancelledNote(day);
+  }
+  return action === "refund" ? refundedNote(day) : removedNote(day);
+}
 
 /*
  * The states in which Commerce's Order::canCancel() refuses, whatever the lines say (Magento
@@ -52,8 +73,8 @@ const UNCANCELLABLE_STATES = new Set([
 const FINISHED_STATES = new Set(["canceled", "closed"]);
 
 /*
- * A state Order::canCreditmemo() refuses in beyond the finished ones (Order.php: payment review;
- * on hold too, but the close takes an order off hold first).
+ * A state Order::canCreditmemo() and Order::canInvoice() refuse in beyond the finished ones
+ * (Order.php: payment review; on hold too, but the close takes an order off hold first).
  */
 const UNCREDITABLE_STATES = new Set(["payment_review"]);
 
@@ -125,30 +146,71 @@ export function refundOf(order) {
   };
 }
 
+const historyHas = (order, words) =>
+  (order.status_histories ?? []).some((h) =>
+    String(h?.comment ?? "").includes(words),
+  );
+
+/** Whether an order's history already carries a reset's note. */
+export const hasResetNote = (order) => historyHas(order, RESET_NOTE);
+
+const RESET_DAY = new RegExp(`${RESET_NOTE} (\\d{4}-\\d{2}-\\d{2})`, "u");
+
 /**
- * What the rule does to one order (its history's reset note is checked by the caller):
- * `untouched` (already canceled or closed), `cancel`, `refund`, or `stuck` (neither is possible).
- * @param {object} order the order as `GET orders/{id}` answers it
- * @returns {"untouched"|"cancel"|"refund"|"stuck"}
+ * The day the newest reset note in an order's history names (Commerce answers the history newest
+ * first), or null when it carries none.
+ * @param {object} order an order with `status_histories`
+ * @returns {string|null}
  */
-export function resetStepOf(order) {
-  if (FINISHED_STATES.has(order.state)) {
-    return "untouched";
+export function resetNoteDayOf(order) {
+  for (const h of order.status_histories ?? []) {
+    const day = String(h?.comment ?? "").match(RESET_DAY)?.[1];
+    if (day) {
+      return day;
+    }
   }
-  if (cancellableByReset(order)) {
-    return "cancel";
-  }
-  if (!UNCREDITABLE_STATES.has(order.state) && refundOf(order)) {
-    return "refund";
-  }
-  return "stuck";
+  return null;
 }
 
-/** Whether an order's history already carries a reset's note (it was handled before). */
-export const hasResetNote = (order) =>
-  (order.status_histories ?? []).some((h) =>
-    String(h?.comment ?? "").includes(RESET_NOTE),
+/** Whether any line still has something neither invoiced nor canceled. */
+const notAllInvoiced = (order) =>
+  linesOf(order).some(
+    (i) => qty(i.qty_ordered) - qty(i.qty_invoiced) - qty(i.qty_canceled) > 0,
   );
+
+/** Canceled when it can be; else, outside payment review, invoiced and refunded when there is anything to; else only noted. */
+function actionOf(order) {
+  if (cancellableByReset(order)) {
+    return { action: "cancel", invoice: false };
+  }
+  if (UNCREDITABLE_STATES.has(order.state)) {
+    return { action: "note", invoice: false };
+  }
+  const invoice = notAllInvoiced(order);
+  return invoice || refundOf(order)
+    ? { action: "refund", invoice }
+    : { action: "note", invoice: false };
+}
+
+/**
+ * What closing one order takes, or `"done"` when it is Canceled or Closed, or a reset left it open
+ * before.
+ * @param {object} order the order as `GET orders/{id}` answers it
+ * @returns {"done" | { action: "cancel"|"refund"|"note", invoice: boolean, noted: boolean,
+ *   unhold: boolean }} `invoice`: for a refund, something is not yet invoiced, so the order is
+ *   invoiced in full first; `noted`: its history already carries a reset note (no second leading
+ *   note); `unhold`: it is on hold, so it is released first
+ */
+export function resetPlanOf(order) {
+  if (FINISHED_STATES.has(order.state) || historyHas(order, LEFT_OPEN_NOTE)) {
+    return "done";
+  }
+  return {
+    ...actionOf(order),
+    noted: hasResetNote(order),
+    unhold: order.state === "holded",
+  };
+}
 
 /** The returns not closed yet. */
 export const openReturns = (returns) =>

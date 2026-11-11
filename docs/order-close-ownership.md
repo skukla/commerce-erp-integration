@@ -24,7 +24,7 @@ one of two ways: Canceled, or Closed once "an order was assigned a credit memo a
 received a refund". A credit memo needs an invoice ("you must generate an invoice before creating a
 credit memo"), and "you can issue an offline refund … for any payment method".
 
-| Order | Today (step 5 of `reset-rule.js`) | Now |
+| Order | Before (the 2026-10-30 rule) | Now |
 |---|---|---|
 | Shipped but never invoiced | Left open with a note | Invoice what is not invoiced, then refund it all offline: Closed |
 | In payment review | Left open with a note | Unchanged: left open with a note. Reported to the SC as "1 order couldn't be closed" with Open Commerce Admin. Rare: it needs the classic PayPal integration with its fraud filter, which Experience League marks "PaaS only" |
@@ -35,40 +35,72 @@ So every demo order ends Canceled or Closed, except one in payment review.
 The integration's own reset (`src/lib/close-orders.js`, used when an ERP is removed) applies the
 same rule and gets the same change.
 
-## What must change here before Demo Builder ships it
+## What this repository now does (branch `feature/one-reset-rule`, not merged)
 
-### 1. Orders Clear closes are not marked in this app's State
+### 1. Every order handler recognises a reset by Commerce's own record
 
-Every handler of an order event skips an order only when `closedByReset` finds this app's mark
-(`src/lib/reset-closed.js`, set by `markClosedByReset` in `src/lib/order-parts.js` before the
-integration's own reset writes). Clear writes to Commerce directly, so its orders carry no mark.
+Orders Clear closes carry no mark in this app's State, so the mark alone no longer decides.
+`src/lib/reset-closed.js` now treats an order as closed by a reset when either is true:
 
-`reset-closed.js` says what happens then: "without the mark a refunded order with no ERP number and
-no parts record reads as a new order never sent". The order saved, invoice saved and return saved
-events that Clear's cancels, invoices, refunds and notes raise could send those orders to an ERP.
-The new invoice-first step adds an invoice save event this app subscribes to
-(`order-commerce/invoiced`).
+- this app's own reset marked it in State (`markClosedByReset`, unchanged);
+- its Commerce status history carries `RESET_NOTE` ("by the demo reset on").
 
-Options, in the order recommended:
+Clear writes its note BEFORE its first write to an order (Demo Builder commit `6c5f28358` on
+`fix/erp-order-close`), so every event it raises already finds the note.
 
-| Option | How | Cost |
+| Handler | Event | How it reads the history |
 |---|---|---|
-| **Recognise the reset by Commerce's own record** | Handlers also treat an order whose history carries `RESET_NOTE` ("by the demo reset on") as closed. Clear then writes its note BEFORE its first write to an order (today it notes last), so every event it raises already sees it | Keeps Commerce the source and adds no dependency. Costs one order read per event that lacks the mark |
-| Clear marks the orders here first | Demo Builder calls this app to mark each order, then closes it | Brings back the dependency the decision removed |
-| Skip events for websites being cleared | A flag per website for the length of a clear | A second source of truth; fails if Clear stops halfway |
+| `order-commerce/created` | order saved | from the event when it carries `status_histories`; it does not today (not in the subscription's fields), so the order is read by number (`GET orders?searchCriteria…increment_id`) |
+| `order-commerce/changed` | order saved | the same |
+| `order-commerce/invoiced` | invoice saved (Clear's new invoice step raises one) | the order is already read whole (`GET orders/{id}`) for its number; its history is checked too |
+| `order-commerce/shipped` | shipment saved | the same |
+| `order-commerce/return-saved` | return saved | the same |
 
-### 2. The two copies of the rule must agree
+A read that fails changes nothing: the event goes on as it did before. The read costs one Commerce
+call per order save event that has no mark (an order save that names no order, like the ERP
+number clear, reads nothing). Adding `status_histories` to the order save subscription would save
+that call; whether Commerce puts the history in that event's payload has not been checked.
 
-The rule is copied line for line because an App Builder app cannot import Demo Builder's code. Keep
-the copies one with a shared table of order states and the expected result (canceled, invoiced and
-refunded, left open), run by the tests in both repositories. Move the rule to a shared package only
-if it keeps changing.
+### 2. The two copies of the rule agree
 
-### 3. Prove it on a live store first
+`src/lib/reset-rule.js` and `src/lib/close-orders.js` follow the changed rule, in the same order of
+writes per order as Demo Builder's `wipeOrders.ts` and `wipeOrderRun.ts`:
+
+1. the reset note FIRST, decided from the plan (`leadingNoteOf`), unless a stopped run already
+   wrote a reset note. Cancel: "Canceled by the demo reset on <day>.". Invoice and refund:
+   "Refunded and closed by the demo reset on <day>.". Payment review, or nothing left to invoice
+   or refund: "The ERP documents for this order were removed by the demo reset on <day>." (this
+   repo's left-open note; Demo Builder's own left-open note has other words);
+2. the integration forgets it: its parts record, and its ERP number;
+3. its open returns closed;
+4. off hold, if held;
+5. canceled; or invoiced for whatever is not yet invoiced (`POST order/{orderId}/invoice`,
+   `{ capture: false, notify: false }`, new client call `invoiceRemainder`), read again, and
+   everything invoiced refunded offline (`POST order/{orderId}/refund`);
+6. ONE correcting note only when Commerce's answer differs: a cancel not answered `true` gets the
+   left-open note; a refund after which the order does not read Closed gets "Refunded the invoiced
+   items by the demo reset on <day>.".
+
+Run again, an order is done when it is Canceled or Closed or carries the left-open note. One with
+another reset note but not finished is processed again without a second leading note. This app's
+State mark is still written before the first write, as before.
+
+The shared example table `test/lib/reset-rule-orders.js` matches Demo Builder's
+`tests/helpers/resetRuleOrders.ts` case for case. Its header says the two must stay identical.
+
+A return Commerce keeps open stops that order in both copies: it is reported, and the next run
+finishes it.
+
+Where the two copies still differ: an already Canceled or Closed order. Here its parts record and
+ERP number are still forgotten, as before (this app's own records, not Commerce); Demo Builder
+writes nothing to it.
+
+### 3. Still to do: prove it on a live store
 
 On the test store, with the owner's go: an order shipped but never invoiced ends Closed after
 invoice and refund; a partly invoiced one ends Closed; none of Clear's writes sends anything to an
-ERP; a second Clear changes nothing.
+ERP; a second Clear changes nothing. Neither the invoice call's body nor its answer has been
+confirmed against a live store.
 
 ## Where this rule stands
 

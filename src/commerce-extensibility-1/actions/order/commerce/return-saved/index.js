@@ -15,7 +15,9 @@ import { getOrder } from "#src/order/commerce-order-api-client";
  * observer.rma_save_commit_after: a return was saved in Commerce. Each ERP that sold its lines
  * is sent its piece as a return order, once (router/return-pieces.js); a later save of the
  * same return sends nothing new. Only the return's id is read from the event (its payload has
- * not been captured live): the return is read from Commerce.
+ * not been captured live): the return is read from Commerce. A return on an order a demo reset
+ * closed (its State mark, or its reset note in Commerce's history; lib/reset-closed.js) is sent
+ * to no ERP.
  *
  * A 503 answer asks I/O Events to deliver again later (an ERP down, the order's lock taken);
  * a 400 ends the delivery (an ERP refused, or no line was sold through an ERP).

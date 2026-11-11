@@ -224,6 +224,8 @@ export function createFakeCommerce() {
   // The order save events Commerce raised for the writes below, oldest first: the box delivers
   // them to the order handlers the way I/O Events would.
   const orderSaves = [];
+  // The invoice save events Commerce raised, oldest first (only the fields the subscription names).
+  const invoiceSaves = [];
   const raiseOrderSave = (value) =>
     orderSaves.push({
       data: { value: { ...clone(value), _isNew: false } },
@@ -540,6 +542,29 @@ export function createFakeCommerce() {
       record("invoice", { invoiceId: id, orderId: String(orderId) });
       return id;
     },
+    /**
+     * POST order/{id}/invoice with no lines and no capture, a demo reset's invoice of what is
+     * left (lib/close-orders.js): every line's remainder billed, the order's state as an invoice
+     * leaves it, and the invoice save event raised. Its answer, the invoice id, is typed from
+     * Adobe's REST reference, NOT captured live.
+     */
+    invoiceRemainder: async (_p, orderId) => {
+      const o = order(orderId);
+      const refusal = invoiceRefusal(o);
+      if (refusal) {
+        throw refusal;
+      }
+      const id = billRemainder(o);
+      o.state = fulfilmentState(o);
+      o.status = o.state;
+      record("invoiceRemainder", { invoiceId: id, orderId: String(orderId) });
+      const { entity_id, increment_id, order_id, state } = db.invoices.at(-1);
+      invoiceSaves.push({
+        data: { value: { entity_id, increment_id, order_id, state } },
+        type: "observer.sales_order_invoice_save_after",
+      });
+      return id;
+    },
     /** GET invoices filtered on the order (Commerce's invoice list: `{ items, total_count }`). */
     listOrderInvoices: async (_p, orderId) =>
       clone(db.invoices.filter((i) => i.order_id === Number(orderId))),
@@ -771,6 +796,7 @@ export function createFakeCommerce() {
       return db;
     },
     events,
+    invoiceSaves,
     lib,
     orderClient,
     orderSaves,
@@ -779,6 +805,7 @@ export function createFakeCommerce() {
       db = seed();
       writes.length = 0;
       orderSaves.length = 0;
+      invoiceSaves.length = 0;
       returns.returnSaves.length = 0;
     },
     /** The return save events Commerce raised for the writes, oldest first. */

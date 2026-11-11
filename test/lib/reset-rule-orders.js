@@ -1,9 +1,15 @@
 /*
- * The five example orders of the ONE reset rule (owner, 2026-10-30), shared with Demo Builder's
- * store wipe. The case names are the owner's, word for word, and the bodies are the ones Demo
- * Builder's suite uses (demo-builder-vscode tests/helpers/resetRuleOrders.ts), so the two suites
- * can be compared line by line. Shaped as `GET orders/{id}` and `GET returns/{id}` answer; none
- * of these bodies is captured from a live store.
+ * The example orders of the ONE reset rule (owner, 2026-10-30; changed 2026-11-11), shared with
+ * Demo Builder's Clear. THIS FILE AND demo-builder-vscode tests/helpers/resetRuleOrders.ts MUST
+ * STAY IDENTICAL, case for case: same names (the owner's, word for word), same bodies, same
+ * expected outcomes. Change one, change the other in the same change.
+ *
+ * The last two changed 2026-11-11 (docs/order-close-ownership.md): an order Commerce cannot
+ * cancel is invoiced in full, then refunded in full, so Commerce closes it. No outcome leaves an
+ * order open any more, except payment review, which no example here covers.
+ *
+ * Shaped as `GET orders/{id}` and `GET returns/{id}` answer; none of these bodies is captured
+ * from a live store.
  */
 
 /** The store view every example was placed in (Demo Builder's test website). */
@@ -35,11 +41,11 @@ const openReturn = (id, orderId, number) => ({
 });
 
 /**
- * `staysOpen`: refunded, but Commerce keeps the order open (a line was never invoiced), so its
- * note says only the invoiced items were refunded.
+ * `closesReturn`: the return the rule closes, by id. `invoices`: something is not yet invoiced,
+ * so the rule invoices it all before refunding everything invoiced.
  * @type {Array<{ name: string, order: object, returns: object[],
- *   expected: "canceled"|"refunded"|"noted"|"untouched", closesReturn?: number,
- *   staysOpen?: true }>}
+ *   expected: "canceled"|"refunded"|"untouched", closesReturn?: number,
+ *   invoices?: true }>}
  */
 export const RESET_RULE_CASES = [
   {
@@ -115,11 +121,10 @@ export const RESET_RULE_CASES = [
     returns: [],
   },
   {
-    expected: "noted",
-    name: "shipped, not invoiced → noted",
+    expected: "refunded",
+    invoices: true,
+    name: "shipped, not invoiced → invoiced, refunded, closed",
     order: {
-      base_shipping_invoiced: 0,
-      base_shipping_refunded: 0,
       entity_id: 706,
       increment_id: "000000706",
       items: [line(76, 2, 0, 2)],
@@ -131,7 +136,8 @@ export const RESET_RULE_CASES = [
   },
   {
     expected: "refunded",
-    name: "partly invoiced → refunded, not closed",
+    invoices: true,
+    name: "partly invoiced → invoiced, refunded, closed",
     order: {
       base_shipping_invoiced: 5,
       base_shipping_refunded: 0,
@@ -143,6 +149,5 @@ export const RESET_RULE_CASES = [
       store_id: RESET_RULE_VIEW,
     },
     returns: [],
-    staysOpen: true,
   },
 ];

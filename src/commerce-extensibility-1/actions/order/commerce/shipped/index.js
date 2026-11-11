@@ -16,7 +16,9 @@ import { getOrder } from "#src/order/commerce-order-api-client";
 
 /**
  * observer.sales_order_shipment_save_after: a shipment made in Commerce is recorded on the ERP order,
- * with an origin marker so the ERP does not ship it again (bidirectional review, item 1).
+ * with an origin marker so the ERP does not ship it again (bidirectional review, item 1). A
+ * shipment on an order a demo reset closed (its State mark, or its reset note in Commerce's
+ * history; lib/reset-closed.js) is told to no ERP.
  * A 503 answer asks I/O Events to deliver again later; a 400 ends the delivery.
  */
 async function main(params) {

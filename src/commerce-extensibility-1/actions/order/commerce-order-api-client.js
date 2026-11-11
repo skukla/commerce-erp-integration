@@ -104,6 +104,28 @@ async function invoiceOrderItems(params, orderId, items) {
 }
 
 /**
+ * Invoice whatever an order has not invoiced yet, for a demo reset (lib/close-orders.js), so the
+ * whole order can then be refunded and Commerce closes it. No `items`, so every remaining line is
+ * invoiced; no capture (the refund that follows is offline) and no email. The body is the one the
+ * owner's decision names (docs/order-close-ownership.md, 2026-11-11); its answer, the invoice id,
+ * is NOT confirmed from a live store.
+ * @param {object} params - Environment params from the IO Runtime request
+ * @param {number} orderId - order id
+ * @returns {Promise<number>} the invoice id
+ */
+async function invoiceRemainder(params, orderId) {
+  const client = await getCommerceClient(
+    resolveImsAuthParams(params),
+    COMMERCE_FETCH_OPTIONS,
+  );
+  return await client
+    .post(`order/${orderId}/invoice`, {
+      json: { capture: false, notify: false },
+    })
+    .json();
+}
+
+/**
  * Cancel an order.
  * @param {object} params - Environment params from the IO Runtime request
  * @param {number} orderId - order id
@@ -318,6 +340,7 @@ export {
   holdOrder,
   invoiceOrder,
   invoiceOrderItems,
+  invoiceRemainder,
   listOrderInvoices,
   listOrderReturns,
   refundOrder,

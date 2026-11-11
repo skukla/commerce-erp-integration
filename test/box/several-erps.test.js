@@ -318,6 +318,9 @@ describe("Pair in a box: a reset closes the orders the two ERPs hold", () => {
       entity_id: id,
       increment_id: `0000000${id}`,
       items: structuredClone(base.items.filter((i) => skus.includes(i.sku))),
+      // A new order has no history of its own: the base's may carry a reset's note by now,
+      // which the order handlers read as closed by a reset (lib/reset-closed.js).
+      status_histories: [],
     });
   }
 

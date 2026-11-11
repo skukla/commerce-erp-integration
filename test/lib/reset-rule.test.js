@@ -1,33 +1,39 @@
 /*
- * The ONE reset rule (owner, 2026-10-30), shared with Demo Builder's store wipe: what a reset
- * does to each order, decided from the order alone. The five cases are the owner's, named as
- * Demo Builder's suite names them (reset-rule-orders.js).
+ * The ONE reset rule (owner, 2026-10-30; changed 2026-11-11), shared with Demo Builder's Clear:
+ * what a reset does to each order, decided from the order alone. The cases are the owner's, named
+ * as Demo Builder's suite names them (reset-rule-orders.js).
  */
 import {
   cancellableByReset,
   hasResetNote,
+  LEFT_OPEN_NOTE,
+  leadingNoteOf,
   openReturns,
   refundedNote,
   refundedOpenNote,
   refundOf,
-  resetStepOf,
+  removedNote,
+  resetNoteDayOf,
+  resetPlanOf,
 } from "#lib/reset-rule";
 
 import { RESET_RULE_CASES } from "./reset-rule-orders.js";
 
 /** What the rule does, in the words Demo Builder's suite expects. */
-const OUTCOME = {
-  cancel: "canceled",
-  refund: "refunded",
-  stuck: "noted",
-  untouched: "untouched",
-};
+const OUTCOME = { cancel: "canceled", note: "noted", refund: "refunded" };
+const outcomeOf = (plan) =>
+  plan === "done" ? "untouched" : OUTCOME[plan.action];
 
 describe("Given the example orders of the one reset rule", () => {
   test.each(RESET_RULE_CASES.map((c) => [c.name, c]))(
     "%s",
-    (_name, { order, returns, expected, closesReturn }) => {
-      expect(OUTCOME[resetStepOf(order)]).toBe(expected);
+    (_name, { order, returns, expected, closesReturn, invoices }) => {
+      const plan = resetPlanOf(order);
+      expect(outcomeOf(plan)).toBe(expected);
+      if (plan !== "done") {
+        expect(plan.invoice).toBe(invoices === true);
+        expect(plan.noted).toBe(false);
+      }
       expect(openReturns(returns).map((r) => r.entity_id)).toEqual(
         closesReturn === undefined ? [] : [closesReturn],
       );
@@ -52,8 +58,8 @@ describe("Given the example orders of the one reset rule", () => {
   });
 });
 
-test("Then a partly invoiced order is refunded only its invoiced line and the invoiced shipping", () => {
-  const partly = RESET_RULE_CASES.find((c) => c.staysOpen);
+test("Then a partly invoiced order, as read before its invoice, would refund only its invoiced line and the invoiced shipping", () => {
+  const partly = RESET_RULE_CASES.find((c) => c.name.startsWith("partly"));
   expect(refundOf(partly.order)).toEqual({
     arguments: {
       adjustment_negative: 0,
@@ -76,33 +82,106 @@ describe("Given an order the five cases do not cover", () => {
     ...extra,
   });
 
-  test("Then shipped but never invoiced is stuck: Commerce credits only what was invoiced, and the rule cancels nothing shipped", () => {
+  test("Then shipped but never invoiced is invoiced first, then refunded: the rule cancels nothing shipped", () => {
     const order = {
       items: [line({ qty_shipped: 2 })],
       state: "processing",
     };
     expect(cancellableByReset(order)).toBe(false);
     expect(refundOf(order)).toBeNull();
-    expect(resetStepOf(order)).toBe("stuck");
+    expect(resetPlanOf(order)).toEqual({
+      action: "refund",
+      invoice: true,
+      noted: false,
+      unhold: false,
+    });
   });
 
-  test("Then an order in payment review is stuck: Commerce credits nothing there (Order::canCreditmemo)", () => {
+  test("Then an order in payment review is only noted: Commerce neither invoices nor credits there (Order::canCreditmemo)", () => {
     const order = {
       items: [line({ qty_invoiced: 2 })],
       state: "payment_review",
     };
-    expect(resetStepOf(order)).toBe("stuck");
+    expect(resetPlanOf(order)).toEqual({
+      action: "note",
+      invoice: false,
+      noted: false,
+      unhold: false,
+    });
   });
 
-  test("Then a held invoiced order is refunded (the close takes it off hold first)", () => {
+  test("Then an order with nothing to invoice and nothing left to refund is only noted", () => {
+    const order = {
+      items: [line({ qty_invoiced: 2, qty_refunded: 2, qty_shipped: 2 })],
+      state: "complete",
+    };
+    expect(resetPlanOf(order).action).toBe("note");
+  });
+
+  test("Then a held invoiced order is released, then refunded", () => {
     const order = { items: [line({ qty_invoiced: 2 })], state: "holded" };
-    expect(resetStepOf(order)).toBe("refund");
+    expect(resetPlanOf(order)).toEqual({
+      action: "refund",
+      invoice: false,
+      noted: false,
+      unhold: true,
+    });
   });
 
-  test("Then a canceled order is untouched", () => {
-    expect(resetStepOf({ items: [line()], state: "canceled" })).toBe(
-      "untouched",
+  test("Then a canceled order is done", () => {
+    expect(resetPlanOf({ items: [line()], state: "canceled" })).toBe("done");
+  });
+
+  test("Then an order a reset left open (its note says so) is done, even in payment review", () => {
+    const order = {
+      items: [line({ qty_invoiced: 2 })],
+      state: "payment_review",
+      status_histories: [{ comment: removedNote("2026-11-10") }],
+    };
+    expect(resetPlanOf(order)).toBe("done");
+  });
+
+  test("Then an order a stopped run noted but did not close is planned again, marked as noted", () => {
+    const order = {
+      items: [line({ qty_invoiced: 1 })],
+      state: "processing",
+      status_histories: [{ comment: refundedNote("2026-11-10") }],
+    };
+    expect(resetPlanOf(order)).toEqual({
+      action: "refund",
+      invoice: true,
+      noted: true,
+      unhold: false,
+    });
+  });
+
+  test("Then the note an order's work starts with is decided from its plan", () => {
+    expect(leadingNoteOf("cancel", "2026-11-11")).toBe(
+      "Canceled by the demo reset on 2026-11-11.",
     );
+    expect(leadingNoteOf("refund", "2026-11-11")).toBe(
+      "Refunded and closed by the demo reset on 2026-11-11.",
+    );
+    expect(leadingNoteOf("note", "2026-11-11")).toBe(
+      "The ERP documents for this order were removed by the demo reset on 2026-11-11.",
+    );
+    expect(removedNote("2026-11-11").startsWith(LEFT_OPEN_NOTE)).toBe(true);
+  });
+
+  test("Then the day a reset's note names is read back, newest note first; none without a note", () => {
+    expect(
+      resetNoteDayOf({
+        status_histories: [
+          { comment: "Shipped." },
+          { comment: refundedNote("2026-11-11") },
+          { comment: removedNote("2026-11-10") },
+        ],
+      }),
+    ).toBe("2026-11-11");
+    expect(
+      resetNoteDayOf({ status_histories: [{ comment: "Shipped." }] }),
+    ).toBeNull();
+    expect(resetNoteDayOf({})).toBeNull();
   });
 
   test("Then a configurable's child line is left out of the refund: Commerce credits the parent", () => {

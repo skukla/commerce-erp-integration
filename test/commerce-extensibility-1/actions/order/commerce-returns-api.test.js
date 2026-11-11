@@ -22,6 +22,7 @@ vi.mock("@adobe/aio-commerce-sdk/auth", () => ({
 import {
   addReturnComment,
   getReturn,
+  invoiceRemainder,
   listOrderInvoices,
   refundOrderItems,
   updateReturn,
@@ -62,6 +63,17 @@ describe("Given a credit memo of some of an order's lines", () => {
         items: [{ order_item_id: 38, qty: 2 }],
         notify: false,
       },
+    });
+  });
+});
+
+describe("Given a demo reset invoices what an order has left (lib/close-orders.js)", () => {
+  test("Then it is POST order/{id}/invoice with no lines, no capture and no email, and answers the invoice id", async () => {
+    mockPost.mockReturnValueOnce(answer(902));
+
+    expect(await invoiceRemainder({}, 57)).toBe(902);
+    expect(mockPost).toHaveBeenCalledExactlyOnceWith("order/57/invoice", {
+      json: { capture: false, notify: false },
     });
   });
 });
