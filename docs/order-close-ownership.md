@@ -95,13 +95,15 @@ Where the two copies still differ: an already Canceled or Closed order. Here its
 ERP number are still forgotten, as before (this app's own records, not Commerce); Demo Builder
 writes nothing to it.
 
-### 3. Still to do: prove it on a live store
+### 3. Proven on a live store (2026-11-11)
 
-On the test store, with the owner's go: an order shipped but never invoiced ends Closed after
-invoice and refund; a partly invoiced one ends Closed; none of Clear's writes sends anything to an
-ERP; a second Clear changes nothing. Neither the invoice call's body nor its answer has been
-confirmed against a live store.
+On Demo Builder's test store, with this app at `d17e9f7` deployed: an order shipped but never
+invoiced and one with half its items invoiced both reached the ERP; Demo Builder's Clear then
+invoiced the rest and refunded each in full, so both read Closed, each with its reset note written
+first; both sales orders were removed from the ERP; no handler failure was recorded after Clear
+started; a second Clear wrote nothing. `POST order/{id}/invoice` with `{ capture: false, notify:
+false }` and no items invoices every remaining line.
 
 ## Where this rule stands
 
-The one reset rule lives on `feature/one-reset-rule` and is not merged to `main` yet.
+The one reset rule is on `main` (`d17e9f7`).
