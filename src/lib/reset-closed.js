@@ -6,6 +6,9 @@
  * return saved) whose handler reads the mark first and tells no ERP: the order's ERP documents
  * are about to be wiped, and without the mark a refunded order with no ERP number and no parts
  * record reads as a new order never sent.
+ *
+ * Demo Builder's Clear now closes orders in Commerce itself and leaves no mark here (owner,
+ * 2026-11-11): see docs/order-close-ownership.md, "Orders Clear closes are not marked".
  */
 import { closedByReset } from "#lib/order-parts";
 

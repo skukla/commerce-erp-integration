@@ -17,6 +17,10 @@
  *
  * Pure: it decides from the order as `GET orders/{id}` answers it. Commerce's answer to each call
  * is still the last word.
+ *
+ * Changing (owner, 2026-11-11): step 5's "shipped but never invoiced" is invoiced, then refunded,
+ * so it ends Closed; and Demo Builder's Clear stops handing orders to this app. Read
+ * docs/order-close-ownership.md before changing this file.
  */
 
 /** Words every one of the reset's notes carries; an order whose history holds them was handled. */
