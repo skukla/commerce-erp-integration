@@ -8,9 +8,12 @@
     "ignoreUnknown": true,
     // The ERP contract is a copy of skukla/demo-erp's, in that repo's formatting;
     // scripts/contract-check.mjs compares it as parsed JSON.
+    // The reset rule's cases are a byte-for-byte copy of Demo Builder's file, pinned by its
+    // sha-256 (test/lib/reset-rule-table.test.js), so no formatter may touch it.
     "includes": [
       "!**/.generated",
       "!contract/erp-contract.json",
+      "!test/fixtures/reset-rule-orders.json",
       "!preview/mockups"
     ]
   },
